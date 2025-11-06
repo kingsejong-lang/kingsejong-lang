@@ -203,11 +203,11 @@ main (보호됨)
 ### Week 3-4: Lexer 기본 구현
 
 #### F1.3: 기본 Lexer 구현
-- 상태: 📝 대기
+- 상태: ✅ 완료
 - 브랜치: `feature/lexer`
 - 우선순위: CRITICAL
 - 작업:
-  - [ ] src/lexer/Lexer.h 설계
+  - [x] src/lexer/Lexer.h 설계
     ```cpp
     class Lexer {
     private:
@@ -231,24 +231,31 @@ main (보호됨)
         Token nextToken();
     };
     ```
-  - [ ] src/lexer/Lexer.cpp 구현
-    - UTF-8 한글 처리
-    - 기본 토큰화
-    - 연산자 인식
-  - [ ] 조사 통합
-    - JosaRecognizer 활용
+  - [x] src/lexer/Lexer.cpp 구현
+    - UTF-8 한글 처리 (3바이트 멀티바이트 문자)
+    - 기본 토큰화 (숫자, 문자열, 식별자, 연산자)
+    - 조사/키워드 접미사 자동 분리
+  - [x] 조사 통합
+    - JosaRecognizer와 통합
     - 조사 토큰 생성
+    - 키워드 접미사 분리 (하고, 하라 등)
+  - [x] CMakeLists.txt 업데이트 (Lexer.cpp 추가)
 - 테스트:
-  - [ ] tests/lexer_test.cpp
-    - 기본 토큰화 테스트
-    - 한글 키워드 테스트
-    - 조사 인식 테스트
-    - 숫자/식별자 테스트
+  - [x] tests/LexerTest.cpp (33개 GoogleTest 케이스 작성)
+  - [x] tests/manual_lexer_test.cpp (6개 수동 테스트)
+    - 기본 토큰화 테스트 ✓
+    - 한글 키워드 테스트 ✓
+    - 조사 인식 테스트 ✓
+    - 범위 표현 테스트 ✓
+    - 문자열 리터럴 테스트 ✓
+    - 실제 코드 스니펫 테스트 ✓
 - 완료 조건:
-  - [ ] UTF-8 한글 올바르게 처리
-  - [ ] 모든 토큰 타입 인식
-  - [ ] 조사 정확히 인식
-  - [ ] 테스트 통과율 100%
+  - [x] UTF-8 한글 올바르게 처리 (3바이트 멀티바이트)
+  - [x] 모든 토큰 타입 인식 (60+ 토큰 타입)
+  - [x] 조사 정확히 인식 및 자동 분리
+  - [x] 키워드 접미사 분리 (하고, 하라)
+  - [x] 수동 테스트 통과율 100% (6/6 통과)
+  - [x] 컴파일 경고 없음
 
 ---
 

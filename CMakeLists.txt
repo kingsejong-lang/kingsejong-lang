@@ -27,6 +27,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(LIB_SOURCES
     src/lexer/Token.cpp
     src/lexer/JosaRecognizer.cpp
+    src/lexer/Lexer.cpp
 )
 
 # 라이브러리 생성 (kingsejong_lib)

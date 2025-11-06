@@ -162,43 +162,41 @@ main (보호됨)
   - [x] 테스트 통과 (13/13 통과, 100%)
 
 #### F1.2: JosaRecognizer 구현
-- 상태: 📝 대기
-- 브랜치: `feature/josa-recognizer`
+- 상태: ✅ 완료
+- 브랜치: `feature/f1.2-josa-recognizer`
 - 우선순위: CRITICAL
 - 작업:
-  - [ ] src/lexer/JosaRecognizer.h 설계
-    ```cpp
-    class JosaRecognizer {
-    public:
-        enum class JosaType {
-            EUL_REUL,   // 을/를 - 목적격
-            I_GA,       // 이/가 - 주격
-            EUN_NEUN,   // 은/는 - 보조사
-            UI,         // 의 - 소유격
-            RO_EURO,    // 로/으로 - 수단/방법
-            ESO,        // 에서 - 출처
-            E           // 에 - 위치/대상
-        };
-
-        static bool isJosa(const std::string& str);
-        static JosaType getType(const std::string& str);
-        static bool hasFinalConsonant(const std::string& noun);
-        static std::string select(const std::string& noun, JosaType type);
-    };
-    ```
-  - [ ] src/lexer/JosaRecognizer.cpp 구현
-    - 조사 인식 로직
-    - 받침 유무 판단 (`hasFinalConsonant`)
-    - 자동 조사 선택 (`select`)
+  - [x] src/lexer/JosaRecognizer.h 설계
+    - enum class JosaType (7가지 조사 타입)
+    - 조사 인식 함수 (isJosa, getType)
+    - 받침 판단 함수 (hasFinalConsonant)
+    - 조사 선택 함수 (select)
+    - 헬퍼 함수 (josaTypeToString)
+  - [x] src/lexer/JosaRecognizer.cpp 구현
+    - UTF-8 한글 문자 처리 (getFinalConsonantIndex)
+    - 받침 유무 판단 (hasFinalConsonant)
+    - ㄹ받침 특수 처리 (hasRieulFinal)
+    - 자동 조사 선택 (select)
+    - 조사 인식 및 타입 변환
+  - [x] CMakeLists.txt 업데이트 (kingsejong_lib에 JosaRecognizer.cpp 추가)
 - 테스트:
-  - [ ] tests/josa_recognizer_test.cpp
-    - 조사 인식 테스트
-    - 받침 판단 테스트
-    - 조사 선택 테스트
+  - [x] tests/JosaRecognizerTest.cpp (13개 테스트 케이스)
+    - 받침 있는 단어 판별 테스트
+    - 받침 없는 단어 판별 테스트
+    - 을/를 조사 선택 테스트
+    - 이/가 조사 선택 테스트
+    - 은/는 조사 선택 테스트
+    - 로/으로 조사 선택 테스트 (ㄹ받침 특수 처리)
+    - 의, 에서, 에 조사 선택 테스트
+    - isJosa 함수 테스트
+    - getType 함수 테스트
+    - 잘못된 입력 예외 처리 테스트
+    - josaTypeToString 함수 테스트
 - 완료 조건:
-  - [ ] 모든 조사 타입 인식
-  - [ ] 받침 유무 정확히 판단
-  - [ ] 테스트 통과율 100%
+  - [x] 모든 조사 타입 인식 (7가지)
+  - [x] 받침 유무 정확히 판단 (UTF-8 한글 처리)
+  - [x] ㄹ받침 특수 처리 (로/으로)
+  - [x] 테스트 통과율 100% (32/32 통과)
 
 ---
 

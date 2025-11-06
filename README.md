@@ -138,11 +138,6 @@ kingsejong-lang/
 
 이 프로젝트는 MIT 라이센스 하에 배포됩니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
 
-## 문의
-
-- 이슈: [GitHub Issues](https://github.com/yourusername/kingsejong-lang/issues)
-- 이메일: your.email@example.com
-
 ## 감사의 말
 
 이 프로젝트는 한국어의 아름다움과 프로그래밍의 논리성을 결합하려는 시도입니다.

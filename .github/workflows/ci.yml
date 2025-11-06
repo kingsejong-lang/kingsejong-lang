@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop, 'feature/**' ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    name: Build and Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        build_type: [Debug, Release]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup C++ (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y g++-13
+        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100
+
+    - name: Setup C++ (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install llvm
+        echo "/opt/homebrew/opt/llvm/bin" >> $GITHUB_PATH
+
+    - name: Setup MSVC (Windows)
+      if: runner.os == 'Windows'
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Configure CMake
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+
+    - name: Build
+      run: cmake --build build --config ${{ matrix.build_type }}
+
+    - name: Test
+      run: ctest --test-dir build --build-config ${{ matrix.build_type }} --output-on-failure
+
+    - name: Upload build artifacts (Ubuntu)
+      if: runner.os == 'Linux' && matrix.build_type == 'Release'
+      uses: actions/upload-artifact@v4
+      with:
+        name: kingsejong-linux
+        path: build/bin/kingsejong
+
+    - name: Upload build artifacts (macOS)
+      if: runner.os == 'macOS' && matrix.build_type == 'Release'
+      uses: actions/upload-artifact@v4
+      with:
+        name: kingsejong-macos
+        path: build/bin/kingsejong
+
+    - name: Upload build artifacts (Windows)
+      if: runner.os == 'Windows' && matrix.build_type == 'Release'
+      uses: actions/upload-artifact@v4
+      with:
+        name: kingsejong-windows
+        path: build/bin/Release/kingsejong.exe
+
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup C++
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y g++-13 clang-tidy-16
+        sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-16 100
+
+    - name: Run clang-tidy
+      run: |
+        cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+        find src -name '*.cpp' -o -name '*.h' | xargs clang-tidy -p build || true

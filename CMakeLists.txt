@@ -23,7 +23,18 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-# 소스 파일 수집 (현재는 main.cpp만)
+# 라이브러리 소스 파일
+set(LIB_SOURCES
+    src/lexer/Token.cpp
+)
+
+# 라이브러리 생성 (kingsejong_lib)
+add_library(kingsejong_lib STATIC ${LIB_SOURCES})
+target_include_directories(kingsejong_lib PUBLIC
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+# 실행 파일 소스
 set(SOURCES
     src/main.cpp
 )
@@ -35,6 +46,9 @@ add_executable(kingsejong ${SOURCES})
 target_include_directories(kingsejong PRIVATE
     ${CMAKE_SOURCE_DIR}/src
 )
+
+# 라이브러리 링크
+target_link_libraries(kingsejong PRIVATE kingsejong_lib)
 
 # 플랫폼별 설정
 if(WIN32)
@@ -72,6 +86,7 @@ if(TEST_SOURCES)
     # 테스트에 필요한 라이브러리 링크
     target_link_libraries(kingsejong_tests
         PRIVATE
+        kingsejong_lib
         GTest::gtest_main
         GTest::gmock_main
     )

@@ -116,59 +116,50 @@ main (보호됨)
 ### Week 1-2: Token 시스템 & 조사 인식
 
 #### F1.1: Token 시스템 구현
-- 상태: 📝 대기
-- 브랜치: `feature/token-system`
+- 상태: ✅ 완료
+- 브랜치: `feature/f1.1-token-system`
 - 우선순위: CRITICAL
 - 작업:
-  - [ ] src/lexer/Token.h 구현
-    ```cpp
-    enum class TokenType {
-        // 기본
-        ILLEGAL, EOF_TOKEN, IDENTIFIER, INTEGER,
-
-        // 연산자
-        ASSIGN, PLUS, MINUS, ASTERISK, SLASH,
-        EQ, NOT_EQ, LT, GT, LE, GE,
-
-        // 조사
-        JOSA_EUL, JOSA_REUL,  // 을/를
-        JOSA_I, JOSA_GA,      // 이/가
-        JOSA_EUN, JOSA_NEUN,  // 은/는
-        JOSA_UI,              // 의
-        JOSA_RO, JOSA_EURO,   // 로/으로
-        JOSA_ESO,             // 에서
-        JOSA_E,               // 에
-
-        // 범위 키워드
-        BUTEO,    // 부터
-        KKAJI,    // 까지
-        MIMAN,    // 미만
-        CHOGA,    // 초과
-        IHA,      // 이하
-        ISANG,    // 이상
-
-        // 반복 키워드
-        BEON,     // 번
-        BANBOKK,  // 반복
-        GAKGAK,   // 각각
-
-        // 키워드
-        FUNCTION, IF, ELSE, RETURN, TRUE, FALSE,
-        INTEGER_TYPE, FLOAT_TYPE, STRING_TYPE, BOOLEAN_TYPE,
-
-        // 괄호/구분자
-        LPAREN, RPAREN, LBRACE, RBRACE,
-        LBRACKET, RBRACKET,
-        COMMA, SEMICOLON
-    };
-    ```
-  - [ ] Token 구조체 정의
-  - [ ] 한글 키워드 매핑
+  - [x] src/lexer/Token.h 구현
+    - enum class TokenType 정의 (60+ 토큰 타입)
+    - 기본 토큰 (ILLEGAL, EOF, IDENTIFIER, INTEGER, FLOAT, STRING)
+    - 연산자 (ASSIGN, PLUS, MINUS, ASTERISK, SLASH, PERCENT)
+    - 비교 연산자 (EQ, NOT_EQ, LT, GT, LE, GE)
+    - 논리 연산자 (AND, OR, NOT)
+    - 조사 11개 (을/를, 이/가, 은/는, 의, 로/으로, 에서, 에)
+    - 범위 키워드 6개 (부터, 까지, 미만, 초과, 이하, 이상)
+    - 반복 키워드 3개 (번, 반복, 각각)
+    - 제어문 키워드 (만약, 아니면, 동안)
+    - 함수 키워드 (함수, 반환)
+    - 타입 키워드 5개 (정수, 실수, 문자, 문자열, 논리)
+    - 불리언 리터럴 (참, 거짓)
+    - 메서드 체이닝 (하고, 하라)
+    - 괄호/구분자
+  - [x] src/lexer/Token.cpp 구현
+    - tokenTypeToString() 함수
+    - lookupKeyword() 한글 키워드 매핑
+    - isJosa() 조사 판별 함수
+    - isRangeKeyword() 범위 키워드 판별 함수
+  - [x] Token 구조체 정의
+  - [x] CMakeLists.txt 업데이트 (kingsejong_lib 라이브러리 생성)
 - 테스트:
-  - [ ] tests/token_test.cpp 작성
+  - [x] tests/TokenTest.cpp 작성 (13개 테스트 케이스)
+    - 기본 토큰 생성 테스트
+    - TokenType 문자열 변환 테스트
+    - 조사 키워드 인식 테스트 (11개)
+    - 범위 키워드 인식 테스트 (6개)
+    - 반복 키워드 인식 테스트 (3개)
+    - 제어문 키워드 인식 테스트
+    - 함수 키워드 인식 테스트
+    - 타입 키워드 인식 테스트
+    - 불리언 리터럴 인식 테스트
+    - 메서드 체이닝 키워드 인식 테스트
+    - IDENTIFIER 반환 테스트
+    - isJosa() 함수 테스트
+    - isRangeKeyword() 함수 테스트
 - 완료 조건:
-  - [ ] 모든 TokenType 정의 완료
-  - [ ] 테스트 통과
+  - [x] 모든 TokenType 정의 완료 (60+ 타입)
+  - [x] 테스트 통과 (13/13 통과, 100%)
 
 #### F1.2: JosaRecognizer 구현
 - 상태: 📝 대기

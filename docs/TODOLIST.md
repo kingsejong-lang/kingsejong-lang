@@ -69,19 +69,23 @@ main (보호됨)
   - [ ] CI/CD 파이프라인 동작 (main 머지 후)
 
 ### F0.2: 코딩 표준 문서
-- 상태: 📝 대기
-- 브랜치: `feature/phase0-project-setup`
+- 상태: ✅ 완료
+- 브랜치: `feature/f0.2-coding-standards`
 - 작업:
-  - [ ] docs/CODING_STYLE.md 작성
+  - [x] docs/CODING_STYLE.md 작성
     - 네이밍 규칙
     - 포맷팅 규칙
     - 주석 작성 규칙
-  - [ ] docs/CONTRIBUTING.md 작성
+    - C++23 모던 스타일
+    - 에러 처리 규칙
+  - [x] docs/CONTRIBUTING.md 작성
     - PR 프로세스
     - 커밋 메시지 규칙
     - 코드 리뷰 가이드
+    - Git 워크플로우
+    - 이슈 작성 가이드
 - 완료 조건:
-  - [ ] 문서 작성 완료
+  - [x] 문서 작성 완료
 
 ### F0.3: 테스트 프레임워크 설정
 - 상태: 📝 대기

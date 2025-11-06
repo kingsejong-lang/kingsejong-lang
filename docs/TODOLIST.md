@@ -88,15 +88,21 @@ main (보호됨)
   - [x] 문서 작성 완료
 
 ### F0.3: 테스트 프레임워크 설정
-- 상태: 📝 대기
-- 브랜치: `feature/test-framework`
+- 상태: ✅ 완료
+- 브랜치: `feature/f0.3-test-framework`
 - 작업:
-  - [ ] GoogleTest 통합
-  - [ ] tests/CMakeLists.txt 작성
-  - [ ] 더미 테스트 작성 (빌드 확인용)
+  - [x] GoogleTest 통합 (CMakeLists.txt에 이미 설정됨)
+  - [x] tests/SanityTest.cpp 작성
+    - GoogleTest 프레임워크 동작 확인
+    - 기본 산술 연산 테스트
+    - 문자열 비교 테스트
+    - 예외 처리 테스트
+    - nullptr 테스트
+    - 부동소수점 비교 테스트
 - 완료 조건:
-  - [ ] `make test` 실행 성공
-  - [ ] CI에서 테스트 자동 실행
+  - [x] ctest 실행 성공 (6개 테스트 통과)
+  - [x] 로컬에서 테스트 자동 실행 확인
+  - [ ] CI에서 테스트 자동 실행 (main 머지 후)
 
 ---
 

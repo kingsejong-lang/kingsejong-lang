@@ -28,6 +28,7 @@ set(LIB_SOURCES
     src/lexer/Token.cpp
     src/lexer/JosaRecognizer.cpp
     src/lexer/Lexer.cpp
+    src/ast/Node.cpp
 )
 
 # 라이브러리 생성 (kingsejong_lib)
@@ -80,6 +81,8 @@ FetchContent_MakeAvailable(googletest)
 
 # 테스트 파일 수집
 file(GLOB_RECURSE TEST_SOURCES "tests/*.cpp")
+# manual_lexer_test.cpp는 main 함수가 있으므로 제외
+list(FILTER TEST_SOURCES EXCLUDE REGEX "manual_lexer_test\\.cpp$")
 
 if(TEST_SOURCES)
     # 테스트 실행 파일 생성

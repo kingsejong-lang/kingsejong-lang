@@ -262,64 +262,47 @@ main (보호됨)
 ### Week 5-6: AST 및 기본 Parser
 
 #### F1.4: AST 노드 설계
-- 상태: 📝 대기
-- 브랜치: `feature/ast`
+- 상태: ✅ 완료
+- 브랜치: `feature/f1.4-ast`
 - 우선순위: CRITICAL
 - 작업:
-  - [ ] src/ast/Node.h 구현
-    ```cpp
-    enum class NodeType {
-        PROGRAM,
-        EXPRESSION_STATEMENT,
-        IDENTIFIER,
-        INTEGER_LITERAL,
-        BINARY_EXPRESSION,
-        JOSA_EXPRESSION,
-        RANGE_EXPRESSION,
-        // ...
-    };
-
-    class Node {
-    public:
-        virtual ~Node() = default;
-        virtual NodeType type() const = 0;
-        virtual std::string toString() const = 0;
-    };
-    ```
-  - [ ] src/ast/Expression.h
+  - [x] src/ast/Node.h 구현
+    - enum class NodeType (26가지 노드 타입)
+    - Node 추상 클래스
     - Expression 기본 클래스
-    - Identifier
-    - IntegerLiteral
-    - BinaryExpression
-  - [ ] src/ast/JosaExpression.h
-    ```cpp
-    class JosaExpression : public Expression {
-    private:
-        std::unique_ptr<Expression> object;
-        JosaRecognizer::JosaType josaType;
-        std::unique_ptr<Expression> method;
-    public:
-        // ...
-    };
-    ```
-  - [ ] src/ast/RangeExpression.h
-    ```cpp
-    class RangeExpression : public Expression {
-    private:
-        std::unique_ptr<Expression> start;
-        std::unique_ptr<Expression> end;
-        bool startInclusive;
-        bool endInclusive;
-    public:
-        // ...
-    };
-    ```
+    - Statement 기본 클래스
+    - nodeTypeToString() 함수
+  - [x] src/ast/Node.cpp 구현
+    - nodeTypeToString() 함수 구현
+  - [x] src/ast/Expression.h 구현
+    - 기본 리터럴 (Identifier, IntegerLiteral, FloatLiteral, StringLiteral, BooleanLiteral)
+    - 연산 표현식 (BinaryExpression, UnaryExpression)
+    - KingSejong 특화 (JosaExpression, RangeExpression)
+    - 함수 관련 (CallExpression)
+    - 배열 관련 (ArrayLiteral, IndexExpression)
+  - [x] src/ast/Statement.h 구현
+    - Program 노드
+    - ExpressionStatement
+    - VarDeclaration
+    - ReturnStatement
+    - BlockStatement
+    - IfStatement
+    - WhileStatement
+    - ForStatement
+  - [x] CMakeLists.txt 업데이트 (Node.cpp 추가, manual_lexer_test.cpp 제외)
 - 테스트:
-  - [ ] tests/ast_test.cpp
+  - [x] tests/AstTest.cpp (21개 테스트 케이스)
+    - 기본 리터럴 생성 및 toString 테스트 (5개)
+    - 연산 표현식 테스트 (2개)
+    - JosaExpression 테스트 (1개)
+    - RangeExpression 테스트 (3개 - inclusive, half-open, open)
+    - 함수 및 배열 표현식 테스트 (3개)
+    - 문장 노드 테스트 (5개)
+    - 헬퍼 함수 테스트 (2개)
 - 완료 조건:
-  - [ ] 모든 노드 타입 정의
-  - [ ] 스마트 포인터 사용 (메모리 안전)
-  - [ ] 테스트 통과
+  - [x] 모든 노드 타입 정의 (26가지)
+  - [x] std::unique_ptr 사용 (메모리 안전)
+  - [x] 테스트 통과율 100% (21/21 통과)
 
 #### F1.5: 기본 Parser 구현
 - 상태: 📝 대기

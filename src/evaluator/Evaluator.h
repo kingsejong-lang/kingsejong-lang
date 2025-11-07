@@ -1,0 +1,204 @@
+#pragma once
+
+/**
+ * @file Evaluator.h
+ * @brief KingSejong 언어의 AST 실행 엔진
+ * @author KingSejong Team
+ * @date 2025-11-07
+ */
+
+#include "Value.h"
+#include "Environment.h"
+#include "../ast/Node.h"
+#include "../ast/Expression.h"
+#include "../ast/Statement.h"
+#include <memory>
+#include <stdexcept>
+
+namespace kingsejong {
+namespace evaluator {
+
+/**
+ * @class Evaluator
+ * @brief AST를 실행하여 Value를 생성하는 평가기
+ *
+ * AST 노드를 순회하면서 실행하고 결과를 Value로 반환합니다.
+ * Environment를 통해 변수의 저장과 조회를 관리합니다.
+ */
+class Evaluator
+{
+public:
+    /**
+     * @brief Evaluator 생성자
+     *
+     * 새로운 글로벌 환경을 생성합니다.
+     */
+    Evaluator();
+
+    /**
+     * @brief 환경을 지정하는 Evaluator 생성자
+     * @param environment 사용할 환경
+     */
+    explicit Evaluator(std::shared_ptr<Environment> environment);
+
+    /**
+     * @brief AST 노드를 평가
+     * @param node 평가할 노드
+     * @return 평가 결과 Value
+     *
+     * 노드의 타입에 따라 적절한 평가 함수를 호출합니다.
+     */
+    Value eval(ast::Node* node);
+
+    /**
+     * @brief 프로그램 노드를 평가
+     * @param program 프로그램 루트 노드
+     * @return 마지막 문장의 평가 결과
+     */
+    Value evalProgram(ast::Program* program);
+
+    /**
+     * @brief 표현식을 평가
+     * @param expr 표현식 노드
+     * @return 평가 결과 Value
+     */
+    Value evalExpression(ast::Expression* expr);
+
+    /**
+     * @brief 문장을 실행
+     * @param stmt 문장 노드
+     * @return 실행 결과 (대부분 null, return문은 값 반환)
+     */
+    Value evalStatement(ast::Statement* stmt);
+
+    /**
+     * @brief 현재 환경 반환
+     * @return 환경 shared_ptr
+     */
+    std::shared_ptr<Environment> environment() const { return env_; }
+
+private:
+    std::shared_ptr<Environment> env_;  ///< 변수 저장 환경
+
+    // Expression 평가 함수들
+
+    /**
+     * @brief 정수 리터럴 평가
+     * @param lit 정수 리터럴 노드
+     * @return 정수 Value
+     */
+    Value evalIntegerLiteral(ast::IntegerLiteral* lit);
+
+    /**
+     * @brief 실수 리터럴 평가
+     * @param lit 실수 리터럴 노드
+     * @return 실수 Value
+     */
+    Value evalFloatLiteral(ast::FloatLiteral* lit);
+
+    /**
+     * @brief 문자열 리터럴 평가
+     * @param lit 문자열 리터럴 노드
+     * @return 문자열 Value
+     */
+    Value evalStringLiteral(ast::StringLiteral* lit);
+
+    /**
+     * @brief 불리언 리터럴 평가
+     * @param lit 불리언 리터럴 노드
+     * @return 불리언 Value
+     */
+    Value evalBooleanLiteral(ast::BooleanLiteral* lit);
+
+    /**
+     * @brief 식별자 평가 (변수 조회)
+     * @param ident 식별자 노드
+     * @return 변수의 값
+     */
+    Value evalIdentifier(ast::Identifier* ident);
+
+    /**
+     * @brief 이항 연산 평가
+     * @param expr 이항 연산 노드
+     * @return 연산 결과 Value
+     */
+    Value evalBinaryExpression(ast::BinaryExpression* expr);
+
+    /**
+     * @brief 단항 연산 평가
+     * @param expr 단항 연산 노드
+     * @return 연산 결과 Value
+     */
+    Value evalUnaryExpression(ast::UnaryExpression* expr);
+
+    // Statement 실행 함수들
+
+    /**
+     * @brief 표현식 문장 실행
+     * @param stmt 표현식 문장 노드
+     * @return 표현식의 평가 결과
+     */
+    Value evalExpressionStatement(ast::ExpressionStatement* stmt);
+
+    /**
+     * @brief 변수 선언 실행
+     * @param stmt 변수 선언 노드
+     * @return null Value
+     */
+    Value evalVarDeclaration(ast::VarDeclaration* stmt);
+
+    /**
+     * @brief 반환 문장 실행
+     * @param stmt 반환 문장 노드
+     * @return 반환할 Value
+     */
+    Value evalReturnStatement(ast::ReturnStatement* stmt);
+
+    /**
+     * @brief 블록 문장 실행
+     * @param stmt 블록 문장 노드
+     * @return 마지막 문장의 평가 결과
+     */
+    Value evalBlockStatement(ast::BlockStatement* stmt);
+
+    // 헬퍼 함수들
+
+    /**
+     * @brief 두 정수 값에 대한 산술 연산 수행
+     * @param left 왼쪽 피연산자
+     * @param op 연산자 (+, -, *, /, %)
+     * @param right 오른쪽 피연산자
+     * @return 연산 결과
+     */
+    Value applyIntegerOperation(int64_t left, const std::string& op, int64_t right);
+
+    /**
+     * @brief 두 실수 값에 대한 산술 연산 수행
+     * @param left 왼쪽 피연산자
+     * @param op 연산자 (+, -, *, /)
+     * @param right 오른쪽 피연산자
+     * @return 연산 결과
+     */
+    Value applyFloatOperation(double left, const std::string& op, double right);
+
+    /**
+     * @brief 두 값의 비교 연산 수행
+     * @param left 왼쪽 피연산자
+     * @param op 연산자 (==, !=, <, >, <=, >=)
+     * @param right 오른쪽 피연산자
+     * @return 비교 결과 (불리언)
+     */
+    Value applyComparisonOperation(const Value& left, const std::string& op, const Value& right);
+
+    /**
+     * @brief 논리 연산 수행
+     * @param left 왼쪽 피연산자
+     * @param op 연산자 (&&, ||)
+     * @param right 오른쪽 피연산자
+     * @return 논리 연산 결과 (불리언)
+     */
+    Value applyLogicalOperation(const Value& left, const std::string& op, const Value& right);
+};
+
+} // namespace evaluator
+} // namespace kingsejong

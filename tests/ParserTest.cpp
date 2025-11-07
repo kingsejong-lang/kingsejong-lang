@@ -621,3 +621,175 @@ TEST_F(ParserTest, ShouldParseJosaExpressionIGa)
     ASSERT_NE(method, nullptr);
     EXPECT_EQ(method->name(), "존재한다");
 }
+
+// ============================================================================
+// 범위 표현 파싱 테스트 (KingSejong 핵심 기능!)
+// ============================================================================
+
+/**
+ * @brief 범위 표현 파싱 테스트 - 양쪽 포함 (부터...까지)
+ */
+TEST_F(ParserTest, ShouldParseRangeExpressionInclusive)
+{
+    // Arrange
+    std::string input = "1부터 10까지;";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto exprStmt = dynamic_cast<ExpressionStatement*>(program->statements()[0].get());
+    ASSERT_NE(exprStmt, nullptr);
+
+    auto rangeExpr = dynamic_cast<const RangeExpression*>(exprStmt->expression());
+    ASSERT_NE(rangeExpr, nullptr);
+
+    // 시작 값은 1
+    auto start = dynamic_cast<const IntegerLiteral*>(rangeExpr->start());
+    ASSERT_NE(start, nullptr);
+    EXPECT_EQ(start->value(), 1);
+
+    // 끝 값은 10
+    auto end = dynamic_cast<const IntegerLiteral*>(rangeExpr->end());
+    ASSERT_NE(end, nullptr);
+    EXPECT_EQ(end->value(), 10);
+
+    // 양쪽 모두 포함
+    EXPECT_TRUE(rangeExpr->startInclusive());
+    EXPECT_TRUE(rangeExpr->endInclusive());
+
+    // toString()은 [1, 10]
+    EXPECT_EQ(rangeExpr->toString(), "Range[1, 10]");
+}
+
+/**
+ * @brief 범위 표현 파싱 테스트 - 시작 포함, 끝 미포함 (부터...미만)
+ */
+TEST_F(ParserTest, ShouldParseRangeExpressionHalfOpen)
+{
+    // Arrange
+    std::string input = "1부터 10미만;";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto exprStmt = dynamic_cast<ExpressionStatement*>(program->statements()[0].get());
+    ASSERT_NE(exprStmt, nullptr);
+
+    auto rangeExpr = dynamic_cast<const RangeExpression*>(exprStmt->expression());
+    ASSERT_NE(rangeExpr, nullptr);
+
+    // 시작 값은 1
+    auto start = dynamic_cast<const IntegerLiteral*>(rangeExpr->start());
+    ASSERT_NE(start, nullptr);
+    EXPECT_EQ(start->value(), 1);
+
+    // 끝 값은 10
+    auto end = dynamic_cast<const IntegerLiteral*>(rangeExpr->end());
+    ASSERT_NE(end, nullptr);
+    EXPECT_EQ(end->value(), 10);
+
+    // 시작 포함, 끝 미포함
+    EXPECT_TRUE(rangeExpr->startInclusive());
+    EXPECT_FALSE(rangeExpr->endInclusive());
+
+    // toString()은 [1, 10)
+    EXPECT_EQ(rangeExpr->toString(), "Range[1, 10)");
+}
+
+/**
+ * @brief 범위 표현 파싱 테스트 - 시작 미포함, 끝 포함 (초과...이하)
+ */
+TEST_F(ParserTest, ShouldParseRangeExpressionOpen)
+{
+    // Arrange
+    std::string input = "1초과 10이하;";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto exprStmt = dynamic_cast<ExpressionStatement*>(program->statements()[0].get());
+    ASSERT_NE(exprStmt, nullptr);
+
+    auto rangeExpr = dynamic_cast<const RangeExpression*>(exprStmt->expression());
+    ASSERT_NE(rangeExpr, nullptr);
+
+    // 시작 값은 1
+    auto start = dynamic_cast<const IntegerLiteral*>(rangeExpr->start());
+    ASSERT_NE(start, nullptr);
+    EXPECT_EQ(start->value(), 1);
+
+    // 끝 값은 10
+    auto end = dynamic_cast<const IntegerLiteral*>(rangeExpr->end());
+    ASSERT_NE(end, nullptr);
+    EXPECT_EQ(end->value(), 10);
+
+    // 시작 미포함, 끝 포함
+    EXPECT_FALSE(rangeExpr->startInclusive());
+    EXPECT_TRUE(rangeExpr->endInclusive());
+
+    // toString()은 (1, 10]
+    EXPECT_EQ(rangeExpr->toString(), "Range(1, 10]");
+}
+
+/**
+ * @brief 범위 표현 파싱 테스트 - 이상...이하
+ */
+TEST_F(ParserTest, ShouldParseRangeExpressionIsangIha)
+{
+    // Arrange
+    std::string input = "5이상 15이하;";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto exprStmt = dynamic_cast<ExpressionStatement*>(program->statements()[0].get());
+    ASSERT_NE(exprStmt, nullptr);
+
+    auto rangeExpr = dynamic_cast<const RangeExpression*>(exprStmt->expression());
+    ASSERT_NE(rangeExpr, nullptr);
+
+    // 시작 값은 5
+    auto start = dynamic_cast<const IntegerLiteral*>(rangeExpr->start());
+    ASSERT_NE(start, nullptr);
+    EXPECT_EQ(start->value(), 5);
+
+    // 끝 값은 15
+    auto end = dynamic_cast<const IntegerLiteral*>(rangeExpr->end());
+    ASSERT_NE(end, nullptr);
+    EXPECT_EQ(end->value(), 15);
+
+    // 양쪽 모두 포함 (이상, 이하)
+    EXPECT_TRUE(rangeExpr->startInclusive());
+    EXPECT_TRUE(rangeExpr->endInclusive());
+
+    // toString()은 [5, 15]
+    EXPECT_EQ(rangeExpr->toString(), "Range[5, 15]");
+}

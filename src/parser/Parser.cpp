@@ -65,6 +65,11 @@ void Parser::registerParseFunctions()
     registerInfixFn(TokenType::JOSA_EURO, [this](auto left) { return parseJosaExpression(std::move(left)); });
     registerInfixFn(TokenType::JOSA_ESO, [this](auto left) { return parseJosaExpression(std::move(left)); });
     registerInfixFn(TokenType::JOSA_E, [this](auto left) { return parseJosaExpression(std::move(left)); });
+
+    // 범위 파싱 함수 등록
+    registerInfixFn(TokenType::BUTEO, [this](auto left) { return parseRangeExpression(std::move(left)); });
+    registerInfixFn(TokenType::CHOGA, [this](auto left) { return parseRangeExpression(std::move(left)); });
+    registerInfixFn(TokenType::ISANG, [this](auto left) { return parseRangeExpression(std::move(left)); });
 }
 
 void Parser::registerPrefixFn(TokenType type, PrefixParseFn fn)
@@ -172,6 +177,11 @@ Parser::Precedence Parser::tokenPrecedence(TokenType type) const
         case TokenType::JOSA_EURO:
         case TokenType::JOSA_ESO:
         case TokenType::JOSA_E:
+            return Precedence::CALL;
+        // 범위 토큰들 - CALL과 같은 우선순위
+        case TokenType::BUTEO:
+        case TokenType::CHOGA:
+        case TokenType::ISANG:
             return Precedence::CALL;
         default:
             return Precedence::LOWEST;
@@ -486,6 +496,36 @@ std::unique_ptr<Expression> Parser::parseJosaExpression(std::unique_ptr<Expressi
     return std::make_unique<JosaExpression>(std::move(left), josaType, std::move(method));
 }
 
+std::unique_ptr<Expression> Parser::parseRangeExpression(std::unique_ptr<Expression> left)
+{
+    // 현재 토큰은 범위 시작 키워드 (BUTEO, CHOGA, ISANG)
+    TokenType startToken = curToken_.type;
+    bool startInclusive = (startToken == TokenType::BUTEO || startToken == TokenType::ISANG);
+
+    nextToken(); // 범위 시작 키워드 다음으로 이동 (끝 값)
+
+    // 끝 값 파싱
+    auto end = parseExpression(Precedence::LOWEST);
+
+    // 끝 키워드로 이동
+    nextToken();
+
+    // 끝 키워드 확인 (KKAJI, MIMAN, IHA, ISANG)
+    if (!isRangeEndToken(curToken_.type))
+    {
+        std::string msg = "expected range end keyword (까지/미만/이하/이상), got " +
+                         tokenTypeToString(curToken_.type);
+        errors_.push_back(msg);
+        return nullptr;
+    }
+
+    bool endInclusive = (curToken_.type == TokenType::KKAJI || curToken_.type == TokenType::IHA ||
+                         curToken_.type == TokenType::ISANG);
+
+    return std::make_unique<RangeExpression>(std::move(left), std::move(end),
+                                             startInclusive, endInclusive);
+}
+
 // ============================================================================
 // 헬퍼 함수들
 // ============================================================================
@@ -578,6 +618,37 @@ lexer::JosaRecognizer::JosaType Parser::tokenToJosaType(TokenType type) const
         default:
             // 이 경우는 발생하지 않아야 함
             return JosaType::EUL_REUL;
+    }
+}
+
+// ============================================================================
+// 범위 파싱 헬퍼 함수들
+// ============================================================================
+
+bool Parser::isRangeStartToken(TokenType type) const
+{
+    switch (type)
+    {
+        case TokenType::BUTEO:   // 부터
+        case TokenType::CHOGA:   // 초과
+        case TokenType::ISANG:   // 이상
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool Parser::isRangeEndToken(TokenType type) const
+{
+    switch (type)
+    {
+        case TokenType::KKAJI:   // 까지
+        case TokenType::MIMAN:   // 미만
+        case TokenType::IHA:     // 이하
+        case TokenType::ISANG:   // 이상
+            return true;
+        default:
+            return false;
     }
 }
 

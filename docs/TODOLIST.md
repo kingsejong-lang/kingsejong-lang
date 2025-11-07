@@ -376,32 +376,36 @@ main (보호됨)
 ### Week 9-10: 범위 표현
 
 #### F1.7: 범위 표현 Parser 구현
-- 상태: 📝 대기
-- 브랜치: `feature/range-expression`
+- 상태: ✅ 완료
+- 브랜치: `feature/f1.7-range-parser`
+- PR: #10
 - 우선순위: CRITICAL (핵심 차별화!)
 - 작업:
-  - [ ] src/parser/RangeParser.h
-    ```cpp
-    class RangeParser {
-    public:
-        static std::unique_ptr<RangeExpression>
-            parseRange(Parser& parser);
-    };
-    ```
-  - [ ] 범위 파싱 로직
+  - [x] src/parser/Parser.h에 범위 파싱 메서드 추가
+    - parseRangeExpression() 메서드
+    - isRangeStartToken() 헬퍼
+    - isRangeEndToken() 헬퍼
+  - [x] src/parser/Parser.cpp에 범위 파싱 구현
+    - 범위 시작 토큰 (부터/초과/이상) infix 등록
+    - tokenPrecedence()에 범위 토큰 우선순위 추가
+    - parseRangeExpression() 구현
+    - 경계 포함/제외 로직 구현
+  - [x] 범위 파싱 로직
     ```
     1부터 10까지    → [1, 10] inclusive both
     1부터 10미만    → [1, 10) inclusive start, exclusive end
     1초과 10이하    → (1, 10] exclusive start, inclusive end
+    5이상 15이하    → [5, 15] inclusive both
     ```
 - 테스트:
-  - [ ] tests/range_parser_test.cpp
-    - `"1부터 10까지"` 파싱
-    - `"1부터 10미만"` 파싱
-    - `"1초과 10이하"` 파싱
+  - [x] tests/ParserTest.cpp
+    - ShouldParseRangeExpressionInclusive: `"1부터 10까지"` 파싱
+    - ShouldParseRangeExpressionHalfOpen: `"1부터 10미만"` 파싱
+    - ShouldParseRangeExpressionOpen: `"1초과 10이하"` 파싱
+    - ShouldParseRangeExpressionIsangIha: `"5이상 15이하"` 파싱
 - 완료 조건:
-  - [ ] 모든 범위 형태 파싱
-  - [ ] 테스트 통과
+  - [x] 모든 범위 형태 파싱
+  - [x] 테스트 통과 (4/4)
 
 ---
 

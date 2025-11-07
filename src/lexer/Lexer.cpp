@@ -152,6 +152,13 @@ std::string Lexer::readIdentifier()
         }
     }
 
+    // identifier 전체가 조사인 경우 분리하지 않음
+    // 예: "으로", "에서" 등이 단독으로 입력된 경우
+    if (isJosa(identifier))
+    {
+        return identifier;
+    }
+
     // 조사/키워드 접미사 분리 처리
     // 한글은 3바이트이므로 마지막 3바이트 또는 6바이트 확인
 

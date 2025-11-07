@@ -9,6 +9,7 @@
 
 #include "Node.h"
 #include "Expression.h"
+#include "types/Type.h"
 #include <vector>
 
 namespace kingsejong {
@@ -101,6 +102,7 @@ class VarDeclaration : public Statement
 {
 private:
     std::string typeName_;      ///< 타입 이름 (정수, 실수, 문자열 등)
+    types::Type* varType_;      ///< 타입 객체 포인터 (optional, nullptr이면 타입 추론)
     std::string varName_;       ///< 변수 이름
     std::unique_ptr<Expression> initializer_;  ///< 초기값 (optional)
 
@@ -108,9 +110,11 @@ public:
     VarDeclaration(
         const std::string& typeName,
         const std::string& varName,
-        std::unique_ptr<Expression> initializer = nullptr
+        std::unique_ptr<Expression> initializer = nullptr,
+        types::Type* varType = nullptr
     )
         : typeName_(typeName)
+        , varType_(varType)
         , varName_(varName)
         , initializer_(std::move(initializer))
     {}
@@ -130,6 +134,7 @@ public:
     }
 
     const std::string& typeName() const { return typeName_; }
+    types::Type* varType() const { return varType_; }
     const std::string& varName() const { return varName_; }
     const Expression* initializer() const { return initializer_.get(); }
 };

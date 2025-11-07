@@ -6,6 +6,7 @@
  */
 
 #include "Parser.h"
+#include "types/Type.h"
 #include <stdexcept>
 
 namespace kingsejong {
@@ -265,6 +266,9 @@ std::unique_ptr<VarDeclaration> Parser::parseVarDeclaration()
 {
     std::string typeName = curToken_.literal;
 
+    // 타입 이름으로 Type 객체 조회
+    types::Type* varType = types::Type::getBuiltin(typeName);
+
     // 변수 이름
     if (!expectPeek(TokenType::IDENTIFIER))
     {
@@ -290,7 +294,7 @@ std::unique_ptr<VarDeclaration> Parser::parseVarDeclaration()
         nextToken();
     }
 
-    return std::make_unique<VarDeclaration>(typeName, varName, std::move(initializer));
+    return std::make_unique<VarDeclaration>(typeName, varName, std::move(initializer), varType);
 }
 
 std::unique_ptr<ReturnStatement> Parser::parseReturnStatement()

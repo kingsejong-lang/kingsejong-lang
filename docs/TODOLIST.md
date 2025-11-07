@@ -446,7 +446,7 @@ main (보호됨)
   - [x] 빌트인 타입 Singleton 패턴 (integerType(), floatType(), etc.)
   - [x] getBuiltin() 메서드로 한글 이름으로 타입 조회
   - [x] Type 동일성 비교 (equals)
-  - [ ] **타입 선언 파싱** (다음 단계 - F1.8.1)
+  - [x] **타입 선언 파싱** (F1.8.1 완료)
     ```
     정수 나이 = 15
     ↓
@@ -469,8 +469,37 @@ main (보호됨)
     - `"정수 나이 = 15"` 파싱
 - 완료 조건:
   - [x] 기본 타입 정의
-  - [ ] 타입 선언 파싱 (다음 단계)
+  - [x] 타입 선언 파싱 (F1.8.1)
   - [x] 테스트 통과 (18/18)
+
+#### F1.8.1: 타입 선언 파싱
+- 상태: ✅ 완료
+- 브랜치: `feature/f1.8.1-type-declaration`
+- PR: #13
+- 우선순위: CRITICAL
+- 작업:
+  - [x] src/ast/Statement.h 수정
+    - VarDeclaration에 types::Type* varType_ 멤버 추가
+    - varType() getter 메서드 추가
+    - 생성자에 varType 파라미터 추가
+  - [x] src/parser/Parser.cpp 수정
+    - parseVarDeclaration()에서 Type::getBuiltin() 호출
+    - 타입 이름으로 Type 객체 조회
+    - VarDeclaration 생성 시 Type 포인터 전달
+  - [x] tests/ParserTest.cpp 수정 및 추가
+    - ShouldParseVarDeclaration에 Type 검증 추가
+    - ShouldParseVarDeclarationWithStringType 추가
+    - ShouldParseVarDeclarationWithFloatType 추가
+    - ShouldParseVarDeclarationWithBooleanType 추가
+    - ShouldParseVarDeclarationWithoutInitializer 추가
+- 테스트:
+  - [x] 전체 130개 테스트 통과 (100%)
+  - [x] Type 객체 연동 검증
+  - [x] 다양한 타입 선언 테스트
+- 완료 조건:
+  - [x] Parser와 Type 시스템 통합
+  - [x] VarDeclaration AST에 Type 정보 저장
+  - [x] 테스트 통과
 
 ---
 

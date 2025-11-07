@@ -540,32 +540,59 @@ main (보호됨)
   - [x] 테스트 통과 (167/167)
 
 #### F1.10: Environment 구현
-- 상태: 📝 대기
-- 브랜치: `feature/environment`
+- 상태: ✅ 완료
+- 브랜치: `feature/f1.10-environment`
+- PR: #15
 - 우선순위: CRITICAL
+- 테스트: 전체 190개 테스트 통과 (기존 167개 + 새로운 23개)
 - 작업:
-  - [ ] src/evaluator/Environment.h
+  - [x] src/evaluator/Environment.h (124줄)
     ```cpp
-    class Environment {
+    class Environment : public std::enable_shared_from_this<Environment> {
     private:
-        std::unordered_map<std::string, Value> store;
-        std::shared_ptr<Environment> outer;  // 외부 스코프
+        std::unordered_map<std::string, Value> store_;
+        std::shared_ptr<Environment> outer_;  // 외부 스코프
     public:
-        void set(const std::string& name, Value value);
-        Value get(const std::string& name);
-        bool exists(const std::string& name);
+        Environment();  // 글로벌 스코프
+        explicit Environment(std::shared_ptr<Environment> outer);  // 중첩 스코프
 
-        std::shared_ptr<Environment> createEnclosed();
+        void set(const std::string& name, const Value& value);
+        Value get(const std::string& name) const;  // 스코프 체인 검색
+        bool exists(const std::string& name) const;  // 현재 스코프만
+        bool existsInChain(const std::string& name) const;  // 전체 체인
+
+        std::shared_ptr<Environment> createEnclosed();  // shared_from_this() 활용
+        std::shared_ptr<Environment> outer() const { return outer_; }
+        size_t size() const { return store_.size(); }
+        void clear() { store_.clear(); }
+        std::vector<std::string> keys() const;
     };
     ```
+  - [x] src/evaluator/Environment.cpp (102줄)
+    - 생성자: outer_ = nullptr (글로벌) / outer (중첩)
+    - set(): store_[name] = value
+    - get(): 현재 스코프 → 외부 스코프 재귀 검색 (undefined → runtime_error)
+    - exists(): 현재 스코프만 확인
+    - existsInChain(): 재귀적 체인 검색
+    - createEnclosed(): shared_from_this() 안전한 shared_ptr 생성
+  - [x] CMakeLists.txt: src/evaluator/Environment.cpp 추가
 - 테스트:
-  - [ ] tests/environment_test.cpp
-    - 변수 저장/조회
-    - 스코프 체인
+  - [x] tests/EnvironmentTest.cpp (27개 테스트)
+    - 기본 환경 생성 및 변수 관리 (5개)
+    - 스코프 체인 및 변수 조회 (8개)
+    - 변수 섀도잉 (shadowing) (3개)
+    - exists() vs existsInChain() 차이 (2개)
+    - 3단계 중첩 스코프 (2개)
+    - 유틸리티 메서드 (keys, clear, size) (4개)
+    - 한글 변수명 지원 (1개)
+    - 독립 환경 간섭 없음 (1개)
 - 완료 조건:
-  - [ ] 변수 저장/조회
-  - [ ] 스코프 체인 동작
-  - [ ] 테스트 통과
+  - [x] 변수 저장/조회 정상 동작
+  - [x] 스코프 체인 동작 (재귀 검색)
+  - [x] 변수 섀도잉 지원
+  - [x] 한글 변수명 완벽 지원
+  - [x] 테스트 100% 통과 (190/190)
+  - [x] shared_ptr 메모리 안전성 확보
 
 #### F1.11: 기본 Evaluator 구현
 - 상태: 📝 대기

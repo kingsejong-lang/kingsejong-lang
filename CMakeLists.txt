@@ -29,6 +29,7 @@ set(LIB_SOURCES
     src/lexer/JosaRecognizer.cpp
     src/lexer/Lexer.cpp
     src/ast/Node.cpp
+    src/parser/Parser.cpp
 )
 
 # 라이브러리 생성 (kingsejong_lib)

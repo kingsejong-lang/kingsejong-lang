@@ -1,0 +1,484 @@
+/**
+ * @file Parser.cpp
+ * @brief KingSejong 언어 파서 구현
+ * @author KingSejong Team
+ * @date 2025-11-07
+ */
+
+#include "Parser.h"
+#include <stdexcept>
+
+namespace kingsejong {
+namespace parser {
+
+Parser::Parser(Lexer& lexer)
+    : lexer_(lexer)
+{
+    // 파싱 함수 등록
+    registerParseFunctions();
+
+    // 첫 두 토큰 읽기
+    nextToken();
+    nextToken();
+}
+
+void Parser::registerParseFunctions()
+{
+    // Prefix 파싱 함수 등록
+    registerPrefixFn(TokenType::IDENTIFIER, [this]() { return parseIdentifier(); });
+    registerPrefixFn(TokenType::INTEGER, [this]() { return parseIntegerLiteral(); });
+    registerPrefixFn(TokenType::FLOAT, [this]() { return parseFloatLiteral(); });
+    registerPrefixFn(TokenType::STRING, [this]() { return parseStringLiteral(); });
+    registerPrefixFn(TokenType::CHAM, [this]() { return parseBooleanLiteral(); });
+    registerPrefixFn(TokenType::GEOJIT, [this]() { return parseBooleanLiteral(); });
+    registerPrefixFn(TokenType::MINUS, [this]() { return parsePrefixExpression(); });
+    registerPrefixFn(TokenType::NOT, [this]() { return parsePrefixExpression(); });
+    registerPrefixFn(TokenType::LPAREN, [this]() { return parseGroupedExpression(); });
+    registerPrefixFn(TokenType::LBRACKET, [this]() { return parseArrayLiteral(); });
+
+    // Infix 파싱 함수 등록
+    registerInfixFn(TokenType::PLUS, [this](auto left) { return parseBinaryExpression(std::move(left)); });
+    registerInfixFn(TokenType::MINUS, [this](auto left) { return parseBinaryExpression(std::move(left)); });
+    registerInfixFn(TokenType::ASTERISK, [this](auto left) { return parseBinaryExpression(std::move(left)); });
+    registerInfixFn(TokenType::SLASH, [this](auto left) { return parseBinaryExpression(std::move(left)); });
+    registerInfixFn(TokenType::PERCENT, [this](auto left) { return parseBinaryExpression(std::move(left)); });
+    registerInfixFn(TokenType::EQ, [this](auto left) { return parseBinaryExpression(std::move(left)); });
+    registerInfixFn(TokenType::NOT_EQ, [this](auto left) { return parseBinaryExpression(std::move(left)); });
+    registerInfixFn(TokenType::LT, [this](auto left) { return parseBinaryExpression(std::move(left)); });
+    registerInfixFn(TokenType::GT, [this](auto left) { return parseBinaryExpression(std::move(left)); });
+    registerInfixFn(TokenType::LE, [this](auto left) { return parseBinaryExpression(std::move(left)); });
+    registerInfixFn(TokenType::GE, [this](auto left) { return parseBinaryExpression(std::move(left)); });
+    registerInfixFn(TokenType::AND, [this](auto left) { return parseBinaryExpression(std::move(left)); });
+    registerInfixFn(TokenType::OR, [this](auto left) { return parseBinaryExpression(std::move(left)); });
+    registerInfixFn(TokenType::LPAREN, [this](auto left) { return parseCallExpression(std::move(left)); });
+    registerInfixFn(TokenType::LBRACKET, [this](auto left) { return parseIndexExpression(std::move(left)); });
+}
+
+void Parser::registerPrefixFn(TokenType type, PrefixParseFn fn)
+{
+    prefixParseFns_[type] = fn;
+}
+
+void Parser::registerInfixFn(TokenType type, InfixParseFn fn)
+{
+    infixParseFns_[type] = fn;
+}
+
+// ============================================================================
+// 토큰 관리
+// ============================================================================
+
+void Parser::nextToken()
+{
+    curToken_ = peekToken_;
+    peekToken_ = lexer_.nextToken();
+}
+
+bool Parser::curTokenIs(TokenType type) const
+{
+    return curToken_.type == type;
+}
+
+bool Parser::peekTokenIs(TokenType type) const
+{
+    return peekToken_.type == type;
+}
+
+bool Parser::expectPeek(TokenType type)
+{
+    if (peekTokenIs(type))
+    {
+        nextToken();
+        return true;
+    }
+
+    peekError(type);
+    return false;
+}
+
+// ============================================================================
+// 에러 처리
+// ============================================================================
+
+void Parser::peekError(TokenType expected)
+{
+    std::string msg = "expected next token to be " +
+                      tokenTypeToString(expected) +
+                      ", got " + tokenTypeToString(peekToken_.type);
+    errors_.push_back(msg);
+}
+
+void Parser::noPrefixParseFnError(TokenType type)
+{
+    std::string msg = "no prefix parse function for " + tokenTypeToString(type);
+    errors_.push_back(msg);
+}
+
+// ============================================================================
+// 우선순위
+// ============================================================================
+
+Parser::Precedence Parser::tokenPrecedence(TokenType type) const
+{
+    switch (type)
+    {
+        case TokenType::ASSIGN:
+            return Precedence::ASSIGN;
+        case TokenType::OR:
+            return Precedence::OR;
+        case TokenType::AND:
+            return Precedence::AND;
+        case TokenType::EQ:
+        case TokenType::NOT_EQ:
+            return Precedence::EQUALS;
+        case TokenType::LT:
+        case TokenType::GT:
+        case TokenType::LE:
+        case TokenType::GE:
+            return Precedence::LESSGREATER;
+        case TokenType::PLUS:
+        case TokenType::MINUS:
+            return Precedence::SUM;
+        case TokenType::ASTERISK:
+        case TokenType::SLASH:
+        case TokenType::PERCENT:
+            return Precedence::PRODUCT;
+        case TokenType::LPAREN:
+            return Precedence::CALL;
+        case TokenType::LBRACKET:
+            return Precedence::INDEX;
+        default:
+            return Precedence::LOWEST;
+    }
+}
+
+Parser::Precedence Parser::curPrecedence() const
+{
+    return tokenPrecedence(curToken_.type);
+}
+
+Parser::Precedence Parser::peekPrecedence() const
+{
+    return tokenPrecedence(peekToken_.type);
+}
+
+// ============================================================================
+// 프로그램 파싱
+// ============================================================================
+
+std::unique_ptr<Program> Parser::parseProgram()
+{
+    auto program = std::make_unique<Program>();
+
+    while (!curTokenIs(TokenType::EOF_TOKEN))
+    {
+        auto stmt = parseStatement();
+        if (stmt)
+        {
+            program->addStatement(std::move(stmt));
+        }
+        nextToken();
+    }
+
+    return program;
+}
+
+// ============================================================================
+// 문장 파싱
+// ============================================================================
+
+std::unique_ptr<Statement> Parser::parseStatement()
+{
+    // 타입 키워드로 시작하면 변수 선언
+    if (curTokenIs(TokenType::JEONGSU) || curTokenIs(TokenType::SILSU) ||
+        curTokenIs(TokenType::MUNJAYEOL) || curTokenIs(TokenType::NONLI))
+    {
+        return parseVarDeclaration();
+    }
+
+    // 반환 문장
+    if (curTokenIs(TokenType::BANHWAN))
+    {
+        return parseReturnStatement();
+    }
+
+    // 블록 문장
+    if (curTokenIs(TokenType::LBRACE))
+    {
+        return parseBlockStatement();
+    }
+
+    // 기본: 표현식 문장
+    return parseExpressionStatement();
+}
+
+std::unique_ptr<ExpressionStatement> Parser::parseExpressionStatement()
+{
+    auto expr = parseExpression(Precedence::LOWEST);
+
+    // 선택적 세미콜론
+    if (peekTokenIs(TokenType::SEMICOLON))
+    {
+        nextToken();
+    }
+
+    return std::make_unique<ExpressionStatement>(std::move(expr));
+}
+
+std::unique_ptr<VarDeclaration> Parser::parseVarDeclaration()
+{
+    std::string typeName = curToken_.literal;
+
+    // 변수 이름
+    if (!expectPeek(TokenType::IDENTIFIER))
+    {
+        return nullptr;
+    }
+
+    std::string varName = curToken_.literal;
+
+    // 초기화 (optional)
+    std::unique_ptr<Expression> initializer = nullptr;
+
+    if (peekTokenIs(TokenType::ASSIGN))
+    {
+        nextToken(); // =
+        nextToken(); // 표현식 시작
+
+        initializer = parseExpression(Precedence::LOWEST);
+    }
+
+    // 선택적 세미콜론
+    if (peekTokenIs(TokenType::SEMICOLON))
+    {
+        nextToken();
+    }
+
+    return std::make_unique<VarDeclaration>(typeName, varName, std::move(initializer));
+}
+
+std::unique_ptr<ReturnStatement> Parser::parseReturnStatement()
+{
+    nextToken(); // "반환" 건너뛰기
+
+    std::unique_ptr<Expression> returnValue = nullptr;
+
+    if (!curTokenIs(TokenType::SEMICOLON) && !curTokenIs(TokenType::EOF_TOKEN))
+    {
+        returnValue = parseExpression(Precedence::LOWEST);
+    }
+
+    // 선택적 세미콜론
+    if (peekTokenIs(TokenType::SEMICOLON))
+    {
+        nextToken();
+    }
+
+    return std::make_unique<ReturnStatement>(std::move(returnValue));
+}
+
+std::unique_ptr<BlockStatement> Parser::parseBlockStatement()
+{
+    nextToken(); // { 건너뛰기
+
+    auto statements = parseStatements(TokenType::RBRACE);
+
+    return std::make_unique<BlockStatement>(std::move(statements));
+}
+
+std::vector<std::unique_ptr<Statement>> Parser::parseStatements(TokenType endToken)
+{
+    std::vector<std::unique_ptr<Statement>> statements;
+
+    while (!curTokenIs(endToken) && !curTokenIs(TokenType::EOF_TOKEN))
+    {
+        auto stmt = parseStatement();
+        if (stmt)
+        {
+            statements.push_back(std::move(stmt));
+        }
+        nextToken();
+    }
+
+    return statements;
+}
+
+// ============================================================================
+// 표현식 파싱 (Pratt Parsing 핵심)
+// ============================================================================
+
+std::unique_ptr<Expression> Parser::parseExpression(Precedence precedence)
+{
+    // Prefix 파싱 함수 찾기
+    auto prefixIt = prefixParseFns_.find(curToken_.type);
+    if (prefixIt == prefixParseFns_.end())
+    {
+        noPrefixParseFnError(curToken_.type);
+        return nullptr;
+    }
+
+    auto leftExp = prefixIt->second();
+
+    // Infix 파싱 (우선순위 기반)
+    while (!peekTokenIs(TokenType::SEMICOLON) && precedence < peekPrecedence())
+    {
+        auto infixIt = infixParseFns_.find(peekToken_.type);
+        if (infixIt == infixParseFns_.end())
+        {
+            return leftExp;
+        }
+
+        nextToken();
+        leftExp = infixIt->second(std::move(leftExp));
+    }
+
+    return leftExp;
+}
+
+// ============================================================================
+// Prefix 파싱 함수들
+// ============================================================================
+
+std::unique_ptr<Expression> Parser::parseIdentifier()
+{
+    return std::make_unique<Identifier>(curToken_.literal);
+}
+
+std::unique_ptr<Expression> Parser::parseIntegerLiteral()
+{
+    try
+    {
+        int64_t value = std::stoll(curToken_.literal);
+        return std::make_unique<IntegerLiteral>(value);
+    }
+    catch (const std::exception&)
+    {
+        errors_.push_back("could not parse " + curToken_.literal + " as integer");
+        return nullptr;
+    }
+}
+
+std::unique_ptr<Expression> Parser::parseFloatLiteral()
+{
+    try
+    {
+        double value = std::stod(curToken_.literal);
+        return std::make_unique<FloatLiteral>(value);
+    }
+    catch (const std::exception&)
+    {
+        errors_.push_back("could not parse " + curToken_.literal + " as float");
+        return nullptr;
+    }
+}
+
+std::unique_ptr<Expression> Parser::parseStringLiteral()
+{
+    return std::make_unique<StringLiteral>(curToken_.literal);
+}
+
+std::unique_ptr<Expression> Parser::parseBooleanLiteral()
+{
+    bool value = curTokenIs(TokenType::CHAM);
+    return std::make_unique<BooleanLiteral>(value);
+}
+
+std::unique_ptr<Expression> Parser::parsePrefixExpression()
+{
+    std::string op = curToken_.literal;
+    nextToken();
+
+    auto right = parseExpression(Precedence::PREFIX);
+    return std::make_unique<UnaryExpression>(op, std::move(right));
+}
+
+std::unique_ptr<Expression> Parser::parseGroupedExpression()
+{
+    nextToken(); // ( 건너뛰기
+
+    auto expr = parseExpression(Precedence::LOWEST);
+
+    if (!expectPeek(TokenType::RPAREN))
+    {
+        return nullptr;
+    }
+
+    return expr;
+}
+
+std::unique_ptr<Expression> Parser::parseArrayLiteral()
+{
+    auto elements = parseExpressionList(TokenType::RBRACKET);
+    return std::make_unique<ArrayLiteral>(std::move(elements));
+}
+
+// ============================================================================
+// Infix 파싱 함수들
+// ============================================================================
+
+std::unique_ptr<Expression> Parser::parseBinaryExpression(std::unique_ptr<Expression> left)
+{
+    std::string op = curToken_.literal;
+    Precedence precedence = curPrecedence();
+
+    nextToken();
+    auto right = parseExpression(precedence);
+
+    return std::make_unique<BinaryExpression>(std::move(left), op, std::move(right));
+}
+
+std::unique_ptr<Expression> Parser::parseCallExpression(std::unique_ptr<Expression> function)
+{
+    auto arguments = parseExpressionList(TokenType::RPAREN);
+    return std::make_unique<CallExpression>(std::move(function), std::move(arguments));
+}
+
+std::unique_ptr<Expression> Parser::parseIndexExpression(std::unique_ptr<Expression> left)
+{
+    nextToken(); // [ 건너뛰기
+
+    auto index = parseExpression(Precedence::LOWEST);
+
+    if (!expectPeek(TokenType::RBRACKET))
+    {
+        return nullptr;
+    }
+
+    return std::make_unique<IndexExpression>(std::move(left), std::move(index));
+}
+
+// ============================================================================
+// 헬퍼 함수들
+// ============================================================================
+
+std::vector<std::unique_ptr<Expression>> Parser::parseExpressionList(TokenType endToken)
+{
+    std::vector<std::unique_ptr<Expression>> list;
+
+    if (peekTokenIs(endToken))
+    {
+        nextToken(); // endToken 건너뛰기
+        return list;
+    }
+
+    nextToken(); // 첫 표현식 시작
+    list.push_back(parseExpression(Precedence::LOWEST));
+
+    while (peekTokenIs(TokenType::COMMA))
+    {
+        nextToken(); // ,
+        nextToken(); // 다음 표현식
+
+        list.push_back(parseExpression(Precedence::LOWEST));
+    }
+
+    if (!expectPeek(endToken))
+    {
+        return {};
+    }
+
+    return list;
+}
+
+} // namespace parser
+} // namespace kingsejong

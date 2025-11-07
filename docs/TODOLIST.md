@@ -305,49 +305,35 @@ main (보호됨)
   - [x] 테스트 통과율 100% (21/21 통과)
 
 #### F1.5: 기본 Parser 구현
-- 상태: 📝 대기
-- 브랜치: `feature/parser`
+- 상태: ✅ 완료
+- 브랜치: `feature/f1.5-parser`
 - 우선순위: CRITICAL
 - 작업:
-  - [ ] src/parser/Parser.h 설계
-    ```cpp
-    class Parser {
-    private:
-        Lexer& lexer;
-        Token curToken;
-        Token peekToken;
-
-        // Pratt Parsing
-        enum Precedence {
-            LOWEST,
-            EQUALS,      // ==
-            LESSGREATER, // < >
-            SUM,         // +
-            PRODUCT,     // *
-            PREFIX,      // -X, !X
-            CALL         // func()
-        };
-
-        std::unique_ptr<Expression> parseExpression(Precedence prec);
-        std::unique_ptr<Expression> parseIdentifier();
-        std::unique_ptr<Expression> parseIntegerLiteral();
-        std::unique_ptr<Expression> parseBinaryExpression(std::unique_ptr<Expression> left);
-
-    public:
-        explicit Parser(Lexer& lexer);
-        std::unique_ptr<Program> parseProgram();
-    };
-    ```
-  - [ ] src/parser/Parser.cpp 구현
-    - Pratt Parsing 알고리즘
-    - 연산자 우선순위 처리
+  - [x] src/parser/Parser.h 설계
+    - Pratt Parsing 알고리즘 인터페이스
+    - 10단계 Precedence 체계 (LOWEST → INDEX)
+    - Prefix/Infix 파싱 함수 맵 (std::unordered_map)
+    - 138줄 구현
+  - [x] src/parser/Parser.cpp 구현
+    - Pratt Parsing 알고리즘 완전 구현
+    - 연산자 우선순위 처리 (tokenPrecedence)
+    - Prefix 파서: identifier, literal, unary, grouped, array
+    - Infix 파서: binary, call, index
+    - Statement 파서: varDeclaration, return, block
+    - 485줄 구현
 - 테스트:
-  - [ ] tests/parser_test.cpp
-    - 기본 표현식 파싱
-    - 연산자 우선순위
+  - [x] tests/ParserTest.cpp 작성
+    - 리터럴 파싱 테스트 (4개: integer, identifier, string, boolean)
+    - 연산자 파싱 테스트 (6개: addition, multiplication, precedence, prefix, grouped)
+    - 문장 파싱 테스트 (2개: VarDeclaration, ReturnStatement)
+    - 복합 표현식 테스트 (4개: call, array, index, complex)
+    - 17개 테스트 케이스, 468줄 구현
+  - [x] 테스트 통과율 100% (17/17 통과)
 - 완료 조건:
-  - [ ] 기본 표현식 파싱
-  - [ ] 테스트 통과
+  - [x] 기본 표현식 파싱 완료
+  - [x] Statement 파싱 완료
+  - [x] 연산자 우선순위 처리 완료
+  - [x] 테스트 통과
 
 ---
 

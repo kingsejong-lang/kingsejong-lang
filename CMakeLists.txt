@@ -30,6 +30,7 @@ set(LIB_SOURCES
     src/lexer/Lexer.cpp
     src/ast/Node.cpp
     src/parser/Parser.cpp
+    src/types/Type.cpp
 )
 
 # 라이브러리 생성 (kingsejong_lib)

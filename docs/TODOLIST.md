@@ -412,11 +412,12 @@ main (보호됨)
 ### Week 11-12: 타입 시스템 기초
 
 #### F1.8: Type 시스템 구현
-- 상태: 📝 대기
-- 브랜치: `feature/type-system`
+- 상태: ✅ 완료
+- 브랜치: `feature/f1.8-type-system`
+- PR: #12 (예정)
 - 우선순위: CRITICAL
 - 작업:
-  - [ ] src/types/Type.h
+  - [x] src/types/Type.h
     ```cpp
     enum class TypeKind {
         INTEGER,   // 정수
@@ -439,7 +440,13 @@ main (보호됨)
         // "문자열" → STRING
     };
     ```
-  - [ ] 타입 선언 파싱
+  - [x] TypeKind enum 정의 (INTEGER, FLOAT, STRING, BOOLEAN, NULL_TYPE, ARRAY, FUNCTION, RANGE)
+  - [x] Type 클래스 구현 (kind, koreanName, englishName, toString)
+  - [x] 한글 타입 이름 매핑 ("정수" → INTEGER, "실수" → FLOAT, "문자열" → STRING, "참거짓" → BOOLEAN, "불린" → BOOLEAN, "없음" → NULL, "범위" → RANGE)
+  - [x] 빌트인 타입 Singleton 패턴 (integerType(), floatType(), etc.)
+  - [x] getBuiltin() 메서드로 한글 이름으로 타입 조회
+  - [x] Type 동일성 비교 (equals)
+  - [ ] **타입 선언 파싱** (다음 단계 - F1.8.1)
     ```
     정수 나이 = 15
     ↓
@@ -450,15 +457,20 @@ main (보호됨)
     }
     ```
 - 테스트:
-  - [ ] tests/type_test.cpp
-    - 타입 생성
-    - 한글 이름 매핑
-  - [ ] tests/type_declaration_test.cpp
+  - [x] tests/TypeTest.cpp (18 test cases)
+    - TypeKind enum 확인
+    - 빌트인 타입 생성 (정수, 실수, 문자열, 참거짓, 없음, 범위)
+    - 한글 이름으로 타입 조회
+    - 타입 동일성 비교
+    - TypeKind 문자열 변환
+    - toString() 메서드
+    - Singleton 패턴 확인
+  - [ ] tests/TypeDeclarationTest.cpp (향후 작업)
     - `"정수 나이 = 15"` 파싱
 - 완료 조건:
-  - [ ] 기본 타입 정의
-  - [ ] 타입 선언 파싱
-  - [ ] 테스트 통과
+  - [x] 기본 타입 정의
+  - [ ] 타입 선언 파싱 (다음 단계)
+  - [x] 테스트 통과 (18/18)
 
 ---
 

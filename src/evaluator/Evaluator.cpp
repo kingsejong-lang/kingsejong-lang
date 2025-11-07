@@ -74,6 +74,9 @@ Value Evaluator::eval(ast::Node* node)
         case ast::NodeType::RETURN_STATEMENT:
             return evalReturnStatement(static_cast<ast::ReturnStatement*>(node));
 
+        case ast::NodeType::IF_STATEMENT:
+            return evalIfStatement(static_cast<ast::IfStatement*>(node));
+
         case ast::NodeType::BLOCK_STATEMENT:
             return evalBlockStatement(static_cast<ast::BlockStatement*>(node));
 
@@ -239,6 +242,26 @@ Value Evaluator::evalReturnStatement(ast::ReturnStatement* stmt)
     {
         return eval(const_cast<ast::Expression*>(stmt->returnValue()));
     }
+    return Value::createNull();
+}
+
+Value Evaluator::evalIfStatement(ast::IfStatement* stmt)
+{
+    // 조건식 평가
+    Value condition = eval(const_cast<ast::Expression*>(stmt->condition()));
+
+    // 조건이 참이면 then 블록 실행
+    if (condition.isTruthy())
+    {
+        return eval(const_cast<ast::BlockStatement*>(stmt->thenBranch()));
+    }
+    // 조건이 거짓이고 else 블록이 있으면 else 블록 실행
+    else if (stmt->elseBranch())
+    {
+        return eval(const_cast<ast::BlockStatement*>(stmt->elseBranch()));
+    }
+
+    // else 블록이 없으면 null 반환
     return Value::createNull();
 }
 

@@ -155,6 +155,13 @@ private:
     Value evalReturnStatement(ast::ReturnStatement* stmt);
 
     /**
+     * @brief 조건 문장 실행
+     * @param stmt 조건 문장 노드
+     * @return 실행된 블록의 평가 결과
+     */
+    Value evalIfStatement(ast::IfStatement* stmt);
+
+    /**
      * @brief 블록 문장 실행
      * @param stmt 블록 문장 노드
      * @return 마지막 문장의 평가 결과

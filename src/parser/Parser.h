@@ -103,6 +103,7 @@ private:
     std::unique_ptr<ExpressionStatement> parseExpressionStatement();
     std::unique_ptr<VarDeclaration> parseVarDeclaration();
     std::unique_ptr<ReturnStatement> parseReturnStatement();
+    std::unique_ptr<IfStatement> parseIfStatement();
     std::unique_ptr<BlockStatement> parseBlockStatement();
 
     // 표현식 파싱 (Pratt Parsing 핵심)

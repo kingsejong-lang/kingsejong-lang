@@ -239,6 +239,12 @@ std::unique_ptr<Statement> Parser::parseStatement()
         return parseReturnStatement();
     }
 
+    // 조건 문장
+    if (curTokenIs(TokenType::MANYAK))
+    {
+        return parseIfStatement();
+    }
+
     // 블록 문장
     if (curTokenIs(TokenType::LBRACE))
     {
@@ -315,6 +321,53 @@ std::unique_ptr<ReturnStatement> Parser::parseReturnStatement()
     }
 
     return std::make_unique<ReturnStatement>(std::move(returnValue));
+}
+
+std::unique_ptr<IfStatement> Parser::parseIfStatement()
+{
+    // "만약" 다음 LPAREN 확인
+    if (!expectPeek(TokenType::LPAREN))
+    {
+        return nullptr;
+    }
+
+    nextToken(); // 조건식 시작
+
+    auto condition = parseExpression(Precedence::LOWEST);
+
+    if (!expectPeek(TokenType::RPAREN))
+    {
+        return nullptr;
+    }
+
+    // then 블록 파싱
+    if (!expectPeek(TokenType::LBRACE))
+    {
+        return nullptr;
+    }
+
+    auto thenBranch = parseBlockStatement();
+
+    // else 블록 (optional)
+    std::unique_ptr<BlockStatement> elseBranch = nullptr;
+
+    if (peekTokenIs(TokenType::ANIMYEON))
+    {
+        nextToken(); // "아니면" 으로 이동
+
+        if (!expectPeek(TokenType::LBRACE))
+        {
+            return nullptr;
+        }
+
+        elseBranch = parseBlockStatement();
+    }
+
+    return std::make_unique<IfStatement>(
+        std::move(condition),
+        std::move(thenBranch),
+        std::move(elseBranch)
+    );
 }
 
 std::unique_ptr<BlockStatement> Parser::parseBlockStatement()

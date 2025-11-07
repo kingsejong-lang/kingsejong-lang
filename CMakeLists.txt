@@ -32,6 +32,7 @@ set(LIB_SOURCES
     src/parser/Parser.cpp
     src/types/Type.cpp
     src/evaluator/Value.cpp
+    src/evaluator/Environment.cpp
 )
 
 # 라이브러리 생성 (kingsejong_lib)

@@ -506,42 +506,38 @@ main (보호됨)
 ### Week 13-16: Evaluator 기초
 
 #### F1.9: Value 시스템 구현
-- 상태: 📝 대기
-- 브랜치: `feature/value-system`
+- 상태: ✅ 완료
+- 브랜치: `feature/f1.9-value-system`
+- PR: #14
 - 우선순위: CRITICAL
 - 작업:
-  - [ ] src/evaluator/Value.h
-    ```cpp
-    class Value {
-    private:
-        TypeKind type;
-        std::variant<
-            int64_t,          // INTEGER
-            double,           // FLOAT
-            std::string,      // STRING
-            bool,             // BOOLEAN
-            std::nullptr_t    // NULL_TYPE
-        > data;
-    public:
-        static Value createInteger(int64_t val);
-        static Value createFloat(double val);
-        static Value createString(const std::string& val);
-        static Value createBoolean(bool val);
-        static Value createNull();
-
-        TypeKind getType() const;
-        int64_t asInteger() const;
-        double asFloat() const;
-        std::string asString() const;
-        bool asBoolean() const;
-    };
-    ```
-- 테스트:
-  - [ ] tests/value_test.cpp
+  - [x] src/evaluator/Value.h
+    - std::variant로 타입 안전한 값 저장
+    - TypeKind와 연동 (INTEGER, FLOAT, STRING, BOOLEAN, NULL_TYPE)
+    - 생성 함수: createInteger, createFloat, createString, createBoolean, createNull
+    - 타입 체크: isInteger, isFloat, isString, isBoolean, isNull
+    - 값 접근: asInteger, asFloat, asString, asBoolean (예외 처리)
+    - 참/거짓 판별: isTruthy()
+    - 비교 연산: equals, lessThan, greaterThan
+    - 한글 출력: toString()
+  - [x] src/evaluator/Value.cpp
+    - 모든 메서드 구현
+    - 한글 출력 ("참", "거짓", "없음")
+    - KingSejong 참/거짓 규칙 (false/0/0.0/""/null은 거짓)
+    - 부동소수점 비교 시 epsilon 사용 (1e-9)
+  - [x] tests/ValueTest.cpp
+    - 37개 테스트 케이스
+    - 생성 테스트 (7개)
+    - 타입 접근 및 예외 테스트 (4개)
+    - 참/거짓 판별 테스트 (5개)
+    - 동등 비교 테스트 (6개)
+    - 대소 비교 테스트 (6개)
+    - 경계값 테스트 (9개)
+  - [x] CMakeLists.txt 업데이트
 - 완료 조건:
-  - [ ] 모든 기본 타입 Value 생성
-  - [ ] 타입 변환
-  - [ ] 테스트 통과
+  - [x] 모든 기본 타입 Value 생성
+  - [x] 타입 변환 및 예외 처리
+  - [x] 테스트 통과 (167/167)
 
 #### F1.10: Environment 구현
 - 상태: 📝 대기

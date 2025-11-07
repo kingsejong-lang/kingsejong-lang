@@ -465,3 +465,159 @@ TEST_F(ParserTest, ShouldParseComplexExpression)
     ASSERT_NE(binExpr, nullptr);
     EXPECT_EQ(binExpr->op(), "*");
 }
+
+// ============================================================================
+// 조사 파싱 테스트 (KingSejong 핵심 기능!)
+// ============================================================================
+
+/**
+ * @brief 목적격 조사 파싱 테스트 (을/를)
+ */
+TEST_F(ParserTest, ShouldParseJosaExpressionEulReul)
+{
+    // Arrange
+    std::string input = "배열을 정렬한다;";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto exprStmt = dynamic_cast<ExpressionStatement*>(program->statements()[0].get());
+    ASSERT_NE(exprStmt, nullptr);
+
+    auto josaExpr = dynamic_cast<const JosaExpression*>(exprStmt->expression());
+    ASSERT_NE(josaExpr, nullptr);
+
+    // 객체는 "배열"
+    auto object = dynamic_cast<const Identifier*>(josaExpr->object());
+    ASSERT_NE(object, nullptr);
+    EXPECT_EQ(object->name(), "배열");
+
+    // 조사 타입은 EUL_REUL
+    EXPECT_EQ(josaExpr->josaType(), JosaRecognizer::JosaType::EUL_REUL);
+
+    // 메서드는 "정렬한다"
+    auto method = dynamic_cast<const Identifier*>(josaExpr->method());
+    ASSERT_NE(method, nullptr);
+    EXPECT_EQ(method->name(), "정렬한다");
+}
+
+/**
+ * @brief 소유격 조사 파싱 테스트 (의)
+ */
+TEST_F(ParserTest, ShouldParseJosaExpressionUi)
+{
+    // Arrange
+    std::string input = "사용자의 이름;";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto exprStmt = dynamic_cast<ExpressionStatement*>(program->statements()[0].get());
+    ASSERT_NE(exprStmt, nullptr);
+
+    auto josaExpr = dynamic_cast<const JosaExpression*>(exprStmt->expression());
+    ASSERT_NE(josaExpr, nullptr);
+
+    // 객체는 "사용자"
+    auto object = dynamic_cast<const Identifier*>(josaExpr->object());
+    ASSERT_NE(object, nullptr);
+    EXPECT_EQ(object->name(), "사용자");
+
+    // 조사 타입은 UI
+    EXPECT_EQ(josaExpr->josaType(), JosaRecognizer::JosaType::UI);
+
+    // 메서드는 "이름"
+    auto method = dynamic_cast<const Identifier*>(josaExpr->method());
+    ASSERT_NE(method, nullptr);
+    EXPECT_EQ(method->name(), "이름");
+}
+
+/**
+ * @brief 방향/수단 조사 파싱 테스트 (로/으로)
+ */
+TEST_F(ParserTest, ShouldParseJosaExpressionRoEuro)
+{
+    // Arrange
+    std::string input = "데이터로 변환한다;";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto exprStmt = dynamic_cast<ExpressionStatement*>(program->statements()[0].get());
+    ASSERT_NE(exprStmt, nullptr);
+
+    auto josaExpr = dynamic_cast<const JosaExpression*>(exprStmt->expression());
+    ASSERT_NE(josaExpr, nullptr);
+
+    // 객체는 "데이터"
+    auto object = dynamic_cast<const Identifier*>(josaExpr->object());
+    ASSERT_NE(object, nullptr);
+    EXPECT_EQ(object->name(), "데이터");
+
+    // 조사 타입은 RO_EURO
+    EXPECT_EQ(josaExpr->josaType(), JosaRecognizer::JosaType::RO_EURO);
+
+    // 메서드는 "변환한다"
+    auto method = dynamic_cast<const Identifier*>(josaExpr->method());
+    ASSERT_NE(method, nullptr);
+    EXPECT_EQ(method->name(), "변환한다");
+}
+
+/**
+ * @brief 주격 조사 파싱 테스트 (이/가)
+ */
+TEST_F(ParserTest, ShouldParseJosaExpressionIGa)
+{
+    // Arrange
+    std::string input = "데이터가 존재한다;";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto exprStmt = dynamic_cast<ExpressionStatement*>(program->statements()[0].get());
+    ASSERT_NE(exprStmt, nullptr);
+
+    auto josaExpr = dynamic_cast<const JosaExpression*>(exprStmt->expression());
+    ASSERT_NE(josaExpr, nullptr);
+
+    // 객체는 "데이터"
+    auto object = dynamic_cast<const Identifier*>(josaExpr->object());
+    ASSERT_NE(object, nullptr);
+    EXPECT_EQ(object->name(), "데이터");
+
+    // 조사 타입은 I_GA
+    EXPECT_EQ(josaExpr->josaType(), JosaRecognizer::JosaType::I_GA);
+
+    // 메서드는 "존재한다"
+    auto method = dynamic_cast<const Identifier*>(josaExpr->method());
+    ASSERT_NE(method, nullptr);
+    EXPECT_EQ(method->name(), "존재한다");
+}

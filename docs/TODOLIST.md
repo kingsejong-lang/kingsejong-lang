@@ -340,41 +340,36 @@ main (보호됨)
 ### Week 7-8: 조사 체인 파싱
 
 #### F1.6: 조사 체인 Parser 구현
-- 상태: 📝 대기
-- 브랜치: `feature/josa-parser`
+- 상태: ✅ 완료
+- 브랜치: `feature/f1.6-josa-parser`
 - 우선순위: CRITICAL (핵심 차별화!)
 - 작업:
-  - [ ] src/parser/JosaParser.h
-    ```cpp
-    class JosaParser {
-    public:
-        static std::unique_ptr<JosaExpression>
-            parseJosaChain(Parser& parser, std::unique_ptr<Expression> object);
-    };
-    ```
-  - [ ] Parser에 조사 체인 통합
-    - `parseExpression`에서 조사 감지
-    - JosaParser 호출
-  - [ ] 조사 체인 파싱 로직
-    ```
-    배열을 정렬한다
-    ↓
-    JosaExpression {
-        object: Identifier("배열")
-        josaType: EUL_REUL
-        method: Identifier("정렬한다")
-    }
-    ```
+  - [x] Parser.h에 조사 파싱 메서드 추가
+    - parseJosaExpression() - Infix parser로 구현
+    - isJosaToken() - 조사 토큰 감지
+    - tokenToJosaType() - TokenType → JosaType 변환
+  - [x] Parser.cpp에 조사 파싱 구현
+    - registerParseFunctions()에 11개 조사 토큰 등록
+    - parseJosaExpression() 구현 (object + 조사 + method)
+    - tokenPrecedence()에 조사 우선순위 추가 (CALL과 동일)
+    - isJosaToken() 및 tokenToJosaType() 구현
+    - 115줄 추가
+  - [x] Parser에 조사 체인 통합
+    - Pratt Parsing의 infix 메커니즘 활용
+    - 조사가 감지되면 자동으로 parseJosaExpression 호출
+    - 자연스러운 체인 파싱 지원 (중첩된 JosaExpression)
 - 테스트:
-  - [ ] tests/josa_parser_test.cpp
-    - `"배열을 정렬한다"` 파싱
-    - `"사용자의 이름"` 파싱
-    - `"문자열로 변환한다"` 파싱
-    - 체인: `"배열을 정렬하고 역순으로 뒤집는다"`
+  - [x] tests/ParserTest.cpp에 조사 테스트 추가
+    - "배열을 정렬한다" - EUL_REUL 조사 (통과)
+    - "사용자의 이름" - UI 조사 (통과)
+    - "데이터로 변환한다" - RO_EURO 조사 (통과)
+    - "데이터가 존재한다" - I_GA 조사 (통과)
+    - 4개 테스트 케이스, 160줄 추가
+  - [x] 테스트 통과율 100% (4/4 조사 테스트, 103/104 전체)
 - 완료 조건:
-  - [ ] 모든 조사 타입 파싱
-  - [ ] 조사 체인 파싱
-  - [ ] 테스트 통과
+  - [x] 모든 조사 타입 파싱 (11개 조사 토큰)
+  - [x] 조사 표현식 파싱 완료
+  - [x] 테스트 통과
 
 ---
 

@@ -122,10 +122,15 @@ private:
     std::unique_ptr<Expression> parseBinaryExpression(std::unique_ptr<Expression> left);
     std::unique_ptr<Expression> parseCallExpression(std::unique_ptr<Expression> function);
     std::unique_ptr<Expression> parseIndexExpression(std::unique_ptr<Expression> left);
+    std::unique_ptr<Expression> parseJosaExpression(std::unique_ptr<Expression> left);
 
     // 헬퍼 함수들
     std::vector<std::unique_ptr<Expression>> parseExpressionList(TokenType endToken);
     std::vector<std::unique_ptr<Statement>> parseStatements(TokenType endToken);
+
+    // 조사 파싱 헬퍼
+    bool isJosaToken(TokenType type) const;
+    lexer::JosaRecognizer::JosaType tokenToJosaType(TokenType type) const;
 
     // 파싱 함수 등록
     void registerPrefixFn(TokenType type, PrefixParseFn fn);

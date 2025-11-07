@@ -52,6 +52,19 @@ void Parser::registerParseFunctions()
     registerInfixFn(TokenType::OR, [this](auto left) { return parseBinaryExpression(std::move(left)); });
     registerInfixFn(TokenType::LPAREN, [this](auto left) { return parseCallExpression(std::move(left)); });
     registerInfixFn(TokenType::LBRACKET, [this](auto left) { return parseIndexExpression(std::move(left)); });
+
+    // 조사 파싱 함수 등록
+    registerInfixFn(TokenType::JOSA_EUL, [this](auto left) { return parseJosaExpression(std::move(left)); });
+    registerInfixFn(TokenType::JOSA_REUL, [this](auto left) { return parseJosaExpression(std::move(left)); });
+    registerInfixFn(TokenType::JOSA_I, [this](auto left) { return parseJosaExpression(std::move(left)); });
+    registerInfixFn(TokenType::JOSA_GA, [this](auto left) { return parseJosaExpression(std::move(left)); });
+    registerInfixFn(TokenType::JOSA_EUN, [this](auto left) { return parseJosaExpression(std::move(left)); });
+    registerInfixFn(TokenType::JOSA_NEUN, [this](auto left) { return parseJosaExpression(std::move(left)); });
+    registerInfixFn(TokenType::JOSA_UI, [this](auto left) { return parseJosaExpression(std::move(left)); });
+    registerInfixFn(TokenType::JOSA_RO, [this](auto left) { return parseJosaExpression(std::move(left)); });
+    registerInfixFn(TokenType::JOSA_EURO, [this](auto left) { return parseJosaExpression(std::move(left)); });
+    registerInfixFn(TokenType::JOSA_ESO, [this](auto left) { return parseJosaExpression(std::move(left)); });
+    registerInfixFn(TokenType::JOSA_E, [this](auto left) { return parseJosaExpression(std::move(left)); });
 }
 
 void Parser::registerPrefixFn(TokenType type, PrefixParseFn fn)
@@ -147,6 +160,19 @@ Parser::Precedence Parser::tokenPrecedence(TokenType type) const
             return Precedence::CALL;
         case TokenType::LBRACKET:
             return Precedence::INDEX;
+        // 조사 토큰들 - CALL과 같은 우선순위
+        case TokenType::JOSA_EUL:
+        case TokenType::JOSA_REUL:
+        case TokenType::JOSA_I:
+        case TokenType::JOSA_GA:
+        case TokenType::JOSA_EUN:
+        case TokenType::JOSA_NEUN:
+        case TokenType::JOSA_UI:
+        case TokenType::JOSA_RO:
+        case TokenType::JOSA_EURO:
+        case TokenType::JOSA_ESO:
+        case TokenType::JOSA_E:
+            return Precedence::CALL;
         default:
             return Precedence::LOWEST;
     }
@@ -447,6 +473,19 @@ std::unique_ptr<Expression> Parser::parseIndexExpression(std::unique_ptr<Express
     return std::make_unique<IndexExpression>(std::move(left), std::move(index));
 }
 
+std::unique_ptr<Expression> Parser::parseJosaExpression(std::unique_ptr<Expression> left)
+{
+    // 현재 토큰은 조사 (EUL, REUL, I, GA 등)
+    lexer::JosaRecognizer::JosaType josaType = tokenToJosaType(curToken_.type);
+
+    nextToken(); // 조사 다음 토큰으로 이동 (메서드/명사)
+
+    // 메서드/명사 파싱
+    auto method = parseExpression(Precedence::LOWEST);
+
+    return std::make_unique<JosaExpression>(std::move(left), josaType, std::move(method));
+}
+
 // ============================================================================
 // 헬퍼 함수들
 // ============================================================================
@@ -478,6 +517,68 @@ std::vector<std::unique_ptr<Expression>> Parser::parseExpressionList(TokenType e
     }
 
     return list;
+}
+
+// ============================================================================
+// 조사 파싱 헬퍼 함수들
+// ============================================================================
+
+bool Parser::isJosaToken(TokenType type) const
+{
+    switch (type)
+    {
+        case TokenType::JOSA_EUL:
+        case TokenType::JOSA_REUL:
+        case TokenType::JOSA_I:
+        case TokenType::JOSA_GA:
+        case TokenType::JOSA_EUN:
+        case TokenType::JOSA_NEUN:
+        case TokenType::JOSA_UI:
+        case TokenType::JOSA_RO:
+        case TokenType::JOSA_EURO:
+        case TokenType::JOSA_ESO:
+        case TokenType::JOSA_E:
+            return true;
+        default:
+            return false;
+    }
+}
+
+lexer::JosaRecognizer::JosaType Parser::tokenToJosaType(TokenType type) const
+{
+    using JosaType = lexer::JosaRecognizer::JosaType;
+
+    switch (type)
+    {
+        case TokenType::JOSA_EUL:
+        case TokenType::JOSA_REUL:
+            return JosaType::EUL_REUL;
+
+        case TokenType::JOSA_I:
+        case TokenType::JOSA_GA:
+            return JosaType::I_GA;
+
+        case TokenType::JOSA_EUN:
+        case TokenType::JOSA_NEUN:
+            return JosaType::EUN_NEUN;
+
+        case TokenType::JOSA_UI:
+            return JosaType::UI;
+
+        case TokenType::JOSA_RO:
+        case TokenType::JOSA_EURO:
+            return JosaType::RO_EURO;
+
+        case TokenType::JOSA_ESO:
+            return JosaType::ESO;
+
+        case TokenType::JOSA_E:
+            return JosaType::E;
+
+        default:
+            // 이 경우는 발생하지 않아야 함
+            return JosaType::EUL_REUL;
+    }
 }
 
 } // namespace parser

@@ -19,6 +19,23 @@ namespace kingsejong {
 namespace evaluator {
 
 /**
+ * @class ReturnValue
+ * @brief 함수의 return 문을 나타내는 예외
+ *
+ * 함수 내에서 return 문이 실행되면 이 예외를 던져
+ * 블록 실행을 중단하고 값을 반환합니다.
+ */
+class ReturnValue : public std::exception
+{
+private:
+    Value value_;
+
+public:
+    explicit ReturnValue(Value value) : value_(std::move(value)) {}
+    const Value& getValue() const { return value_; }
+};
+
+/**
  * @class Evaluator
  * @brief AST를 실행하여 Value를 생성하는 평가기
  *
@@ -130,6 +147,20 @@ private:
      * @return 연산 결과 Value
      */
     Value evalUnaryExpression(ast::UnaryExpression* expr);
+
+    /**
+     * @brief 함수 리터럴 평가
+     * @param lit 함수 리터럴 노드
+     * @return 함수 Value
+     */
+    Value evalFunctionLiteral(ast::FunctionLiteral* lit);
+
+    /**
+     * @brief 함수 호출 평가
+     * @param expr 함수 호출 노드
+     * @return 함수 실행 결과 Value
+     */
+    Value evalCallExpression(ast::CallExpression* expr);
 
     // Statement 실행 함수들
 

@@ -36,6 +36,7 @@ void Parser::registerParseFunctions()
     registerPrefixFn(TokenType::NOT, [this]() { return parsePrefixExpression(); });
     registerPrefixFn(TokenType::LPAREN, [this]() { return parseGroupedExpression(); });
     registerPrefixFn(TokenType::LBRACKET, [this]() { return parseArrayLiteral(); });
+    registerPrefixFn(TokenType::HAMSU, [this]() { return parseFunctionLiteral(); });
 
     // Infix 파싱 함수 등록
     registerInfixFn(TokenType::PLUS, [this](auto left) { return parseBinaryExpression(std::move(left)); });
@@ -875,6 +876,72 @@ bool Parser::isRangeEndToken(TokenType type) const
         default:
             return false;
     }
+}
+
+std::unique_ptr<Expression> Parser::parseFunctionLiteral()
+{
+    // 현재 토큰은 HAMSU ("함수")
+
+    // 다음 토큰이 LPAREN "(" 인지 확인
+    if (!expectPeek(TokenType::LPAREN))
+    {
+        return nullptr;
+    }
+
+    // 매개변수 리스트 파싱
+    std::vector<std::string> parameters;
+
+    // 다음 토큰으로 이동
+    nextToken();
+
+    // 빈 매개변수 리스트 체크
+    if (curTokenIs(TokenType::RPAREN))
+    {
+        // 매개변수 없음, 다음으로 진행
+        nextToken();  // RPAREN을 넘어감
+    }
+    else
+    {
+        // 첫 번째 매개변수
+        if (!curTokenIs(TokenType::IDENTIFIER))
+        {
+            peekError(TokenType::IDENTIFIER);
+            return nullptr;
+        }
+        parameters.push_back(curToken_.literal);
+
+        // 나머지 매개변수들 (COMMA로 구분)
+        while (peekTokenIs(TokenType::COMMA))
+        {
+            nextToken();  // 현재를 COMMA로
+            nextToken();  // 다음 매개변수로
+
+            if (!curTokenIs(TokenType::IDENTIFIER))
+            {
+                peekError(TokenType::IDENTIFIER);
+                return nullptr;
+            }
+            parameters.push_back(curToken_.literal);
+        }
+
+        // RPAREN ")" 확인
+        if (!expectPeek(TokenType::RPAREN))
+        {
+            return nullptr;
+        }
+
+        nextToken();  // RPAREN을 넘어감
+    }
+
+    // 함수 본문 파싱 (BlockStatement)
+    auto body = parseBlockStatement();
+
+    if (!body)
+    {
+        return nullptr;
+    }
+
+    return std::make_unique<FunctionLiteral>(std::move(parameters), std::move(body));
 }
 
 } // namespace parser

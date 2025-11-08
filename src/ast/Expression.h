@@ -14,6 +14,10 @@
 namespace kingsejong {
 namespace ast {
 
+// Forward declarations
+class Statement;
+class BlockStatement;
+
 // ============================================================================
 // 기본 리터럴 표현식
 // ============================================================================
@@ -331,6 +335,45 @@ public:
 // ============================================================================
 // 함수 관련 표현식
 // ============================================================================
+
+/**
+ * @class FunctionLiteral
+ * @brief 함수 리터럴 표현식
+ *
+ * @example 함수(a, b) { 반환 a + b; }
+ */
+class FunctionLiteral : public Expression
+{
+private:
+    std::vector<std::string> parameters_;          ///< 매개변수 이름 리스트
+    std::unique_ptr<Statement> body_;              ///< 함수 본문 (BlockStatement)
+
+public:
+    FunctionLiteral(
+        std::vector<std::string> parameters,
+        std::unique_ptr<Statement> body
+    )
+        : parameters_(std::move(parameters))
+        , body_(std::move(body))
+    {}
+
+    NodeType type() const override { return NodeType::FUNCTION_LITERAL; }
+
+    std::string toString() const override
+    {
+        std::string result = "함수(";
+        for (size_t i = 0; i < parameters_.size(); ++i)
+        {
+            if (i > 0) result += ", ";
+            result += parameters_[i];
+        }
+        result += ") { ... }";
+        return result;
+    }
+
+    const std::vector<std::string>& parameters() const { return parameters_; }
+    Statement* body() const { return body_.get(); }
+};
 
 /**
  * @class CallExpression

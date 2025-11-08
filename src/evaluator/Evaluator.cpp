@@ -61,6 +61,12 @@ Value Evaluator::eval(ast::Node* node)
         case ast::NodeType::UNARY_EXPRESSION:
             return evalUnaryExpression(static_cast<ast::UnaryExpression*>(node));
 
+        case ast::NodeType::FUNCTION_LITERAL:
+            return evalFunctionLiteral(static_cast<ast::FunctionLiteral*>(node));
+
+        case ast::NodeType::CALL_EXPRESSION:
+            return evalCallExpression(static_cast<ast::CallExpression*>(node));
+
         // Statements
         case ast::NodeType::PROGRAM:
             return evalProgram(static_cast<ast::Program*>(node));
@@ -220,6 +226,102 @@ Value Evaluator::evalUnaryExpression(ast::UnaryExpression* expr)
     throw std::runtime_error("지원되지 않는 단항 연산자: " + op);
 }
 
+/**
+ * @brief 함수 리터럴 평가
+ *
+ * 함수 정의를 평가하여 Function 객체를 생성합니다.
+ * 현재 환경을 클로저로 캡처합니다.
+ */
+Value Evaluator::evalFunctionLiteral(ast::FunctionLiteral* lit)
+{
+    // 함수 매개변수
+    std::vector<std::string> parameters = lit->parameters();
+
+    // 함수 본문 (BlockStatement)
+    ast::Statement* body = lit->body();
+
+    // 클로저: 현재 환경을 캡처
+    std::shared_ptr<Environment> closure = env_;
+
+    // Function 객체 생성
+    auto func = std::make_shared<Function>(std::move(parameters), body, closure);
+
+    return Value::createFunction(func);
+}
+
+/**
+ * @brief 함수 호출 평가
+ *
+ * 함수를 호출하고 결과를 반환합니다.
+ * 1. 함수 평가 (Function 객체 얻기)
+ * 2. 인자 평가
+ * 3. 새로운 환경 생성 (클로저 기반)
+ * 4. 매개변수 바인딩
+ * 5. 함수 본문 실행
+ */
+Value Evaluator::evalCallExpression(ast::CallExpression* expr)
+{
+    // 1. 함수 평가
+    Value funcValue = eval(const_cast<ast::Expression*>(expr->function()));
+
+    if (!funcValue.isFunction())
+    {
+        throw std::runtime_error("함수가 아닌 값을 호출할 수 없습니다: " + funcValue.toString());
+    }
+
+    auto func = funcValue.asFunction();
+
+    // 2. 인자 평가
+    std::vector<Value> args;
+    for (const auto& argExpr : expr->arguments())
+    {
+        Value argValue = eval(const_cast<ast::Expression*>(argExpr.get()));
+        args.push_back(argValue);
+    }
+
+    // 3. 매개변수 개수 확인
+    if (args.size() != func->parameters().size())
+    {
+        throw std::runtime_error(
+            "인자 개수 불일치: 기대값 " + std::to_string(func->parameters().size()) +
+            ", 실제값 " + std::to_string(args.size())
+        );
+    }
+
+    // 4. 새로운 환경 생성 (클로저 기반)
+    auto funcEnv = std::make_shared<Environment>(func->closure());
+
+    // 5. 매개변수 바인딩
+    for (size_t i = 0; i < func->parameters().size(); ++i)
+    {
+        funcEnv->set(func->parameters()[i], args[i]);
+    }
+
+    // 6. 함수 본문 실행 (새로운 환경에서)
+    // 기존 환경 저장
+    auto previousEnv = env_;
+
+    // 함수 환경으로 전환
+    env_ = funcEnv;
+
+    // 함수 본문 실행
+    Value result = Value::createNull();
+    try
+    {
+        result = eval(func->body());
+    }
+    catch (const ReturnValue& returnVal)
+    {
+        // return 문으로 인한 정상적인 함수 종료
+        result = returnVal.getValue();
+    }
+
+    // 환경 복원
+    env_ = previousEnv;
+
+    return result;
+}
+
 // ============================================================================
 // Statement 실행 함수들
 // ============================================================================
@@ -244,11 +346,18 @@ Value Evaluator::evalVarDeclaration(ast::VarDeclaration* stmt)
 
 Value Evaluator::evalReturnStatement(ast::ReturnStatement* stmt)
 {
+    Value returnValue;
     if (stmt->returnValue())
     {
-        return eval(const_cast<ast::Expression*>(stmt->returnValue()));
+        returnValue = eval(const_cast<ast::Expression*>(stmt->returnValue()));
     }
-    return Value::createNull();
+    else
+    {
+        returnValue = Value::createNull();
+    }
+
+    // return 문은 예외를 던져서 블록 실행을 중단합니다
+    throw ReturnValue(returnValue);
 }
 
 Value Evaluator::evalIfStatement(ast::IfStatement* stmt)

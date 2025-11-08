@@ -167,6 +167,7 @@ private:
     std::unique_ptr<Expression> parsePrefixExpression();
     std::unique_ptr<Expression> parseGroupedExpression();
     std::unique_ptr<Expression> parseArrayLiteral();
+    std::unique_ptr<Expression> parseFunctionLiteral();
 
     // Infix 파싱 함수들
     std::unique_ptr<Expression> parseBinaryExpression(std::unique_ptr<Expression> left);

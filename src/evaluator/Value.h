@@ -15,7 +15,51 @@
 #include <stdexcept>
 
 namespace kingsejong {
+
+// Forward declarations
+namespace ast {
+    class Statement;
+}
+
 namespace evaluator {
+
+// Forward declaration
+class Environment;
+
+/**
+ * @class Function
+ * @brief 함수 객체
+ *
+ * 함수의 매개변수, 본문, 클로저 환경을 저장합니다.
+ */
+class Function
+{
+private:
+    std::vector<std::string> parameters_;          ///< 매개변수 이름 리스트
+    ast::Statement* body_;                         ///< 함수 본문 (BlockStatement)
+    std::shared_ptr<Environment> closure_;         ///< 클로저 환경
+
+public:
+    /**
+     * @brief Function 생성자
+     * @param parameters 매개변수 이름 리스트
+     * @param body 함수 본문
+     * @param closure 클로저 환경
+     */
+    Function(
+        std::vector<std::string> parameters,
+        ast::Statement* body,
+        std::shared_ptr<Environment> closure
+    )
+        : parameters_(std::move(parameters))
+        , body_(body)
+        , closure_(closure)
+    {}
+
+    const std::vector<std::string>& parameters() const { return parameters_; }
+    ast::Statement* body() const { return body_; }
+    std::shared_ptr<Environment> closure() const { return closure_; }
+};
 
 /**
  * @class Value
@@ -33,12 +77,13 @@ public:
      * std::variant로 다양한 타입을 안전하게 저장합니다.
      */
     using ValueData = std::variant<
-        std::monostate,    // 초기화되지 않은 상태
-        int64_t,           // INTEGER
-        double,            // FLOAT
-        std::string,       // STRING
-        bool,              // BOOLEAN
-        std::nullptr_t     // NULL_TYPE
+        std::monostate,              // 초기화되지 않은 상태
+        int64_t,                     // INTEGER
+        double,                      // FLOAT
+        std::string,                 // STRING
+        bool,                        // BOOLEAN
+        std::nullptr_t,              // NULL_TYPE
+        std::shared_ptr<Function>    // FUNCTION
     >;
 
 private:
@@ -88,6 +133,13 @@ public:
     static Value createNull();
 
     /**
+     * @brief 함수 값 생성
+     * @param func 함수 객체 (shared_ptr)
+     * @return Value 객체
+     */
+    static Value createFunction(std::shared_ptr<Function> func);
+
+    /**
      * @brief 값의 타입 반환
      * @return TypeKind
      */
@@ -124,6 +176,12 @@ public:
     bool isNull() const { return type_ == types::TypeKind::NULL_TYPE; }
 
     /**
+     * @brief 함수 값인지 확인
+     * @return 함수이면 true
+     */
+    bool isFunction() const { return type_ == types::TypeKind::FUNCTION; }
+
+    /**
      * @brief 정수 값 반환
      * @return int64_t 값
      * @throws std::runtime_error 정수가 아닌 경우
@@ -150,6 +208,13 @@ public:
      * @throws std::runtime_error 불린이 아닌 경우
      */
     bool asBoolean() const;
+
+    /**
+     * @brief 함수 값 반환
+     * @return shared_ptr<Function>
+     * @throws std::runtime_error 함수가 아닌 경우
+     */
+    std::shared_ptr<Function> asFunction() const;
 
     /**
      * @brief 값을 문자열로 변환

@@ -66,6 +66,14 @@ Value Value::createNull()
     return v;
 }
 
+Value Value::createFunction(std::shared_ptr<Function> func)
+{
+    Value v;
+    v.type_ = types::TypeKind::FUNCTION;
+    v.data_ = func;
+    return v;
+}
+
 // ============================================================================
 // 타입 변환 및 접근
 // ============================================================================
@@ -106,6 +114,15 @@ bool Value::asBoolean() const
     return std::get<bool>(data_);
 }
 
+std::shared_ptr<Function> Value::asFunction() const
+{
+    if (!isFunction())
+    {
+        throw std::runtime_error("Value is not a function");
+    }
+    return std::get<std::shared_ptr<Function>>(data_);
+}
+
 // ============================================================================
 // 문자열 변환
 // ============================================================================
@@ -132,6 +149,12 @@ std::string Value::toString() const
 
         case types::TypeKind::NULL_TYPE:
             return "없음";
+
+        case types::TypeKind::FUNCTION:
+        {
+            auto func = std::get<std::shared_ptr<Function>>(data_);
+            return "함수(" + std::to_string(func->parameters().size()) + " 매개변수)";
+        }
 
         default:
             return "<unknown value>";

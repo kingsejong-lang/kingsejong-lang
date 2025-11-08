@@ -345,5 +345,84 @@ public:
     const BlockStatement* body() const { return body_.get(); }
 };
 
+/**
+ * @class RepeatStatement
+ * @brief N번 반복문
+ *
+ * @example
+ * 10번 반복한다 {
+ *     출력("안녕");
+ * }
+ */
+class RepeatStatement : public Statement
+{
+private:
+    std::unique_ptr<Expression> count_;         ///< 반복 횟수 표현식
+    std::unique_ptr<BlockStatement> body_;      ///< 반복 본문
+
+public:
+    RepeatStatement(
+        std::unique_ptr<Expression> count,
+        std::unique_ptr<BlockStatement> body
+    )
+        : count_(std::move(count))
+        , body_(std::move(body))
+    {}
+
+    NodeType type() const override { return NodeType::REPEAT_STATEMENT; }
+
+    std::string toString() const override
+    {
+        return count_->toString() + "번 반복 " + body_->toString();
+    }
+
+    const Expression* count() const { return count_.get(); }
+    const BlockStatement* body() const { return body_.get(); }
+};
+
+/**
+ * @class RangeForStatement
+ * @brief 범위 기반 for 반복문
+ *
+ * @example
+ * i가 1부터 10까지 반복한다 {
+ *     출력(i);
+ * }
+ */
+class RangeForStatement : public Statement
+{
+private:
+    std::string varName_;                       ///< 반복 변수 이름
+    std::unique_ptr<Expression> start_;         ///< 시작 값 표현식
+    std::unique_ptr<Expression> end_;           ///< 끝 값 표현식
+    std::unique_ptr<BlockStatement> body_;      ///< 반복 본문
+
+public:
+    RangeForStatement(
+        const std::string& varName,
+        std::unique_ptr<Expression> start,
+        std::unique_ptr<Expression> end,
+        std::unique_ptr<BlockStatement> body
+    )
+        : varName_(varName)
+        , start_(std::move(start))
+        , end_(std::move(end))
+        , body_(std::move(body))
+    {}
+
+    NodeType type() const override { return NodeType::RANGE_FOR_STATEMENT; }
+
+    std::string toString() const override
+    {
+        return varName_ + "가 " + start_->toString() + "부터 " +
+               end_->toString() + "까지 " + body_->toString();
+    }
+
+    const std::string& varName() const { return varName_; }
+    const Expression* start() const { return start_.get(); }
+    const Expression* end() const { return end_.get(); }
+    const BlockStatement* body() const { return body_.get(); }
+};
+
 } // namespace ast
 } // namespace kingsejong

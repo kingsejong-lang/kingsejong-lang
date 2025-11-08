@@ -25,6 +25,49 @@ using namespace lexer;
 using namespace ast;
 
 /**
+ * @enum ParseFeature
+ * @brief 표현식 파싱 시 허용할 문법 기능을 제어하는 플래그
+ *
+ * 비트마스크로 여러 기능을 조합할 수 있습니다.
+ * 특정 컨텍스트에서 특정 문법 요소를 금지할 때 사용합니다.
+ */
+enum class ParseFeature : uint32_t
+{
+    None       = 0,              ///< 모든 기능 비활성화
+    Range      = 1 << 0,         ///< 범위 표현식 (부터...까지) 허용
+    // 향후 확장: Assignment = 1 << 1, Lambda = 1 << 2, Pipe = 1 << 3, ...
+    All        = 0xFFFFFFFFu     ///< 모든 기능 활성화 (기본값)
+};
+
+/// ParseFeature 비트마스크 OR 연산자
+inline ParseFeature operator|(ParseFeature a, ParseFeature b)
+{
+    return static_cast<ParseFeature>(
+        static_cast<uint32_t>(a) | static_cast<uint32_t>(b)
+    );
+}
+
+/// ParseFeature 비트마스크 AND 연산자
+inline ParseFeature operator&(ParseFeature a, ParseFeature b)
+{
+    return static_cast<ParseFeature>(
+        static_cast<uint32_t>(a) & static_cast<uint32_t>(b)
+    );
+}
+
+/// ParseFeature 비트마스크 NOT 연산자
+inline ParseFeature operator~(ParseFeature a)
+{
+    return static_cast<ParseFeature>(~static_cast<uint32_t>(a));
+}
+
+/// ParseFeature 플래그 확인 헬퍼
+inline bool hasFeature(ParseFeature features, ParseFeature flag)
+{
+    return (static_cast<uint32_t>(features) & static_cast<uint32_t>(flag)) != 0;
+}
+
+/**
  * @class Parser
  * @brief Pratt Parsing 알고리즘을 사용한 파서
  *
@@ -44,6 +87,7 @@ public:
     {
         LOWEST = 0,         ///< 가장 낮은 우선순위
         ASSIGN,             ///< = (할당)
+        RANGE,              ///< 부터...까지 (범위 연산자)
         OR,                 ///< || (논리 OR)
         AND,                ///< && (논리 AND)
         EQUALS,             ///< ==, != (동등 비교)
@@ -104,10 +148,15 @@ private:
     std::unique_ptr<VarDeclaration> parseVarDeclaration();
     std::unique_ptr<ReturnStatement> parseReturnStatement();
     std::unique_ptr<IfStatement> parseIfStatement();
+    std::unique_ptr<RepeatStatement> parseRepeatStatement();
+    std::unique_ptr<RangeForStatement> parseRangeForStatement();
     std::unique_ptr<BlockStatement> parseBlockStatement();
 
     // 표현식 파싱 (Pratt Parsing 핵심)
-    std::unique_ptr<Expression> parseExpression(Precedence precedence);
+    std::unique_ptr<Expression> parseExpression(
+        Precedence precedence,
+        ParseFeature features = ParseFeature::All
+    );
 
     // Prefix 파싱 함수들
     std::unique_ptr<Expression> parseIdentifier();

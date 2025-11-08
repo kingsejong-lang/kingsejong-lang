@@ -31,6 +31,10 @@ std::string nodeTypeToString(NodeType type)
             return "WHILE_STATEMENT";
         case NodeType::FOR_STATEMENT:
             return "FOR_STATEMENT";
+        case NodeType::REPEAT_STATEMENT:
+            return "REPEAT_STATEMENT";
+        case NodeType::RANGE_FOR_STATEMENT:
+            return "RANGE_FOR_STATEMENT";
         case NodeType::BLOCK_STATEMENT:
             return "BLOCK_STATEMENT";
 

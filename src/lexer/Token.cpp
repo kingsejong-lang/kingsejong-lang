@@ -49,6 +49,7 @@ static const std::unordered_map<std::string, TokenType> keywords = {
 
     // 반복 키워드
     {"번", TokenType::BEON},
+    {"반복한다", TokenType::BANBOKHANDA},
     {"반복", TokenType::BANBOKK},
     {"각각", TokenType::GAKGAK},
 
@@ -126,6 +127,7 @@ std::string tokenTypeToString(TokenType type)
         case TokenType::ISANG:        return "ISANG";
 
         case TokenType::BEON:         return "BEON";
+        case TokenType::BANBOKHANDA:  return "BANBOKHANDA";
         case TokenType::BANBOKK:      return "BANBOKK";
         case TokenType::GAKGAK:       return "GAKGAK";
 

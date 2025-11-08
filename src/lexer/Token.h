@@ -85,6 +85,7 @@ enum class TokenType
     // 반복 키워드
     BEON,         ///< 번
     BANBOKK,      ///< 반복
+    BANBOKHANDA,  ///< 반복한다
     GAKGAK,       ///< 각각
 
     // 제어문 키워드

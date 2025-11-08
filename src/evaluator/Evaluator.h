@@ -162,6 +162,20 @@ private:
     Value evalIfStatement(ast::IfStatement* stmt);
 
     /**
+     * @brief N번 반복 문장 실행
+     * @param stmt N번 반복 문장 노드
+     * @return 마지막 반복의 평가 결과
+     */
+    Value evalRepeatStatement(ast::RepeatStatement* stmt);
+
+    /**
+     * @brief 범위 반복 문장 실행
+     * @param stmt 범위 반복 문장 노드
+     * @return 마지막 반복의 평가 결과
+     */
+    Value evalRangeForStatement(ast::RangeForStatement* stmt);
+
+    /**
      * @brief 블록 문장 실행
      * @param stmt 블록 문장 노드
      * @return 마지막 문장의 평가 결과

@@ -77,6 +77,12 @@ Value Evaluator::eval(ast::Node* node)
         case ast::NodeType::IF_STATEMENT:
             return evalIfStatement(static_cast<ast::IfStatement*>(node));
 
+        case ast::NodeType::REPEAT_STATEMENT:
+            return evalRepeatStatement(static_cast<ast::RepeatStatement*>(node));
+
+        case ast::NodeType::RANGE_FOR_STATEMENT:
+            return evalRangeForStatement(static_cast<ast::RangeForStatement*>(node));
+
         case ast::NodeType::BLOCK_STATEMENT:
             return evalBlockStatement(static_cast<ast::BlockStatement*>(node));
 
@@ -272,6 +278,70 @@ Value Evaluator::evalBlockStatement(ast::BlockStatement* stmt)
     for (const auto& statement : stmt->statements())
     {
         result = eval(statement.get());
+    }
+
+    return result;
+}
+
+Value Evaluator::evalRepeatStatement(ast::RepeatStatement* stmt)
+{
+    // 반복 횟수 평가
+    Value countValue = eval(const_cast<ast::Expression*>(stmt->count()));
+
+    if (!countValue.isInteger())
+    {
+        throw std::runtime_error("반복 횟수는 정수여야 합니다");
+    }
+
+    int64_t count = countValue.asInteger();
+
+    if (count < 0)
+    {
+        throw std::runtime_error("반복 횟수는 0 이상이어야 합니다");
+    }
+
+    Value result = Value::createNull();
+
+    // count 횟수만큼 반복
+    for (int64_t i = 0; i < count; ++i)
+    {
+        result = eval(const_cast<ast::BlockStatement*>(stmt->body()));
+    }
+
+    return result;
+}
+
+Value Evaluator::evalRangeForStatement(ast::RangeForStatement* stmt)
+{
+    // 시작 값 평가
+    Value startValue = eval(const_cast<ast::Expression*>(stmt->start()));
+
+    if (!startValue.isInteger())
+    {
+        throw std::runtime_error("범위 시작 값은 정수여야 합니다");
+    }
+
+    // 끝 값 평가
+    Value endValue = eval(const_cast<ast::Expression*>(stmt->end()));
+
+    if (!endValue.isInteger())
+    {
+        throw std::runtime_error("범위 끝 값은 정수여야 합니다");
+    }
+
+    int64_t start = startValue.asInteger();
+    int64_t end = endValue.asInteger();
+
+    Value result = Value::createNull();
+
+    // 범위 반복 (start부터 end까지, inclusive)
+    for (int64_t i = start; i <= end; ++i)
+    {
+        // 반복 변수 설정
+        env_->set(stmt->varName(), Value::createInteger(i));
+
+        // 본문 실행
+        result = eval(const_cast<ast::BlockStatement*>(stmt->body()));
     }
 
     return result;

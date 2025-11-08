@@ -179,11 +179,11 @@ Parser::Precedence Parser::tokenPrecedence(TokenType type) const
         case TokenType::JOSA_ESO:
         case TokenType::JOSA_E:
             return Precedence::CALL;
-        // 범위 토큰들 - CALL과 같은 우선순위
+        // 범위 토큰들 - RANGE 우선순위 (ASSIGN보다 높고 OR보다 낮음)
         case TokenType::BUTEO:
         case TokenType::CHOGA:
         case TokenType::ISANG:
-            return Precedence::CALL;
+            return Precedence::RANGE;
         default:
             return Precedence::LOWEST;
     }
@@ -243,6 +243,19 @@ std::unique_ptr<Statement> Parser::parseStatement()
     if (curTokenIs(TokenType::MANYAK))
     {
         return parseIfStatement();
+    }
+
+    // 범위 반복문: identifier + "가"/"이" (N번 반복보다 먼저 체크)
+    if (curTokenIs(TokenType::IDENTIFIER) &&
+        (peekTokenIs(TokenType::JOSA_GA) || peekTokenIs(TokenType::JOSA_I)))
+    {
+        return parseRangeForStatement();
+    }
+
+    // N번 반복문: integer/expression + "번"
+    if (peekTokenIs(TokenType::BEON))
+    {
+        return parseRepeatStatement();
     }
 
     // 블록 문장
@@ -370,6 +383,113 @@ std::unique_ptr<IfStatement> Parser::parseIfStatement()
     );
 }
 
+std::unique_ptr<RepeatStatement> Parser::parseRepeatStatement()
+{
+    // 반복 횟수 파싱
+    auto count = parseExpression(Precedence::LOWEST);
+
+    // "번" 확인
+    if (!expectPeek(TokenType::BEON))
+    {
+        return nullptr;
+    }
+
+    // "반복한다" 또는 "반복" 확인 (선택적)
+    if (peekTokenIs(TokenType::BANBOKHANDA))
+    {
+        nextToken(); // "반복한다"로 이동
+    }
+    else if (peekTokenIs(TokenType::BANBOKK))
+    {
+        nextToken(); // "반복"으로 이동
+
+        // "하라" 확인 (선택적)
+        if (peekTokenIs(TokenType::HARA))
+        {
+            nextToken(); // "하라"로 이동
+        }
+    }
+
+    // 본문 블록
+    if (!expectPeek(TokenType::LBRACE))
+    {
+        return nullptr;
+    }
+
+    auto body = parseBlockStatement();
+
+    return std::make_unique<RepeatStatement>(
+        std::move(count),
+        std::move(body)
+    );
+}
+
+std::unique_ptr<RangeForStatement> Parser::parseRangeForStatement()
+{
+    // 범위 for문: "i가 1부터 5까지 반복한다 { ... }"
+    // ParseFeature::Range를 비활성화하여 start/end 표현식에서 RangeExpression이 생성되지 않도록 함
+
+    // 변수 이름 저장
+    std::string varName = curToken_.literal;
+
+    // "가" 또는 "이" 확인
+    if (!expectPeek(TokenType::JOSA_GA) && !expectPeek(TokenType::JOSA_I))
+    {
+        return nullptr;
+    }
+
+    // 시작 값 파싱 (Range 기능 비활성화)
+    nextToken(); // 시작 표현식으로 이동
+    auto start = parseExpression(Precedence::LOWEST, ParseFeature::All & ~ParseFeature::Range);
+
+    // "부터" 명시적으로 확인
+    if (!expectPeek(TokenType::BUTEO))
+    {
+        return nullptr;
+    }
+
+    // 끝 값 파싱 (Range 기능 비활성화)
+    nextToken(); // 끝 표현식으로 이동
+    auto end = parseExpression(Precedence::LOWEST, ParseFeature::All & ~ParseFeature::Range);
+
+    // "까지" 명시적으로 확인
+    if (!expectPeek(TokenType::KKAJI))
+    {
+        return nullptr;
+    }
+
+    // "반복한다" 또는 "반복" 확인 (선택적)
+    if (peekTokenIs(TokenType::BANBOKHANDA))
+    {
+        nextToken(); // "반복한다"로 이동
+    }
+    else if (peekTokenIs(TokenType::BANBOKK))
+    {
+        nextToken(); // "반복"으로 이동
+
+        // "하라" 확인 (선택적)
+        if (peekTokenIs(TokenType::HARA))
+        {
+            nextToken(); // "하라"로 이동
+        }
+    }
+
+    // 본문 블록
+    if (!expectPeek(TokenType::LBRACE))
+    {
+        return nullptr;
+    }
+
+    auto body = parseBlockStatement();
+
+    return std::make_unique<RangeForStatement>(
+        varName,
+        std::move(start),
+        std::move(end),
+        std::move(body)
+    );
+}
+
 std::unique_ptr<BlockStatement> Parser::parseBlockStatement()
 {
     nextToken(); // { 건너뛰기
@@ -400,7 +520,7 @@ std::vector<std::unique_ptr<Statement>> Parser::parseStatements(TokenType endTok
 // 표현식 파싱 (Pratt Parsing 핵심)
 // ============================================================================
 
-std::unique_ptr<Expression> Parser::parseExpression(Precedence precedence)
+std::unique_ptr<Expression> Parser::parseExpression(Precedence precedence, ParseFeature features)
 {
     // Prefix 파싱 함수 찾기
     auto prefixIt = prefixParseFns_.find(curToken_.type);
@@ -415,6 +535,18 @@ std::unique_ptr<Expression> Parser::parseExpression(Precedence precedence)
     // Infix 파싱 (우선순위 기반)
     while (!peekTokenIs(TokenType::SEMICOLON) && precedence < peekPrecedence())
     {
+        // Range 기능이 비활성화되어 있으면 Range 연산자 건너뛰기
+        if (!hasFeature(features, ParseFeature::Range))
+        {
+            if (peekTokenIs(TokenType::BUTEO) ||
+                peekTokenIs(TokenType::CHOGA) ||
+                peekTokenIs(TokenType::ISANG))
+            {
+                // Range 연산자를 infix로 처리하지 않고 반환
+                return leftExp;
+            }
+        }
+
         auto infixIt = infixParseFns_.find(peekToken_.type);
         if (infixIt == infixParseFns_.end())
         {
@@ -555,29 +687,65 @@ std::unique_ptr<Expression> Parser::parseJosaExpression(std::unique_ptr<Expressi
 
 std::unique_ptr<Expression> Parser::parseRangeExpression(std::unique_ptr<Expression> left)
 {
-    // 현재 토큰은 범위 시작 키워드 (BUTEO, CHOGA, ISANG)
+    // 복합 연산자: 부터 ... 까지를 한 번에 파싱
+    // left는 시작 값, curToken은 범위 시작 키워드 (BUTEO, CHOGA, ISANG)
+
     TokenType startToken = curToken_.type;
-    bool startInclusive = (startToken == TokenType::BUTEO || startToken == TokenType::ISANG);
+    bool startInclusive = true;
 
-    nextToken(); // 범위 시작 키워드 다음으로 이동 (끝 값)
+    // 시작 키워드에 따라 inclusive 결정
+    if (startToken == TokenType::CHOGA)  // 초과
+    {
+        startInclusive = false;
+    }
+    else if (startToken == TokenType::ISANG)  // 이상
+    {
+        startInclusive = true;
+    }
+    else if (startToken == TokenType::BUTEO)  // 부터
+    {
+        startInclusive = true;
+    }
 
-    // 끝 값 파싱
-    auto end = parseExpression(Precedence::LOWEST);
+    // 끝 값 파싱 (Range 연산자를 infix로 처리하지 않음)
+    nextToken(); // 끝 값 시작
+    auto end = parseExpression(Precedence::SUM, ParseFeature::All & ~ParseFeature::Range);
 
-    // 끝 키워드로 이동
-    nextToken();
-
-    // 끝 키워드 확인 (KKAJI, MIMAN, IHA, ISANG)
-    if (!isRangeEndToken(curToken_.type))
+    // 끝 키워드 확인 (KKAJI, MIMAN, IHA, ISANG 중 하나여야 함)
+    if (!peekTokenIs(TokenType::KKAJI) &&
+        !peekTokenIs(TokenType::MIMAN) &&
+        !peekTokenIs(TokenType::IHA) &&
+        !peekTokenIs(TokenType::ISANG))
     {
         std::string msg = "expected range end keyword (까지/미만/이하/이상), got " +
-                         tokenTypeToString(curToken_.type);
+                         tokenTypeToString(peekToken_.type);
         errors_.push_back(msg);
         return nullptr;
     }
 
-    bool endInclusive = (curToken_.type == TokenType::KKAJI || curToken_.type == TokenType::IHA ||
-                         curToken_.type == TokenType::ISANG);
+    // 끝 키워드로 이동
+    nextToken();
+
+    // 끝 키워드에 따라 inclusive 결정
+    bool endInclusive = true;
+    TokenType endToken = curToken_.type;
+
+    if (endToken == TokenType::MIMAN)  // 미만
+    {
+        endInclusive = false;
+    }
+    else if (endToken == TokenType::IHA)  // 이하
+    {
+        endInclusive = true;
+    }
+    else if (endToken == TokenType::KKAJI)  // 까지
+    {
+        endInclusive = true;
+    }
+    else if (endToken == TokenType::ISANG)  // 이상
+    {
+        endInclusive = true;
+    }
 
     return std::make_unique<RangeExpression>(std::move(left), std::move(end),
                                              startInclusive, endInclusive);

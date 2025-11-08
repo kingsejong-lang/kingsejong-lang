@@ -29,6 +29,8 @@ enum class NodeType
     IF_STATEMENT,               ///< 조건 문장 (만약)
     WHILE_STATEMENT,            ///< 반복 문장 (동안)
     FOR_STATEMENT,              ///< for 반복문
+    REPEAT_STATEMENT,           ///< N번 반복 (10번 반복한다)
+    RANGE_FOR_STATEMENT,        ///< 범위 반복문 (i가 1부터 10까지)
     BLOCK_STATEMENT,            ///< 블록 문장 { ... }
 
     // 표현식 (Expressions)

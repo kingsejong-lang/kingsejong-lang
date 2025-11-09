@@ -388,16 +388,11 @@ Value Evaluator::evalVarDeclaration(ast::VarDeclaration* stmt)
 
 Value Evaluator::evalAssignmentStatement(ast::AssignmentStatement* stmt)
 {
-    // 1) 변수가 스코프 체인에 존재하는지 확인
-    if (!env_->existsInChain(stmt->varName()))
-    {
-        throw std::runtime_error("정의되지 않은 변수: " + stmt->varName());
-    }
-
-    // 2) 값 평가
+    // 값 평가
     Value value = eval(const_cast<ast::Expression*>(stmt->value()));
 
-    // 3) 환경에 값 갱신
+    // 환경에 값 설정 (변수가 없으면 생성, 있으면 갱신)
+    // 이것이 타입 추론 기능: `x = 10`처럼 타입 없이 변수를 선언할 수 있음
     env_->set(stmt->varName(), value);
 
     return value;

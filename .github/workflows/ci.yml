@@ -186,3 +186,40 @@ jobs:
         export ASAN_OPTIONS=detect_leaks=1:symbolize=1
         export UBSAN_OPTIONS=print_stacktrace=1
         ctest --test-dir build --output-on-failure
+
+  benchmark:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y g++-13 python3
+
+    - name: Configure CMake
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      run: cmake --build build
+
+    - name: Run benchmarks
+      run: |
+        cd benchmarks
+        python3 run_benchmarks.py --interpreter ../build/bin/kingsejong --runs 5 --output benchmark_results.txt
+
+    - name: Display results
+      if: always()
+      run: |
+        echo "=== Benchmark Results ==="
+        cat benchmarks/benchmark_results.txt || echo "No results file found"
+
+    - name: Upload benchmark results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-results
+        path: benchmarks/benchmark_results.txt

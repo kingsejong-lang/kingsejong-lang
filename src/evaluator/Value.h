@@ -85,14 +85,15 @@ public:
      * std::variant로 다양한 타입을 안전하게 저장합니다.
      */
     using ValueData = std::variant<
-        std::monostate,              // 초기화되지 않은 상태
-        int64_t,                     // INTEGER
-        double,                      // FLOAT
-        std::string,                 // STRING
-        bool,                        // BOOLEAN
-        std::nullptr_t,              // NULL_TYPE
-        std::shared_ptr<Function>,   // FUNCTION
-        BuiltinFn                    // BUILTIN_FUNCTION
+        std::monostate,                         // 초기화되지 않은 상태
+        int64_t,                                // INTEGER
+        double,                                 // FLOAT
+        std::string,                            // STRING
+        bool,                                   // BOOLEAN
+        std::nullptr_t,                         // NULL_TYPE
+        std::shared_ptr<Function>,              // FUNCTION
+        BuiltinFn,                              // BUILTIN_FUNCTION
+        std::shared_ptr<std::vector<Value>>     // ARRAY
     >;
 
 private:
@@ -156,6 +157,13 @@ public:
     static Value createBuiltinFunction(BuiltinFn func);
 
     /**
+     * @brief 배열 값 생성
+     * @param elements 배열 요소들
+     * @return Value 객체
+     */
+    static Value createArray(const std::vector<Value>& elements);
+
+    /**
      * @brief 값의 타입 반환
      * @return TypeKind
      */
@@ -204,6 +212,12 @@ public:
     bool isBuiltinFunction() const { return type_ == types::TypeKind::BUILTIN_FUNCTION; }
 
     /**
+     * @brief 배열 값인지 확인
+     * @return 배열이면 true
+     */
+    bool isArray() const { return type_ == types::TypeKind::ARRAY; }
+
+    /**
      * @brief 정수 값 반환
      * @return int64_t 값
      * @throws std::runtime_error 정수가 아닌 경우
@@ -244,6 +258,14 @@ public:
      * @throws std::runtime_error 내장 함수가 아닌 경우
      */
     BuiltinFn asBuiltinFunction() const;
+
+    /**
+     * @brief 배열 값 반환
+     * @return std::vector<Value> 참조
+     * @throws std::runtime_error 배열이 아닌 경우
+     */
+    std::vector<Value>& asArray();
+    const std::vector<Value>& asArray() const;
 
     /**
      * @brief 값을 문자열로 변환

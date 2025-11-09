@@ -162,6 +162,20 @@ private:
      */
     Value evalCallExpression(ast::CallExpression* expr);
 
+    /**
+     * @brief 배열 리터럴 평가
+     * @param lit 배열 리터럴 노드
+     * @return 배열 Value
+     */
+    Value evalArrayLiteral(ast::ArrayLiteral* lit);
+
+    /**
+     * @brief 인덱스 표현식 평가
+     * @param expr 인덱스 표현식 노드
+     * @return 배열 요소 Value
+     */
+    Value evalIndexExpression(ast::IndexExpression* expr);
+
     // Statement 실행 함수들
 
     /**

@@ -68,6 +68,12 @@ Value Evaluator::eval(ast::Node* node)
         case ast::NodeType::CALL_EXPRESSION:
             return evalCallExpression(static_cast<ast::CallExpression*>(node));
 
+        case ast::NodeType::ARRAY_LITERAL:
+            return evalArrayLiteral(static_cast<ast::ArrayLiteral*>(node));
+
+        case ast::NodeType::INDEX_EXPRESSION:
+            return evalIndexExpression(static_cast<ast::IndexExpression*>(node));
+
         // Statements
         case ast::NodeType::PROGRAM:
             return evalProgram(static_cast<ast::Program*>(node));
@@ -569,6 +575,54 @@ Value Evaluator::applyLogicalOperation(const Value& left, const std::string& op,
     }
 
     throw std::runtime_error("지원되지 않는 논리 연산자: " + op);
+}
+
+Value Evaluator::evalArrayLiteral(ast::ArrayLiteral* lit)
+{
+    std::vector<Value> elements;
+
+    for (const auto& elem : lit->elements())
+    {
+        Value value = eval(const_cast<ast::Expression*>(elem.get()));
+        elements.push_back(value);
+    }
+
+    return Value::createArray(elements);
+}
+
+Value Evaluator::evalIndexExpression(ast::IndexExpression* expr)
+{
+    Value array = eval(const_cast<ast::Expression*>(expr->array()));
+    Value index = eval(const_cast<ast::Expression*>(expr->index()));
+
+    // 배열인지 확인
+    if (!array.isArray())
+    {
+        throw std::runtime_error("인덱스 접근은 배열에만 가능합니다");
+    }
+
+    // 인덱스가 정수인지 확인
+    if (!index.isInteger())
+    {
+        throw std::runtime_error("배열 인덱스는 정수여야 합니다");
+    }
+
+    int64_t idx = index.asInteger();
+    std::vector<Value>& arr = array.asArray();
+
+    // 음수 인덱스 처리 (Python 스타일)
+    if (idx < 0)
+    {
+        idx = static_cast<int64_t>(arr.size()) + idx;
+    }
+
+    // 범위 검사
+    if (idx < 0 || idx >= static_cast<int64_t>(arr.size()))
+    {
+        throw std::runtime_error("배열 인덱스 범위 초과: " + std::to_string(idx));
+    }
+
+    return arr[static_cast<size_t>(idx)];
 }
 
 } // namespace evaluator

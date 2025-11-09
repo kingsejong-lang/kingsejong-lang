@@ -82,6 +82,14 @@ Value Value::createBuiltinFunction(Value::BuiltinFn func)
     return v;
 }
 
+Value Value::createArray(const std::vector<Value>& elements)
+{
+    Value v;
+    v.type_ = types::TypeKind::ARRAY;
+    v.data_ = std::make_shared<std::vector<Value>>(elements);
+    return v;
+}
+
 // ============================================================================
 // 타입 변환 및 접근
 // ============================================================================
@@ -140,6 +148,24 @@ Value::BuiltinFn Value::asBuiltinFunction() const
     return std::get<Value::BuiltinFn>(data_);
 }
 
+std::vector<Value>& Value::asArray()
+{
+    if (!isArray())
+    {
+        throw std::runtime_error("Value is not an array");
+    }
+    return *std::get<std::shared_ptr<std::vector<Value>>>(data_);
+}
+
+const std::vector<Value>& Value::asArray() const
+{
+    if (!isArray())
+    {
+        throw std::runtime_error("Value is not an array");
+    }
+    return *std::get<std::shared_ptr<std::vector<Value>>>(data_);
+}
+
 // ============================================================================
 // 문자열 변환
 // ============================================================================
@@ -176,6 +202,19 @@ std::string Value::toString() const
         case types::TypeKind::BUILTIN_FUNCTION:
             return "[내장함수]";
 
+        case types::TypeKind::ARRAY:
+        {
+            auto arr = std::get<std::shared_ptr<std::vector<Value>>>(data_);
+            std::string result = "[";
+            for (size_t i = 0; i < arr->size(); ++i)
+            {
+                if (i > 0) result += ", ";
+                result += (*arr)[i].toString();
+            }
+            result += "]";
+            return result;
+        }
+
         default:
             return "<unknown value>";
     }
@@ -203,6 +242,12 @@ bool Value::isTruthy() const
 
         case types::TypeKind::STRING:
             return !std::get<std::string>(data_).empty();
+
+        case types::TypeKind::ARRAY:
+        {
+            auto arr = std::get<std::shared_ptr<std::vector<Value>>>(data_);
+            return !arr->empty();
+        }
 
         default:
             return true;

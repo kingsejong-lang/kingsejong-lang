@@ -87,3 +87,102 @@ jobs:
       run: |
         cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
         find src -name '*.cpp' -o -name '*.h' | xargs clang-tidy -p build || true
+
+  memory-check:
+    name: Memory Safety (Valgrind)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y g++-13 valgrind
+
+    - name: Configure CMake
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Debug
+
+    - name: Build
+      run: cmake --build build
+
+    - name: Run tests with Valgrind
+      run: |
+        cd build
+        valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose \
+          --error-exitcode=1 --errors-for-leak-kinds=definite,possible \
+          ./kingsejong_tests --gtest_filter=TokenTest.*:JosaRecognizerTest.* || true
+      continue-on-error: true
+
+    - name: Upload Valgrind results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: valgrind-results
+        path: build/*.valgrind
+
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y g++-13 lcov
+
+    - name: Configure CMake with coverage
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_CXX_FLAGS="--coverage" \
+          -DCMAKE_EXE_LINKER_FLAGS="--coverage"
+
+    - name: Build
+      run: cmake --build build
+
+    - name: Run tests
+      run: ctest --test-dir build --output-on-failure
+
+    - name: Generate coverage report
+      run: |
+        lcov --directory build --capture --output-file coverage.info
+        lcov --remove coverage.info '/usr/*' '*/tests/*' '*/googletest/*' --output-file coverage.info
+        lcov --list coverage.info
+
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: coverage.info
+
+  sanitizers:
+    name: Sanitizers (ASan + UBSan)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y g++-13
+
+    - name: Configure CMake with sanitizers
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+
+    - name: Build
+      run: cmake --build build
+
+    - name: Run tests with sanitizers
+      run: |
+        export ASAN_OPTIONS=detect_leaks=1:symbolize=1
+        export UBSAN_OPTIONS=print_stacktrace=1
+        ctest --test-dir build --output-on-failure

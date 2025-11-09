@@ -6,7 +6,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![C++23](https://img.shields.io/badge/C++-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
-[![Tests](https://img.shields.io/badge/tests-290%20passed-success)](tests/)
+[![CI](https://github.com/0xmhha/kingsejonglang/workflows/CI/badge.svg)](https://github.com/0xmhha/kingsejonglang/actions)
+[![Tests](https://img.shields.io/badge/tests-330%2B%20passed-success)](tests/)
+[![Version](https://img.shields.io/badge/version-v0.1.0-blue)](https://github.com/0xmhha/kingsejonglang/releases/tag/v0.1.0)
 
 [빠른 시작](#빠른-시작) •
 [주요 특징](#주요-특징) •

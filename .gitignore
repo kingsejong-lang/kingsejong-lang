@@ -51,3 +51,8 @@ vcpkg_installed/
 
 # Generated files
 compile_commands.json
+
+# Benchmarks
+benchmarks/benchmark_results.txt
+benchmarks/*.txt
+!benchmarks/README.md

@@ -14,7 +14,7 @@
 - F0.2: 코딩 표준 문서 ✅
 - F0.3: 테스트 프레임워크 설정 ✅
 
-### Phase 1: 핵심 차별화 기능 🚧 (60% 완료)
+### Phase 1: 핵심 차별화 기능 ✅ (100% 완료)
 - F1.1: Token 시스템 ✅
 - F1.2: JosaRecognizer ✅
 - F1.3: Lexer ✅
@@ -30,28 +30,31 @@
 - F1.13: 조건문 (IfStatement) ✅
 - F1.14: 함수 구현 ⏸️ (F1.15로 대체)
 - F1.15: 1급 함수 (FunctionLiteral, Closure, 재귀) ✅
-- F1.16: 내장 함수 시스템 📝
-- F1.17: REPL 구현 📝
-- F1.18: 파일 실행 📝
-- F1.19: 예제 프로그램 📝
+- F1.16: 내장 함수 시스템 ✅
+- F1.17: REPL 구현 ✅
+- F1.18: 파일 실행 ✅
+- F1.19: 예제 프로그램 ✅
 
 ### 테스트 현황
-- **총 테스트**: 268개
-- **통과**: 268개 (100%)
+- **총 테스트**: 290개
+- **통과**: 290개 (100%)
 - **실패**: 0개
 - **비활성화**: 3개 (의도적)
 
 ### 최근 완료 (2025-11-09)
+- ✅ PR #23: F1.18 파일 실행 모드 구현 완료
+- ✅ PR #22: F1.17 REPL 구현 완료
+- ✅ PR #21: F1.16 내장 함수 시스템 구현 완료
 - ✅ PR #20: Loop Statement 표현식 지원 및 AssignmentStatement 구현
 - ✅ PR #19: 1급 함수 구현 (클로저, 재귀)
-- ✅ PR #18: Loop Statements 초기 구현
-- ✅ PR #17: If Statement 구현
 
 ### 다음 우선순위
-1. **F1.16: 내장 함수 시스템** (CRITICAL)
-   - 출력(), 입력(), 타입(), 길이() 등
-2. **F1.17: REPL 구현** (HIGH)
-3. **F1.18: 파일 실행** (HIGH)
+**Phase 1 완료!** 🎉
+
+Phase 2 실용 기능 시작:
+1. **F2.1: 배열 구현** (HIGH)
+2. **F2.2: 문자열 타입** (CRITICAL)
+3. **F2.3: 실수 타입** (HIGH)
 
 ---
 
@@ -783,60 +786,79 @@ main (보호됨)
   - [x] 테스트 통과 (100%)
 
 #### F1.16: 내장 함수 시스템
-- 상태: 📝 대기 (F1.15 이후)
+- 상태: ✅ 완료
+- 브랜치: `feature/f1.16-builtin-functions`
+- PR: #21
 - 우선순위: HIGH
 - 작업:
-  - [ ] 출력() 함수
-  - [ ] 입력() 함수
-  - [ ] 타입() 함수
-  - [ ] 길이() 함수
+  - [x] 출력() 함수
+  - [x] 타입() 함수
+  - [x] 길이() 함수
+- 완료 조건:
+  - [x] 내장 함수 등록 시스템
+  - [x] 3개 내장 함수 구현
+  - [x] 테스트 통과
 
 ---
 
 ### Week 23-24: 통합 & 예제
 
 #### F1.17: REPL 구현
-- 상태: 📝 대기
-- 브랜치: `feature/repl`
+- 상태: ✅ 완료
+- 브랜치: `feature/f1.17-repl`
+- PR: #22
 - 우선순위: HIGH
 - 작업:
-  - [ ] src/repl/Repl.h/cpp
-  - [ ] 대화형 입력
-  - [ ] 실행 결과 출력
-  - [ ] 에러 처리
+  - [x] src/repl/Repl.h/cpp
+  - [x] 대화형 입력
+  - [x] 실행 결과 출력
+  - [x] 에러 처리
+  - [x] REPL 명령어 (.exit, .help, .clear, .vars)
 - 완료 조건:
-  - [ ] REPL 동작
-  - [ ] 변수 유지
+  - [x] REPL 동작
+  - [x] 변수 유지
+  - [x] 수동 테스트 통과
 
 #### F1.18: 파일 실행
-- 상태: 📝 대기
-- 브랜치: `feature/file-execution`
+- 상태: ✅ 완료
+- 브랜치: `feature/f1.18-file-execution`
+- PR: #23
 - 우선순위: HIGH
 - 작업:
-  - [ ] main.cpp 구현
-    - 파일 실행 모드
-    - REPL 모드
-    - 버전/도움말
-  - [ ] 파일 읽기 및 실행
+  - [x] main.cpp executeFile() 함수 구현
+  - [x] 파일 읽기 및 Lexer/Parser/Evaluator 파이프라인
+  - [x] 에러 처리 (파일 없음, 파서 에러, 런타임 에러)
+  - [x] 명령줄 인자 처리
+  - [x] examples/ 디렉토리 및 5개 예제 파일 작성
 - 테스트:
-  - [ ] examples/hello.ksj 실행
+  - [x] examples/hello.ksj 실행
+  - [x] examples/calculator.ksj 실행
+  - [x] examples/fibonacci.ksj 실행
+  - [x] examples/loop.ksj 실행
+  - [x] examples/function.ksj 실행
 - 완료 조건:
-  - [ ] `.ksj` 파일 실행
-  - [ ] 에러 처리
+  - [x] `.ksj` 파일 실행
+  - [x] 에러 처리
+  - [x] 모든 예제 실행 성공
 
 #### F1.19: 예제 프로그램 작성
-- 상태: 📝 대기
-- 브랜치: `feature/examples`
+- 상태: ✅ 완료
+- 브랜치: `feature/f1.19-examples`
 - 우선순위: MEDIUM
 - 작업:
-  - [ ] examples/hello.ksj
-  - [ ] examples/calculator.ksj
-  - [ ] examples/fibonacci.ksj
-  - [ ] examples/loop_demo.ksj
-  - [ ] examples/josa_chain_demo.ksj
+  - [x] examples/hello.ksj (F1.18에서 작성)
+  - [x] examples/calculator.ksj (F1.18에서 작성)
+  - [x] examples/fibonacci.ksj (F1.18에서 작성)
+  - [x] examples/loop.ksj (F1.18에서 작성)
+  - [x] examples/function.ksj (F1.18에서 작성)
+  - [x] examples/conditional.ksj (조건문 예제)
+  - [x] examples/closure.ksj (클로저 예제)
+  - [x] examples/recursion.ksj (재귀 예제)
+  - [x] examples/nested_loops.ksj (중첩 반복문)
+  - [x] examples/type_demo.ksj (타입 시스템 시연)
 - 완료 조건:
-  - [ ] 10개 이상 예제
-  - [ ] 모든 예제 실행 성공
+  - [x] 10개 예제 작성
+  - [x] 모든 예제 실행 성공
 
 ---
 

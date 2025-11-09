@@ -6,6 +6,7 @@
  */
 
 #include "Environment.h"
+#include "../error/Error.h"
 
 namespace kingsejong {
 namespace evaluator {
@@ -49,7 +50,7 @@ Value Environment::get(const std::string& name) const
     }
 
     // 변수를 찾을 수 없음
-    throw std::runtime_error("Undefined variable: " + name);
+    throw error::NameError("정의되지 않은 변수: " + name);
 }
 
 bool Environment::exists(const std::string& name) const

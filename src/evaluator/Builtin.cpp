@@ -8,6 +8,7 @@
 #include "Builtin.h"
 #include <iostream>
 #include <stdexcept>
+#include <cmath>
 
 namespace kingsejong {
 namespace evaluator {
@@ -443,19 +444,353 @@ static Value builtin_소문자(const std::vector<Value>& args)
 }
 
 // ============================================================================
+// 타입 변환 함수
+// ============================================================================
+
+/**
+ * @brief 정수(값) - 값을 정수로 변환
+ *
+ * @param args 변환할 값 (1개)
+ * @return 정수 값
+ * @throws std::runtime_error 변환할 수 없는 타입인 경우
+ */
+static Value builtin_정수(const std::vector<Value>& args)
+{
+    if (args.size() != 1)
+    {
+        throw std::runtime_error("정수() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+
+    const Value& arg = args[0];
+
+    // 이미 정수면 그대로 반환
+    if (arg.isInteger())
+    {
+        return arg;
+    }
+
+    // 실수를 정수로 변환
+    if (arg.isFloat())
+    {
+        return Value::createInteger(static_cast<int64_t>(arg.asFloat()));
+    }
+
+    // 문자열을 정수로 변환
+    if (arg.isString())
+    {
+        try
+        {
+            int64_t value = std::stoll(arg.asString());
+            return Value::createInteger(value);
+        }
+        catch (...)
+        {
+            throw std::runtime_error("문자열을 정수로 변환할 수 없습니다: " + arg.asString());
+        }
+    }
+
+    // 불린을 정수로 변환 (참=1, 거짓=0)
+    if (arg.isBoolean())
+    {
+        return Value::createInteger(arg.asBoolean() ? 1 : 0);
+    }
+
+    throw std::runtime_error("정수() 함수는 정수, 실수, 문자열, 논리 타입만 변환할 수 있습니다");
+}
+
+/**
+ * @brief 실수(값) - 값을 실수로 변환
+ *
+ * @param args 변환할 값 (1개)
+ * @return 실수 값
+ * @throws std::runtime_error 변환할 수 없는 타입인 경우
+ */
+static Value builtin_실수(const std::vector<Value>& args)
+{
+    if (args.size() != 1)
+    {
+        throw std::runtime_error("실수() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+
+    const Value& arg = args[0];
+
+    // 이미 실수면 그대로 반환
+    if (arg.isFloat())
+    {
+        return arg;
+    }
+
+    // 정수를 실수로 변환
+    if (arg.isInteger())
+    {
+        return Value::createFloat(static_cast<double>(arg.asInteger()));
+    }
+
+    // 문자열을 실수로 변환
+    if (arg.isString())
+    {
+        try
+        {
+            double value = std::stod(arg.asString());
+            return Value::createFloat(value);
+        }
+        catch (...)
+        {
+            throw std::runtime_error("문자열을 실수로 변환할 수 없습니다: " + arg.asString());
+        }
+    }
+
+    // 불린을 실수로 변환 (참=1.0, 거짓=0.0)
+    if (arg.isBoolean())
+    {
+        return Value::createFloat(arg.asBoolean() ? 1.0 : 0.0);
+    }
+
+    throw std::runtime_error("실수() 함수는 정수, 실수, 문자열, 논리 타입만 변환할 수 있습니다");
+}
+
+// ============================================================================
+// 수학 함수
+// ============================================================================
+
+/**
+ * @brief 반올림(실수) - 실수를 반올림
+ *
+ * @param args 실수 값 (1개)
+ * @return 반올림된 정수
+ * @throws std::runtime_error 인자가 실수나 정수가 아닌 경우
+ */
+static Value builtin_반올림(const std::vector<Value>& args)
+{
+    if (args.size() != 1)
+    {
+        throw std::runtime_error("반올림() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+
+    const Value& arg = args[0];
+
+    if (arg.isInteger())
+    {
+        return arg;
+    }
+
+    if (arg.isFloat())
+    {
+        return Value::createInteger(static_cast<int64_t>(std::round(arg.asFloat())));
+    }
+
+    throw std::runtime_error("반올림() 함수의 인자는 정수 또는 실수여야 합니다");
+}
+
+/**
+ * @brief 올림(실수) - 실수를 올림
+ *
+ * @param args 실수 값 (1개)
+ * @return 올림된 정수
+ * @throws std::runtime_error 인자가 실수나 정수가 아닌 경우
+ */
+static Value builtin_올림(const std::vector<Value>& args)
+{
+    if (args.size() != 1)
+    {
+        throw std::runtime_error("올림() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+
+    const Value& arg = args[0];
+
+    if (arg.isInteger())
+    {
+        return arg;
+    }
+
+    if (arg.isFloat())
+    {
+        return Value::createInteger(static_cast<int64_t>(std::ceil(arg.asFloat())));
+    }
+
+    throw std::runtime_error("올림() 함수의 인자는 정수 또는 실수여야 합니다");
+}
+
+/**
+ * @brief 내림(실수) - 실수를 내림
+ *
+ * @param args 실수 값 (1개)
+ * @return 내림된 정수
+ * @throws std::runtime_error 인자가 실수나 정수가 아닌 경우
+ */
+static Value builtin_내림(const std::vector<Value>& args)
+{
+    if (args.size() != 1)
+    {
+        throw std::runtime_error("내림() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+
+    const Value& arg = args[0];
+
+    if (arg.isInteger())
+    {
+        return arg;
+    }
+
+    if (arg.isFloat())
+    {
+        return Value::createInteger(static_cast<int64_t>(std::floor(arg.asFloat())));
+    }
+
+    throw std::runtime_error("내림() 함수의 인자는 정수 또는 실수여야 합니다");
+}
+
+/**
+ * @brief 절대값(수) - 절대값 반환
+ *
+ * @param args 수 값 (1개)
+ * @return 절대값
+ * @throws std::runtime_error 인자가 수가 아닌 경우
+ */
+static Value builtin_절대값(const std::vector<Value>& args)
+{
+    if (args.size() != 1)
+    {
+        throw std::runtime_error("절대값() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+
+    const Value& arg = args[0];
+
+    if (arg.isInteger())
+    {
+        int64_t value = arg.asInteger();
+        return Value::createInteger(value < 0 ? -value : value);
+    }
+
+    if (arg.isFloat())
+    {
+        return Value::createFloat(std::abs(arg.asFloat()));
+    }
+
+    throw std::runtime_error("절대값() 함수의 인자는 정수 또는 실수여야 합니다");
+}
+
+/**
+ * @brief 제곱근(수) - 제곱근 반환
+ *
+ * @param args 수 값 (1개)
+ * @return 제곱근 (실수)
+ * @throws std::runtime_error 인자가 수가 아니거나 음수인 경우
+ */
+static Value builtin_제곱근(const std::vector<Value>& args)
+{
+    if (args.size() != 1)
+    {
+        throw std::runtime_error("제곱근() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+
+    const Value& arg = args[0];
+    double value = 0.0;
+
+    if (arg.isInteger())
+    {
+        value = static_cast<double>(arg.asInteger());
+    }
+    else if (arg.isFloat())
+    {
+        value = arg.asFloat();
+    }
+    else
+    {
+        throw std::runtime_error("제곱근() 함수의 인자는 정수 또는 실수여야 합니다");
+    }
+
+    if (value < 0.0)
+    {
+        throw std::runtime_error("제곱근() 함수의 인자는 음수가 아니어야 합니다");
+    }
+
+    return Value::createFloat(std::sqrt(value));
+}
+
+/**
+ * @brief 제곱(수, 지수) - 거듭제곱 반환
+ *
+ * @param args 밑, 지수 (2개)
+ * @return 거듭제곱 결과
+ * @throws std::runtime_error 인자가 수가 아닌 경우
+ */
+static Value builtin_제곱(const std::vector<Value>& args)
+{
+    if (args.size() != 2)
+    {
+        throw std::runtime_error("제곱() 함수는 정확히 2개의 인자가 필요합니다");
+    }
+
+    double base = 0.0;
+    double exponent = 0.0;
+
+    if (args[0].isInteger())
+    {
+        base = static_cast<double>(args[0].asInteger());
+    }
+    else if (args[0].isFloat())
+    {
+        base = args[0].asFloat();
+    }
+    else
+    {
+        throw std::runtime_error("제곱() 함수의 첫 번째 인자는 정수 또는 실수여야 합니다");
+    }
+
+    if (args[1].isInteger())
+    {
+        exponent = static_cast<double>(args[1].asInteger());
+    }
+    else if (args[1].isFloat())
+    {
+        exponent = args[1].asFloat();
+    }
+    else
+    {
+        throw std::runtime_error("제곱() 함수의 두 번째 인자는 정수 또는 실수여야 합니다");
+    }
+
+    double result = std::pow(base, exponent);
+
+    // 결과가 정수인지 확인 (지수가 양의 정수이고 밑이 정수인 경우)
+    if (args[0].isInteger() && args[1].isInteger() && args[1].asInteger() >= 0)
+    {
+        return Value::createInteger(static_cast<int64_t>(result));
+    }
+
+    return Value::createFloat(result);
+}
+
+// ============================================================================
 // 내장 함수 등록
 // ============================================================================
 
 void Builtin::registerAllBuiltins()
 {
+    // 기본 함수
     registerBuiltin("출력", builtin_출력);
     registerBuiltin("타입", builtin_타입);
     registerBuiltin("길이", builtin_길이);
+
+    // 문자열 함수
     registerBuiltin("분리", builtin_분리);
     registerBuiltin("찾기", builtin_찾기);
     registerBuiltin("바꾸기", builtin_바꾸기);
     registerBuiltin("대문자", builtin_대문자);
     registerBuiltin("소문자", builtin_소문자);
+
+    // 타입 변환 함수
+    registerBuiltin("정수", builtin_정수);
+    registerBuiltin("실수", builtin_실수);
+
+    // 수학 함수
+    registerBuiltin("반올림", builtin_반올림);
+    registerBuiltin("올림", builtin_올림);
+    registerBuiltin("내림", builtin_내림);
+    registerBuiltin("절대값", builtin_절대값);
+    registerBuiltin("제곱근", builtin_제곱근);
+    registerBuiltin("제곱", builtin_제곱);
 }
 
 } // namespace evaluator

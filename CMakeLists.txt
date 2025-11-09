@@ -38,6 +38,10 @@ set(LIB_SOURCES
     src/module/ModuleLoader.cpp
     src/repl/Repl.cpp
     src/memory/GC.cpp
+    src/bytecode/OpCode.cpp
+    src/bytecode/Chunk.cpp
+    src/bytecode/Compiler.cpp
+    src/bytecode/VM.cpp
 )
 
 # 라이브러리 생성 (kingsejong_lib)

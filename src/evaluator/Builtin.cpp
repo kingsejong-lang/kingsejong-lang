@@ -151,32 +151,36 @@ static Value builtin_길이(const std::vector<Value>& args)
         for (size_t i = 0; i < str.length(); )
         {
             unsigned char c = static_cast<unsigned char>(str[i]);
+            size_t charLen = 1;
 
             if ((c & 0x80) == 0)
             {
                 // 1바이트 문자 (ASCII)
-                i += 1;
+                charLen = 1;
             }
             else if ((c & 0xE0) == 0xC0)
             {
                 // 2바이트 UTF-8
-                i += 2;
+                charLen = 2;
             }
             else if ((c & 0xF0) == 0xE0)
             {
                 // 3바이트 UTF-8 (한글 등)
-                i += 3;
+                charLen = 3;
             }
             else if ((c & 0xF8) == 0xF0)
             {
                 // 4바이트 UTF-8
-                i += 4;
+                charLen = 4;
             }
-            else
+
+            // 문자열 끝을 넘어가지 않도록 체크
+            if (i + charLen > str.length())
             {
-                // fallback
-                i += 1;
+                charLen = str.length() - i;
             }
+
+            i += charLen;
             count++;
         }
 
@@ -241,6 +245,12 @@ static Value builtin_분리(const std::vector<Value>& args)
                 charLen = 4;  // 4바이트 UTF-8
             }
 
+            // 문자열 끝을 넘어가지 않도록 체크
+            if (i + charLen > str.length())
+            {
+                charLen = str.length() - i;
+            }
+
             result.push_back(Value::createString(str.substr(i, charLen)));
             i += charLen;
         }
@@ -295,30 +305,35 @@ static Value builtin_찾기(const std::vector<Value>& args)
 
     // UTF-8 문자 인덱스로 변환
     int64_t charIndex = 0;
-    for (size_t i = 0; i < pos; )
+    for (size_t i = 0; i < pos && i < str.length(); )
     {
         unsigned char c = static_cast<unsigned char>(str[i]);
+        size_t charLen = 1;
 
         if ((c & 0x80) == 0)
         {
-            i += 1;
+            charLen = 1;
         }
         else if ((c & 0xE0) == 0xC0)
         {
-            i += 2;
+            charLen = 2;
         }
         else if ((c & 0xF0) == 0xE0)
         {
-            i += 3;
+            charLen = 3;
         }
         else if ((c & 0xF8) == 0xF0)
         {
-            i += 4;
+            charLen = 4;
         }
-        else
+
+        // 문자열 끝을 넘어가지 않도록 체크
+        if (i + charLen > str.length())
         {
-            i += 1;
+            charLen = str.length() - i;
         }
+
+        i += charLen;
         charIndex++;
     }
 

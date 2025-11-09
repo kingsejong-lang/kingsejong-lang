@@ -739,7 +739,7 @@ Value Evaluator::evalImportStatement(ast::ImportStatement* stmt)
     if (!moduleLoader_)
     {
         throw error::RuntimeError(
-            "모듈 로더가 설정되지 않았습니다.\n" +
+            std::string("모듈 로더가 설정되지 않았습니다.\n") +
             "해결 방법: Evaluator에 ModuleLoader를 설정해야 합니다."
         );
     }
@@ -766,7 +766,7 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
     if (!object.isArray())
     {
         throw error::TypeError(
-            "조사 표현식은 현재 배열에만 사용할 수 있습니다.\n" +
+            std::string("조사 표현식은 현재 배열에만 사용할 수 있습니다.\n") +
             "해결 방법: 배열 값에 메서드를 적용하세요."
         );
     }
@@ -782,7 +782,7 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
         if (!funcIdent)
         {
             throw error::TypeError(
-                "조사 표현식의 메서드 호출에서 함수 이름을 식별할 수 없습니다.\n" +
+                std::string("조사 표현식의 메서드 호출에서 함수 이름을 식별할 수 없습니다.\n") +
                 "해결 방법: 메서드 이름을 확인하세요."
             );
         }
@@ -795,7 +795,7 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
             if (callExpr->arguments().size() != 1)
             {
                 throw error::ArgumentError(
-                    "'걸러낸다' 메서드는 정확히 1개의 인자(조건 함수)가 필요합니다.\n" +
+                    std::string("'걸러낸다' 메서드는 정확히 1개의 인자(조건 함수)가 필요합니다.\n") +
                     "해결 방법: 조건 함수를 전달하세요. 예: 걸러낸다(함수(x) { 반환 x > 0 })"
                 );
             }
@@ -804,7 +804,7 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
             if (!filterFunc.isFunction())
             {
                 throw error::TypeError(
-                    "'걸러낸다' 메서드의 인자는 함수여야 합니다.\n" +
+                    std::string("'걸러낸다' 메서드의 인자는 함수여야 합니다.\n") +
                     "해결 방법: 함수 리터럴을 전달하세요."
                 );
             }
@@ -813,12 +813,12 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
             for (const auto& item : arr)
             {
                 // 조건 함수 호출
-                auto funcEnv = filterFunc.asFunction().environment->createEnclosed();
-                const auto& params = filterFunc.asFunction().parameters;
+                auto funcEnv = filterFunc.asFunction()->closure()->createEnclosed();
+                const auto& params = filterFunc.asFunction()->parameters();
                 if (params.size() != 1)
                 {
                     throw error::ArgumentError(
-                        "'걸러낸다' 메서드의 조건 함수는 정확히 1개의 매개변수가 필요합니다.\n" +
+                        std::string("'걸러낸다' 메서드의 조건 함수는 정확히 1개의 매개변수가 필요합니다.\n") +
                         "해결 방법: 함수(x) { ... } 형태로 작성하세요."
                     );
                 }
@@ -828,7 +828,7 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
                 Value result;
                 try
                 {
-                    result = funcEvaluator.eval(const_cast<ast::BlockStatement*>(filterFunc.asFunction().body));
+                    result = funcEvaluator.eval(filterFunc.asFunction()->body());
                 }
                 catch (const ReturnValue& retVal)
                 {
@@ -849,7 +849,7 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
             if (callExpr->arguments().size() != 1)
             {
                 throw error::ArgumentError(
-                    "'변환한다' 메서드는 정확히 1개의 인자(변환 함수)가 필요합니다.\n" +
+                    std::string("'변환한다' 메서드는 정확히 1개의 인자(변환 함수)가 필요합니다.\n") +
                     "해결 방법: 변환 함수를 전달하세요. 예: 변환한다(함수(x) { 반환 x * 2 })"
                 );
             }
@@ -858,7 +858,7 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
             if (!mapFunc.isFunction())
             {
                 throw error::TypeError(
-                    "'변환한다' 메서드의 인자는 함수여야 합니다.\n" +
+                    std::string("'변환한다' 메서드의 인자는 함수여야 합니다.\n") +
                     "해결 방법: 함수 리터럴을 전달하세요."
                 );
             }
@@ -867,12 +867,12 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
             for (const auto& item : arr)
             {
                 // 변환 함수 호출
-                auto funcEnv = mapFunc.asFunction().environment->createEnclosed();
-                const auto& params = mapFunc.asFunction().parameters;
+                auto funcEnv = mapFunc.asFunction()->closure()->createEnclosed();
+                const auto& params = mapFunc.asFunction()->parameters();
                 if (params.size() != 1)
                 {
                     throw error::ArgumentError(
-                        "'변환한다' 메서드의 변환 함수는 정확히 1개의 매개변수가 필요합니다.\n" +
+                        std::string("'변환한다' 메서드의 변환 함수는 정확히 1개의 매개변수가 필요합니다.\n") +
                         "해결 방법: 함수(x) { ... } 형태로 작성하세요."
                     );
                 }
@@ -882,7 +882,7 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
                 Value result;
                 try
                 {
-                    result = funcEvaluator.eval(const_cast<ast::BlockStatement*>(mapFunc.asFunction().body));
+                    result = funcEvaluator.eval(mapFunc.asFunction()->body());
                 }
                 catch (const ReturnValue& retVal)
                 {
@@ -900,7 +900,7 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
             if (callExpr->arguments().size() != 2)
             {
                 throw error::ArgumentError(
-                    "'축약한다' 메서드는 정확히 2개의 인자(초기값, 축약 함수)가 필요합니다.\n" +
+                    std::string("'축약한다' 메서드는 정확히 2개의 인자(초기값, 축약 함수)가 필요합니다.\n") +
                     "해결 방법: 축약한다(0, 함수(누적, 현재) { 반환 누적 + 현재 })"
                 );
             }
@@ -911,16 +911,16 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
             if (!reduceFunc.isFunction())
             {
                 throw error::TypeError(
-                    "'축약한다' 메서드의 두 번째 인자는 함수여야 합니다.\n" +
+                    std::string("'축약한다' 메서드의 두 번째 인자는 함수여야 합니다.\n") +
                     "해결 방법: 함수 리터럴을 전달하세요."
                 );
             }
 
-            const auto& params = reduceFunc.asFunction().parameters;
+            const auto& params = reduceFunc.asFunction()->parameters();
             if (params.size() != 2)
             {
                 throw error::ArgumentError(
-                    "'축약한다' 메서드의 축약 함수는 정확히 2개의 매개변수가 필요합니다.\n" +
+                    std::string("'축약한다' 메서드의 축약 함수는 정확히 2개의 매개변수가 필요합니다.\n") +
                     "해결 방법: 함수(누적, 현재) { ... } 형태로 작성하세요."
                 );
             }
@@ -928,14 +928,14 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
             Value accumulator = initialValue;
             for (const auto& item : arr)
             {
-                auto funcEnv = reduceFunc.asFunction().environment->createEnclosed();
+                auto funcEnv = reduceFunc.asFunction()->closure()->createEnclosed();
                 funcEnv->set(params[0], accumulator);
                 funcEnv->set(params[1], item);
 
                 Evaluator funcEvaluator(funcEnv);
                 try
                 {
-                    accumulator = funcEvaluator.eval(const_cast<ast::BlockStatement*>(reduceFunc.asFunction().body));
+                    accumulator = funcEvaluator.eval(reduceFunc.asFunction()->body());
                 }
                 catch (const ReturnValue& retVal)
                 {
@@ -951,7 +951,7 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
             if (callExpr->arguments().size() != 1)
             {
                 throw error::ArgumentError(
-                    "'찾다' 메서드는 정확히 1개의 인자(조건 함수)가 필요합니다.\n" +
+                    std::string("'찾다' 메서드는 정확히 1개의 인자(조건 함수)가 필요합니다.\n") +
                     "해결 방법: 조건 함수를 전달하세요. 예: 찾다(함수(x) { 반환 x > 10 })"
                 );
             }
@@ -960,19 +960,19 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
             if (!findFunc.isFunction())
             {
                 throw error::TypeError(
-                    "'찾다' 메서드의 인자는 함수여야 합니다.\n" +
+                    std::string("'찾다' 메서드의 인자는 함수여야 합니다.\n") +
                     "해결 방법: 함수 리터럴을 전달하세요."
                 );
             }
 
             for (const auto& item : arr)
             {
-                auto funcEnv = findFunc.asFunction().environment->createEnclosed();
-                const auto& params = findFunc.asFunction().parameters;
+                auto funcEnv = findFunc.asFunction()->closure()->createEnclosed();
+                const auto& params = findFunc.asFunction()->parameters();
                 if (params.size() != 1)
                 {
                     throw error::ArgumentError(
-                        "'찾다' 메서드의 조건 함수는 정확히 1개의 매개변수가 필요합니다.\n" +
+                        std::string("'찾다' 메서드의 조건 함수는 정확히 1개의 매개변수가 필요합니다.\n") +
                         "해결 방법: 함수(x) { ... } 형태로 작성하세요."
                     );
                 }
@@ -982,7 +982,7 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
                 Value result;
                 try
                 {
-                    result = funcEvaluator.eval(const_cast<ast::BlockStatement*>(findFunc.asFunction().body));
+                    result = funcEvaluator.eval(findFunc.asFunction()->body());
                 }
                 catch (const ReturnValue& retVal)
                 {
@@ -1009,7 +1009,7 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
     if (!methodIdent)
     {
         throw error::TypeError(
-            "조사 표현식의 메서드는 식별자 또는 메서드 호출이어야 합니다.\n" +
+            std::string("조사 표현식의 메서드는 식별자 또는 메서드 호출이어야 합니다.\n") +
             "해결 방법: 메서드 이름을 확인하세요."
         );
     }

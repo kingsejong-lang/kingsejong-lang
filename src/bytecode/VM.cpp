@@ -437,7 +437,7 @@ VMResult VM::executeInstruction() {
         }
 
         case OpCode::JOSA_CALL: {
-            uint8_t josaType = readByte();
+            [[maybe_unused]] uint8_t josaType = readByte();
             uint8_t methodIdx = readByte();
 
             // 객체

@@ -9,6 +9,7 @@
 #include <sstream>
 #include <iomanip>
 #include <stdexcept>
+#include <iostream>
 
 namespace kingsejong {
 namespace bytecode {

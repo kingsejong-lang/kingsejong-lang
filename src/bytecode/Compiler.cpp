@@ -36,7 +36,7 @@ bool Compiler::compile(ast::Program* program, Chunk* chunk) {
 void Compiler::compileStatement(ast::Statement* stmt) {
     if (!stmt) return;
 
-    switch (stmt->nodeType()) {
+    switch (stmt->type()) {
         case ast::NodeType::VAR_DECLARATION:
             compileVarDeclaration(static_cast<ast::VarDeclaration*>(stmt));
             break;
@@ -78,7 +78,7 @@ void Compiler::compileExpression(ast::Expression* expr) {
         return;
     }
 
-    switch (expr->nodeType()) {
+    switch (expr->type()) {
         case ast::NodeType::INTEGER_LITERAL:
             compileIntegerLiteral(static_cast<ast::IntegerLiteral*>(expr));
             break;
@@ -129,52 +129,52 @@ void Compiler::compileExpression(ast::Expression* expr) {
 // ============================================================================
 
 void Compiler::compileVarDeclaration(ast::VarDeclaration* decl) {
-    if (decl->value()) {
-        compileExpression(decl->value());
+    if (decl->initializer()) {
+        compileExpression(const_cast<ast::Expression*>(decl->initializer()));
     } else {
         emit(OpCode::LOAD_NULL);
     }
 
     if (scopeDepth_ == 0) {
         // 전역 변수
-        size_t nameIdx = chunk_->addName(decl->name());
+        size_t nameIdx = chunk_->addName(decl->varName());
         emit(OpCode::STORE_GLOBAL, static_cast<uint8_t>(nameIdx));
     } else {
         // 로컬 변수
-        addLocal(decl->name());
+        addLocal(decl->varName());
     }
 }
 
 void Compiler::compileExpressionStatement(ast::ExpressionStatement* stmt) {
-    compileExpression(stmt->expression());
+    compileExpression(const_cast<ast::Expression*>(stmt->expression()));
     emit(OpCode::POP);  // 표현식 결과 제거
 }
 
 void Compiler::compileIfStatement(ast::IfStatement* stmt) {
     // 최적화: 상수 조건 검사 (데드 코드 제거)
     bool constResult;
-    if (isConstantCondition(stmt->condition(), constResult)) {
+    if (isConstantCondition(const_cast<ast::Expression*>(stmt->condition()), constResult)) {
         if (constResult) {
             // 조건이 항상 참 - then 블록만 컴파일
-            compileStatement(stmt->thenBranch());
+            compileStatement(const_cast<ast::BlockStatement*>(static_cast<const ast::BlockStatement*>(stmt->thenBranch())));
         } else {
             // 조건이 항상 거짓 - else 블록만 컴파일
             if (stmt->elseBranch()) {
-                compileStatement(stmt->elseBranch());
+                compileStatement(const_cast<ast::BlockStatement*>(static_cast<const ast::BlockStatement*>(stmt->elseBranch())));
             }
         }
         return;
     }
 
     // 조건 평가
-    compileExpression(stmt->condition());
+    compileExpression(const_cast<ast::Expression*>(stmt->condition()));
 
     // 거짓이면 else로 점프
     size_t thenJump = emitJump(OpCode::JUMP_IF_FALSE);
 
     // then 블록
     emit(OpCode::POP);  // 조건 값 제거
-    compileStatement(stmt->thenBranch());
+    compileStatement(const_cast<ast::BlockStatement*>(static_cast<const ast::BlockStatement*>(stmt->thenBranch())));
 
     // else 블록 건너뛰기
     size_t elseJump = emitJump(OpCode::JUMP);
@@ -184,7 +184,7 @@ void Compiler::compileIfStatement(ast::IfStatement* stmt) {
     emit(OpCode::POP);  // 조건 값 제거
 
     if (stmt->elseBranch()) {
-        compileStatement(stmt->elseBranch());
+        compileStatement(const_cast<ast::BlockStatement*>(static_cast<const ast::BlockStatement*>(stmt->elseBranch())));
     }
 
     patchJump(elseJump);
@@ -196,14 +196,14 @@ void Compiler::compileWhileStatement(ast::WhileStatement* stmt) {
     breakJumps_.push_back({});
 
     // 조건 평가
-    compileExpression(stmt->condition());
+    compileExpression(const_cast<ast::Expression*>(stmt->condition()));
 
     // 거짓이면 루프 종료
     size_t exitJump = emitJump(OpCode::JUMP_IF_FALSE);
     emit(OpCode::POP);  // 조건 값 제거
 
     // 루프 본문
-    compileStatement(stmt->body());
+    compileStatement(const_cast<ast::BlockStatement*>(static_cast<const ast::BlockStatement*>(stmt->body())));
 
     // 루프 시작으로 점프
     emitLoop(loopStart);
@@ -221,14 +221,14 @@ void Compiler::compileWhileStatement(ast::WhileStatement* stmt) {
     breakJumps_.pop_back();
 }
 
-void Compiler::compileForStatement(ast::ForStatement* stmt) {
+void Compiler::compileForStatement([[maybe_unused]] ast::ForStatement* stmt) {
     // TODO: 일반 for 문 구현
     error("For statement not yet implemented");
 }
 
 void Compiler::compileReturnStatement(ast::ReturnStatement* stmt) {
-    if (stmt->value()) {
-        compileExpression(stmt->value());
+    if (stmt->returnValue()) {
+        compileExpression(const_cast<ast::Expression*>(stmt->returnValue()));
     } else {
         emit(OpCode::LOAD_NULL);
     }
@@ -247,7 +247,7 @@ void Compiler::compileBlockStatement(ast::BlockStatement* stmt) {
 
 void Compiler::compileRepeatStatement(ast::RepeatStatement* stmt) {
     // 반복 횟수 평가
-    compileExpression(stmt->count());
+    compileExpression(const_cast<ast::Expression*>(stmt->count()));
 
     size_t loopStart = currentOffset();
     loopStarts_.push_back(loopStart);
@@ -266,7 +266,7 @@ void Compiler::compileRepeatStatement(ast::RepeatStatement* stmt) {
     emit(OpCode::POP);
 
     // 루프 본문
-    compileStatement(stmt->body());
+    compileStatement(const_cast<ast::BlockStatement*>(static_cast<const ast::BlockStatement*>(stmt->body())));
 
     // 카운터 감소
     constIdx = chunk_->addConstant(evaluator::Value::createInteger(1));
@@ -285,11 +285,8 @@ void Compiler::compileRepeatStatement(ast::RepeatStatement* stmt) {
     breakJumps_.pop_back();
 }
 
-void Compiler::compileRangeForStatement(ast::RangeForStatement* stmt) {
+void Compiler::compileRangeForStatement([[maybe_unused]] ast::RangeForStatement* stmt) {
     beginScope();
-
-    // 범위 생성
-    compileExpression(stmt->range());
 
     // TODO: 범위 반복 구현
     // 간단화를 위해 에러 처리
@@ -327,14 +324,14 @@ void Compiler::compileBooleanLiteral(ast::BooleanLiteral* lit) {
 }
 
 void Compiler::compileIdentifier(ast::Identifier* ident) {
-    int local = resolveLocal(ident->value());
+    int local = resolveLocal(ident->name());
 
     if (local != -1) {
         // 로컬 변수
         emit(OpCode::LOAD_VAR, static_cast<uint8_t>(local));
     } else {
         // 전역 변수
-        size_t nameIdx = chunk_->addName(ident->value());
+        size_t nameIdx = chunk_->addName(ident->name());
         emit(OpCode::LOAD_GLOBAL, static_cast<uint8_t>(nameIdx));
     }
 }
@@ -346,30 +343,27 @@ void Compiler::compileBinaryExpression(ast::BinaryExpression* expr) {
     }
 
     // 왼쪽 피연산자
-    compileExpression(expr->left());
+    compileExpression(const_cast<ast::Expression*>(expr->left()));
 
     // 오른쪽 피연산자
-    compileExpression(expr->right());
+    compileExpression(const_cast<ast::Expression*>(expr->right()));
 
     // 연산자
-    lexer::TokenType op = expr->op();
-    switch (op) {
-        case lexer::TokenType::PLUS:       emit(OpCode::ADD); break;
-        case lexer::TokenType::MINUS:      emit(OpCode::SUB); break;
-        case lexer::TokenType::ASTERISK:   emit(OpCode::MUL); break;
-        case lexer::TokenType::SLASH:      emit(OpCode::DIV); break;
-        case lexer::TokenType::PERCENT:    emit(OpCode::MOD); break;
-        case lexer::TokenType::EQ:         emit(OpCode::EQ); break;
-        case lexer::TokenType::NOT_EQ:     emit(OpCode::NE); break;
-        case lexer::TokenType::LT:         emit(OpCode::LT); break;
-        case lexer::TokenType::GT:         emit(OpCode::GT); break;
-        case lexer::TokenType::LE:         emit(OpCode::LE); break;
-        case lexer::TokenType::GE:         emit(OpCode::GE); break;
-        case lexer::TokenType::AND:        emit(OpCode::AND); break;
-        case lexer::TokenType::OR:         emit(OpCode::OR); break;
-        default:
-            error("Unknown binary operator");
-    }
+    const std::string& op = expr->op();
+    if (op == "+")          emit(OpCode::ADD);
+    else if (op == "-")     emit(OpCode::SUB);
+    else if (op == "*")     emit(OpCode::MUL);
+    else if (op == "/")     emit(OpCode::DIV);
+    else if (op == "%")     emit(OpCode::MOD);
+    else if (op == "==")    emit(OpCode::EQ);
+    else if (op == "!=")    emit(OpCode::NE);
+    else if (op == "<")     emit(OpCode::LT);
+    else if (op == ">")     emit(OpCode::GT);
+    else if (op == "<=")    emit(OpCode::LE);
+    else if (op == ">=")    emit(OpCode::GE);
+    else if (op == "&&" || op == "그리고") emit(OpCode::AND);
+    else if (op == "||" || op == "또는")   emit(OpCode::OR);
+    else error("Unknown binary operator: " + op);
 }
 
 void Compiler::compileUnaryExpression(ast::UnaryExpression* expr) {
@@ -379,25 +373,22 @@ void Compiler::compileUnaryExpression(ast::UnaryExpression* expr) {
     }
 
     // 피연산자
-    compileExpression(expr->operand());
+    compileExpression(const_cast<ast::Expression*>(expr->operand()));
 
     // 연산자
-    lexer::TokenType op = expr->op();
-    switch (op) {
-        case lexer::TokenType::MINUS:  emit(OpCode::NEG); break;
-        case lexer::TokenType::NOT:    emit(OpCode::NOT); break;
-        default:
-            error("Unknown unary operator");
-    }
+    const std::string& op = expr->op();
+    if (op == "-" || op == "음수") emit(OpCode::NEG);
+    else if (op == "!" || op == "아님") emit(OpCode::NOT);
+    else error("Unknown unary operator: " + op);
 }
 
 void Compiler::compileCallExpression(ast::CallExpression* expr) {
     // 함수
-    compileExpression(expr->function());
+    compileExpression(const_cast<ast::Expression*>(expr->function()));
 
     // 인자들
     for (auto& arg : expr->arguments()) {
-        compileExpression(arg.get());
+        compileExpression(const_cast<ast::Expression*>(arg.get()));
     }
 
     // 호출
@@ -407,7 +398,7 @@ void Compiler::compileCallExpression(ast::CallExpression* expr) {
 void Compiler::compileArrayLiteral(ast::ArrayLiteral* lit) {
     // 요소들
     for (auto& elem : lit->elements()) {
-        compileExpression(elem.get());
+        compileExpression(const_cast<ast::Expression*>(elem.get()));
     }
 
     // 배열 생성
@@ -416,10 +407,10 @@ void Compiler::compileArrayLiteral(ast::ArrayLiteral* lit) {
 
 void Compiler::compileIndexExpression(ast::IndexExpression* expr) {
     // 배열
-    compileExpression(expr->array());
+    compileExpression(const_cast<ast::Expression*>(expr->array()));
 
     // 인덱스
-    compileExpression(expr->index());
+    compileExpression(const_cast<ast::Expression*>(expr->index()));
 
     // 인덱스 접근
     emit(OpCode::INDEX_GET);
@@ -439,12 +430,12 @@ void Compiler::compileFunctionLiteral(ast::FunctionLiteral* lit) {
     beginScope();
 
     // 파라미터를 로컬 변수로 추가
-    for (auto& param : lit->parameters()) {
-        addLocal(param->value());
+    for (const auto& param : lit->parameters()) {
+        addLocal(param);
     }
 
     // 함수 본체 컴파일
-    compileBlockStatement(lit->body());
+    compileBlockStatement(static_cast<ast::BlockStatement*>(lit->body()));
 
     // 암시적 return null
     emit(OpCode::LOAD_NULL);
@@ -465,10 +456,11 @@ void Compiler::compileFunctionLiteral(ast::FunctionLiteral* lit) {
 
 void Compiler::compileJosaExpression(ast::JosaExpression* expr) {
     // 객체
-    compileExpression(expr->object());
+    compileExpression(const_cast<ast::Expression*>(expr->object()));
 
     // 메서드 이름
-    size_t methodIdx = chunk_->addName(expr->method()->value());
+    const ast::Identifier* methodIdent = static_cast<const ast::Identifier*>(expr->method());
+    size_t methodIdx = chunk_->addName(methodIdent->name());
 
     // 조사 타입 (간단화를 위해 0으로)
     emit(OpCode::JOSA_CALL, 0, static_cast<uint8_t>(methodIdx));
@@ -476,15 +468,15 @@ void Compiler::compileJosaExpression(ast::JosaExpression* expr) {
 
 void Compiler::compileRangeExpression(ast::RangeExpression* expr) {
     // 시작값
-    compileExpression(expr->start());
+    compileExpression(const_cast<ast::Expression*>(expr->start()));
 
     // 끝값
-    compileExpression(expr->end());
+    compileExpression(const_cast<ast::Expression*>(expr->end()));
 
     // 범위 생성 (포함 플래그)
     uint8_t flags = 0;
-    if (expr->inclusiveStart()) flags |= 0x01;
-    if (expr->inclusiveEnd()) flags |= 0x02;
+    if (expr->startInclusive()) flags |= 0x01;
+    if (expr->endInclusive()) flags |= 0x02;
 
     emit(OpCode::BUILD_RANGE, flags, 0);
 }
@@ -588,8 +580,8 @@ void Compiler::error(const std::string& message) {
 
 bool Compiler::tryConstantFoldBinary(ast::BinaryExpression* expr) {
     // 정수 리터럴 폴딩
-    auto* leftInt = dynamic_cast<ast::IntegerLiteral*>(expr->left());
-    auto* rightInt = dynamic_cast<ast::IntegerLiteral*>(expr->right());
+    auto* leftInt = dynamic_cast<ast::IntegerLiteral*>(const_cast<ast::Expression*>(expr->left()));
+    auto* rightInt = dynamic_cast<ast::IntegerLiteral*>(const_cast<ast::Expression*>(expr->right()));
 
     if (leftInt && rightInt) {
         int64_t left = leftInt->value();
@@ -598,54 +590,39 @@ bool Compiler::tryConstantFoldBinary(ast::BinaryExpression* expr) {
         bool isBoolResult = false;
         bool boolResult = false;
 
-        switch (expr->op()) {
-            // 산술 연산
-            case lexer::TokenType::PLUS:
-                result = left + right;
-                break;
-            case lexer::TokenType::MINUS:
-                result = left - right;
-                break;
-            case lexer::TokenType::ASTERISK:
-                result = left * right;
-                break;
-            case lexer::TokenType::SLASH:
-                if (right == 0) return false;  // 0으로 나누기는 런타임에 처리
-                result = left / right;
-                break;
-            case lexer::TokenType::PERCENT:
-                if (right == 0) return false;
-                result = left % right;
-                break;
-
-            // 비교 연산
-            case lexer::TokenType::EQ:
-                isBoolResult = true;
-                boolResult = (left == right);
-                break;
-            case lexer::TokenType::NOT_EQ:
-                isBoolResult = true;
-                boolResult = (left != right);
-                break;
-            case lexer::TokenType::LT:
-                isBoolResult = true;
-                boolResult = (left < right);
-                break;
-            case lexer::TokenType::GT:
-                isBoolResult = true;
-                boolResult = (left > right);
-                break;
-            case lexer::TokenType::LE:
-                isBoolResult = true;
-                boolResult = (left <= right);
-                break;
-            case lexer::TokenType::GE:
-                isBoolResult = true;
-                boolResult = (left >= right);
-                break;
-
-            default:
-                return false;  // 폴딩 불가능한 연산
+        const std::string& op = expr->op();
+        if (op == "+") {
+            result = left + right;
+        } else if (op == "-") {
+            result = left - right;
+        } else if (op == "*") {
+            result = left * right;
+        } else if (op == "/") {
+            if (right == 0) return false;
+            result = left / right;
+        } else if (op == "%") {
+            if (right == 0) return false;
+            result = left % right;
+        } else if (op == "==") {
+            isBoolResult = true;
+            boolResult = (left == right);
+        } else if (op == "!=") {
+            isBoolResult = true;
+            boolResult = (left != right);
+        } else if (op == "<") {
+            isBoolResult = true;
+            boolResult = (left < right);
+        } else if (op == ">") {
+            isBoolResult = true;
+            boolResult = (left > right);
+        } else if (op == "<=") {
+            isBoolResult = true;
+            boolResult = (left <= right);
+        } else if (op == ">=") {
+            isBoolResult = true;
+            boolResult = (left >= right);
+        } else {
+            return false;  // 폴딩 불가능한 연산
         }
 
         if (isBoolResult) {
@@ -658,8 +635,8 @@ bool Compiler::tryConstantFoldBinary(ast::BinaryExpression* expr) {
     }
 
     // 부동소수점 리터럴 폴딩
-    auto* leftFloat = dynamic_cast<ast::FloatLiteral*>(expr->left());
-    auto* rightFloat = dynamic_cast<ast::FloatLiteral*>(expr->right());
+    auto* leftFloat = dynamic_cast<ast::FloatLiteral*>(const_cast<ast::Expression*>(expr->left()));
+    auto* rightFloat = dynamic_cast<ast::FloatLiteral*>(const_cast<ast::Expression*>(expr->right()));
 
     if (leftFloat && rightFloat) {
         double left = leftFloat->value();
@@ -668,48 +645,36 @@ bool Compiler::tryConstantFoldBinary(ast::BinaryExpression* expr) {
         bool isBoolResult = false;
         bool boolResult = false;
 
-        switch (expr->op()) {
-            case lexer::TokenType::PLUS:
-                result = left + right;
-                break;
-            case lexer::TokenType::MINUS:
-                result = left - right;
-                break;
-            case lexer::TokenType::ASTERISK:
-                result = left * right;
-                break;
-            case lexer::TokenType::SLASH:
-                if (right == 0.0) return false;
-                result = left / right;
-                break;
-
-            case lexer::TokenType::EQ:
-                isBoolResult = true;
-                boolResult = (left == right);
-                break;
-            case lexer::TokenType::NOT_EQ:
-                isBoolResult = true;
-                boolResult = (left != right);
-                break;
-            case lexer::TokenType::LT:
-                isBoolResult = true;
-                boolResult = (left < right);
-                break;
-            case lexer::TokenType::GT:
-                isBoolResult = true;
-                boolResult = (left > right);
-                break;
-            case lexer::TokenType::LE:
-                isBoolResult = true;
-                boolResult = (left <= right);
-                break;
-            case lexer::TokenType::GE:
-                isBoolResult = true;
-                boolResult = (left >= right);
-                break;
-
-            default:
-                return false;
+        const std::string& op = expr->op();
+        if (op == "+") {
+            result = left + right;
+        } else if (op == "-") {
+            result = left - right;
+        } else if (op == "*") {
+            result = left * right;
+        } else if (op == "/") {
+            if (right == 0.0) return false;
+            result = left / right;
+        } else if (op == "==") {
+            isBoolResult = true;
+            boolResult = (left == right);
+        } else if (op == "!=") {
+            isBoolResult = true;
+            boolResult = (left != right);
+        } else if (op == "<") {
+            isBoolResult = true;
+            boolResult = (left < right);
+        } else if (op == ">") {
+            isBoolResult = true;
+            boolResult = (left > right);
+        } else if (op == "<=") {
+            isBoolResult = true;
+            boolResult = (left <= right);
+        } else if (op == ">=") {
+            isBoolResult = true;
+            boolResult = (left >= right);
+        } else {
+            return false;
         }
 
         if (isBoolResult) {
@@ -726,8 +691,8 @@ bool Compiler::tryConstantFoldBinary(ast::BinaryExpression* expr) {
 
 bool Compiler::tryConstantFoldUnary(ast::UnaryExpression* expr) {
     // 정수 리터럴 단항 연산 폴딩
-    auto* intLit = dynamic_cast<ast::IntegerLiteral*>(expr->operand());
-    if (intLit && expr->op() == lexer::TokenType::MINUS) {
+    auto* intLit = dynamic_cast<ast::IntegerLiteral*>(const_cast<ast::Expression*>(expr->operand()));
+    if (intLit && expr->op() == "-") {
         int64_t result = -intLit->value();
         size_t idx = chunk_->addConstant(evaluator::Value::createInteger(result));
         emit(OpCode::LOAD_CONST, static_cast<uint8_t>(idx));
@@ -735,8 +700,8 @@ bool Compiler::tryConstantFoldUnary(ast::UnaryExpression* expr) {
     }
 
     // 부동소수점 리터럴 단항 연산 폴딩
-    auto* floatLit = dynamic_cast<ast::FloatLiteral*>(expr->operand());
-    if (floatLit && expr->op() == lexer::TokenType::MINUS) {
+    auto* floatLit = dynamic_cast<ast::FloatLiteral*>(const_cast<ast::Expression*>(expr->operand()));
+    if (floatLit && expr->op() == "-") {
         double result = -floatLit->value();
         size_t idx = chunk_->addConstant(evaluator::Value::createFloat(result));
         emit(OpCode::LOAD_CONST, static_cast<uint8_t>(idx));
@@ -744,8 +709,8 @@ bool Compiler::tryConstantFoldUnary(ast::UnaryExpression* expr) {
     }
 
     // 불린 NOT 연산 폴딩
-    auto* boolLit = dynamic_cast<ast::BooleanLiteral*>(expr->operand());
-    if (boolLit && expr->op() == lexer::TokenType::NOT) {
+    auto* boolLit = dynamic_cast<ast::BooleanLiteral*>(const_cast<ast::Expression*>(expr->operand()));
+    if (boolLit && (expr->op() == "!" || expr->op() == "아님")) {
         emit(boolLit->value() ? OpCode::LOAD_FALSE : OpCode::LOAD_TRUE);
         return true;
     }

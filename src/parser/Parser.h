@@ -152,6 +152,7 @@ private:
     std::unique_ptr<RepeatStatement> parseRepeatStatement();
     std::unique_ptr<RangeForStatement> parseRangeForStatement();
     std::unique_ptr<BlockStatement> parseBlockStatement();
+    std::unique_ptr<ImportStatement> parseImportStatement();
 
     // 표현식 파싱 (Pratt Parsing 핵심)
     std::unique_ptr<Expression> parseExpression(

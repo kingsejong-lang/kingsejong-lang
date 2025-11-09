@@ -265,6 +265,12 @@ std::unique_ptr<Statement> Parser::parseStatement()
         return parseReturnStatement();
     }
 
+    // 모듈 가져오기
+    if (curTokenIs(TokenType::GAJYEOOGI))
+    {
+        return parseImportStatement();
+    }
+
     // 조건 문장
     if (curTokenIs(TokenType::MANYAK))
     {
@@ -581,6 +587,21 @@ std::unique_ptr<BlockStatement> Parser::parseBlockStatement()
     auto statements = parseStatements(TokenType::RBRACE);
 
     return std::make_unique<BlockStatement>(std::move(statements));
+}
+
+std::unique_ptr<ImportStatement> Parser::parseImportStatement()
+{
+    // 현재 토큰은 "가져오기"
+
+    // 다음 토큰은 문자열이어야 함
+    if (!expectPeek(TokenType::STRING))
+    {
+        return nullptr;
+    }
+
+    std::string modulePath = curToken_.literal;
+
+    return std::make_unique<ImportStatement>(modulePath);
 }
 
 std::vector<std::unique_ptr<Statement>> Parser::parseStatements(TokenType endToken)

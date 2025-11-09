@@ -112,12 +112,33 @@ REPL 명령어:
 - `.vars`, `.변수` - 정의된 변수 목록 표시
 - `Ctrl+D` - REPL 종료 (EOF)
 
-#### 파일 실행 (F1.18에서 구현 예정)
+#### 파일 실행 모드
 
 ```bash
 # 파일 실행
-./kingsejong script.ksj
+./kingsejong 파일명.ksj
 ```
+
+KingSejong 스크립트 파일(`.ksj`)을 실행할 수 있습니다:
+
+```bash
+# 기본 출력 예제
+./kingsejong examples/hello.ksj
+
+# 계산기 예제
+./kingsejong examples/calculator.ksj
+
+# 피보나치 수열
+./kingsejong examples/fibonacci.ksj
+
+# 반복문 예제
+./kingsejong examples/loop.ksj
+
+# 함수 예제
+./kingsejong examples/function.ksj
+```
+
+예제 파일은 `examples/` 디렉토리에서 확인할 수 있습니다.
 
 ## 프로젝트 구조
 
@@ -155,6 +176,7 @@ kingsejong-lang/
 | F1.15: 1급 함수 | ✅ 완료 | 100% | 함수 리터럴, 클로저, 재귀 |
 | F1.16: 내장 함수 | ✅ 완료 | 100% | 출력(), 타입(), 길이() |
 | F1.17: REPL | ✅ 완료 | 수동 | 대화형 실행 환경 |
+| F1.18: 파일 실행 | ✅ 완료 | 수동 | .ksj 파일 실행, 5개 예제 |
 
 ### 전체 테스트 현황
 

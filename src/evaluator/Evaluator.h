@@ -187,6 +187,13 @@ private:
      */
     Value evalIndexExpression(ast::IndexExpression* expr);
 
+    /**
+     * @brief 조사 표현식 평가
+     * @param expr 조사 표현식 노드
+     * @return 메서드 실행 결과 Value
+     */
+    Value evalJosaExpression(ast::JosaExpression* expr);
+
     // Statement 실행 함수들
 
     /**

@@ -11,6 +11,7 @@
 #include "../module/ModuleLoader.h"
 #include <sstream>
 #include <cmath>
+#include <algorithm>
 
 namespace kingsejong {
 namespace evaluator {
@@ -75,6 +76,9 @@ Value Evaluator::eval(ast::Node* node)
 
         case ast::NodeType::INDEX_EXPRESSION:
             return evalIndexExpression(static_cast<ast::IndexExpression*>(node));
+
+        case ast::NodeType::JOSA_EXPRESSION:
+            return evalJosaExpression(static_cast<ast::JosaExpression*>(node));
 
         // Statements
         case ast::NodeType::PROGRAM:
@@ -751,6 +755,60 @@ Value Evaluator::evalImportStatement(ast::ImportStatement* stmt)
     }
 
     return Value::createNull();
+}
+
+Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
+{
+    // 객체 평가
+    Value object = eval(const_cast<ast::Expression*>(expr->object()));
+
+    // 메서드 이름 획득
+    const ast::Identifier* methodIdent = dynamic_cast<const ast::Identifier*>(expr->method());
+    if (!methodIdent)
+    {
+        throw error::TypeError(
+            "조사 표현식의 메서드는 식별자여야 합니다.\n" +
+            "해결 방법: 메서드 이름을 확인하세요."
+        );
+    }
+
+    std::string methodName = methodIdent->name();
+
+    // 배열 메서드 처리
+    if (object.isArray())
+    {
+        auto arr = object.asArray();
+
+        // 정렬 메서드
+        if (methodName == "정렬한다" || methodName == "정렬하고")
+        {
+            std::vector<Value> sorted = arr;
+            std::sort(sorted.begin(), sorted.end(), [](const Value& a, const Value& b) {
+                return a.lessThan(b);
+            });
+            return Value::createArray(sorted);
+        }
+
+        // 역순 메서드
+        if (methodName == "역순으로_나열한다" || methodName == "역순으로_나열하고")
+        {
+            std::vector<Value> reversed = arr;
+            std::reverse(reversed.begin(), reversed.end());
+            return Value::createArray(reversed);
+        }
+
+        // 메서드를 찾을 수 없음
+        throw error::NameError(
+            "배열에 대한 메서드 '" + methodName + "'를 찾을 수 없습니다.\n" +
+            "해결 방법: 지원되는 메서드는 '정렬한다', '역순으로_나열한다' 등입니다."
+        );
+    }
+
+    // 배열이 아닌 타입에 대한 조사 표현식
+    throw error::TypeError(
+        "조사 표현식은 현재 배열에만 사용할 수 있습니다.\n" +
+        "해결 방법: 배열 값에 메서드를 적용하세요."
+    );
 }
 
 } // namespace evaluator

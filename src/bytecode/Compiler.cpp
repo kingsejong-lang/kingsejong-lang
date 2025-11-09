@@ -401,9 +401,41 @@ void Compiler::compileIndexExpression(ast::IndexExpression* expr) {
 }
 
 void Compiler::compileFunctionLiteral(ast::FunctionLiteral* lit) {
-    // TODO: 함수 컴파일 구현
-    // 현재는 간단화를 위해 에러
-    error("Function literal not yet fully implemented");
+    // 함수를 별도의 청크로 컴파일
+    // 간단화를 위해 현재 청크에 인라인으로 컴파일
+
+    // 함수 본체 시작 위치로 점프
+    size_t jumpOver = emitJump(OpCode::JUMP);
+
+    // 함수 본체 시작
+    size_t functionStart = currentOffset();
+
+    // 새 스코프 시작
+    beginScope();
+
+    // 파라미터를 로컬 변수로 추가
+    for (auto& param : lit->parameters()) {
+        addLocal(param->value());
+    }
+
+    // 함수 본체 컴파일
+    compileBlockStatement(lit->body());
+
+    // 암시적 return null
+    emit(OpCode::LOAD_NULL);
+    emit(OpCode::RETURN);
+
+    // 스코프 종료
+    endScope();
+
+    // 점프 패치
+    patchJump(jumpOver);
+
+    // 함수 객체 생성
+    emit(OpCode::BUILD_FUNCTION,
+         static_cast<uint8_t>(lit->parameters().size()),
+         static_cast<uint8_t>((functionStart >> 8) & 0xFF));
+    chunk_->write(static_cast<uint8_t>(functionStart & 0xFF), currentLine());
 }
 
 void Compiler::compileJosaExpression(ast::JosaExpression* expr) {

@@ -29,6 +29,15 @@ enum class VMResult {
 };
 
 /**
+ * @struct CallFrame
+ * @brief 함수 호출 프레임
+ */
+struct CallFrame {
+    size_t returnAddress;      ///< 반환 주소
+    size_t stackBase;          ///< 스택 베이스 포인터
+};
+
+/**
  * @class VM
  * @brief 가상 머신
  *
@@ -39,6 +48,7 @@ private:
     Chunk* chunk_;                              ///< 실행 중인 청크
     size_t ip_;                                 ///< Instruction Pointer
     std::vector<evaluator::Value> stack_;       ///< 값 스택
+    std::vector<CallFrame> frames_;             ///< 호출 프레임 스택
     std::shared_ptr<evaluator::Environment> globals_;  ///< 전역 환경
 
     // 디버그

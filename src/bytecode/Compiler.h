@@ -75,6 +75,7 @@ public:
 private:
     // 문장 컴파일
     void compileVarDeclaration(ast::VarDeclaration* decl);
+    void compileAssignmentStatement(ast::AssignmentStatement* stmt);
     void compileExpressionStatement(ast::ExpressionStatement* stmt);
     void compileIfStatement(ast::IfStatement* stmt);
     void compileWhileStatement(ast::WhileStatement* stmt);

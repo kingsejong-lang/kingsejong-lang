@@ -19,8 +19,20 @@ bool Compiler::compile(ast::Program* program, Chunk* chunk) {
     hadError_ = false;
 
     try {
-        for (auto& stmt : program->statements()) {
-            compileStatement(stmt.get());
+        auto& statements = program->statements();
+        size_t stmtCount = statements.size();
+
+        for (size_t i = 0; i < stmtCount; i++) {
+            bool isLastStatement = (i == stmtCount - 1);
+
+            // 마지막 statement가 ExpressionStatement면 결과를 스택에 남김 (REPL 스타일)
+            if (isLastStatement && statements[i]->type() == ast::NodeType::EXPRESSION_STATEMENT) {
+                auto* exprStmt = static_cast<ast::ExpressionStatement*>(statements[i].get());
+                compileExpression(const_cast<ast::Expression*>(exprStmt->expression()));
+                // POP 하지 않음 - 결과를 스택에 남김
+            } else {
+                compileStatement(statements[i].get());
+            }
         }
 
         // 프로그램 종료
@@ -39,6 +51,9 @@ void Compiler::compileStatement(ast::Statement* stmt) {
     switch (stmt->type()) {
         case ast::NodeType::VAR_DECLARATION:
             compileVarDeclaration(static_cast<ast::VarDeclaration*>(stmt));
+            break;
+        case ast::NodeType::ASSIGNMENT_STATEMENT:
+            compileAssignmentStatement(static_cast<ast::AssignmentStatement*>(stmt));
             break;
         case ast::NodeType::EXPRESSION_STATEMENT:
             compileExpressionStatement(static_cast<ast::ExpressionStatement*>(stmt));
@@ -142,6 +157,26 @@ void Compiler::compileVarDeclaration(ast::VarDeclaration* decl) {
     } else {
         // 로컬 변수
         addLocal(decl->varName());
+    }
+}
+
+void Compiler::compileAssignmentStatement(ast::AssignmentStatement* stmt) {
+    // 값을 컴파일 (스택에 푸시)
+    compileExpression(const_cast<ast::Expression*>(stmt->value()));
+
+    // 변수에 저장 (타입 추론: 없으면 생성, 있으면 갱신)
+    if (scopeDepth_ == 0) {
+        // 전역 변수
+        size_t nameIdx = chunk_->addName(stmt->varName());
+        emit(OpCode::STORE_GLOBAL, static_cast<uint8_t>(nameIdx));
+    } else {
+        // 로컬 변수: 기존 변수 찾기
+        int local = resolveLocal(stmt->varName());
+        if (local == -1) {
+            // 새 로컬 변수 생성 (타입 추론)
+            addLocal(stmt->varName());
+        }
+        // 로컬 변수는 자동으로 스택에서 관리됨
     }
 }
 

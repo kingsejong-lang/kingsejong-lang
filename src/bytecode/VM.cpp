@@ -31,7 +31,9 @@ VMResult VM::run(Chunk* chunk) {
             }
 
             VMResult result = executeInstruction();
-            if (result != VMResult::OK) {
+            if (result == VMResult::HALT) {
+                return VMResult::OK;  // 정상 종료
+            } else if (result != VMResult::OK) {
                 return result;
             }
         }
@@ -367,7 +369,7 @@ VMResult VM::executeInstruction() {
         }
 
         case OpCode::HALT:
-            return VMResult::OK;
+            return VMResult::HALT;
 
         // ========================================
         // 미구현

@@ -24,6 +24,7 @@ namespace bytecode {
  */
 enum class VMResult {
     OK,                 ///< 성공
+    HALT,               ///< 정상 종료 (HALT 명령)
     COMPILE_ERROR,      ///< 컴파일 에러
     RUNTIME_ERROR       ///< 런타임 에러
 };

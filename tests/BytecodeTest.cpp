@@ -322,7 +322,7 @@ TEST(CompilerTest, ShouldCompileIntegerLiteral) {
     std::string code = "42";
 
     lexer::Lexer lexer(code);
-    parser::Parser parser(&lexer);
+    parser::Parser parser(lexer);
     auto program = parser.parseProgram();
 
     ASSERT_NE(program, nullptr);
@@ -339,7 +339,7 @@ TEST(CompilerTest, ShouldCompileAddition) {
     std::string code = "10 + 20";
 
     lexer::Lexer lexer(code);
-    parser::Parser parser(&lexer);
+    parser::Parser parser(lexer);
     auto program = parser.parseProgram();
 
     ASSERT_NE(program, nullptr);
@@ -361,7 +361,7 @@ TEST(CompilerTest, ShouldCompileVariableDeclaration) {
     std::string code = "정수 x = 42";
 
     lexer::Lexer lexer(code);
-    parser::Parser parser(&lexer);
+    parser::Parser parser(lexer);
     auto program = parser.parseProgram();
 
     ASSERT_NE(program, nullptr);
@@ -410,7 +410,7 @@ TEST(OptimizationTest, ShouldFoldConstantAddition) {
     std::string code = "2 + 3";
 
     lexer::Lexer lexer(code);
-    parser::Parser parser(&lexer);
+    parser::Parser parser(lexer);
     auto program = parser.parseProgram();
 
     ASSERT_NE(program, nullptr);
@@ -434,7 +434,7 @@ TEST(OptimizationTest, ShouldFoldConstantMultiplication) {
     std::string code = "6 * 7";
 
     lexer::Lexer lexer(code);
-    parser::Parser parser(&lexer);
+    parser::Parser parser(lexer);
     auto program = parser.parseProgram();
 
     ASSERT_NE(program, nullptr);
@@ -457,7 +457,7 @@ TEST(OptimizationTest, ShouldFoldConstantComparison) {
     std::string code = "10 < 20";
 
     lexer::Lexer lexer(code);
-    parser::Parser parser(&lexer);
+    parser::Parser parser(lexer);
     auto program = parser.parseProgram();
 
     ASSERT_NE(program, nullptr);
@@ -480,7 +480,7 @@ TEST(OptimizationTest, ShouldFoldConstantNegation) {
     std::string code = "-42";
 
     lexer::Lexer lexer(code);
-    parser::Parser parser(&lexer);
+    parser::Parser parser(lexer);
     auto program = parser.parseProgram();
 
     ASSERT_NE(program, nullptr);
@@ -503,7 +503,7 @@ TEST(OptimizationTest, ShouldFoldConstantFloatArithmetic) {
     std::string code = "2.5 + 3.5";
 
     lexer::Lexer lexer(code);
-    parser::Parser parser(&lexer);
+    parser::Parser parser(lexer);
     auto program = parser.parseProgram();
 
     ASSERT_NE(program, nullptr);
@@ -526,7 +526,7 @@ TEST(OptimizationTest, ShouldFoldBooleanNot) {
     std::string code = "!참";
 
     lexer::Lexer lexer(code);
-    parser::Parser parser(&lexer);
+    parser::Parser parser(lexer);
     auto program = parser.parseProgram();
 
     ASSERT_NE(program, nullptr);
@@ -557,7 +557,7 @@ TEST(OptimizationTest, ShouldEliminateDeadCodeInIfTrue) {
     )";
 
     lexer::Lexer lexer(code);
-    parser::Parser parser(&lexer);
+    parser::Parser parser(lexer);
     auto program = parser.parseProgram();
 
     ASSERT_NE(program, nullptr);
@@ -588,7 +588,7 @@ TEST(OptimizationTest, ShouldEliminateDeadCodeInIfFalse) {
     )";
 
     lexer::Lexer lexer(code);
-    parser::Parser parser(&lexer);
+    parser::Parser parser(lexer);
     auto program = parser.parseProgram();
 
     ASSERT_NE(program, nullptr);
@@ -614,7 +614,7 @@ TEST(OptimizationTest, ShouldNotFoldNonConstantExpression) {
     )";
 
     lexer::Lexer lexer(code);
-    parser::Parser parser(&lexer);
+    parser::Parser parser(lexer);
     auto program = parser.parseProgram();
 
     ASSERT_NE(program, nullptr);
@@ -638,7 +638,7 @@ TEST(OptimizationTest, ShouldFoldNestedConstantExpression) {
     std::string code = "(2 + 3) * 4";
 
     lexer::Lexer lexer(code);
-    parser::Parser parser(&lexer);
+    parser::Parser parser(lexer);
     auto program = parser.parseProgram();
 
     ASSERT_NE(program, nullptr);
@@ -659,8 +659,3 @@ TEST(OptimizationTest, ShouldFoldNestedConstantExpression) {
 // ============================================================================
 // 실행
 // ============================================================================
-
-int main(int argc, char** argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}

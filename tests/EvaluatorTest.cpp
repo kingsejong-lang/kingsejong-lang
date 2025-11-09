@@ -21,7 +21,7 @@ using namespace kingsejong;
  * @param input 입력 코드
  * @return 평가 결과 Value
  */
-evaluator::Value evalInput(const std::string& input)
+static evaluator::Value evalInput(const std::string& input)
 {
     lexer::Lexer lexer(input);
     parser::Parser parser(lexer);

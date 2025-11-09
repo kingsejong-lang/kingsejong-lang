@@ -106,6 +106,9 @@ TEST_F(GCTest, ShouldManageRootSet) {
     gc->removeRoot(obj1);
     gc->removeRoot(obj2);
 
+    gc->unregisterObject(obj1);
+    gc->unregisterObject(obj2);
+
     delete obj1;
     delete obj2;
 }
@@ -132,6 +135,7 @@ TEST_F(GCTest, ShouldCollectUnreachableObjects) {
     EXPECT_EQ(gc->getStats().currentObjects, 1);
 
     gc->removeRoot(root);
+    gc->unregisterObject(root);
     delete root;
 }
 
@@ -158,6 +162,9 @@ TEST_F(GCTest, ShouldPreserveReachableObjects) {
     EXPECT_EQ(gc->getStats().currentObjects, 3);
 
     gc->removeRoot(root);
+    gc->unregisterObject(root);
+    gc->unregisterObject(child1);
+    gc->unregisterObject(child2);
     delete root;
     delete child1;
     delete child2;
@@ -329,6 +336,9 @@ TEST_F(GCTest, ShouldMarkOnlyReachableObjects) {
     EXPECT_FALSE(unreachable->isMarked());
 
     gc->removeRoot(root);
+    gc->unregisterObject(root);
+    gc->unregisterObject(reachable);
+    gc->unregisterObject(unreachable);
     delete root;
     delete reachable;
     delete unreachable;
@@ -346,6 +356,7 @@ TEST_F(GCTest, ShouldHandleNullReferences) {
     EXPECT_NO_THROW(gc->collect());
 
     gc->removeRoot(root);
+    gc->unregisterObject(root);
     delete root;
 }
 
@@ -372,8 +383,3 @@ TEST_F(GCTest, ShouldCleanupAllObjects) {
 // ============================================================================
 // 실행
 // ============================================================================
-
-int main(int argc, char** argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}

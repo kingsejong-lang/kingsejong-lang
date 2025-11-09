@@ -25,7 +25,7 @@ namespace {
  * @param input 입력 코드
  * @return 평가 결과 Value
  */
-evaluator::Value evalInput(const std::string& input)
+static evaluator::Value evalInput(const std::string& input)
 {
     // 내장 함수 등록 (각 테스트마다 안전하게 호출)
     evaluator::Builtin::registerAllBuiltins();

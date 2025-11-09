@@ -18,7 +18,7 @@ using namespace kingsejong;
 
 namespace {
 
-evaluator::Value evalInput(const std::string& input)
+static evaluator::Value evalInput(const std::string& input)
 {
     lexer::Lexer lexer(input);
     parser::Parser parser(lexer);

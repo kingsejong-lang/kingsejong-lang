@@ -16,7 +16,7 @@ using namespace kingsejong;
 /**
  * @brief 코드를 평가하여 Value 반환
  */
-evaluator::Value evalInput(const std::string& input)
+static evaluator::Value evalInput(const std::string& input)
 {
     lexer::Lexer lexer(input);
     parser::Parser parser(lexer);

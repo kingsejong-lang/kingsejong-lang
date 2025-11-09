@@ -66,8 +66,7 @@ public:
             }
             else
             {
-                message = "타입이 일치하지 않습니다: " +
-                          "예상 " + expectedType->koreanName() + ", " +
+                message = "타입이 일치하지 않습니다: 예상 " + expectedType->koreanName() + ", " +
                           "실제 " + Type::typeKindToString(valueType);
             }
             throw error::TypeError(message);

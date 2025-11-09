@@ -75,7 +75,7 @@ TEST(TypeCheckerTest, ShouldThrowForMismatchedType)
 
     EXPECT_THROW({
         TypeChecker::checkType(val, expectedType, "x");
-    }, TypeError);
+    }, KingSejongError);
 }
 
 TEST(TypeCheckerTest, ShouldIncludeVariableNameInError)
@@ -86,9 +86,9 @@ TEST(TypeCheckerTest, ShouldIncludeVariableNameInError)
     try
     {
         TypeChecker::checkType(val, expectedType, "이름");
-        FAIL() << "Should have thrown TypeError";
+        FAIL() << "Should have thrown KingSejongError";
     }
-    catch (const TypeError& e)
+    catch (const KingSejongError& e)
     {
         std::string msg = e.what();
         EXPECT_TRUE(msg.find("이름") != std::string::npos);
@@ -139,7 +139,7 @@ TEST(TypeCheckerTest, ShouldThrowForInvalidAddition)
 
     EXPECT_THROW({
         TypeChecker::checkBinaryOperation(left, "+", right);
-    }, TypeError);
+    }, KingSejongError);
 }
 
 TEST(TypeCheckerTest, ShouldThrowForStringSubtraction)
@@ -149,7 +149,7 @@ TEST(TypeCheckerTest, ShouldThrowForStringSubtraction)
 
     EXPECT_THROW({
         TypeChecker::checkBinaryOperation(left, "-", right);
-    }, TypeError);
+    }, KingSejongError);
 }
 
 // ============================================================================
@@ -188,7 +188,7 @@ TEST(TypeCheckerTest, ShouldThrowForIncompatibleComparison)
 
     EXPECT_THROW({
         TypeChecker::checkBinaryOperation(left, "==", right);
-    }, TypeError);
+    }, KingSejongError);
 }
 
 // ============================================================================
@@ -226,7 +226,7 @@ TEST(TypeCheckerTest, ShouldThrowForNegationOnString)
     Value val = Value::createString("안녕");
     EXPECT_THROW({
         TypeChecker::checkUnaryOperation("-", val);
-    }, TypeError);
+    }, KingSejongError);
 }
 
 TEST(TypeCheckerTest, ShouldAllowLogicalNotOnAnyType)
@@ -254,7 +254,7 @@ TEST(TypeCheckerTest, ShouldThrowForNonArrayIndexing)
 
     EXPECT_THROW({
         TypeChecker::checkArrayIndex(notArray, index);
-    }, TypeError);
+    }, KingSejongError);
 }
 
 TEST(TypeCheckerTest, ShouldThrowForNonIntegerIndex)
@@ -264,7 +264,7 @@ TEST(TypeCheckerTest, ShouldThrowForNonIntegerIndex)
 
     EXPECT_THROW({
         TypeChecker::checkArrayIndex(array, index);
-    }, TypeError);
+    }, KingSejongError);
 }
 
 // ============================================================================
@@ -285,7 +285,7 @@ TEST(TypeCheckerTest, ShouldThrowForNonFunctionCall)
 
     EXPECT_THROW({
         TypeChecker::checkCallable(notFunc);
-    }, TypeError);
+    }, KingSejongError);
 }
 
 // ============================================================================
@@ -300,9 +300,9 @@ TEST(TypeCheckerTest, ShouldProvideDetailedErrorMessage)
     try
     {
         TypeChecker::checkBinaryOperation(left, "+", right);
-        FAIL() << "Should have thrown TypeError";
+        FAIL() << "Should have thrown KingSejongError";
     }
-    catch (const TypeError& e)
+    catch (const KingSejongError& e)
     {
         std::string msg = e.what();
         // 에러 메시지에 연산자와 타입 정보가 포함되어 있는지 확인

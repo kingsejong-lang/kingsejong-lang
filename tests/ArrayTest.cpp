@@ -281,3 +281,162 @@ TEST(ArrayTest, NonEmptyArrayShouldBeTruthy)
     EXPECT_TRUE(result.isBoolean());
     EXPECT_TRUE(result.asBoolean());
 }
+
+// ============================================================================
+// 배열 슬라이싱 테스트
+// ============================================================================
+
+TEST(ArrayTest, ShouldSliceArrayInclusive)
+{
+    auto result = evalInput("[0, 10, 20, 30, 40, 50][1부터 4까지]");
+
+    EXPECT_TRUE(result.isArray());
+    EXPECT_EQ(result.asArray().size(), 4);
+
+    const auto& arr = result.asArray();
+    EXPECT_EQ(arr[0].asInteger(), 10);
+    EXPECT_EQ(arr[1].asInteger(), 20);
+    EXPECT_EQ(arr[2].asInteger(), 30);
+    EXPECT_EQ(arr[3].asInteger(), 40);
+}
+
+TEST(ArrayTest, ShouldSliceArrayHalfOpen)
+{
+    auto result = evalInput("[0, 10, 20, 30, 40, 50][1부터 4미만]");
+
+    EXPECT_TRUE(result.isArray());
+    EXPECT_EQ(result.asArray().size(), 3);
+
+    const auto& arr = result.asArray();
+    EXPECT_EQ(arr[0].asInteger(), 10);
+    EXPECT_EQ(arr[1].asInteger(), 20);
+    EXPECT_EQ(arr[2].asInteger(), 30);
+}
+
+TEST(ArrayTest, ShouldSliceArrayWithIsangIha)
+{
+    auto result = evalInput("[0, 10, 20, 30, 40, 50][2이상 4이하]");
+
+    EXPECT_TRUE(result.isArray());
+    EXPECT_EQ(result.asArray().size(), 3);
+
+    const auto& arr = result.asArray();
+    EXPECT_EQ(arr[0].asInteger(), 20);
+    EXPECT_EQ(arr[1].asInteger(), 30);
+    EXPECT_EQ(arr[2].asInteger(), 40);
+}
+
+TEST(ArrayTest, ShouldSliceArrayWithChogaMiman)
+{
+    auto result = evalInput("[0, 10, 20, 30, 40, 50][1초과 4미만]");
+
+    EXPECT_TRUE(result.isArray());
+    EXPECT_EQ(result.asArray().size(), 2);
+
+    const auto& arr = result.asArray();
+    EXPECT_EQ(arr[0].asInteger(), 20);
+    EXPECT_EQ(arr[1].asInteger(), 30);
+}
+
+TEST(ArrayTest, ShouldSliceFromBeginning)
+{
+    auto result = evalInput("[10, 20, 30, 40, 50][0부터 2까지]");
+
+    EXPECT_TRUE(result.isArray());
+    EXPECT_EQ(result.asArray().size(), 3);
+
+    const auto& arr = result.asArray();
+    EXPECT_EQ(arr[0].asInteger(), 10);
+    EXPECT_EQ(arr[1].asInteger(), 20);
+    EXPECT_EQ(arr[2].asInteger(), 30);
+}
+
+TEST(ArrayTest, ShouldSliceToEnd)
+{
+    auto result = evalInput("[10, 20, 30, 40, 50][2부터 4까지]");
+
+    EXPECT_TRUE(result.isArray());
+    EXPECT_EQ(result.asArray().size(), 3);
+
+    const auto& arr = result.asArray();
+    EXPECT_EQ(arr[0].asInteger(), 30);
+    EXPECT_EQ(arr[1].asInteger(), 40);
+    EXPECT_EQ(arr[2].asInteger(), 50);
+}
+
+TEST(ArrayTest, ShouldSliceWithNegativeIndices)
+{
+    auto result = evalInput("[10, 20, 30, 40, 50][-3부터 -1까지]");
+
+    EXPECT_TRUE(result.isArray());
+    EXPECT_EQ(result.asArray().size(), 3);
+
+    const auto& arr = result.asArray();
+    EXPECT_EQ(arr[0].asInteger(), 30);
+    EXPECT_EQ(arr[1].asInteger(), 40);
+    EXPECT_EQ(arr[2].asInteger(), 50);
+}
+
+TEST(ArrayTest, ShouldSliceWithVariableIndices)
+{
+    auto result = evalInput("정수 배열 = [0, 10, 20, 30, 40, 50]\n정수 시작 = 1\n정수 끝 = 3\n배열[시작부터 끝까지]");
+
+    EXPECT_TRUE(result.isArray());
+    EXPECT_EQ(result.asArray().size(), 3);
+
+    const auto& arr = result.asArray();
+    EXPECT_EQ(arr[0].asInteger(), 10);
+    EXPECT_EQ(arr[1].asInteger(), 20);
+    EXPECT_EQ(arr[2].asInteger(), 30);
+}
+
+TEST(ArrayTest, ShouldReturnEmptyArrayForInvalidRange)
+{
+    auto result = evalInput("[10, 20, 30, 40, 50][4부터 2까지]");
+
+    EXPECT_TRUE(result.isArray());
+    EXPECT_EQ(result.asArray().size(), 0);
+}
+
+TEST(ArrayTest, ShouldHandleSliceOutOfBounds)
+{
+    auto result = evalInput("[10, 20, 30][0부터 10까지]");
+
+    EXPECT_TRUE(result.isArray());
+    EXPECT_EQ(result.asArray().size(), 3);
+
+    const auto& arr = result.asArray();
+    EXPECT_EQ(arr[0].asInteger(), 10);
+    EXPECT_EQ(arr[1].asInteger(), 20);
+    EXPECT_EQ(arr[2].asInteger(), 30);
+}
+
+TEST(ArrayTest, ShouldSliceMixedTypeArray)
+{
+    auto result = evalInput("[1, \"안녕\", 참, 3.14, 거짓][1부터 3까지]");
+
+    EXPECT_TRUE(result.isArray());
+    EXPECT_EQ(result.asArray().size(), 3);
+
+    const auto& arr = result.asArray();
+    EXPECT_EQ(arr[0].asString(), "안녕");
+    EXPECT_EQ(arr[1].asBoolean(), true);
+    EXPECT_EQ(arr[2].asFloat(), 3.14);
+}
+
+TEST(ArrayTest, ShouldSliceNestedArray)
+{
+    auto result = evalInput("[[1, 2], [3, 4], [5, 6], [7, 8]][1부터 2까지]");
+
+    EXPECT_TRUE(result.isArray());
+    EXPECT_EQ(result.asArray().size(), 2);
+
+    const auto& arr = result.asArray();
+    EXPECT_TRUE(arr[0].isArray());
+    EXPECT_EQ(arr[0].asArray()[0].asInteger(), 3);
+    EXPECT_EQ(arr[0].asArray()[1].asInteger(), 4);
+
+    EXPECT_TRUE(arr[1].isArray());
+    EXPECT_EQ(arr[1].asArray()[0].asInteger(), 5);
+    EXPECT_EQ(arr[1].asArray()[1].asInteger(), 6);
+}

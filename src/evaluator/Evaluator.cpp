@@ -593,7 +593,6 @@ Value Evaluator::evalArrayLiteral(ast::ArrayLiteral* lit)
 Value Evaluator::evalIndexExpression(ast::IndexExpression* expr)
 {
     Value array = eval(const_cast<ast::Expression*>(expr->array()));
-    Value index = eval(const_cast<ast::Expression*>(expr->index()));
 
     // 배열인지 확인
     if (!array.isArray())
@@ -601,28 +600,101 @@ Value Evaluator::evalIndexExpression(ast::IndexExpression* expr)
         throw std::runtime_error("인덱스 접근은 배열에만 가능합니다");
     }
 
-    // 인덱스가 정수인지 확인
-    if (!index.isInteger())
-    {
-        throw std::runtime_error("배열 인덱스는 정수여야 합니다");
-    }
-
-    int64_t idx = index.asInteger();
     std::vector<Value>& arr = array.asArray();
 
-    // 음수 인덱스 처리 (Python 스타일)
-    if (idx < 0)
+    // 인덱스 표현식이 RangeExpression인지 확인
+    const ast::Expression* indexExpr = expr->index();
+    if (indexExpr->type() == ast::NodeType::RANGE_EXPRESSION)
     {
-        idx = static_cast<int64_t>(arr.size()) + idx;
-    }
+        // 배열 슬라이싱 처리
+        const ast::RangeExpression* rangeExpr = static_cast<const ast::RangeExpression*>(indexExpr);
 
-    // 범위 검사
-    if (idx < 0 || idx >= static_cast<int64_t>(arr.size()))
+        // 시작 인덱스 평가
+        Value startValue = eval(const_cast<ast::Expression*>(rangeExpr->start()));
+        if (!startValue.isInteger())
+        {
+            throw std::runtime_error("슬라이싱 시작 인덱스는 정수여야 합니다");
+        }
+
+        // 끝 인덱스 평가
+        Value endValue = eval(const_cast<ast::Expression*>(rangeExpr->end()));
+        if (!endValue.isInteger())
+        {
+            throw std::runtime_error("슬라이싱 끝 인덱스는 정수여야 합니다");
+        }
+
+        int64_t startIdx = startValue.asInteger();
+        int64_t endIdx = endValue.asInteger();
+
+        // 음수 인덱스 처리 (Python 스타일)
+        if (startIdx < 0)
+        {
+            startIdx = static_cast<int64_t>(arr.size()) + startIdx;
+        }
+        if (endIdx < 0)
+        {
+            endIdx = static_cast<int64_t>(arr.size()) + endIdx;
+        }
+
+        // startInclusive/endInclusive 처리
+        if (!rangeExpr->startInclusive())
+        {
+            startIdx++; // "초과"는 다음 인덱스부터
+        }
+        if (!rangeExpr->endInclusive())
+        {
+            endIdx--; // "미만"은 이전 인덱스까지
+        }
+
+        // 범위 검사
+        if (startIdx < 0) startIdx = 0;
+        if (endIdx >= static_cast<int64_t>(arr.size()))
+        {
+            endIdx = static_cast<int64_t>(arr.size()) - 1;
+        }
+
+        // 빈 슬라이스 처리
+        if (startIdx > endIdx)
+        {
+            return Value::createArray({});
+        }
+
+        // 슬라이싱 수행
+        std::vector<Value> sliced;
+        for (int64_t i = startIdx; i <= endIdx; ++i)
+        {
+            sliced.push_back(arr[static_cast<size_t>(i)]);
+        }
+
+        return Value::createArray(sliced);
+    }
+    else
     {
-        throw std::runtime_error("배열 인덱스 범위 초과: " + std::to_string(idx));
-    }
+        // 일반 인덱스 접근 (정수)
+        Value index = eval(const_cast<ast::Expression*>(expr->index()));
 
-    return arr[static_cast<size_t>(idx)];
+        // 인덱스가 정수인지 확인
+        if (!index.isInteger())
+        {
+            throw std::runtime_error("배열 인덱스는 정수여야 합니다");
+        }
+
+        int64_t idx = index.asInteger();
+
+        // 음수 인덱스 처리 (Python 스타일)
+        if (idx < 0)
+        {
+            idx = static_cast<int64_t>(arr.size()) + idx;
+        }
+
+        // 범위 검사
+        if (idx < 0 || idx >= static_cast<int64_t>(arr.size()))
+        {
+            throw std::runtime_error("배열 인덱스 범위 초과: " + std::to_string(idx));
+        }
+
+        return arr[static_cast<size_t>(idx)];
+    }
 }
 
 } // namespace evaluator

@@ -150,6 +150,8 @@ std::string Type::typeKindToString(TypeKind kind)
             return "ARRAY";
         case TypeKind::FUNCTION:
             return "FUNCTION";
+        case TypeKind::BUILTIN_FUNCTION:
+            return "BUILTIN_FUNCTION";
         case TypeKind::RANGE:
             return "RANGE";
         default:

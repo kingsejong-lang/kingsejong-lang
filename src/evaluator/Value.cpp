@@ -74,6 +74,14 @@ Value Value::createFunction(std::shared_ptr<Function> func)
     return v;
 }
 
+Value Value::createBuiltinFunction(Value::BuiltinFn func)
+{
+    Value v;
+    v.type_ = types::TypeKind::BUILTIN_FUNCTION;
+    v.data_ = func;
+    return v;
+}
+
 // ============================================================================
 // 타입 변환 및 접근
 // ============================================================================
@@ -123,6 +131,15 @@ std::shared_ptr<Function> Value::asFunction() const
     return std::get<std::shared_ptr<Function>>(data_);
 }
 
+Value::BuiltinFn Value::asBuiltinFunction() const
+{
+    if (!isBuiltinFunction())
+    {
+        throw std::runtime_error("Value is not a builtin function");
+    }
+    return std::get<Value::BuiltinFn>(data_);
+}
+
 // ============================================================================
 // 문자열 변환
 // ============================================================================
@@ -155,6 +172,9 @@ std::string Value::toString() const
             auto func = std::get<std::shared_ptr<Function>>(data_);
             return "함수(" + std::to_string(func->parameters().size()) + " 매개변수)";
         }
+
+        case types::TypeKind::BUILTIN_FUNCTION:
+            return "[내장함수]";
 
         default:
             return "<unknown value>";

@@ -13,6 +13,7 @@
 #include <memory>
 #include <vector>
 #include <stdexcept>
+#include <functional>
 
 namespace kingsejong {
 
@@ -72,6 +73,13 @@ class Value
 {
 public:
     /**
+     * @brief 내장 함수 타입
+     *
+     * 내장 함수는 인자 목록을 받아서 Value를 반환하는 함수입니다.
+     */
+    using BuiltinFn = std::function<Value(const std::vector<Value>&)>;
+
+    /**
      * @brief 값 데이터 타입
      *
      * std::variant로 다양한 타입을 안전하게 저장합니다.
@@ -83,7 +91,8 @@ public:
         std::string,                 // STRING
         bool,                        // BOOLEAN
         std::nullptr_t,              // NULL_TYPE
-        std::shared_ptr<Function>    // FUNCTION
+        std::shared_ptr<Function>,   // FUNCTION
+        BuiltinFn                    // BUILTIN_FUNCTION
     >;
 
 private:
@@ -140,6 +149,13 @@ public:
     static Value createFunction(std::shared_ptr<Function> func);
 
     /**
+     * @brief 내장 함수 값 생성
+     * @param func 내장 함수 (BuiltinFn)
+     * @return Value 객체
+     */
+    static Value createBuiltinFunction(BuiltinFn func);
+
+    /**
      * @brief 값의 타입 반환
      * @return TypeKind
      */
@@ -182,6 +198,12 @@ public:
     bool isFunction() const { return type_ == types::TypeKind::FUNCTION; }
 
     /**
+     * @brief 내장 함수 값인지 확인
+     * @return 내장 함수이면 true
+     */
+    bool isBuiltinFunction() const { return type_ == types::TypeKind::BUILTIN_FUNCTION; }
+
+    /**
      * @brief 정수 값 반환
      * @return int64_t 값
      * @throws std::runtime_error 정수가 아닌 경우
@@ -215,6 +237,13 @@ public:
      * @throws std::runtime_error 함수가 아닌 경우
      */
     std::shared_ptr<Function> asFunction() const;
+
+    /**
+     * @brief 내장 함수 값 반환
+     * @return BuiltinFn
+     * @throws std::runtime_error 내장 함수가 아닌 경우
+     */
+    BuiltinFn asBuiltinFunction() const;
 
     /**
      * @brief 값을 문자열로 변환

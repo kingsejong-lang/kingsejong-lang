@@ -20,14 +20,15 @@ namespace types {
  */
 enum class TypeKind
 {
-    INTEGER,   ///< 정수 (int64_t)
-    FLOAT,     ///< 실수 (double)
-    STRING,    ///< 문자열 (std::string)
-    BOOLEAN,   ///< 참거짓 (bool)
-    NULL_TYPE, ///< 없음 (nullptr)
-    ARRAY,     ///< 배열
-    FUNCTION,  ///< 함수
-    RANGE      ///< 범위 (1부터 10까지)
+    INTEGER,          ///< 정수 (int64_t)
+    FLOAT,            ///< 실수 (double)
+    STRING,           ///< 문자열 (std::string)
+    BOOLEAN,          ///< 참거짓 (bool)
+    NULL_TYPE,        ///< 없음 (nullptr)
+    ARRAY,            ///< 배열
+    FUNCTION,         ///< 함수
+    BUILTIN_FUNCTION, ///< 내장 함수
+    RANGE             ///< 범위 (1부터 10까지)
 };
 
 /**

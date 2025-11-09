@@ -6,6 +6,7 @@
  */
 
 #include "Evaluator.h"
+#include "Builtin.h"
 #include <sstream>
 #include <cmath>
 
@@ -151,14 +152,22 @@ Value Evaluator::evalBooleanLiteral(ast::BooleanLiteral* lit)
 
 Value Evaluator::evalIdentifier(ast::Identifier* ident)
 {
-    try
+    const std::string& name = ident->name();
+
+    // 1. 먼저 환경에서 변수 조회
+    if (env_->existsInChain(name))
     {
-        return env_->get(ident->name());
+        return env_->get(name);
     }
-    catch (const std::runtime_error& e)
+
+    // 2. 내장 함수 조회
+    if (Builtin::hasBuiltin(name))
     {
-        throw std::runtime_error("정의되지 않은 변수: " + ident->name());
+        return Builtin::getBuiltin(name);
     }
+
+    // 3. 정의되지 않음
+    throw std::runtime_error("정의되지 않은 식별자: " + name);
 }
 
 Value Evaluator::evalBinaryExpression(ast::BinaryExpression* expr)
@@ -267,13 +276,6 @@ Value Evaluator::evalCallExpression(ast::CallExpression* expr)
     // 1. 함수 평가
     Value funcValue = eval(const_cast<ast::Expression*>(expr->function()));
 
-    if (!funcValue.isFunction())
-    {
-        throw std::runtime_error("함수가 아닌 값을 호출할 수 없습니다: " + funcValue.toString());
-    }
-
-    auto func = funcValue.asFunction();
-
     // 2. 인자 평가
     std::vector<Value> args;
     for (const auto& argExpr : expr->arguments())
@@ -282,7 +284,22 @@ Value Evaluator::evalCallExpression(ast::CallExpression* expr)
         args.push_back(argValue);
     }
 
-    // 3. 매개변수 개수 확인
+    // 3. 내장 함수 호출
+    if (funcValue.isBuiltinFunction())
+    {
+        auto fn = funcValue.asBuiltinFunction();
+        return fn(args);
+    }
+
+    // 4. 사용자 정의 함수 호출
+    if (!funcValue.isFunction())
+    {
+        throw std::runtime_error("함수가 아닌 값을 호출할 수 없습니다: " + funcValue.toString());
+    }
+
+    auto func = funcValue.asFunction();
+
+    // 5. 매개변수 개수 확인
     if (args.size() != func->parameters().size())
     {
         throw std::runtime_error(
@@ -291,16 +308,16 @@ Value Evaluator::evalCallExpression(ast::CallExpression* expr)
         );
     }
 
-    // 4. 새로운 환경 생성 (클로저 기반)
+    // 6. 새로운 환경 생성 (클로저 기반)
     auto funcEnv = std::make_shared<Environment>(func->closure());
 
-    // 5. 매개변수 바인딩
+    // 7. 매개변수 바인딩
     for (size_t i = 0; i < func->parameters().size(); ++i)
     {
         funcEnv->set(func->parameters()[i], args[i]);
     }
 
-    // 6. 함수 본문 실행 (새로운 환경에서)
+    // 8. 함수 본문 실행 (새로운 환경에서)
     // 기존 환경 저장
     auto previousEnv = env_;
 

@@ -1,7 +1,11 @@
 #include <iostream>
 #include <string>
+#include "evaluator/Builtin.h"
 
 int main(int argc, char* argv[]) {
+    // 내장 함수 등록
+    kingsejong::evaluator::Builtin::registerAllBuiltins();
+
     std::cout << "KingSejong Programming Language v0.1.0\n";
     std::cout << "한글로 프로그래밍하는 자연스러운 언어\n";
     std::cout << "\n";

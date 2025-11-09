@@ -42,19 +42,90 @@
 
 ### 설치
 
+KingSejong은 macOS, Linux, Windows를 지원합니다.
+
+#### 📦 사전 요구사항
+
+- **C++23 지원 컴파일러** (GCC 12+, Clang 15+, MSVC 2022+)
+- **CMake 3.20+**
+- **Git**
+
+#### 🍎 macOS
+
 ```bash
+# Homebrew로 의존성 설치
+brew install cmake
+
+# 저장소 클론 및 빌드
+git clone https://github.com/0xmhha/kingsejonglang.git
+cd kingsejonglang
+mkdir build && cd build
+cmake ..
+make -j4
+
+# 실행
+./bin/kingsejong ../examples/hello.ksj
+```
+
+#### 🐧 Linux (Ubuntu/Debian)
+
+```bash
+# 의존성 설치
+sudo apt update
+sudo apt install -y build-essential cmake git
+
+# 저장소 클론 및 빌드
+git clone https://github.com/0xmhha/kingsejonglang.git
+cd kingsejonglang
+mkdir build && cd build
+cmake ..
+make -j4
+
+# 실행
+./bin/kingsejong ../examples/hello.ksj
+```
+
+#### 🐧 Linux (Fedora/CentOS)
+
+```bash
+# 의존성 설치
+sudo dnf install -y gcc-c++ cmake git
+
+# 저장소 클론 및 빌드
+git clone https://github.com/0xmhha/kingsejonglang.git
+cd kingsejonglang
+mkdir build && cd build
+cmake ..
+make -j4
+
+# 실행
+./bin/kingsejong ../examples/hello.ksj
+```
+
+#### 🪟 Windows
+
+**Visual Studio 2022 사용:**
+
+```powershell
 # 저장소 클론
 git clone https://github.com/0xmhha/kingsejonglang.git
 cd kingsejonglang
 
-# 빌드
-mkdir build && cd build
-cmake ..
-make
+# 빌드 디렉토리 생성
+mkdir build
+cd build
 
-# 첫 프로그램 실행
-./kingsejong ../examples/hello.ksj
+# CMake 설정 (Visual Studio 2022)
+cmake .. -G "Visual Studio 17 2022"
+
+# 빌드
+cmake --build . --config Release
+
+# 실행
+.\bin\Release\kingsejong.exe ..\examples\hello.ksj
 ```
+
+> 📖 **자세한 설치 가이드**: [docs/INSTALL.md](docs/INSTALL.md)
 
 ### Hello, World!
 

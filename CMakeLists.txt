@@ -42,12 +42,14 @@ set(LIB_SOURCES
     src/bytecode/Chunk.cpp
     src/bytecode/Compiler.cpp
     src/bytecode/VM.cpp
+    src/jit/HotPathDetector.cpp
 )
 
 # 라이브러리 생성 (kingsejong_lib)
 add_library(kingsejong_lib STATIC ${LIB_SOURCES})
 target_include_directories(kingsejong_lib PUBLIC
     ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/include
 )
 
 # 실행 파일 소스
@@ -61,6 +63,7 @@ add_executable(kingsejong ${SOURCES})
 # 인클루드 디렉토리 설정
 target_include_directories(kingsejong PRIVATE
     ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/include
 )
 
 # 라이브러리 링크
@@ -112,6 +115,7 @@ if(TEST_SOURCES)
     # 테스트 인클루드 디렉토리
     target_include_directories(kingsejong_tests PRIVATE
         ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/tests
     )
 

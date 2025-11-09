@@ -762,52 +762,282 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
     // 객체 평가
     Value object = eval(const_cast<ast::Expression*>(expr->object()));
 
-    // 메서드 이름 획득
+    // 배열이 아닌 타입에 대한 조사 표현식
+    if (!object.isArray())
+    {
+        throw error::TypeError(
+            "조사 표현식은 현재 배열에만 사용할 수 있습니다.\n" +
+            "해결 방법: 배열 값에 메서드를 적용하세요."
+        );
+    }
+
+    auto arr = object.asArray();
+
+    // 메서드가 CallExpression인 경우 (함수형 메서드)
+    const ast::CallExpression* callExpr = dynamic_cast<const ast::CallExpression*>(expr->method());
+    if (callExpr)
+    {
+        // 함수 이름 획득
+        const ast::Identifier* funcIdent = dynamic_cast<const ast::Identifier*>(callExpr->function());
+        if (!funcIdent)
+        {
+            throw error::TypeError(
+                "조사 표현식의 메서드 호출에서 함수 이름을 식별할 수 없습니다.\n" +
+                "해결 방법: 메서드 이름을 확인하세요."
+            );
+        }
+
+        std::string methodName = funcIdent->name();
+
+        // 걸러낸다 (filter)
+        if (methodName == "걸러낸다" || methodName == "걸러내고")
+        {
+            if (callExpr->arguments().size() != 1)
+            {
+                throw error::ArgumentError(
+                    "'걸러낸다' 메서드는 정확히 1개의 인자(조건 함수)가 필요합니다.\n" +
+                    "해결 방법: 조건 함수를 전달하세요. 예: 걸러낸다(함수(x) { 반환 x > 0 })"
+                );
+            }
+
+            Value filterFunc = eval(const_cast<ast::Expression*>(callExpr->arguments()[0].get()));
+            if (!filterFunc.isFunction())
+            {
+                throw error::TypeError(
+                    "'걸러낸다' 메서드의 인자는 함수여야 합니다.\n" +
+                    "해결 방법: 함수 리터럴을 전달하세요."
+                );
+            }
+
+            std::vector<Value> filtered;
+            for (const auto& item : arr)
+            {
+                // 조건 함수 호출
+                auto funcEnv = filterFunc.asFunction().environment->createEnclosed();
+                const auto& params = filterFunc.asFunction().parameters;
+                if (params.size() != 1)
+                {
+                    throw error::ArgumentError(
+                        "'걸러낸다' 메서드의 조건 함수는 정확히 1개의 매개변수가 필요합니다.\n" +
+                        "해결 방법: 함수(x) { ... } 형태로 작성하세요."
+                    );
+                }
+                funcEnv->set(params[0], item);
+
+                Evaluator funcEvaluator(funcEnv);
+                Value result;
+                try
+                {
+                    result = funcEvaluator.eval(const_cast<ast::BlockStatement*>(filterFunc.asFunction().body));
+                }
+                catch (const ReturnValue& retVal)
+                {
+                    result = retVal.getValue();
+                }
+
+                if (result.isTruthy())
+                {
+                    filtered.push_back(item);
+                }
+            }
+            return Value::createArray(filtered);
+        }
+
+        // 변환한다 (map)
+        if (methodName == "변환한다" || methodName == "변환하고")
+        {
+            if (callExpr->arguments().size() != 1)
+            {
+                throw error::ArgumentError(
+                    "'변환한다' 메서드는 정확히 1개의 인자(변환 함수)가 필요합니다.\n" +
+                    "해결 방법: 변환 함수를 전달하세요. 예: 변환한다(함수(x) { 반환 x * 2 })"
+                );
+            }
+
+            Value mapFunc = eval(const_cast<ast::Expression*>(callExpr->arguments()[0].get()));
+            if (!mapFunc.isFunction())
+            {
+                throw error::TypeError(
+                    "'변환한다' 메서드의 인자는 함수여야 합니다.\n" +
+                    "해결 방법: 함수 리터럴을 전달하세요."
+                );
+            }
+
+            std::vector<Value> mapped;
+            for (const auto& item : arr)
+            {
+                // 변환 함수 호출
+                auto funcEnv = mapFunc.asFunction().environment->createEnclosed();
+                const auto& params = mapFunc.asFunction().parameters;
+                if (params.size() != 1)
+                {
+                    throw error::ArgumentError(
+                        "'변환한다' 메서드의 변환 함수는 정확히 1개의 매개변수가 필요합니다.\n" +
+                        "해결 방법: 함수(x) { ... } 형태로 작성하세요."
+                    );
+                }
+                funcEnv->set(params[0], item);
+
+                Evaluator funcEvaluator(funcEnv);
+                Value result;
+                try
+                {
+                    result = funcEvaluator.eval(const_cast<ast::BlockStatement*>(mapFunc.asFunction().body));
+                }
+                catch (const ReturnValue& retVal)
+                {
+                    result = retVal.getValue();
+                }
+
+                mapped.push_back(result);
+            }
+            return Value::createArray(mapped);
+        }
+
+        // 축약한다 (reduce)
+        if (methodName == "축약한다" || methodName == "축약하고")
+        {
+            if (callExpr->arguments().size() != 2)
+            {
+                throw error::ArgumentError(
+                    "'축약한다' 메서드는 정확히 2개의 인자(초기값, 축약 함수)가 필요합니다.\n" +
+                    "해결 방법: 축약한다(0, 함수(누적, 현재) { 반환 누적 + 현재 })"
+                );
+            }
+
+            Value initialValue = eval(const_cast<ast::Expression*>(callExpr->arguments()[0].get()));
+            Value reduceFunc = eval(const_cast<ast::Expression*>(callExpr->arguments()[1].get()));
+
+            if (!reduceFunc.isFunction())
+            {
+                throw error::TypeError(
+                    "'축약한다' 메서드의 두 번째 인자는 함수여야 합니다.\n" +
+                    "해결 방법: 함수 리터럴을 전달하세요."
+                );
+            }
+
+            const auto& params = reduceFunc.asFunction().parameters;
+            if (params.size() != 2)
+            {
+                throw error::ArgumentError(
+                    "'축약한다' 메서드의 축약 함수는 정확히 2개의 매개변수가 필요합니다.\n" +
+                    "해결 방법: 함수(누적, 현재) { ... } 형태로 작성하세요."
+                );
+            }
+
+            Value accumulator = initialValue;
+            for (const auto& item : arr)
+            {
+                auto funcEnv = reduceFunc.asFunction().environment->createEnclosed();
+                funcEnv->set(params[0], accumulator);
+                funcEnv->set(params[1], item);
+
+                Evaluator funcEvaluator(funcEnv);
+                try
+                {
+                    accumulator = funcEvaluator.eval(const_cast<ast::BlockStatement*>(reduceFunc.asFunction().body));
+                }
+                catch (const ReturnValue& retVal)
+                {
+                    accumulator = retVal.getValue();
+                }
+            }
+            return accumulator;
+        }
+
+        // 찾다 (find)
+        if (methodName == "찾다" || methodName == "찾고")
+        {
+            if (callExpr->arguments().size() != 1)
+            {
+                throw error::ArgumentError(
+                    "'찾다' 메서드는 정확히 1개의 인자(조건 함수)가 필요합니다.\n" +
+                    "해결 방법: 조건 함수를 전달하세요. 예: 찾다(함수(x) { 반환 x > 10 })"
+                );
+            }
+
+            Value findFunc = eval(const_cast<ast::Expression*>(callExpr->arguments()[0].get()));
+            if (!findFunc.isFunction())
+            {
+                throw error::TypeError(
+                    "'찾다' 메서드의 인자는 함수여야 합니다.\n" +
+                    "해결 방법: 함수 리터럴을 전달하세요."
+                );
+            }
+
+            for (const auto& item : arr)
+            {
+                auto funcEnv = findFunc.asFunction().environment->createEnclosed();
+                const auto& params = findFunc.asFunction().parameters;
+                if (params.size() != 1)
+                {
+                    throw error::ArgumentError(
+                        "'찾다' 메서드의 조건 함수는 정확히 1개의 매개변수가 필요합니다.\n" +
+                        "해결 방법: 함수(x) { ... } 형태로 작성하세요."
+                    );
+                }
+                funcEnv->set(params[0], item);
+
+                Evaluator funcEvaluator(funcEnv);
+                Value result;
+                try
+                {
+                    result = funcEvaluator.eval(const_cast<ast::BlockStatement*>(findFunc.asFunction().body));
+                }
+                catch (const ReturnValue& retVal)
+                {
+                    result = retVal.getValue();
+                }
+
+                if (result.isTruthy())
+                {
+                    return item;
+                }
+            }
+            // 찾지 못한 경우 null 반환
+            return Value::createNull();
+        }
+
+        throw error::NameError(
+            "알 수 없는 배열 메서드 '" + methodName + "'입니다.\n" +
+            "해결 방법: 지원되는 메서드는 '걸러낸다', '변환한다', '축약한다', '찾다' 등입니다."
+        );
+    }
+
+    // 메서드가 Identifier인 경우 (기본 메서드)
     const ast::Identifier* methodIdent = dynamic_cast<const ast::Identifier*>(expr->method());
     if (!methodIdent)
     {
         throw error::TypeError(
-            "조사 표현식의 메서드는 식별자여야 합니다.\n" +
+            "조사 표현식의 메서드는 식별자 또는 메서드 호출이어야 합니다.\n" +
             "해결 방법: 메서드 이름을 확인하세요."
         );
     }
 
     std::string methodName = methodIdent->name();
 
-    // 배열 메서드 처리
-    if (object.isArray())
+    // 정렬 메서드
+    if (methodName == "정렬한다" || methodName == "정렬하고")
     {
-        auto arr = object.asArray();
-
-        // 정렬 메서드
-        if (methodName == "정렬한다" || methodName == "정렬하고")
-        {
-            std::vector<Value> sorted = arr;
-            std::sort(sorted.begin(), sorted.end(), [](const Value& a, const Value& b) {
-                return a.lessThan(b);
-            });
-            return Value::createArray(sorted);
-        }
-
-        // 역순 메서드
-        if (methodName == "역순으로_나열한다" || methodName == "역순으로_나열하고")
-        {
-            std::vector<Value> reversed = arr;
-            std::reverse(reversed.begin(), reversed.end());
-            return Value::createArray(reversed);
-        }
-
-        // 메서드를 찾을 수 없음
-        throw error::NameError(
-            "배열에 대한 메서드 '" + methodName + "'를 찾을 수 없습니다.\n" +
-            "해결 방법: 지원되는 메서드는 '정렬한다', '역순으로_나열한다' 등입니다."
-        );
+        std::vector<Value> sorted = arr;
+        std::sort(sorted.begin(), sorted.end(), [](const Value& a, const Value& b) {
+            return a.lessThan(b);
+        });
+        return Value::createArray(sorted);
     }
 
-    // 배열이 아닌 타입에 대한 조사 표현식
-    throw error::TypeError(
-        "조사 표현식은 현재 배열에만 사용할 수 있습니다.\n" +
-        "해결 방법: 배열 값에 메서드를 적용하세요."
+    // 역순 메서드
+    if (methodName == "역순으로_나열한다" || methodName == "역순으로_나열하고")
+    {
+        std::vector<Value> reversed = arr;
+        std::reverse(reversed.begin(), reversed.end());
+        return Value::createArray(reversed);
+    }
+
+    // 메서드를 찾을 수 없음
+    throw error::NameError(
+        "배열에 대한 메서드 '" + methodName + "'를 찾을 수 없습니다.\n" +
+        "해결 방법: 지원되는 메서드는 '정렬한다', '역순으로_나열한다', '걸러낸다', '변환한다' 등입니다."
     );
 }
 

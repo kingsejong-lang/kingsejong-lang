@@ -263,3 +263,228 @@ TEST(ArrayMethodTest, ShouldThrowErrorOnUnknownMethod)
         evalInput("[1, 2, 3]을 존재하지않는메서드()");
     }, std::exception);
 }
+
+// ============================================================================
+// 함수형 배열 메서드 테스트
+// ============================================================================
+
+/**
+ * @test 걸러낸다 (filter) - 짝수만 필터링
+ */
+TEST(ArrayMethodTest, ShouldFilterEvenNumbers)
+{
+    auto result = evalInput(R"(
+        arr = [1, 2, 3, 4, 5, 6]
+        arr을 걸러낸다(함수(x) { 반환 x % 2 == 0 })
+    )");
+
+    EXPECT_TRUE(result.isArray());
+    auto filtered = result.asArray();
+
+    EXPECT_EQ(filtered.size(), 3);
+    EXPECT_EQ(filtered[0].asInteger(), 2);
+    EXPECT_EQ(filtered[1].asInteger(), 4);
+    EXPECT_EQ(filtered[2].asInteger(), 6);
+}
+
+/**
+ * @test 걸러낸다 (filter) - 양수만 필터링
+ */
+TEST(ArrayMethodTest, ShouldFilterPositiveNumbers)
+{
+    auto result = evalInput(R"(
+        arr = [-2, -1, 0, 1, 2, 3]
+        arr을 걸러낸다(함수(x) { 반환 x > 0 })
+    )");
+
+    EXPECT_TRUE(result.isArray());
+    auto filtered = result.asArray();
+
+    EXPECT_EQ(filtered.size(), 3);
+    EXPECT_EQ(filtered[0].asInteger(), 1);
+    EXPECT_EQ(filtered[1].asInteger(), 2);
+    EXPECT_EQ(filtered[2].asInteger(), 3);
+}
+
+/**
+ * @test 변환한다 (map) - 각 요소를 2배로
+ */
+TEST(ArrayMethodTest, ShouldMapDoubleValues)
+{
+    auto result = evalInput(R"(
+        arr = [1, 2, 3, 4, 5]
+        arr을 변환한다(함수(x) { 반환 x * 2 })
+    )");
+
+    EXPECT_TRUE(result.isArray());
+    auto mapped = result.asArray();
+
+    EXPECT_EQ(mapped.size(), 5);
+    EXPECT_EQ(mapped[0].asInteger(), 2);
+    EXPECT_EQ(mapped[1].asInteger(), 4);
+    EXPECT_EQ(mapped[2].asInteger(), 6);
+    EXPECT_EQ(mapped[3].asInteger(), 8);
+    EXPECT_EQ(mapped[4].asInteger(), 10);
+}
+
+/**
+ * @test 변환한다 (map) - 제곱
+ */
+TEST(ArrayMethodTest, ShouldMapSquareValues)
+{
+    auto result = evalInput(R"(
+        arr = [1, 2, 3, 4, 5]
+        arr을 변환한다(함수(x) { 반환 x * x })
+    )");
+
+    EXPECT_TRUE(result.isArray());
+    auto mapped = result.asArray();
+
+    EXPECT_EQ(mapped.size(), 5);
+    EXPECT_EQ(mapped[0].asInteger(), 1);
+    EXPECT_EQ(mapped[1].asInteger(), 4);
+    EXPECT_EQ(mapped[2].asInteger(), 9);
+    EXPECT_EQ(mapped[3].asInteger(), 16);
+    EXPECT_EQ(mapped[4].asInteger(), 25);
+}
+
+/**
+ * @test 축약한다 (reduce) - 합계
+ */
+TEST(ArrayMethodTest, ShouldReduceSum)
+{
+    auto result = evalInput(R"(
+        arr = [1, 2, 3, 4, 5]
+        arr을 축약한다(0, 함수(누적, 현재) { 반환 누적 + 현재 })
+    )");
+
+    EXPECT_TRUE(result.isInteger());
+    EXPECT_EQ(result.asInteger(), 15);
+}
+
+/**
+ * @test 축약한다 (reduce) - 곱셈
+ */
+TEST(ArrayMethodTest, ShouldReduceProduct)
+{
+    auto result = evalInput(R"(
+        arr = [1, 2, 3, 4, 5]
+        arr을 축약한다(1, 함수(누적, 현재) { 반환 누적 * 현재 })
+    )");
+
+    EXPECT_TRUE(result.isInteger());
+    EXPECT_EQ(result.asInteger(), 120);  // 5!
+}
+
+/**
+ * @test 찾다 (find) - 첫 번째 짝수 찾기
+ */
+TEST(ArrayMethodTest, ShouldFindFirstEvenNumber)
+{
+    auto result = evalInput(R"(
+        arr = [1, 3, 5, 6, 8, 9]
+        arr을 찾다(함수(x) { 반환 x % 2 == 0 })
+    )");
+
+    EXPECT_TRUE(result.isInteger());
+    EXPECT_EQ(result.asInteger(), 6);
+}
+
+/**
+ * @test 찾다 (find) - 조건에 맞는 요소가 없는 경우
+ */
+TEST(ArrayMethodTest, ShouldReturnNullWhenNotFound)
+{
+    auto result = evalInput(R"(
+        arr = [1, 3, 5, 7, 9]
+        arr을 찾다(함수(x) { 반환 x > 10 })
+    )");
+
+    EXPECT_TRUE(result.isNull());
+}
+
+/**
+ * @test 함수형 메서드 체이닝 - filter + map
+ */
+TEST(ArrayMethodTest, ShouldChainFilterAndMap)
+{
+    auto result = evalInput(R"(
+        arr = [1, 2, 3, 4, 5, 6]
+        filtered = arr을 걸러낸다(함수(x) { 반환 x % 2 == 0 })
+        filtered를 변환한다(함수(x) { 반환 x * x })
+    )");
+
+    EXPECT_TRUE(result.isArray());
+    auto chained = result.asArray();
+
+    EXPECT_EQ(chained.size(), 3);
+    EXPECT_EQ(chained[0].asInteger(), 4);   // 2^2
+    EXPECT_EQ(chained[1].asInteger(), 16);  // 4^2
+    EXPECT_EQ(chained[2].asInteger(), 36);  // 6^2
+}
+
+/**
+ * @test 함수형 메서드 체이닝 - filter + map + reduce
+ */
+TEST(ArrayMethodTest, ShouldChainFilterMapReduce)
+{
+    auto result = evalInput(R"(
+        arr = [1, 2, 3, 4, 5, 6]
+        filtered = arr을 걸러낸다(함수(x) { 반환 x % 2 == 0 })
+        mapped = filtered를 변환한다(함수(x) { 반환 x * x })
+        mapped를 축약한다(0, 함수(누적, 현재) { 반환 누적 + 현재 })
+    )");
+
+    EXPECT_TRUE(result.isInteger());
+    EXPECT_EQ(result.asInteger(), 56);  // 2^2 + 4^2 + 6^2 = 4 + 16 + 36 = 56
+}
+
+/**
+ * @test 함수형 메서드와 기본 메서드 체이닝
+ */
+TEST(ArrayMethodTest, ShouldChainFunctionalAndBasicMethods)
+{
+    auto result = evalInput(R"(
+        arr = [5, 2, 8, 1, 9, 3]
+        filtered = arr을 걸러낸다(함수(x) { 반환 x > 3 })
+        filtered를 정렬한다
+    )");
+
+    EXPECT_TRUE(result.isArray());
+    auto chained = result.asArray();
+
+    EXPECT_EQ(chained.size(), 3);
+    EXPECT_EQ(chained[0].asInteger(), 5);
+    EXPECT_EQ(chained[1].asInteger(), 8);
+    EXPECT_EQ(chained[2].asInteger(), 9);
+}
+
+/**
+ * @test 빈 배열에 걸러낸다 적용
+ */
+TEST(ArrayMethodTest, ShouldFilterEmptyArray)
+{
+    auto result = evalInput(R"(
+        arr = []
+        arr을 걸러낸다(함수(x) { 반환 x > 0 })
+    )");
+
+    EXPECT_TRUE(result.isArray());
+    auto filtered = result.asArray();
+    EXPECT_EQ(filtered.size(), 0);
+}
+
+/**
+ * @test 모든 요소가 조건을 만족하지 않는 경우
+ */
+TEST(ArrayMethodTest, ShouldReturnEmptyWhenNoMatch)
+{
+    auto result = evalInput(R"(
+        arr = [1, 2, 3, 4, 5]
+        arr을 걸러낸다(함수(x) { 반환 x > 10 })
+    )");
+
+    EXPECT_TRUE(result.isArray());
+    auto filtered = result.asArray();
+    EXPECT_EQ(filtered.size(), 0);
+}

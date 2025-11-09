@@ -45,6 +45,7 @@
 - F2.7: 표준 라이브러리 ✅
 
 ### Phase 3: 고급 기능 🚧 (부분 완료)
+- F3.1: 가비지 컬렉터 ✅
 - F3.3: 모듈 시스템 ✅
 
 ### 테스트 현황
@@ -53,19 +54,20 @@
 - **실패**: 0개
 
 ### 최근 완료 (2025-11-10)
+- ✅ PR #40: README.md 대폭 업데이트 - 프로젝트 현황 완전 반영
+- ✅ PR #39: 완전한 문서화 및 튜토리얼 추가
 - ✅ PR #38: F2.7 표준 라이브러리 모듈 구현 (math, string, array)
 - ✅ PR #37: F2.1 함수형 배열 메서드 (filter, map, reduce, find)
-- ✅ PR #36: F3.3 ModuleLoader 구현 및 Evaluator 통합
-- ✅ PR #35: F3.3 모듈 시스템 Parser 구현
-- ✅ PR #34: F3.3 모듈 시스템 기반 구조
+- ✅ F3.1: 가비지 컬렉터 구현 (Mark & Sweep) - PR #41 예정
 
 ### 다음 우선순위
 **Phase 1, 2 완료!** 🎉
+**Phase 3 진행 중** 🚀
 
 Phase 3 고급 기능 계속:
-1. **F3.1: 가비지 컬렉터** (MEDIUM)
-2. **F3.2: 바이트코드 컴파일러** (MEDIUM)
-3. **F3.4: 시제 기반 비동기** (LOW)
+1. **F3.2: 바이트코드 컴파일러** (MEDIUM) - 다음 작업
+2. **F3.4: 시제 기반 비동기** (LOW)
+3. **F3.5: 디버거** (LOW)
 
 ---
 
@@ -989,16 +991,25 @@ main (보호됨)
 **기간**: Month 7-12 (24주)
 
 ### F3.1: 가비지 컬렉터
-- 상태: 📝 대기
-- 브랜치: `feature/garbage-collector`
+- 상태: ✅ 완료
+- 브랜치: `feature/f3.1-garbage-collector`
+- PR: #41 (예정)
 - 우선순위: MEDIUM
 - 작업:
-  - [ ] src/memory/GC.h
-  - [ ] Mark & Sweep 알고리즘
-  - [ ] 루트 객체 관리
+  - [x] src/memory/GC.h (Object 베이스 클래스, GarbageCollector)
+  - [x] src/memory/GC.cpp (Mark & Sweep 알고리즘 구현)
+  - [x] Mark & Sweep 알고리즘
+  - [x] 루트 객체 관리 (addRoot, removeRoot)
+  - [x] Environment 추적 (weak_ptr)
+  - [x] 자동 GC 트리거 (임계값 기반)
+  - [x] 메모리 통계 (GCStats)
+  - [x] tests/GCTest.cpp (17개 테스트)
+  - [x] docs/GC_DESIGN.md (완전한 설계 문서)
 - 완료 조건:
-  - [ ] 자동 메모리 관리
-  - [ ] 메모리 누수 없음
+  - [x] 자동 메모리 관리
+  - [x] 순환 참조 감지
+  - [x] 테스트 통과 (17/17)
+  - [x] 문서 완료
 
 ### F3.2: 바이트코드 컴파일러
 - 상태: 📝 대기

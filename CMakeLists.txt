@@ -37,6 +37,7 @@ set(LIB_SOURCES
     src/evaluator/Builtin.cpp
     src/module/ModuleLoader.cpp
     src/repl/Repl.cpp
+    src/memory/GC.cpp
 )
 
 # 라이브러리 생성 (kingsejong_lib)

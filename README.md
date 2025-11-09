@@ -119,26 +119,34 @@ REPL 명령어:
 ./kingsejong 파일명.ksj
 ```
 
-KingSejong 스크립트 파일(`.ksj`)을 실행할 수 있습니다:
+KingSejong 스크립트 파일(`.ksj`)을 실행할 수 있습니다.
+
+### 제공되는 예제 (10개)
+
+**기본 예제:**
+- `hello.ksj` - 기본 출력
+- `calculator.ksj` - 산술 연산
+- `type_demo.ksj` - 타입 시스템
+
+**반복문 예제:**
+- `loop.ksj` - 범위 for, N번 반복
+- `nested_loops.ksj` - 중첩 반복문, 구구단
+
+**조건문 예제:**
+- `conditional.ksj` - if/else, 중첩 조건문
+
+**함수 예제:**
+- `function.ksj` - 1급 함수, 고차 함수
+- `closure.ksj` - 클로저, 함수 팩토리
+- `fibonacci.ksj` - 재귀 함수 (피보나치)
+- `recursion.ksj` - 재귀 함수 (팩토리얼, GCD, 거듭제곱)
 
 ```bash
-# 기본 출력 예제
+# 예제 실행
 ./kingsejong examples/hello.ksj
-
-# 계산기 예제
-./kingsejong examples/calculator.ksj
-
-# 피보나치 수열
 ./kingsejong examples/fibonacci.ksj
-
-# 반복문 예제
-./kingsejong examples/loop.ksj
-
-# 함수 예제
-./kingsejong examples/function.ksj
+./kingsejong examples/closure.ksj
 ```
-
-예제 파일은 `examples/` 디렉토리에서 확인할 수 있습니다.
 
 ## 프로젝트 구조
 
@@ -164,7 +172,7 @@ kingsejong-lang/
 
 ## 구현 상태
 
-### Phase 1 진행 현황 (핵심 기능)
+### Phase 1: 핵심 차별화 기능 ✅ (100% 완료)
 
 | 기능 | 상태 | 테스트 | 비고 |
 |------|------|--------|------|
@@ -176,7 +184,8 @@ kingsejong-lang/
 | F1.15: 1급 함수 | ✅ 완료 | 100% | 함수 리터럴, 클로저, 재귀 |
 | F1.16: 내장 함수 | ✅ 완료 | 100% | 출력(), 타입(), 길이() |
 | F1.17: REPL | ✅ 완료 | 수동 | 대화형 실행 환경 |
-| F1.18: 파일 실행 | ✅ 완료 | 수동 | .ksj 파일 실행, 5개 예제 |
+| F1.18: 파일 실행 | ✅ 완료 | 수동 | .ksj 파일 실행 모드 |
+| F1.19: 예제 프로그램 | ✅ 완료 | 수동 | 10개 예제 파일 |
 
 ### 전체 테스트 현황
 
@@ -191,12 +200,21 @@ kingsejong-lang/
 
 프로젝트는 4단계로 진행됩니다:
 
-- **Phase 0** (Week 1-2): 프로젝트 초기 설정
-- **Phase 1** (Month 1-3): 핵심 차별화 기능 (조사 인식, 범위 표현, 타입 시스템)
-- **Phase 2** (Month 4-6): 실용 기능 (함수, 모듈, 표준 라이브러리)
-- **Phase 3** (Month 7-12): 고급 기능 (GC, 최적화, 크로스 컴파일)
+- **Phase 0** ✅ 완료: 프로젝트 초기 설정
+- **Phase 1** ✅ 완료: 핵심 차별화 기능 (조사 인식, 범위 표현, 타입 시스템, 1급 함수, REPL, 파일 실행)
+- **Phase 2** 🚧 진행중: 실용 기능 (배열, 문자열, 실수, 에러 처리, 타입 검사)
+- **Phase 3** 📝 대기: 고급 기능 (GC, 최적화, 모듈 시스템, 크로스 컴파일)
 
 자세한 내용은 [TODOLIST.md](docs/TODOLIST.md)를 참조하세요.
+
+### 현재 진행 상황
+- ✅ Phase 0: 프로젝트 초기 설정 (100%)
+- ✅ Phase 1: 핵심 차별화 기능 (100%)
+  - Token 시스템, 조사 인식기, Lexer, Parser
+  - 타입 시스템, Value 시스템, Environment
+  - Evaluator (반복문, 조건문, 1급 함수)
+  - 내장 함수, REPL, 파일 실행, 예제 프로그램
+- 🚧 Phase 2: 실용 기능 (진행 예정)
 
 ## 기여하기
 

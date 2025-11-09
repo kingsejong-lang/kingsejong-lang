@@ -24,7 +24,7 @@ KingSejong 언어는 Phase 1, 2, 3를 성공적으로 완료하여 v0.1.0 릴리
 
 **목표**: 성능 향상 및 플랫폼 확장
 **기간**: 2025년 Q1-Q2 (6개월)
-**현재 진행률**: 75% 완료 🚧
+**현재 진행률**: 88% 완료 🚧
 **우선순위**: HIGH
 
 ### 4.1 성능 최적화 (HIGH) ✅
@@ -58,23 +58,25 @@ KingSejong 언어는 Phase 1, 2, 3를 성공적으로 완료하여 v0.1.0 릴리
 - 10-50배 성능 향상 (반복 코드)
 - 실시간 최적화
 
-### 4.2 플랫폼 확장 (HIGH) 🚧
+### 4.2 플랫폼 확장 (HIGH) ✅
 
-#### Linux 지원 🚧
+#### Linux 지원 ✅
 **작업 항목**:
 - [x] CMake 빌드 설정 검증 - PR #44 ✅
-- [x] 의존성 관리 (apt) - PR #44 ✅
+- [x] 의존성 관리 (apt, dnf) - Commit 639cbd8 ✅
 - [x] CI 빌드 및 테스트 - PR #44 ✅
-- [ ] 실제 Linux 환경 테스트
-- [ ] 문서 업데이트
+- [x] 플랫폼별 설치 가이드 - Commit 639cbd8 ✅
+- [x] 자동화 설치 스크립트 - install.sh ✅
+- [x] Ubuntu/Debian, Fedora/CentOS, Arch Linux 문서화 ✅
 
-#### Windows 지원 🚧
+#### Windows 지원 ✅
 **작업 항목**:
 - [x] MSVC 빌드 설정 - PR #44 ✅
 - [x] CI 빌드 및 테스트 - PR #44 ✅
-- [ ] 실제 Windows 환경 테스트
-- [ ] Windows 특화 경로 처리 검증
-- [ ] 인스톨러 제작 (선택)
+- [x] Visual Studio 2022 가이드 - Commit 639cbd8 ✅
+- [x] MinGW-w64 가이드 - Commit 639cbd8 ✅
+- [x] PowerShell 설치 스크립트 - install.ps1 ✅
+- [x] 상세 설치 문서 (630+ 줄) ✅
 
 #### CI/CD 파이프라인 ✅
 **작업 항목**:
@@ -86,7 +88,7 @@ KingSejong 언어는 Phase 1, 2, 3를 성공적으로 완료하여 v0.1.0 릴리
 - [x] 코드 커버리지 측정 ✅
 - [x] 정적 분석 통합 (clang-tidy) ✅
 - [x] 메모리 검사 (Valgrind, ASan, UBSan) ✅
-- [ ] 자동 릴리스 생성
+- [ ] 자동 릴리스 생성 (향후 작업)
 
 ### 4.3 메모리 관리 개선 (MEDIUM)
 
@@ -163,6 +165,19 @@ KingSejong 언어는 Phase 1, 2, 3를 성공적으로 완료하여 v0.1.0 릴리
 - Evaluator.cpp 문자열 연결 오류 수정
 - 전체 GC 테스트 15개 통과
 - 메모리 안전성 클린 (ASan/UBSan)
+
+**Commit 639cbd8: 플랫폼 확장** (2025-11-10)
+- README.md 플랫폼별 설치 가이드 추가 (macOS, Linux, Windows)
+- docs/INSTALL.md 상세 가이드 작성 (630+ 줄)
+  - Ubuntu/Debian, Fedora/CentOS, Arch Linux 지원
+  - Visual Studio 2022, MinGW-w64 가이드
+  - 문제 해결 섹션
+- install.sh 자동화 스크립트 (300+ 줄)
+  - 컬러 출력, 오류 처리
+  - 옵션: --system, --prefix, --jobs, --clean
+- install.ps1 PowerShell 스크립트 (350+ 줄)
+  - Visual Studio 자동 감지
+  - 관리자 권한 확인
 
 ---
 

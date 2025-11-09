@@ -118,6 +118,12 @@ private:
     size_t currentOffset() const;
     int currentLine() const { return 1; } // 간단화를 위해 1로 고정
 
+    // 최적화 패스
+    bool tryConstantFoldBinary(ast::BinaryExpression* expr);
+    bool tryConstantFoldUnary(ast::UnaryExpression* expr);
+    bool isConstantCondition(ast::Expression* expr, bool& result);
+    void optimizePeephole();
+
     // 에러 처리
     void error(const std::string& message);
     bool hadError_ = false;

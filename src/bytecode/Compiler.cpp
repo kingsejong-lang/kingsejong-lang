@@ -151,6 +151,21 @@ void Compiler::compileExpressionStatement(ast::ExpressionStatement* stmt) {
 }
 
 void Compiler::compileIfStatement(ast::IfStatement* stmt) {
+    // 최적화: 상수 조건 검사 (데드 코드 제거)
+    bool constResult;
+    if (isConstantCondition(stmt->condition(), constResult)) {
+        if (constResult) {
+            // 조건이 항상 참 - then 블록만 컴파일
+            compileStatement(stmt->thenBranch());
+        } else {
+            // 조건이 항상 거짓 - else 블록만 컴파일
+            if (stmt->elseBranch()) {
+                compileStatement(stmt->elseBranch());
+            }
+        }
+        return;
+    }
+
     // 조건 평가
     compileExpression(stmt->condition());
 
@@ -325,6 +340,11 @@ void Compiler::compileIdentifier(ast::Identifier* ident) {
 }
 
 void Compiler::compileBinaryExpression(ast::BinaryExpression* expr) {
+    // 최적화: 상수 폴딩
+    if (tryConstantFoldBinary(expr)) {
+        return;
+    }
+
     // 왼쪽 피연산자
     compileExpression(expr->left());
 
@@ -353,6 +373,11 @@ void Compiler::compileBinaryExpression(ast::BinaryExpression* expr) {
 }
 
 void Compiler::compileUnaryExpression(ast::UnaryExpression* expr) {
+    // 최적화: 상수 폴딩
+    if (tryConstantFoldUnary(expr)) {
+        return;
+    }
+
     // 피연산자
     compileExpression(expr->operand());
 
@@ -555,6 +580,209 @@ size_t Compiler::currentOffset() const {
 void Compiler::error(const std::string& message) {
     std::cerr << "[컴파일 오류] " << message << std::endl;
     hadError_ = true;
+}
+
+// ============================================================================
+// 최적화 패스
+// ============================================================================
+
+bool Compiler::tryConstantFoldBinary(ast::BinaryExpression* expr) {
+    // 정수 리터럴 폴딩
+    auto* leftInt = dynamic_cast<ast::IntegerLiteral*>(expr->left());
+    auto* rightInt = dynamic_cast<ast::IntegerLiteral*>(expr->right());
+
+    if (leftInt && rightInt) {
+        int64_t left = leftInt->value();
+        int64_t right = rightInt->value();
+        int64_t result;
+        bool isBoolResult = false;
+        bool boolResult = false;
+
+        switch (expr->op()) {
+            // 산술 연산
+            case lexer::TokenType::PLUS:
+                result = left + right;
+                break;
+            case lexer::TokenType::MINUS:
+                result = left - right;
+                break;
+            case lexer::TokenType::ASTERISK:
+                result = left * right;
+                break;
+            case lexer::TokenType::SLASH:
+                if (right == 0) return false;  // 0으로 나누기는 런타임에 처리
+                result = left / right;
+                break;
+            case lexer::TokenType::PERCENT:
+                if (right == 0) return false;
+                result = left % right;
+                break;
+
+            // 비교 연산
+            case lexer::TokenType::EQ:
+                isBoolResult = true;
+                boolResult = (left == right);
+                break;
+            case lexer::TokenType::NOT_EQ:
+                isBoolResult = true;
+                boolResult = (left != right);
+                break;
+            case lexer::TokenType::LT:
+                isBoolResult = true;
+                boolResult = (left < right);
+                break;
+            case lexer::TokenType::GT:
+                isBoolResult = true;
+                boolResult = (left > right);
+                break;
+            case lexer::TokenType::LE:
+                isBoolResult = true;
+                boolResult = (left <= right);
+                break;
+            case lexer::TokenType::GE:
+                isBoolResult = true;
+                boolResult = (left >= right);
+                break;
+
+            default:
+                return false;  // 폴딩 불가능한 연산
+        }
+
+        if (isBoolResult) {
+            emit(boolResult ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE);
+        } else {
+            size_t idx = chunk_->addConstant(evaluator::Value::createInteger(result));
+            emit(OpCode::LOAD_CONST, static_cast<uint8_t>(idx));
+        }
+        return true;
+    }
+
+    // 부동소수점 리터럴 폴딩
+    auto* leftFloat = dynamic_cast<ast::FloatLiteral*>(expr->left());
+    auto* rightFloat = dynamic_cast<ast::FloatLiteral*>(expr->right());
+
+    if (leftFloat && rightFloat) {
+        double left = leftFloat->value();
+        double right = rightFloat->value();
+        double result;
+        bool isBoolResult = false;
+        bool boolResult = false;
+
+        switch (expr->op()) {
+            case lexer::TokenType::PLUS:
+                result = left + right;
+                break;
+            case lexer::TokenType::MINUS:
+                result = left - right;
+                break;
+            case lexer::TokenType::ASTERISK:
+                result = left * right;
+                break;
+            case lexer::TokenType::SLASH:
+                if (right == 0.0) return false;
+                result = left / right;
+                break;
+
+            case lexer::TokenType::EQ:
+                isBoolResult = true;
+                boolResult = (left == right);
+                break;
+            case lexer::TokenType::NOT_EQ:
+                isBoolResult = true;
+                boolResult = (left != right);
+                break;
+            case lexer::TokenType::LT:
+                isBoolResult = true;
+                boolResult = (left < right);
+                break;
+            case lexer::TokenType::GT:
+                isBoolResult = true;
+                boolResult = (left > right);
+                break;
+            case lexer::TokenType::LE:
+                isBoolResult = true;
+                boolResult = (left <= right);
+                break;
+            case lexer::TokenType::GE:
+                isBoolResult = true;
+                boolResult = (left >= right);
+                break;
+
+            default:
+                return false;
+        }
+
+        if (isBoolResult) {
+            emit(boolResult ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE);
+        } else {
+            size_t idx = chunk_->addConstant(evaluator::Value::createFloat(result));
+            emit(OpCode::LOAD_CONST, static_cast<uint8_t>(idx));
+        }
+        return true;
+    }
+
+    return false;
+}
+
+bool Compiler::tryConstantFoldUnary(ast::UnaryExpression* expr) {
+    // 정수 리터럴 단항 연산 폴딩
+    auto* intLit = dynamic_cast<ast::IntegerLiteral*>(expr->operand());
+    if (intLit && expr->op() == lexer::TokenType::MINUS) {
+        int64_t result = -intLit->value();
+        size_t idx = chunk_->addConstant(evaluator::Value::createInteger(result));
+        emit(OpCode::LOAD_CONST, static_cast<uint8_t>(idx));
+        return true;
+    }
+
+    // 부동소수점 리터럴 단항 연산 폴딩
+    auto* floatLit = dynamic_cast<ast::FloatLiteral*>(expr->operand());
+    if (floatLit && expr->op() == lexer::TokenType::MINUS) {
+        double result = -floatLit->value();
+        size_t idx = chunk_->addConstant(evaluator::Value::createFloat(result));
+        emit(OpCode::LOAD_CONST, static_cast<uint8_t>(idx));
+        return true;
+    }
+
+    // 불린 NOT 연산 폴딩
+    auto* boolLit = dynamic_cast<ast::BooleanLiteral*>(expr->operand());
+    if (boolLit && expr->op() == lexer::TokenType::NOT) {
+        emit(boolLit->value() ? OpCode::LOAD_FALSE : OpCode::LOAD_TRUE);
+        return true;
+    }
+
+    return false;
+}
+
+bool Compiler::isConstantCondition(ast::Expression* expr, bool& result) {
+    // 불린 리터럴
+    auto* boolLit = dynamic_cast<ast::BooleanLiteral*>(expr);
+    if (boolLit) {
+        result = boolLit->value();
+        return true;
+    }
+
+    // 정수 리터럴 (0은 거짓, 나머지는 참)
+    auto* intLit = dynamic_cast<ast::IntegerLiteral*>(expr);
+    if (intLit) {
+        result = (intLit->value() != 0);
+        return true;
+    }
+
+    return false;
+}
+
+void Compiler::optimizePeephole() {
+    // 간단한 피홀 최적화 패턴
+    // 실제 구현은 생성된 바이트코드를 스캔하여 패턴을 찾아 최적화
+    // 현재는 간단한 버전만 구현
+
+    // TODO: 다음 패턴들을 최적화
+    // 1. LOAD_CONST + POP -> 제거
+    // 2. DUP + POP -> 제거
+    // 3. LOAD_VAR X + STORE_VAR X -> 제거 (변수를 읽고 바로 같은 변수에 저장)
+    // 4. 연속된 POP 최적화
+
+    // 현재는 컴파일 타임 최적화가 대부분이므로 skip
 }
 
 } // namespace bytecode

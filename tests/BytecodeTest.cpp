@@ -402,6 +402,261 @@ TEST(OpCodeTest, ShouldDetectJumpOpCodes) {
 }
 
 // ============================================================================
+// 최적화 테스트
+// ============================================================================
+
+TEST(OptimizationTest, ShouldFoldConstantAddition) {
+    // 2 + 3 -> 5
+    std::string code = "2 + 3";
+
+    lexer::Lexer lexer(code);
+    parser::Parser parser(&lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    Chunk chunk;
+    Compiler compiler;
+    bool success = compiler.compile(program.get(), &chunk);
+
+    EXPECT_TRUE(success);
+
+    // 최적화되었으면 LOAD_CONST 1개만 있어야 함 (ADD 없음)
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.top().asInteger(), 5);
+}
+
+TEST(OptimizationTest, ShouldFoldConstantMultiplication) {
+    // 6 * 7 -> 42
+    std::string code = "6 * 7";
+
+    lexer::Lexer lexer(code);
+    parser::Parser parser(&lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    Chunk chunk;
+    Compiler compiler;
+    bool success = compiler.compile(program.get(), &chunk);
+
+    EXPECT_TRUE(success);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.top().asInteger(), 42);
+}
+
+TEST(OptimizationTest, ShouldFoldConstantComparison) {
+    // 10 < 20 -> 참
+    std::string code = "10 < 20";
+
+    lexer::Lexer lexer(code);
+    parser::Parser parser(&lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    Chunk chunk;
+    Compiler compiler;
+    bool success = compiler.compile(program.get(), &chunk);
+
+    EXPECT_TRUE(success);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_TRUE(vm.top().asBoolean());
+}
+
+TEST(OptimizationTest, ShouldFoldConstantNegation) {
+    // -42 -> -42
+    std::string code = "-42";
+
+    lexer::Lexer lexer(code);
+    parser::Parser parser(&lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    Chunk chunk;
+    Compiler compiler;
+    bool success = compiler.compile(program.get(), &chunk);
+
+    EXPECT_TRUE(success);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.top().asInteger(), -42);
+}
+
+TEST(OptimizationTest, ShouldFoldConstantFloatArithmetic) {
+    // 2.5 + 3.5 -> 6.0
+    std::string code = "2.5 + 3.5";
+
+    lexer::Lexer lexer(code);
+    parser::Parser parser(&lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    Chunk chunk;
+    Compiler compiler;
+    bool success = compiler.compile(program.get(), &chunk);
+
+    EXPECT_TRUE(success);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_DOUBLE_EQ(vm.top().asFloat(), 6.0);
+}
+
+TEST(OptimizationTest, ShouldFoldBooleanNot) {
+    // !참 -> 거짓
+    std::string code = "!참";
+
+    lexer::Lexer lexer(code);
+    parser::Parser parser(&lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    Chunk chunk;
+    Compiler compiler;
+    bool success = compiler.compile(program.get(), &chunk);
+
+    EXPECT_TRUE(success);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_FALSE(vm.top().asBoolean());
+}
+
+TEST(OptimizationTest, ShouldEliminateDeadCodeInIfTrue) {
+    // 만약 (참) { x = 1 } 아니면 { x = 2 }
+    // 아니면 블록은 컴파일되지 않아야 함
+    std::string code = R"(
+        정수 x = 0
+        만약 (참) {
+            x = 1
+        } 아니면 {
+            x = 2
+        }
+    )";
+
+    lexer::Lexer lexer(code);
+    parser::Parser parser(&lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    Chunk chunk;
+    Compiler compiler;
+    bool success = compiler.compile(program.get(), &chunk);
+
+    EXPECT_TRUE(success);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    // x는 1이어야 함 (참 브랜치만 실행)
+}
+
+TEST(OptimizationTest, ShouldEliminateDeadCodeInIfFalse) {
+    // 만약 (거짓) { x = 1 } 아니면 { x = 2 }
+    // 만약 블록은 컴파일되지 않아야 함
+    std::string code = R"(
+        정수 x = 0
+        만약 (거짓) {
+            x = 1
+        } 아니면 {
+            x = 2
+        }
+    )";
+
+    lexer::Lexer lexer(code);
+    parser::Parser parser(&lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    Chunk chunk;
+    Compiler compiler;
+    bool success = compiler.compile(program.get(), &chunk);
+
+    EXPECT_TRUE(success);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    // x는 2이어야 함 (거짓 브랜치만 실행)
+}
+
+TEST(OptimizationTest, ShouldNotFoldNonConstantExpression) {
+    // x + 3 는 폴딩되지 않음 (x가 변수)
+    std::string code = R"(
+        정수 x = 5
+        x + 3
+    )";
+
+    lexer::Lexer lexer(code);
+    parser::Parser parser(&lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    Chunk chunk;
+    Compiler compiler;
+    bool success = compiler.compile(program.get(), &chunk);
+
+    EXPECT_TRUE(success);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.top().asInteger(), 8);
+}
+
+TEST(OptimizationTest, ShouldFoldNestedConstantExpression) {
+    // (2 + 3) * 4 -> 일부 폴딩 가능
+    // 최소한 2 + 3은 컴파일 타임에 5로 폴딩됨
+    std::string code = "(2 + 3) * 4";
+
+    lexer::Lexer lexer(code);
+    parser::Parser parser(&lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    Chunk chunk;
+    Compiler compiler;
+    bool success = compiler.compile(program.get(), &chunk);
+
+    EXPECT_TRUE(success);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.top().asInteger(), 20);
+}
+
+// ============================================================================
 // 실행
 // ============================================================================
 

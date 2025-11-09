@@ -8,6 +8,7 @@
 #include "Evaluator.h"
 #include "Builtin.h"
 #include "../error/Error.h"
+#include "../module/ModuleLoader.h"
 #include <sstream>
 #include <cmath>
 
@@ -102,6 +103,9 @@ Value Evaluator::eval(ast::Node* node)
 
         case ast::NodeType::BLOCK_STATEMENT:
             return evalBlockStatement(static_cast<ast::BlockStatement*>(node));
+
+        case ast::NodeType::IMPORT_STATEMENT:
+            return evalImportStatement(static_cast<ast::ImportStatement*>(node));
 
         default:
         {
@@ -723,6 +727,30 @@ Value Evaluator::evalIndexExpression(ast::IndexExpression* expr)
 
         return arr[static_cast<size_t>(idx)];
     }
+}
+
+Value Evaluator::evalImportStatement(ast::ImportStatement* stmt)
+{
+    // ModuleLoader가 설정되지 않은 경우
+    if (!moduleLoader_)
+    {
+        throw error::RuntimeError(
+            "모듈 로더가 설정되지 않았습니다.\n" +
+            "해결 방법: Evaluator에 ModuleLoader를 설정해야 합니다."
+        );
+    }
+
+    // 모듈 로딩
+    std::string modulePath = stmt->modulePath();
+    auto moduleEnv = moduleLoader_->loadModule(modulePath);
+
+    // 모듈의 모든 변수를 현재 환경으로 가져오기
+    for (const auto& [name, value] : moduleEnv->getAllBindings())
+    {
+        env_->set(name, value);
+    }
+
+    return Value::createNull();
 }
 
 } // namespace evaluator

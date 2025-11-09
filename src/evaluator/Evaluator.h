@@ -16,6 +16,10 @@
 #include <stdexcept>
 
 namespace kingsejong {
+
+// Forward declaration
+namespace module { class ModuleLoader; }
+
 namespace evaluator {
 
 /**
@@ -94,8 +98,15 @@ public:
      */
     std::shared_ptr<Environment> environment() const { return env_; }
 
+    /**
+     * @brief ModuleLoader 설정
+     * @param loader 모듈 로더 포인터
+     */
+    void setModuleLoader(module::ModuleLoader* loader) { moduleLoader_ = loader; }
+
 private:
     std::shared_ptr<Environment> env_;  ///< 변수 저장 환경
+    module::ModuleLoader* moduleLoader_ = nullptr;  ///< 모듈 로더
 
     // Expression 평가 함수들
 
@@ -233,6 +244,13 @@ private:
      * @return 마지막 문장의 평가 결과
      */
     Value evalBlockStatement(ast::BlockStatement* stmt);
+
+    /**
+     * @brief 모듈 가져오기 실행
+     * @param stmt 모듈 가져오기 노드
+     * @return null Value
+     */
+    Value evalImportStatement(ast::ImportStatement* stmt);
 
     // 헬퍼 함수들
 

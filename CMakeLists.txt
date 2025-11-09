@@ -35,6 +35,7 @@ set(LIB_SOURCES
     src/evaluator/Environment.cpp
     src/evaluator/Evaluator.cpp
     src/evaluator/Builtin.cpp
+    src/module/ModuleLoader.cpp
     src/repl/Repl.cpp
 )
 

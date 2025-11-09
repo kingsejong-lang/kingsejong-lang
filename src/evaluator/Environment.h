@@ -114,6 +114,12 @@ public:
      * @return 변수 이름 벡터
      */
     std::vector<std::string> keys() const;
+
+    /**
+     * @brief 모든 변수 바인딩 반환 (현재 스코프만)
+     * @return 변수명-값 맵의 복사본
+     */
+    const std::unordered_map<std::string, Value>& getAllBindings() const { return store_; }
 };
 
 } // namespace evaluator

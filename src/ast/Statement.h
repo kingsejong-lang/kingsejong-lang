@@ -460,5 +460,33 @@ public:
     const BlockStatement* body() const { return body_.get(); }
 };
 
+/**
+ * @class ImportStatement
+ * @brief 모듈 가져오기 문장
+ *
+ * @example
+ * 가져오기 "math"
+ * 가져오기 "utils/helper"
+ */
+class ImportStatement : public Statement
+{
+private:
+    std::string modulePath_;  ///< 모듈 경로
+
+public:
+    explicit ImportStatement(const std::string& modulePath)
+        : modulePath_(modulePath)
+    {}
+
+    NodeType type() const override { return NodeType::IMPORT_STATEMENT; }
+
+    std::string toString() const override
+    {
+        return "가져오기 \"" + modulePath_ + "\"";
+    }
+
+    const std::string& modulePath() const { return modulePath_; }
+};
+
 } // namespace ast
 } // namespace kingsejong

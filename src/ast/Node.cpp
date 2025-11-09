@@ -39,6 +39,8 @@ std::string nodeTypeToString(NodeType type)
             return "RANGE_FOR_STATEMENT";
         case NodeType::BLOCK_STATEMENT:
             return "BLOCK_STATEMENT";
+        case NodeType::IMPORT_STATEMENT:
+            return "IMPORT_STATEMENT";
 
         // 표현식
         case NodeType::IDENTIFIER:

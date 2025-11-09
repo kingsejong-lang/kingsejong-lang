@@ -100,6 +100,9 @@ enum class TokenType
     HAMSU,        ///< 함수
     BANHWAN,      ///< 반환 (return)
 
+    // 모듈 키워드
+    GAJYEOOGI,    ///< 가져오기 (import)
+
     // 타입 키워드
     JEONGSU,      ///< 정수 (integer)
     SILSU,        ///< 실수 (float)

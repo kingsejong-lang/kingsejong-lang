@@ -146,6 +146,7 @@ private:
     std::unique_ptr<Statement> parseStatement();
     std::unique_ptr<ExpressionStatement> parseExpressionStatement();
     std::unique_ptr<VarDeclaration> parseVarDeclaration();
+    std::unique_ptr<AssignmentStatement> parseAssignmentStatement();
     std::unique_ptr<ReturnStatement> parseReturnStatement();
     std::unique_ptr<IfStatement> parseIfStatement();
     std::unique_ptr<RepeatStatement> parseRepeatStatement();

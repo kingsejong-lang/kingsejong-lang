@@ -23,6 +23,8 @@ std::string nodeTypeToString(NodeType type)
             return "EXPRESSION_STATEMENT";
         case NodeType::VAR_DECLARATION:
             return "VAR_DECLARATION";
+        case NodeType::ASSIGNMENT_STATEMENT:
+            return "ASSIGNMENT_STATEMENT";
         case NodeType::RETURN_STATEMENT:
             return "RETURN_STATEMENT";
         case NodeType::IF_STATEMENT:

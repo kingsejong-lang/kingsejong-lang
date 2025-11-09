@@ -77,6 +77,9 @@ Value Evaluator::eval(ast::Node* node)
         case ast::NodeType::VAR_DECLARATION:
             return evalVarDeclaration(static_cast<ast::VarDeclaration*>(node));
 
+        case ast::NodeType::ASSIGNMENT_STATEMENT:
+            return evalAssignmentStatement(static_cast<ast::AssignmentStatement*>(node));
+
         case ast::NodeType::RETURN_STATEMENT:
             return evalReturnStatement(static_cast<ast::ReturnStatement*>(node));
 
@@ -344,6 +347,23 @@ Value Evaluator::evalVarDeclaration(ast::VarDeclaration* stmt)
     return Value::createNull();
 }
 
+Value Evaluator::evalAssignmentStatement(ast::AssignmentStatement* stmt)
+{
+    // 1) 변수가 스코프 체인에 존재하는지 확인
+    if (!env_->existsInChain(stmt->varName()))
+    {
+        throw std::runtime_error("정의되지 않은 변수: " + stmt->varName());
+    }
+
+    // 2) 값 평가
+    Value value = eval(const_cast<ast::Expression*>(stmt->value()));
+
+    // 3) 환경에 값 갱신
+    env_->set(stmt->varName(), value);
+
+    return value;
+}
+
 Value Evaluator::evalReturnStatement(ast::ReturnStatement* stmt)
 {
     Value returnValue;
@@ -404,6 +424,7 @@ Value Evaluator::evalRepeatStatement(ast::RepeatStatement* stmt)
 
     int64_t count = countValue.asInteger();
 
+    // 음수 반복 횟수 검증
     if (count < 0)
     {
         throw std::runtime_error("반복 횟수는 0 이상이어야 합니다");

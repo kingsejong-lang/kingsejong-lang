@@ -169,7 +169,12 @@ std::string Lexer::readIdentifier()
         TokenType suffixType = lookupKeyword(lastTwoChars);
 
         // 조사이거나 분리 가능한 키워드인 경우
-        if (isJosa(lastTwoChars) || suffixType == TokenType::HAGO || suffixType == TokenType::HARA)
+        if (isJosa(lastTwoChars) ||
+            suffixType == TokenType::HAGO ||
+            suffixType == TokenType::HARA ||
+            suffixType == TokenType::KKAJI ||
+            suffixType == TokenType::BUTEO ||
+            suffixType == TokenType::BANBOKK)
         {
             // 접미사를 분리
             identifier = identifier.substr(0, identifier.length() - 6);
@@ -187,21 +192,22 @@ std::string Lexer::readIdentifier()
     if (identifier.length() >= 4)  // 최소 1글자 + 접미사
     {
         std::string lastChar = identifier.substr(identifier.length() - 3);
+        TokenType suffixType = lookupKeyword(lastChar);
 
-        if (isJosa(lastChar))
+        if (isJosa(lastChar) || suffixType == TokenType::BEON)
         {
             std::string base = identifier.substr(0, identifier.length() - 3);
 
             // 특수 케이스: "나이" 같은 일반 명사는 분리하지 않음
             // 2글자 한글 단어 중 마지막 글자가 "이"인 경우는 대부분 명사
-            if (base.length() == 3 && lastChar == "이")
+            if (base.length() == 3 && lastChar == "이" && suffixType != TokenType::BEON)
             {
                 // "나이", "거리", "자리" 등은 분리하지 않음
                 // 추후 사전 기반 형태소 분석으로 개선 필요
                 return identifier;
             }
 
-            // 조사를 분리
+            // 조사 또는 키워드를 분리
             identifier = base;
             position -= 3;
             readPosition = position + 1;

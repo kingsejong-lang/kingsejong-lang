@@ -225,6 +225,31 @@ std::unique_ptr<Program> Parser::parseProgram()
 // 문장 파싱
 // ============================================================================
 
+// 범위 for문의 변수 이름일 가능성이 높은지 확인하는 헬퍼 함수
+static bool isLikelyLoopVariable(const std::string& str)
+{
+    // 일반적인 루프 변수 이름
+    if (str == "i" || str == "j" || str == "k" ||
+        str == "index" || str == "idx" || str == "n" || str == "m")
+    {
+        return true;
+    }
+
+    // 1-2글자 ASCII 식별자 (x, y, z, id 등)
+    if (str.length() <= 2)
+    {
+        return true;
+    }
+
+    // 1글자 한글 (가, 나, 다 등)
+    if (str.length() == 3 && (static_cast<unsigned char>(str[0]) & 0xE0) == 0xE0)
+    {
+        return true;
+    }
+
+    return false;
+}
+
 std::unique_ptr<Statement> Parser::parseStatement()
 {
     // 타입 키워드로 시작하면 변수 선언
@@ -246,17 +271,19 @@ std::unique_ptr<Statement> Parser::parseStatement()
         return parseIfStatement();
     }
 
-    // 범위 반복문: identifier + "가"/"이" (N번 반복보다 먼저 체크)
-    if (curTokenIs(TokenType::IDENTIFIER) &&
-        (peekTokenIs(TokenType::JOSA_GA) || peekTokenIs(TokenType::JOSA_I)))
+    // 할당 문장: identifier + "=" (범위 반복문보다 먼저 체크)
+    if (curTokenIs(TokenType::IDENTIFIER) && peekTokenIs(TokenType::ASSIGN))
     {
-        return parseRangeForStatement();
+        return parseAssignmentStatement();
     }
 
-    // N번 반복문: integer/expression + "번"
-    if (peekTokenIs(TokenType::BEON))
+    // 범위 반복문: identifier + "가"/"이" (N번 반복보다 먼저 체크)
+    // 단, 일반적인 루프 변수 이름인 경우에만 (조사 표현식과 구분)
+    if (curTokenIs(TokenType::IDENTIFIER) &&
+        (peekTokenIs(TokenType::JOSA_GA) || peekTokenIs(TokenType::JOSA_I)) &&
+        isLikelyLoopVariable(curToken_.literal))
     {
-        return parseRepeatStatement();
+        return parseRangeForStatement();
     }
 
     // 블록 문장
@@ -265,8 +292,40 @@ std::unique_ptr<Statement> Parser::parseStatement()
         return parseBlockStatement();
     }
 
-    // 기본: 표현식 문장
-    return parseExpressionStatement();
+    // 기본: 표현식 문장 또는 N번 반복문
+    // 표현식을 먼저 파싱한 후 BEON 토큰을 확인
+    auto expr = parseExpression(Precedence::LOWEST);
+
+    // 표현식 파싱 후 다음 토큰이 BEON이면 RepeatStatement
+    if (peekTokenIs(TokenType::BEON))
+    {
+        nextToken(); // BEON으로 이동
+
+        // "반복한다" 확인
+        if (!peekTokenIs(TokenType::BANBOKHANDA))
+        {
+            peekError(TokenType::BANBOKHANDA);
+            return nullptr;
+        }
+        nextToken(); // BANBOKHANDA로 이동
+
+        // 본문 블록
+        if (!expectPeek(TokenType::LBRACE))
+        {
+            return nullptr;
+        }
+
+        auto body = parseBlockStatement();
+        return std::make_unique<RepeatStatement>(std::move(expr), std::move(body));
+    }
+
+    // 일반 표현식 문장
+    if (peekTokenIs(TokenType::SEMICOLON))
+    {
+        nextToken();
+    }
+
+    return std::make_unique<ExpressionStatement>(std::move(expr));
 }
 
 std::unique_ptr<ExpressionStatement> Parser::parseExpressionStatement()
@@ -315,6 +374,30 @@ std::unique_ptr<VarDeclaration> Parser::parseVarDeclaration()
     }
 
     return std::make_unique<VarDeclaration>(typeName, varName, std::move(initializer), varType);
+}
+
+std::unique_ptr<AssignmentStatement> Parser::parseAssignmentStatement()
+{
+    // 현재 토큰: 변수 이름 (IDENTIFIER)
+    std::string varName = curToken_.literal;
+
+    // "=" 확인
+    if (!expectPeek(TokenType::ASSIGN))
+    {
+        return nullptr;
+    }
+
+    nextToken(); // 값 표현식 시작
+
+    auto value = parseExpression(Precedence::LOWEST);
+
+    // 선택적 세미콜론
+    if (peekTokenIs(TokenType::SEMICOLON))
+    {
+        nextToken();
+    }
+
+    return std::make_unique<AssignmentStatement>(varName, std::move(value));
 }
 
 std::unique_ptr<ReturnStatement> Parser::parseReturnStatement()

@@ -179,6 +179,13 @@ private:
     Value evalVarDeclaration(ast::VarDeclaration* stmt);
 
     /**
+     * @brief 변수 할당 실행
+     * @param stmt 변수 할당 노드
+     * @return 할당된 Value
+     */
+    Value evalAssignmentStatement(ast::AssignmentStatement* stmt);
+
+    /**
      * @brief 반환 문장 실행
      * @param stmt 반환 문장 노드
      * @return 반환할 Value

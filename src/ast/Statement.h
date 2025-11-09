@@ -140,6 +140,42 @@ public:
 };
 
 /**
+ * @class AssignmentStatement
+ * @brief 변수 할당 문장
+ *
+ * 이미 선언된 변수에 새로운 값을 할당합니다.
+ *
+ * @example
+ * count = count + 1;
+ * x = 10;
+ */
+class AssignmentStatement : public Statement
+{
+private:
+    std::string varName_;       ///< 변수 이름
+    std::unique_ptr<Expression> value_;  ///< 할당할 값
+
+public:
+    AssignmentStatement(
+        const std::string& varName,
+        std::unique_ptr<Expression> value
+    )
+        : varName_(varName)
+        , value_(std::move(value))
+    {}
+
+    NodeType type() const override { return NodeType::ASSIGNMENT_STATEMENT; }
+
+    std::string toString() const override
+    {
+        return varName_ + " = " + (value_ ? value_->toString() : "null") + ";";
+    }
+
+    const std::string& varName() const { return varName_; }
+    const Expression* value() const { return value_.get(); }
+};
+
+/**
  * @class ReturnStatement
  * @brief 반환 문장
  *

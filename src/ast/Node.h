@@ -25,6 +25,7 @@ enum class NodeType
     // 문장 (Statements)
     EXPRESSION_STATEMENT,       ///< 표현식 문장
     VAR_DECLARATION,            ///< 변수 선언 (정수 x = 10)
+    ASSIGNMENT_STATEMENT,       ///< 변수 할당 (x = 10)
     RETURN_STATEMENT,           ///< 반환 문장 (반환 x)
     IF_STATEMENT,               ///< 조건 문장 (만약)
     WHILE_STATEMENT,            ///< 반복 문장 (동안)

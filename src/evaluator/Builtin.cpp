@@ -183,8 +183,248 @@ static Value builtin_길이(const std::vector<Value>& args)
         return Value::createInteger(count);
     }
 
-    // 배열은 아직 구현되지 않았으므로 에러 처리
+    // 배열의 경우: 요소 개수 반환
+    if (arg.isArray())
+    {
+        return Value::createInteger(static_cast<int64_t>(arg.asArray().size()));
+    }
+
     throw std::runtime_error("길이() 함수는 문자열 또는 배열 타입이어야 합니다");
+}
+
+/**
+ * @brief 분리(문자열, 구분자) - 문자열을 구분자로 분리하여 배열 반환
+ *
+ * @param args 문자열, 구분자 (2개)
+ * @return 분리된 문자열 배열
+ * @throws std::runtime_error 인자 개수가 2개가 아니거나, 둘 다 문자열이 아닌 경우
+ */
+static Value builtin_분리(const std::vector<Value>& args)
+{
+    if (args.size() != 2)
+    {
+        throw std::runtime_error("분리() 함수는 정확히 2개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isString() || !args[1].isString())
+    {
+        throw std::runtime_error("분리() 함수의 인자는 모두 문자열이어야 합니다");
+    }
+
+    const std::string& str = args[0].asString();
+    const std::string& delimiter = args[1].asString();
+
+    std::vector<Value> result;
+
+    if (delimiter.empty())
+    {
+        // 구분자가 빈 문자열이면 각 문자를 분리
+        for (size_t i = 0; i < str.length(); )
+        {
+            unsigned char c = static_cast<unsigned char>(str[i]);
+            size_t charLen = 1;
+
+            if ((c & 0x80) == 0)
+            {
+                charLen = 1;  // ASCII
+            }
+            else if ((c & 0xE0) == 0xC0)
+            {
+                charLen = 2;  // 2바이트 UTF-8
+            }
+            else if ((c & 0xF0) == 0xE0)
+            {
+                charLen = 3;  // 3바이트 UTF-8 (한글 등)
+            }
+            else if ((c & 0xF8) == 0xF0)
+            {
+                charLen = 4;  // 4바이트 UTF-8
+            }
+
+            result.push_back(Value::createString(str.substr(i, charLen)));
+            i += charLen;
+        }
+    }
+    else
+    {
+        // 구분자로 분리
+        size_t start = 0;
+        size_t end = str.find(delimiter);
+
+        while (end != std::string::npos)
+        {
+            result.push_back(Value::createString(str.substr(start, end - start)));
+            start = end + delimiter.length();
+            end = str.find(delimiter, start);
+        }
+
+        result.push_back(Value::createString(str.substr(start)));
+    }
+
+    return Value::createArray(result);
+}
+
+/**
+ * @brief 찾기(문자열, 패턴) - 문자열에서 패턴의 위치를 찾아 반환
+ *
+ * @param args 문자열, 패턴 (2개)
+ * @return 찾은 위치 (0부터 시작), 없으면 -1
+ * @throws std::runtime_error 인자 개수가 2개가 아니거나, 둘 다 문자열이 아닌 경우
+ */
+static Value builtin_찾기(const std::vector<Value>& args)
+{
+    if (args.size() != 2)
+    {
+        throw std::runtime_error("찾기() 함수는 정확히 2개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isString() || !args[1].isString())
+    {
+        throw std::runtime_error("찾기() 함수의 인자는 모두 문자열이어야 합니다");
+    }
+
+    const std::string& str = args[0].asString();
+    const std::string& pattern = args[1].asString();
+
+    size_t pos = str.find(pattern);
+
+    if (pos == std::string::npos)
+    {
+        return Value::createInteger(-1);
+    }
+
+    // UTF-8 문자 인덱스로 변환
+    int64_t charIndex = 0;
+    for (size_t i = 0; i < pos; )
+    {
+        unsigned char c = static_cast<unsigned char>(str[i]);
+
+        if ((c & 0x80) == 0)
+        {
+            i += 1;
+        }
+        else if ((c & 0xE0) == 0xC0)
+        {
+            i += 2;
+        }
+        else if ((c & 0xF0) == 0xE0)
+        {
+            i += 3;
+        }
+        else if ((c & 0xF8) == 0xF0)
+        {
+            i += 4;
+        }
+        else
+        {
+            i += 1;
+        }
+        charIndex++;
+    }
+
+    return Value::createInteger(charIndex);
+}
+
+/**
+ * @brief 바꾸기(문자열, 이전, 이후) - 문자열에서 모든 '이전' 패턴을 '이후'로 치환
+ *
+ * @param args 문자열, 이전, 이후 (3개)
+ * @return 치환된 문자열
+ * @throws std::runtime_error 인자 개수가 3개가 아니거나, 모두 문자열이 아닌 경우
+ */
+static Value builtin_바꾸기(const std::vector<Value>& args)
+{
+    if (args.size() != 3)
+    {
+        throw std::runtime_error("바꾸기() 함수는 정확히 3개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isString() || !args[1].isString() || !args[2].isString())
+    {
+        throw std::runtime_error("바꾸기() 함수의 인자는 모두 문자열이어야 합니다");
+    }
+
+    std::string result = args[0].asString();
+    const std::string& oldStr = args[1].asString();
+    const std::string& newStr = args[2].asString();
+
+    if (oldStr.empty())
+    {
+        return Value::createString(result);
+    }
+
+    size_t pos = 0;
+    while ((pos = result.find(oldStr, pos)) != std::string::npos)
+    {
+        result.replace(pos, oldStr.length(), newStr);
+        pos += newStr.length();
+    }
+
+    return Value::createString(result);
+}
+
+/**
+ * @brief 대문자(문자열) - 영문자를 대문자로 변환
+ *
+ * @param args 문자열 (1개)
+ * @return 대문자로 변환된 문자열
+ * @throws std::runtime_error 인자 개수가 1개가 아니거나, 문자열이 아닌 경우
+ */
+static Value builtin_대문자(const std::vector<Value>& args)
+{
+    if (args.size() != 1)
+    {
+        throw std::runtime_error("대문자() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isString())
+    {
+        throw std::runtime_error("대문자() 함수의 인자는 문자열이어야 합니다");
+    }
+
+    std::string result = args[0].asString();
+
+    for (char& c : result)
+    {
+        if (c >= 'a' && c <= 'z')
+        {
+            c = c - 'a' + 'A';
+        }
+    }
+
+    return Value::createString(result);
+}
+
+/**
+ * @brief 소문자(문자열) - 영문자를 소문자로 변환
+ *
+ * @param args 문자열 (1개)
+ * @return 소문자로 변환된 문자열
+ * @throws std::runtime_error 인자 개수가 1개가 아니거나, 문자열이 아닌 경우
+ */
+static Value builtin_소문자(const std::vector<Value>& args)
+{
+    if (args.size() != 1)
+    {
+        throw std::runtime_error("소문자() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isString())
+    {
+        throw std::runtime_error("소문자() 함수의 인자는 문자열이어야 합니다");
+    }
+
+    std::string result = args[0].asString();
+
+    for (char& c : result)
+    {
+        if (c >= 'A' && c <= 'Z')
+        {
+            c = c - 'A' + 'a';
+        }
+    }
+
+    return Value::createString(result);
 }
 
 // ============================================================================
@@ -196,6 +436,11 @@ void Builtin::registerAllBuiltins()
     registerBuiltin("출력", builtin_출력);
     registerBuiltin("타입", builtin_타입);
     registerBuiltin("길이", builtin_길이);
+    registerBuiltin("분리", builtin_분리);
+    registerBuiltin("찾기", builtin_찾기);
+    registerBuiltin("바꾸기", builtin_바꾸기);
+    registerBuiltin("대문자", builtin_대문자);
+    registerBuiltin("소문자", builtin_소문자);
 }
 
 } // namespace evaluator

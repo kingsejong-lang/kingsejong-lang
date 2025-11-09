@@ -1,238 +1,504 @@
 # KingSejong Programming Language
 
+<div align="center">
+
 **한글로 프로그래밍하는 자연스러운 언어**
 
-KingSejong은 한국어의 문법적 특성을 활용한 혁신적인 프로그래밍 언어입니다. 한글 조사를 활용한 메서드 체이닝, 자연스러운 범위 표현, 명시적 타입 시스템으로 직관적인 코드 작성을 지원합니다.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![C++23](https://img.shields.io/badge/C++-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
+[![Tests](https://img.shields.io/badge/tests-290%20passed-success)](tests/)
+
+[빠른 시작](#빠른-시작) •
+[주요 특징](#주요-특징) •
+[튜토리얼](docs/TUTORIAL.md) •
+[문서](docs/LANGUAGE_REFERENCE.md) •
+[예제](examples/)
+
+</div>
+
+---
+
+## 소개
+
+**KingSejong**은 한국어의 문법적 특성을 활용한 혁신적인 프로그래밍 언어입니다.
+한글 **조사 기반 메서드 체이닝**, **함수형 프로그래밍**, **모듈 시스템**을 통해
+직관적이고 표현력 있는 코드 작성을 지원합니다.
+
+```ksj
+# 소수 찾기 - 함수형 프로그래밍의 아름다움
+가져오기 "stdlib/math"
+가져오기 "stdlib/array"
+
+숫자들 = 범위(1, 50)
+소수들 = 숫자들을 걸러낸다(소수인가)
+출력(소수들)  # [2, 3, 5, 7, 11, 13, ...]
+```
+
+---
+
+## 빠른 시작
+
+### 설치
+
+```bash
+# 저장소 클론
+git clone https://github.com/0xmhha/kingsejonglang.git
+cd kingsejonglang
+
+# 빌드
+mkdir build && cd build
+cmake ..
+make
+
+# 첫 프로그램 실행
+./kingsejong ../examples/hello.ksj
+```
+
+### Hello, World!
+
+**hello.ksj**:
+```ksj
+출력("안녕, KingSejong!")
+```
+
+실행:
+```bash
+./kingsejong hello.ksj
+```
+
+출력:
+```
+안녕, KingSejong!
+```
+
+### 대화형 실행 (REPL)
+
+```bash
+$ ./kingsejong
+
+>>> 출력("안녕하세요!")
+안녕하세요!
+
+>>> x = 10
+>>> y = 20
+>>> 출력(x + y)
+30
+
+>>> .exit
+```
+
+---
 
 ## 주요 특징
 
-### 1. 조사 기반 메서드 체이닝
-한국어의 조사를 활용하여 자연스러운 메서드 체이닝을 구현합니다.
+### 🔗 1. 조사 기반 메서드 체이닝
+
+한국어의 조사(`을/를`, `이/가`, `의` 등)를 활용한 자연스러운 메서드 호출:
 
 ```ksj
-배열을 정렬하고 역순으로 나열하고 출력하라
-// 영어: array.sort().reverse().print()
+# 영어: array.sort().reverse()
+# KingSejong:
+배열을 정렬한다
+정렬된배열을 역순으로_나열한다
 ```
 
-지원하는 조사:
-- `을/를`: 목적격 조사
-- `의`: 소유격 조사
-- `로/으로`: 방향/수단 조사
-- `에서`: 위치 조사
+**받침 자동 인식:**
+```ksj
+배열을 정렬한다    # 받침 있음 → '을'
+데이터를 처리한다  # 받침 없음 → '를'
+```
 
-### 2. 자연스러운 범위 표현
-수학적으로 직관적인 범위 표현을 제공합니다.
+### 🎯 2. 함수형 프로그래밍
+
+고차 함수와 함수형 메서드 지원:
 
 ```ksj
-1부터 10까지  // [1, 2, ..., 10] - 10 포함!
-1부터 10미만  // [1, 2, ..., 9] - 10 미포함
+# Filter + Map + Reduce
+숫자들 = [1, 2, 3, 4, 5, 6]
+
+짝수들 = 숫자들을 걸러낸다(함수(x) { 반환 x % 2 == 0 })
+제곱들 = 짝수들을 변환한다(함수(x) { 반환 x * x })
+합계 = 제곱들을 축약한다(0, 함수(누적, 현재) { 반환 누적 + 현재 })
+
+출력(합계)  # 56 (2² + 4² + 6² = 4 + 16 + 36)
 ```
 
-### 3. 명시적 타입 시스템
-한글로 타입을 명시하여 가독성을 높입니다.
+**지원하는 함수형 메서드:**
+- `걸러낸다(함수)` - filter
+- `변환한다(함수)` - map
+- `축약한다(초기값, 함수)` - reduce
+- `찾다(함수)` - find
+
+### 📦 3. 모듈 시스템
+
+표준 라이브러리와 사용자 정의 모듈:
+
+```ksj
+# 표준 라이브러리 사용
+가져오기 "stdlib/math"
+가져오기 "stdlib/array"
+
+# 수학 함수
+출력(거듭제곱(2, 10))    # 1024
+출력(계승(5))            # 120
+출력(제곱근(16))         # 4.0
+
+# 배열 유틸리티
+숫자들 = 범위(1, 10)
+중복제거 = 중복_제거([1, 2, 2, 3, 3])
+```
+
+**표준 라이브러리 (stdlib):**
+- `math.ksj` - 18개 수학 함수 (절댓값, 거듭제곱, 팩토리얼, GCD, 소수 판별 등)
+- `string.ksj` - 9개 문자열 처리 함수 (반복, 결합, 채우기 등)
+- `array.ksj` - 18개 배열 유틸리티 (범위, 중복 제거, zip 등)
+
+### 📐 4. 자연스러운 범위 표현
+
+수학적으로 직관적인 범위 표현:
+
+```ksj
+i가 1부터 10까지 {      # [1, 10] - 10 포함
+    출력(i)
+}
+
+i가 0부터 5 미만 {      # [0, 5) - 5 미포함
+    출력(i)
+}
+
+i가 1 초과 10 이하 {    # (1, 10] - 1 미포함, 10 포함
+    출력(i)
+}
+```
+
+### 🔢 5. 직관적인 타입 시스템
+
+한글로 타입을 명시:
 
 ```ksj
 정수 나이 = 25
 실수 키 = 175.5
 문자열 이름 = "홍길동"
-논리 참거짓 = 참
+논리 합격 = 참
+
+# 타입 추론도 가능
+점수 = 95          # 자동으로 정수로 추론
+메시지 = "안녕"    # 자동으로 문자열로 추론
 ```
 
-### 4. 직관적인 제어문
-한글로 작성된 제어문으로 코드 흐름을 명확하게 표현합니다.
+### 🎮 6. 1급 함수와 클로저
+
+함수를 값처럼 다루기:
 
 ```ksj
-만약 (나이 >= 20) {
-    "성인입니다"를 출력하라
-} 아니면 {
-    "미성년자입니다"를 출력하라
+# 함수 리터럴
+더하기 = 함수(a, b) {
+    반환 a + b
 }
 
-1부터 10까지를 반복 (숫자) {
-    숫자를 출력하라
+# 클로저
+카운터_생성 = 함수() {
+    개수 = 0
+    반환 함수() {
+        개수 = 개수 + 1
+        반환 개수
+    }
+}
+
+카운터 = 카운터_생성()
+출력(카운터())  # 1
+출력(카운터())  # 2
+
+# 재귀
+피보나치 = 함수(n) {
+    만약 (n <= 1) { 반환 n }
+    반환 피보나치(n-1) + 피보나치(n-2)
 }
 ```
 
-## 빌드 및 설치
+### 🔁 7. 편리한 반복문
 
-### 요구사항
-- C++23 호환 컴파일러 (GCC 13+, Clang 16+, MSVC 2022+)
-- CMake 3.20 이상
-- GoogleTest (테스트용)
+다양한 반복 구문:
 
-### 빌드 방법
+```ksj
+# N번 반복
+5번 반복한다 {
+    출력("Hello!")
+}
+
+# 범위 반복
+i가 1부터 10까지 {
+    출력(i)
+}
+
+# 변수 사용
+횟수 = 10
+횟수번 반복한다 {
+    출력("반복")
+}
+```
+
+---
+
+## 📚 문서
+
+| 문서 | 설명 | 대상 |
+|------|------|------|
+| [튜토리얼](docs/TUTORIAL.md) | 단계별 학습 가이드 (10개 챕터) | 초보자 |
+| [언어 레퍼런스](docs/LANGUAGE_REFERENCE.md) | 완전한 문법 가이드 | 모든 사용자 |
+| [라이브러리 가이드](docs/LIBRARY_GUIDE.md) | 모듈 개발 가이드 | 개발자 |
+| [표준 라이브러리](stdlib/README.md) | stdlib 함수 목록 | 모든 사용자 |
+
+---
+
+## 🎯 예제 프로그램
+
+**21개의 예제 프로그램** 제공:
+
+### 기초 예제
+- `hello.ksj` - Hello World
+- `calculator.ksj` - 산술 연산
+- `type_demo.ksj` - 타입 시스템
+
+### 제어 구조
+- `conditional.ksj` - 조건문
+- `loop.ksj` - 반복문
+- `nested_loops.ksj` - 중첩 반복문
+
+### 함수
+- `function.ksj` - 1급 함수
+- `closure.ksj` - 클로저
+- `fibonacci.ksj`, `recursion.ksj` - 재귀
+
+### 배열
+- `array_methods.ksj` - 배열 메서드
+- `functional_array.ksj` - 함수형 메서드
+
+### 표준 라이브러리
+- `stdlib_math.ksj` - 수학 함수 활용
+- `stdlib_string.ksj` - 문자열 처리
+- `stdlib_array.ksj` - 배열 유틸리티
+
+### 고급 예제
+- `prime_finder.ksj` - 소수 찾기 (에라토스테네스의 체)
+- `sorting_demo.ksj` - 정렬 알고리즘 (버블 정렬)
+- `statistics.ksj` - 통계 분석 (분산, 표준편차, 이상치)
+- `text_rpg.ksj` - 텍스트 RPG 게임 (던전 탐험)
 
 ```bash
-# 저장소 클론
-git clone https://github.com/yourusername/kingsejong-lang.git
-cd kingsejong-lang
+# 예제 실행
+./kingsejong examples/prime_finder.ksj
+./kingsejong examples/text_rpg.ksj
+./kingsejong examples/statistics.ksj
+```
 
-# 빌드 디렉토리 생성
+---
+
+## 🏗️ 프로젝트 상태
+
+### Phase 1: 핵심 차별화 ✅ (100% 완료)
+
+- ✅ Token 시스템 & 조사 인식기
+- ✅ Lexer & Parser (Pratt Parsing)
+- ✅ AST & Evaluator
+- ✅ 타입 시스템 (정수, 실수, 문자열, 불리언, 배열, 함수)
+- ✅ 제어 구조 (조건문, 반복문)
+- ✅ 1급 함수 (클로저, 재귀)
+- ✅ 내장 함수 (출력, 타입, 길이)
+- ✅ REPL & 파일 실행
+
+### Phase 2: 실용 기능 ✅ (100% 완료)
+
+- ✅ 배열 구현 (리터럴, 인덱싱, 슬라이싱)
+- ✅ 함수형 메서드 (걸러낸다, 변환한다, 축약한다, 찾다)
+- ✅ 메서드 체이닝 (정렬한다, 역순으로_나열한다)
+- ✅ 문자열 타입
+- ✅ 실수 타입
+- ✅ 에러 처리 시스템
+- ✅ 한글 에러 메시지
+- ✅ 타입 검사
+- ✅ **표준 라이브러리** (math, string, array - 45개 함수)
+
+### Phase 3: 고급 기능 🚧 (부분 완료)
+
+- ✅ **모듈 시스템** (가져오기, 캐싱, 순환 참조 방지)
+- 📝 가비지 컬렉터 (대기)
+- 📝 바이트코드 컴파일러 (대기)
+
+### 문서화 ✅ (완료)
+
+- ✅ **완전한 언어 레퍼런스** (679줄)
+- ✅ **초보자 튜토리얼** (650줄, 10개 챕터)
+- ✅ **라이브러리 확장 가이드** (537줄)
+- ✅ **21개 예제 프로그램**
+
+### 테스트 현황
+
+```
+총 테스트: 290개+
+통과율: 100%
+실패: 0개
+```
+
+---
+
+## 🔧 빌드 및 설치
+
+### 요구사항
+
+- **C++23** 호환 컴파일러
+  - GCC 13+
+  - Clang 16+
+  - MSVC 2022+
+- **CMake** 3.20+
+- **GoogleTest** (테스트용, 자동 다운로드)
+
+### 빌드
+
+```bash
+# 1. 저장소 클론
+git clone https://github.com/0xmhha/kingsejonglang.git
+cd kingsejonglang
+
+# 2. 빌드 디렉토리 생성
 mkdir build && cd build
 
-# CMake 설정
+# 3. CMake 설정
 cmake ..
 
-# 빌드
-cmake --build .
+# 4. 빌드 (병렬 빌드)
+make -j4
 
-# 테스트 실행
+# 5. 테스트 실행
 ctest --output-on-failure
 ```
 
 ### 실행
 
-#### REPL 모드 (대화형 실행)
+#### REPL 모드
 
 ```bash
-# REPL 시작
 ./kingsejong
 ```
 
-REPL에서 KingSejong 코드를 대화형으로 실행할 수 있습니다:
+**REPL 명령어:**
+- `.exit`, `.quit` - 종료
+- `.help` - 도움말
+- `.clear` - 변수 초기화
+- `.vars` - 변수 목록
+- `Ctrl+D` - 종료
 
-```
->>> 10 + 5
-15
->>> 정수 x = 20
->>> x
-20
->>> 정수 합 = 함수(a, b) { 반환 a + b }
->>> 합(3, 7)
-10
->>> .help      # 도움말 표시
->>> .vars      # 정의된 변수 목록
->>> .exit      # 종료
-```
-
-REPL 명령어:
-- `.exit`, `.quit`, `.종료` - REPL 종료
-- `.help`, `.도움말` - 도움말 표시
-- `.clear`, `.초기화` - 모든 변수 초기화
-- `.vars`, `.변수` - 정의된 변수 목록 표시
-- `Ctrl+D` - REPL 종료 (EOF)
-
-#### 파일 실행 모드
+#### 파일 실행
 
 ```bash
-# 파일 실행
-./kingsejong 파일명.ksj
+./kingsejong script.ksj
 ```
 
-KingSejong 스크립트 파일(`.ksj`)을 실행할 수 있습니다.
+---
 
-### 제공되는 예제 (10개)
+## 🌟 왜 KingSejong인가?
 
-**기본 예제:**
-- `hello.ksj` - 기본 출력
-- `calculator.ksj` - 산술 연산
-- `type_demo.ksj` - 타입 시스템
+### 교육적 가치
 
-**반복문 예제:**
-- `loop.ksj` - 범위 for, N번 반복
-- `nested_loops.ksj` - 중첩 반복문, 구구단
+- **한글로 프로그래밍** - 영어 장벽 없이 학습
+- **직관적 문법** - 자연스러운 한국어 표현
+- **풍부한 예제** - 21개 실전 프로그램
+- **완전한 문서** - 초보자부터 고급까지
 
-**조건문 예제:**
-- `conditional.ksj` - if/else, 중첩 조건문
+### 기술적 혁신
 
-**함수 예제:**
-- `function.ksj` - 1급 함수, 고차 함수
-- `closure.ksj` - 클로저, 함수 팩토리
-- `fibonacci.ksj` - 재귀 함수 (피보나치)
-- `recursion.ksj` - 재귀 함수 (팩토리얼, GCD, 거듭제곱)
+- **조사 기반 메서드 체이닝** - 세계 최초
+- **함수형 프로그래밍** - filter, map, reduce
+- **모듈 시스템** - 재사용 가능한 라이브러리
+- **C++23 구현** - 모던 C++ 활용
 
-```bash
-# 예제 실행
-./kingsejong examples/hello.ksj
-./kingsejong examples/fibonacci.ksj
-./kingsejong examples/closure.ksj
+### 실용성
+
+- **표준 라이브러리** - 45개 유틸리티 함수
+- **REPL** - 빠른 프로토타이핑
+- **에러 메시지 한글화** - 친절한 피드백
+- **100% 테스트 통과** - 안정성 보장
+
+---
+
+## 📖 학습 경로
+
+1. **[튜토리얼 시작](docs/TUTORIAL.md)** - Hello World부터 차근차근
+2. **[예제 실행](examples/)** - 21개 예제로 실습
+3. **[레퍼런스 참고](docs/LANGUAGE_REFERENCE.md)** - 문법 깊이 이해
+4. **[모듈 만들기](docs/LIBRARY_GUIDE.md)** - 나만의 라이브러리 작성
+
+---
+
+## 🤝 기여하기
+
+기여를 환영합니다!
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'feat: Add AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+자세한 가이드: [CONTRIBUTING.md](docs/CONTRIBUTING.md)
+
+---
+
+## 📂 프로젝트 구조
+
 ```
-
-## 프로젝트 구조
-
-```
-kingsejong-lang/
+kingsejonglang/
 ├── src/                    # 소스 코드
-│   ├── lexer/             # 어휘 분석기
-│   ├── parser/            # 구문 분석기
+│   ├── lexer/             # 어휘 분석 (Token, JosaRecognizer)
+│   ├── parser/            # 구문 분석 (Pratt Parsing)
 │   ├── ast/               # 추상 구문 트리
-│   ├── evaluator/         # 평가기
+│   ├── evaluator/         # 평가기 (Value, Environment)
+│   ├── types/             # 타입 시스템
+│   ├── error/             # 에러 처리
+│   ├── module/            # 모듈 시스템
+│   ├── repl/              # 대화형 실행
 │   └── main.cpp           # 진입점
-├── tests/                  # 테스트 코드
-├── examples/              # 예제 코드
+├── stdlib/                # 표준 라이브러리
+│   ├── math.ksj          # 수학 함수 (18개)
+│   ├── string.ksj        # 문자열 처리 (9개)
+│   ├── array.ksj         # 배열 유틸리티 (18개)
+│   └── README.md         # 라이브러리 문서
+├── tests/                 # 테스트 코드 (290개+)
+├── examples/              # 예제 프로그램 (21개)
 ├── docs/                  # 문서
-│   ├── TODOLIST.md        # 작업 목록
-│   ├── LANGUAGE_DESIGN_PHILOSOPHY.md
-│   └── SEJONG_FEATURES.md
-├── KNOWN_ISSUES.md        # 알려진 이슈
-├── CMakeLists.txt         # 빌드 설정
-├── LICENSE                # MIT 라이센스
-└── README.md              # 이 파일
+│   ├── TUTORIAL.md               # 초보자 튜토리얼
+│   ├── LANGUAGE_REFERENCE.md     # 언어 레퍼런스
+│   ├── LIBRARY_GUIDE.md          # 라이브러리 가이드
+│   └── TODOLIST.md               # 개발 로드맵
+├── CMakeLists.txt        # 빌드 설정
+├── LICENSE               # MIT 라이센스
+└── README.md             # 이 파일
 ```
 
-## 구현 상태
+---
 
-### Phase 1: 핵심 차별화 기능 ✅ (100% 완료)
+## 📜 라이센스
 
-| 기능 | 상태 | 테스트 | 비고 |
-|------|------|--------|------|
-| F1.1: Token 시스템 | ✅ 완료 | 100% | UTF-8 한글 지원 |
-| F1.2: Josa 인식기 | ✅ 완료 | 100% | 받침 규칙 기반 |
-| F1.3: 범위 표현식 | ✅ 완료 | 100% | 부터/까지/미만/초과/이하/이상 |
-| F1.12: 반복문 | ✅ 완료 | 100% | N번 반복, 범위 for, AssignmentStatement |
-| F1.13: 조건문 (if/else) | ✅ 완료 | 100% | 만약/아니면 |
-| F1.15: 1급 함수 | ✅ 완료 | 100% | 함수 리터럴, 클로저, 재귀 |
-| F1.16: 내장 함수 | ✅ 완료 | 100% | 출력(), 타입(), 길이() |
-| F1.17: REPL | ✅ 완료 | 수동 | 대화형 실행 환경 |
-| F1.18: 파일 실행 | ✅ 완료 | 수동 | .ksj 파일 실행 모드 |
-| F1.19: 예제 프로그램 | ✅ 완료 | 수동 | 10개 예제 파일 |
+이 프로젝트는 **MIT 라이센스** 하에 배포됩니다.
+자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
 
-### 전체 테스트 현황
+---
 
-```
-총 테스트: 290개
-통과: 290개 (100%)
-실패: 0개
-비활성화: 3개
-```
-
-## 개발 로드맵
-
-프로젝트는 4단계로 진행됩니다:
-
-- **Phase 0** ✅ 완료: 프로젝트 초기 설정
-- **Phase 1** ✅ 완료: 핵심 차별화 기능 (조사 인식, 범위 표현, 타입 시스템, 1급 함수, REPL, 파일 실행)
-- **Phase 2** 🚧 진행중: 실용 기능 (배열, 문자열, 실수, 에러 처리, 타입 검사)
-- **Phase 3** 📝 대기: 고급 기능 (GC, 최적화, 모듈 시스템, 크로스 컴파일)
-
-자세한 내용은 [TODOLIST.md](docs/TODOLIST.md)를 참조하세요.
-
-### 현재 진행 상황
-- ✅ Phase 0: 프로젝트 초기 설정 (100%)
-- ✅ Phase 1: 핵심 차별화 기능 (100%)
-  - Token 시스템, 조사 인식기, Lexer, Parser
-  - 타입 시스템, Value 시스템, Environment
-  - Evaluator (반복문, 조건문, 1급 함수)
-  - 내장 함수, REPL, 파일 실행, 예제 프로그램
-- 🚧 Phase 2: 실용 기능 (진행 예정)
-
-## 기여하기
-
-기여를 환영합니다! 기여 방법은 다음과 같습니다:
-
-1. 이 저장소를 Fork 합니다
-2. Feature 브랜치를 생성합니다 (`git checkout -b feature/AmazingFeature`)
-3. 변경사항을 커밋합니다 (`git commit -m 'Add some AmazingFeature'`)
-4. 브랜치에 Push 합니다 (`git push origin feature/AmazingFeature`)
-5. Pull Request를 생성합니다
-
-자세한 가이드라인은 [CONTRIBUTING.md](docs/CONTRIBUTING.md)를 참조하세요.
-
-## 라이센스
-
-이 프로젝트는 MIT 라이센스 하에 배포됩니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
-
-## 감사의 말
+## 🙏 감사의 말
 
 이 프로젝트는 한국어의 아름다움과 프로그래밍의 논리성을 결합하려는 시도입니다.
-세종대왕의 창제 정신을 이어받아, 누구나 쉽게 프로그래밍할 수 있는 언어를 만들고자 합니다.
+
+**세종대왕**의 창제 정신을 이어받아,
+**누구나 쉽게 프로그래밍**할 수 있는 언어를 만들고자 합니다.
+
+---
+
+<div align="center">
+
+**Made with ❤️ by KingSejong Team**
+
+[GitHub](https://github.com/0xmhha/kingsejonglang) •
+[이슈 제기](https://github.com/0xmhha/kingsejonglang/issues) •
+[튜토리얼](docs/TUTORIAL.md)
+
+</div>

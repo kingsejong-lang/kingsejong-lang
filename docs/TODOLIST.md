@@ -49,12 +49,27 @@
 - F3.2: 바이트코드 컴파일러 ✅
 - F3.3: 모듈 시스템 ✅
 
+### Phase 4: 최적화 및 안정화 🚧 (40% 완료)
+- F4.1: CI/CD 파이프라인 ✅
+- F4.2: 바이트코드 함수 지원 ✅
+- F4.3: 성능 벤치마크 시스템 ✅
+- F4.4: 컴파일러 최적화 패스 ✅
+- F4.5: CI 벤치마크 자동화 ✅
+- F4.6: 메모리 안전성 검사 📝
+- F4.7: 플랫폼 확장 (Linux/Windows) 📝
+- F4.8: JIT 컴파일러 연구 📝
+
 ### 테스트 현황
 - **총 테스트**: 330개+
 - **통과**: 100%
 - **실패**: 0개
 
 ### 최근 완료 (2025-11-10)
+- ✅ PR #48: F4.5 CI 벤치마크 자동화 (benchmark job 추가)
+- ✅ PR #47: F4.4 바이트코드 컴파일러 최적화 패스 (상수 폴딩, 데드 코드 제거, 피홀 최적화)
+- ✅ PR #46: F4.3 성능 벤치마크 시스템 (4개 벤치마크, 통계 분석)
+- ✅ PR #45: F4.2 바이트코드 함수 지원 (BUILD_FUNCTION, CALL, RETURN, 클로저)
+- ✅ PR #44: F4.1 CI/CD 파이프라인 (macOS, Linux, Windows 빌드 및 테스트)
 - ✅ PR #42: F3.2 바이트코드 컴파일러 구현 (OpCode, Chunk, Compiler, VM)
 - ✅ PR #41: F3.1 가비지 컬렉터 구현 (Mark & Sweep)
 - ✅ PR #40: README.md 대폭 업데이트 - 프로젝트 현황 완전 반영
@@ -63,12 +78,13 @@
 
 ### 다음 우선순위
 **Phase 1, 2, 3 완료!** 🎉
-**v0.1.0 릴리스 준비** 🚀
+**Phase 4 진행 중** (40% 완료) 🚀
 
-향후 계획 (Phase 4):
-1. **성능 최적화** - 바이트코드 컴파일러 최적화, 벤치마크
-2. **플랫폼 확장** - Linux/Windows 지원, CI/CD 파이프라인
-3. **고급 기능** - F3.4 시제 기반 비동기, F3.5 디버거, F3.6 온라인 플레이그라운드
+다음 작업 (Phase 4):
+1. **메모리 안전성** - Valgrind/ASan 통합, 메모리 누수 제거
+2. **플랫폼 확장** - Linux/Windows 실제 테스트 및 검증
+3. **문서화** - 튜토리얼 완성, API 문서 개선
+4. **향후 계획** - F3.4 시제 기반 비동기, F3.5 디버거, F3.6 온라인 플레이그라운드
 
 ---
 
@@ -78,6 +94,7 @@
 2. [Phase 1: 핵심 차별화 기능 (Month 1-3)](#phase-1-핵심-차별화-기능)
 3. [Phase 2: 실용 기능 (Month 4-6)](#phase-2-실용-기능)
 4. [Phase 3: 고급 기능 (Month 7-12)](#phase-3-고급-기능)
+5. [Phase 4: 최적화 및 안정화 (2025 Q1-Q2)](#phase-4-최적화-및-안정화)
 
 ---
 
@@ -1086,15 +1103,165 @@ main (보호됨)
 
 ---
 
+## Phase 4: 최적화 및 안정화
+
+**목표**: 성능 향상, 안정성 개선, 플랫폼 확장
+**기간**: 2025 Q1-Q2 (6개월)
+**현재 진행률**: 40% 완료
+
+---
+
+### F4.1: CI/CD 파이프라인
+- 상태: ✅ 완료
+- 브랜치: `feature/f4.1-cicd-pipeline`
+- PR: #44
+- 우선순위: HIGH
+- 작업:
+  - [x] GitHub Actions 워크플로우 구축
+  - [x] macOS 빌드 및 테스트
+  - [x] Linux 빌드 및 테스트 (Ubuntu)
+  - [x] Windows 빌드 및 테스트 (Windows Server)
+  - [x] 빌드 아티팩트 자동 업로드
+  - [x] 코드 품질 검사 (clang-tidy)
+  - [x] 메모리 안전성 검사 (Valgrind)
+  - [x] 코드 커버리지 측정 (lcov)
+  - [x] Sanitizer 통합 (ASan, UBSan)
+- 완료 조건:
+  - [x] 3개 플랫폼 자동 빌드
+  - [x] 모든 테스트 통과
+  - [x] 아티팩트 생성
+
+### F4.2: 바이트코드 함수 지원
+- 상태: ✅ 완료
+- 브랜치: `feature/f4.2-bytecode-functions`
+- PR: #45
+- 우선순위: HIGH
+- 작업:
+  - [x] BUILD_FUNCTION OpCode 구현
+  - [x] CALL OpCode 구현
+  - [x] RETURN OpCode 구현
+  - [x] 함수 파라미터 처리
+  - [x] 클로저 지원 (Environment 캡처)
+  - [x] CallFrame 스택 관리
+  - [x] 재귀 함수 지원
+  - [x] tests/BytecodeTest.cpp 업데이트
+- 완료 조건:
+  - [x] 함수 정의 및 호출
+  - [x] 클로저 작동
+  - [x] 재귀 함수 작동
+  - [x] 테스트 통과
+
+### F4.3: 성능 벤치마크 시스템
+- 상태: ✅ 완료
+- 브랜치: `feature/f4.3-benchmark-system`
+- PR: #46
+- 우선순위: HIGH
+- 작업:
+  - [x] benchmarks/ 디렉토리 구조
+  - [x] run_benchmarks.py 스크립트
+  - [x] 4개 벤치마크 프로그램 작성
+    - [x] arithmetic.ksj (산술 연산)
+    - [x] fibonacci.ksj (재귀 함수)
+    - [x] array_ops.ksj (배열 조작)
+    - [x] loop_intensive.ksj (반복문)
+  - [x] 통계 분석 (평균, 최소, 최대, 표준편차)
+  - [x] 결과 출력 및 저장
+- 완료 조건:
+  - [x] 벤치마크 실행 가능
+  - [x] 성능 측정 및 분석
+  - [x] 결과 리포트 생성
+
+### F4.4: 컴파일러 최적화 패스
+- 상태: ✅ 완료
+- 브랜치: `feature/f4.4-optimization-passes`
+- PR: #47
+- 우선순위: MEDIUM
+- 작업:
+  - [x] 상수 폴딩 (Constant Folding)
+    - [x] 정수 산술 연산
+    - [x] 실수 산술 연산
+    - [x] 비교 연산
+  - [x] 데드 코드 제거 (Dead Code Elimination)
+    - [x] 상수 조건 if문 최적화
+    - [x] 불필요한 분기 제거
+  - [x] 피홀 최적화 (Peephole Optimization)
+    - [x] 단항 연산 상수 폴딩
+    - [x] 불린 NOT 최적화
+  - [x] tests/BytecodeTest.cpp 최적화 테스트 추가
+- 완료 조건:
+  - [x] 최적화 패스 구현
+  - [x] 성능 개선 확인
+  - [x] 테스트 통과
+
+### F4.5: CI 벤치마크 자동화
+- 상태: ✅ 완료
+- 브랜치: `feature/f4.5-ci-benchmark-automation`
+- PR: #48
+- 우선순위: MEDIUM
+- 작업:
+  - [x] .github/workflows/ci.yml에 benchmark job 추가
+  - [x] 4개 벤치마크 자동 실행
+  - [x] 각 벤치마크 5회 실행 (통계적 신뢰성)
+  - [x] 결과 artifact 저장
+  - [x] 콘솔 출력
+- 완료 조건:
+  - [x] CI에서 자동 벤치마크 실행
+  - [x] 결과 수집 및 저장
+
+### F4.6: 메모리 안전성 검사
+- 상태: 📝 대기
+- 브랜치: `feature/f4.6-memory-safety`
+- 우선순위: HIGH
+- 작업:
+  - [ ] Valgrind 메모리 누수 검사 강화
+  - [ ] AddressSanitizer 통합 개선
+  - [ ] 메모리 누수 수정
+  - [ ] 스마트 포인터 사용 확대
+  - [ ] RAII 패턴 적용
+- 완료 조건:
+  - [ ] Valgrind 클린
+  - [ ] ASan 클린
+  - [ ] 메모리 누수 0개
+
+### F4.7: 플랫폼 확장
+- 상태: 📝 대기
+- 브랜치: `feature/f4.7-platform-expansion`
+- 우선순위: MEDIUM
+- 작업:
+  - [ ] Linux 실제 테스트 및 검증
+  - [ ] Windows 실제 테스트 및 검증
+  - [ ] 플랫폼별 이슈 수정
+  - [ ] 설치 스크립트 작성
+  - [ ] 플랫폼별 문서 작성
+- 완료 조건:
+  - [ ] Linux에서 정상 작동
+  - [ ] Windows에서 정상 작동
+  - [ ] 플랫폼별 문서 완성
+
+### F4.8: JIT 컴파일러 연구
+- 상태: 📝 대기
+- 브랜치: `feature/f4.8-jit-compiler`
+- 우선순위: LOW
+- 작업:
+  - [ ] 핫 패스 감지 (Hot Path Detection)
+  - [ ] 기본 JIT 컴파일러 프로토타입
+  - [ ] LLVM 백엔드 통합 연구
+  - [ ] 벤치마크 및 성능 측정
+- 완료 조건:
+  - [ ] JIT 컴파일러 프로토타입
+  - [ ] 성능 개선 측정
+
+---
+
 ## 현재 작업 상태
 
 ### 진행 중
-- 프로젝트 마무리 및 정리 (v0.1.0 릴리스 준비)
+- Phase 4: 최적화 및 안정화 (40% 완료)
 
 ### 다음 작업
-1. Phase 4: 성능 최적화 및 안정화
-2. 플랫폼 확장 (Linux/Windows)
-3. CI/CD 파이프라인 구축
+1. F4.6: 메모리 안전성 검사
+2. F4.7: 플랫폼 확장 (Linux/Windows 실제 테스트)
+3. 문서화 완성 (튜토리얼, API 문서)
 
 ### 최근 완료
 - ✅ F3.2: 바이트코드 컴파일러 (PR #42)

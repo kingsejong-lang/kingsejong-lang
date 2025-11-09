@@ -7,6 +7,7 @@
 
 #include "Evaluator.h"
 #include "Builtin.h"
+#include "../error/Error.h"
 #include <sstream>
 #include <cmath>
 
@@ -173,7 +174,10 @@ Value Evaluator::evalIdentifier(ast::Identifier* ident)
     }
 
     // 3. 정의되지 않음
-    throw std::runtime_error("정의되지 않은 식별자: " + name);
+    throw error::NameError(
+        "정의되지 않은 변수 '" + name + "'를 사용하려고 합니다.\n" +
+        "해결 방법: 변수를 먼저 선언하세요. 예: 정수 " + name + " = 값"
+    );
 }
 
 Value Evaluator::evalBinaryExpression(ast::BinaryExpression* expr)
@@ -300,7 +304,10 @@ Value Evaluator::evalCallExpression(ast::CallExpression* expr)
     // 4. 사용자 정의 함수 호출
     if (!funcValue.isFunction())
     {
-        throw std::runtime_error("함수가 아닌 값을 호출할 수 없습니다: " + funcValue.toString());
+        throw error::TypeError(
+            "함수가 아닌 값을 호출하려고 합니다: " + funcValue.toString() + "\n" +
+            "해결 방법: 함수 이름이 올바른지 확인하고, 함수가 정의되어 있는지 확인하세요."
+        );
     }
 
     auto func = funcValue.asFunction();
@@ -308,9 +315,10 @@ Value Evaluator::evalCallExpression(ast::CallExpression* expr)
     // 5. 매개변수 개수 확인
     if (args.size() != func->parameters().size())
     {
-        throw std::runtime_error(
-            "인자 개수 불일치: 기대값 " + std::to_string(func->parameters().size()) +
-            ", 실제값 " + std::to_string(args.size())
+        throw error::ArgumentError(
+            "함수 인자 개수가 일치하지 않습니다: 필요 " + std::to_string(func->parameters().size()) + "개, " +
+            "전달 " + std::to_string(args.size()) + "개\n" +
+            "해결 방법: 함수 정의를 확인하고 올바른 개수의 인자를 전달하세요."
         );
     }
 
@@ -442,7 +450,10 @@ Value Evaluator::evalRepeatStatement(ast::RepeatStatement* stmt)
 
     if (!countValue.isInteger())
     {
-        throw std::runtime_error("반복 횟수는 정수여야 합니다");
+        throw error::TypeError(
+            "반복 횟수는 정수여야 합니다: " + countValue.toString() + "\n" +
+            "해결 방법: 반복 횟수에 정수 값을 사용하세요. 예: 10번 반복"
+        );
     }
 
     int64_t count = countValue.asInteger();
@@ -450,7 +461,10 @@ Value Evaluator::evalRepeatStatement(ast::RepeatStatement* stmt)
     // 음수 반복 횟수 검증
     if (count < 0)
     {
-        throw std::runtime_error("반복 횟수는 0 이상이어야 합니다");
+        throw error::ValueError(
+            "반복 횟수는 0 이상이어야 합니다: " + std::to_string(count) + "\n" +
+            "해결 방법: 양수 또는 0을 사용하세요."
+        );
     }
 
     Value result = Value::createNull();
@@ -513,7 +527,10 @@ Value Evaluator::applyIntegerOperation(int64_t left, const std::string& op, int6
     {
         if (right == 0)
         {
-            throw std::runtime_error("0으로 나눌 수 없습니다");
+            throw error::ZeroDivisionError(
+                "0으로 나눌 수 없습니다.\n"
+                "해결 방법: 나누는 값이 0이 아닌지 확인하세요. 조건문을 사용하여 검사할 수 있습니다."
+            );
         }
         return Value::createInteger(left / right);
     }
@@ -521,7 +538,10 @@ Value Evaluator::applyIntegerOperation(int64_t left, const std::string& op, int6
     {
         if (right == 0)
         {
-            throw std::runtime_error("0으로 나머지 연산을 할 수 없습니다");
+            throw error::ZeroDivisionError(
+                "0으로 나머지 연산을 할 수 없습니다.\n"
+                "해결 방법: 나머지 연산의 제수가 0이 아닌지 확인하세요."
+            );
         }
         return Value::createInteger(left % right);
     }
@@ -597,7 +617,10 @@ Value Evaluator::evalIndexExpression(ast::IndexExpression* expr)
     // 배열인지 확인
     if (!array.isArray())
     {
-        throw std::runtime_error("인덱스 접근은 배열에만 가능합니다");
+        throw error::TypeError(
+            "배열이 아닌 값에 인덱스 접근을 시도했습니다: " + array.toString() + "\n" +
+            "해결 방법: 인덱스 접근([])은 배열 타입에만 사용할 수 있습니다."
+        );
     }
 
     std::vector<Value>& arr = array.asArray();
@@ -690,7 +713,12 @@ Value Evaluator::evalIndexExpression(ast::IndexExpression* expr)
         // 범위 검사
         if (idx < 0 || idx >= static_cast<int64_t>(arr.size()))
         {
-            throw std::runtime_error("배열 인덱스 범위 초과: " + std::to_string(idx));
+            throw error::IndexError(
+                "배열 인덱스 범위를 벗어났습니다: 인덱스 " + std::to_string(idx) +
+                ", 배열 크기 " + std::to_string(arr.size()) + "\n" +
+                "해결 방법: 인덱스는 0부터 " + std::to_string(arr.size() - 1) + " 사이여야 합니다. " +
+                "음수 인덱스(-1, -2 등)도 사용할 수 있습니다."
+            );
         }
 
         return arr[static_cast<size_t>(idx)];

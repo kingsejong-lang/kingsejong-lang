@@ -14,7 +14,26 @@
 #include <unordered_set>
 
 namespace kingsejong {
+
+// Forward declaration
+namespace ast {
+    class Program;
+}
+
 namespace module {
+
+/**
+ * @brief 모듈 캐시 엔트리
+ *
+ * Environment와 AST를 함께 저장하여 AST 수명을 보장합니다.
+ * Function 객체가 AST 노드(body_)에 대한 raw pointer를 가지므로,
+ * AST가 살아있어야 합니다.
+ */
+struct ModuleCacheEntry
+{
+    std::shared_ptr<evaluator::Environment> env;  ///< 모듈 환경
+    std::unique_ptr<ast::Program> ast;             ///< 모듈 AST (수명 관리)
+};
 
 /**
  * @class ModuleLoader
@@ -25,8 +44,8 @@ namespace module {
 class ModuleLoader
 {
 private:
-    /// 모듈 캐시: 경로 → Environment
-    std::unordered_map<std::string, std::shared_ptr<evaluator::Environment>> cache_;
+    /// 모듈 캐시: 경로 → ModuleCacheEntry
+    std::unordered_map<std::string, ModuleCacheEntry> cache_;
 
     /// 현재 로딩 중인 모듈 (순환 참조 방지)
     std::unordered_set<std::string> loading_;

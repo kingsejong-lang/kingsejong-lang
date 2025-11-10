@@ -31,7 +31,7 @@ std::shared_ptr<evaluator::Environment> ModuleLoader::loadModule(const std::stri
     auto cacheIt = cache_.find(resolvedPath);
     if (cacheIt != cache_.end())
     {
-        return cacheIt->second;
+        return cacheIt->second.env;
     }
 
     // 순환 참조 확인
@@ -79,8 +79,13 @@ std::shared_ptr<evaluator::Environment> ModuleLoader::loadModule(const std::stri
         evaluator::Evaluator evaluator(moduleEnv);
         evaluator.evalProgram(program.get());
 
-        // 캐시에 저장
-        cache_[resolvedPath] = moduleEnv;
+        // 캐시에 저장 (AST와 Environment 모두 저장)
+        // Function 객체가 AST 노드에 대한 raw pointer를 가지므로
+        // AST를 살려두어야 heap-use-after-free를 방지할 수 있습니다.
+        ModuleCacheEntry entry;
+        entry.env = moduleEnv;
+        entry.ast = std::move(program);
+        cache_[resolvedPath] = std::move(entry);
 
         // 로딩 완료
         loading_.erase(resolvedPath);

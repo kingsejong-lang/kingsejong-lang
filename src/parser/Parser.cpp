@@ -258,6 +258,25 @@ static bool isLikelyLoopVariable(const std::string& str)
 
 std::unique_ptr<Statement> Parser::parseStatement()
 {
+    // 명명 함수: 함수 이름(매개변수) { ... }
+    // 이것을 할당문으로 변환: 이름 = 함수(매개변수) { ... }
+    if (curTokenIs(TokenType::HAMSU) && peekTokenIs(TokenType::IDENTIFIER))
+    {
+        nextToken();  // HAMSU를 건너뜀 → curToken = 함수 이름
+        std::string functionName = curToken_.literal;
+
+        // parseFunctionLiteral은 내부적으로 expectPeek(LPAREN)을 호출하므로
+        // 현재 위치에서 호출하면 됨 (curToken = 함수 이름, peekToken = LPAREN)
+        auto functionLiteral = parseFunctionLiteral();
+        if (!functionLiteral)
+        {
+            return nullptr;
+        }
+
+        // 할당문으로 변환
+        return std::make_unique<AssignmentStatement>(functionName, std::move(functionLiteral));
+    }
+
     // 타입 키워드로 시작하면 변수 선언
     // 단, 타입 키워드 뒤에 LPAREN이 오면 함수 호출이므로 표현식으로 처리
     // 예: 정수(3.14), 실수(42)는 타입 변환 함수 호출

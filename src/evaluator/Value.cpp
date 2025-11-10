@@ -294,6 +294,16 @@ bool Value::equals(const Value& other) const
 
 bool Value::lessThan(const Value& other) const
 {
+    // 정수와 실수 간 비교 지원
+    if (isInteger() && other.isFloat())
+    {
+        return static_cast<double>(asInteger()) < other.asFloat();
+    }
+    if (isFloat() && other.isInteger())
+    {
+        return asFloat() < static_cast<double>(other.asInteger());
+    }
+
     // 타입이 같아야 비교 가능
     if (type_ != other.type_)
     {
@@ -318,6 +328,16 @@ bool Value::lessThan(const Value& other) const
 
 bool Value::greaterThan(const Value& other) const
 {
+    // 정수와 실수 간 비교 지원
+    if (isInteger() && other.isFloat())
+    {
+        return static_cast<double>(asInteger()) > other.asFloat();
+    }
+    if (isFloat() && other.isInteger())
+    {
+        return asFloat() > static_cast<double>(other.asInteger());
+    }
+
     // 타입이 같아야 비교 가능
     if (type_ != other.type_)
     {

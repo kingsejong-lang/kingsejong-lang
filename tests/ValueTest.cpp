@@ -380,9 +380,9 @@ TEST(ValueTest, StringGreaterThan)
 TEST(ValueTest, ShouldThrowWhenComparingDifferentTypesLessThan)
 {
     Value intVal = Value::createInteger(10);
-    Value floatVal = Value::createFloat(10.0);
+    Value stringVal = Value::createString("10");
 
-    EXPECT_THROW(intVal.lessThan(floatVal), std::runtime_error);
+    EXPECT_THROW(intVal.lessThan(stringVal), std::runtime_error);
 }
 
 /**

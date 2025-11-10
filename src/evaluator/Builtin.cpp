@@ -556,6 +556,10 @@ static Value builtin_실수(const std::vector<Value>& args)
 /**
  * @brief 반올림(실수) - 실수를 반올림
  *
+ * Round half toward zero (절댓값이 작은 쪽으로):
+ * - 2.5 → 3 (양수는 올림)
+ * - -2.5 → -2 (음수는 내림)
+ *
  * @param args 실수 값 (1개)
  * @return 반올림된 정수
  * @throws std::runtime_error 인자가 실수나 정수가 아닌 경우
@@ -576,7 +580,12 @@ static Value builtin_반올림(const std::vector<Value>& args)
 
     if (arg.isFloat())
     {
-        return Value::createInteger(static_cast<int64_t>(std::round(arg.asFloat())));
+        double value = arg.asFloat();
+        // Round half up (toward positive infinity for .5):
+        // floor(value + 0.5) works for both positive and negative
+        // 2.5 → floor(3.0) = 3
+        // -2.5 → floor(-2.0) = -2
+        return Value::createInteger(static_cast<int64_t>(std::floor(value + 0.5)));
     }
 
     throw std::runtime_error("반올림() 함수의 인자는 정수 또는 실수여야 합니다");

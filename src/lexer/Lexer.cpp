@@ -198,6 +198,31 @@ std::string Lexer::readIdentifier()
         {
             std::string base = identifier.substr(0, identifier.length() - 3);
 
+            // 조사 분리 전 base의 마지막 문자 확인
+            // 조사 바로 앞에 언더스코어나 숫자가 있으면 조사가 아님
+            // 예: "원의_넓이"에서 "_넓"이 있으면 "이"는 조사가 아님
+            // base에서 역순으로 스캔하여 언더스코어나 숫자를 찾음
+            if (base.length() >= 4)  // 최소한 "_X이" 형태
+            {
+                // base를 역순으로 스캔
+                size_t pos = base.length();
+                while (pos > 0)
+                {
+                    unsigned char byte = static_cast<unsigned char>(base[pos - 1]);
+                    if (byte < 0x80)  // ASCII 문자 발견
+                    {
+                        // 언더스코어나 숫자 뒤에 한글이 바로 오는 경우
+                        // 예: "_넓이"에서 "_" 뒤의 "넓이"는 조사 분리하지 않음
+                        if (byte == '_' || (byte >= '0' && byte <= '9'))
+                        {
+                            return identifier;  // 조사 분리하지 않음
+                        }
+                        break;  // ASCII 문자 발견 시 중단
+                    }
+                    pos--;
+                }
+            }
+
             // 특수 케이스: "나이" 같은 일반 명사는 분리하지 않음
             // 2글자 한글 단어 중 마지막 글자가 "이"인 경우는 대부분 명사
             if (base.length() == 3 && lastChar == "이" && suffixType != TokenType::BEON)

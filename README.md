@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![C++23](https://img.shields.io/badge/C++-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![CI](https://github.com/0xmhha/kingsejonglang/workflows/CI/badge.svg)](https://github.com/0xmhha/kingsejonglang/actions)
-[![Tests](https://img.shields.io/badge/tests-330%2B%20passed-success)](tests/)
+[![Tests](https://img.shields.io/badge/tests-567%20passed-success)](tests/)
 [![Version](https://img.shields.io/badge/version-v0.1.0-blue)](https://github.com/0xmhha/kingsejonglang/releases/tag/v0.1.0)
 
 [빠른 시작](#빠른-시작) •
@@ -444,18 +444,27 @@ i가 1부터 10까지 {
 ### 테스트 현황
 
 ```
-총 테스트: 330개+
+총 테스트: 567개
 통과율: 100%
 실패: 0개
 
 주요 테스트:
-- Lexer/Parser: 100개+
-- Evaluator: 80개+
-- Type System: 30개+
-- Array Methods: 30개+
-- Module System: 10개+
-- Garbage Collector: 17개
-- Bytecode Compiler & VM: 23개
+- Lexer/Parser: 32개 + 27개 = 59개
+- Evaluator: 30개
+- Type System: 18개 + 30개 (TypeChecker) = 48개
+- Value: 37개
+- Environment: 23개
+- Float: 48개
+- String: 45개
+- Array: 37개 + 25개 (ArrayMethod) = 62개
+- Function: 13개
+- Loop: 21개
+- If Statement: 14개
+- Module System: 8개
+- Garbage Collector: 15개
+- Bytecode Compiler & VM: 19개
+- Hot Path Detector: 21개
+- 기타: 128개
 ```
 
 ---

@@ -38,6 +38,12 @@ void Parser::registerParseFunctions()
     registerPrefixFn(TokenType::LBRACKET, [this]() { return parseArrayLiteral(); });
     registerPrefixFn(TokenType::HAMSU, [this]() { return parseFunctionLiteral(); });
 
+    // 타입 키워드도 식별자로 사용 가능 (builtin 함수 이름으로 사용)
+    // 예: 정수(3.14), 실수(42), 문자열(123)
+    registerPrefixFn(TokenType::JEONGSU, [this]() { return parseIdentifier(); });
+    registerPrefixFn(TokenType::SILSU, [this]() { return parseIdentifier(); });
+    registerPrefixFn(TokenType::MUNJAYEOL, [this]() { return parseIdentifier(); });
+
     // Infix 파싱 함수 등록
     registerInfixFn(TokenType::PLUS, [this](auto left) { return parseBinaryExpression(std::move(left)); });
     registerInfixFn(TokenType::MINUS, [this](auto left) { return parseBinaryExpression(std::move(left)); });
@@ -253,8 +259,11 @@ static bool isLikelyLoopVariable(const std::string& str)
 std::unique_ptr<Statement> Parser::parseStatement()
 {
     // 타입 키워드로 시작하면 변수 선언
-    if (curTokenIs(TokenType::JEONGSU) || curTokenIs(TokenType::SILSU) ||
-        curTokenIs(TokenType::MUNJAYEOL) || curTokenIs(TokenType::NONLI))
+    // 단, 타입 키워드 뒤에 LPAREN이 오면 함수 호출이므로 표현식으로 처리
+    // 예: 정수(3.14), 실수(42)는 타입 변환 함수 호출
+    if ((curTokenIs(TokenType::JEONGSU) || curTokenIs(TokenType::SILSU) ||
+         curTokenIs(TokenType::MUNJAYEOL) || curTokenIs(TokenType::NONLI)) &&
+        !peekTokenIs(TokenType::LPAREN))
     {
         return parseVarDeclaration();
     }

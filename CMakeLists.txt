@@ -44,6 +44,9 @@ set(LIB_SOURCES
     src/bytecode/VM.cpp
     src/jit/HotPathDetector.cpp
     src/error/ErrorReporter.cpp
+    src/debugger/BreakpointManager.cpp
+    src/debugger/CallStack.cpp
+    src/debugger/Debugger.cpp
 )
 
 # 라이브러리 생성 (kingsejong_lib)

@@ -72,6 +72,44 @@ struct SourceLocation
             return filename;
         }
     }
+
+    /**
+     * @brief 비교 연산자 (map 키로 사용하기 위함)
+     * @param other 비교할 위치
+     * @return 순서 비교 결과
+     *
+     * 순서: filename -> line -> column
+     */
+    bool operator<(const SourceLocation& other) const
+    {
+        if (filename != other.filename)
+        {
+            return filename < other.filename;
+        }
+        if (line != other.line)
+        {
+            return line < other.line;
+        }
+        return column < other.column;
+    }
+
+    /**
+     * @brief 동등 연산자
+     */
+    bool operator==(const SourceLocation& other) const
+    {
+        return filename == other.filename &&
+               line == other.line &&
+               column == other.column;
+    }
+
+    /**
+     * @brief 부등 연산자
+     */
+    bool operator!=(const SourceLocation& other) const
+    {
+        return !(*this == other);
+    }
 };
 
 /**

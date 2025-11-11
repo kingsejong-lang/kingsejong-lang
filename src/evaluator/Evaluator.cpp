@@ -114,7 +114,7 @@ Value Evaluator::eval(ast::Node* node)
         default:
         {
             std::string msg = "평가되지 않은 노드 타입: " + ast::nodeTypeToString(node->type());
-            throw std::runtime_error(msg);
+            throw error::RuntimeError(msg);
         }
     }
 }
@@ -227,7 +227,7 @@ Value Evaluator::evalBinaryExpression(ast::BinaryExpression* expr)
         return Value::createString(left.asString() + right.asString());
     }
 
-    throw std::runtime_error("지원되지 않는 연산: " + left.toString() + " " + op + " " + right.toString());
+    throw error::RuntimeError("지원되지 않는 연산: " + left.toString() + " " + op + " " + right.toString());
 }
 
 Value Evaluator::evalUnaryExpression(ast::UnaryExpression* expr)
@@ -245,7 +245,7 @@ Value Evaluator::evalUnaryExpression(ast::UnaryExpression* expr)
         {
             return Value::createFloat(-operand.asFloat());
         }
-        throw std::runtime_error("음수 연산은 숫자에만 적용 가능합니다");
+        throw error::TypeError("음수 연산은 숫자에만 적용 가능합니다");
     }
 
     if (op == "!")
@@ -253,7 +253,7 @@ Value Evaluator::evalUnaryExpression(ast::UnaryExpression* expr)
         return Value::createBoolean(!operand.isTruthy());
     }
 
-    throw std::runtime_error("지원되지 않는 단항 연산자: " + op);
+    throw error::RuntimeError("지원되지 않는 단항 연산자: " + op);
 }
 
 /**
@@ -549,7 +549,7 @@ Value Evaluator::applyIntegerOperation(int64_t left, const std::string& op, int6
         return Value::createInteger(left % right);
     }
 
-    throw std::runtime_error("지원되지 않는 정수 연산자: " + op);
+    throw error::RuntimeError("지원되지 않는 정수 연산자: " + op);
 }
 
 Value Evaluator::applyFloatOperation(double left, const std::string& op, double right)
@@ -566,7 +566,7 @@ Value Evaluator::applyFloatOperation(double left, const std::string& op, double 
         return Value::createFloat(left / right);
     }
 
-    throw std::runtime_error("지원되지 않는 실수 연산자: " + op);
+    throw error::RuntimeError("지원되지 않는 실수 연산자: " + op);
 }
 
 Value Evaluator::applyComparisonOperation(const Value& left, const std::string& op, const Value& right)
@@ -578,7 +578,7 @@ Value Evaluator::applyComparisonOperation(const Value& left, const std::string& 
     if (op == "<=") return Value::createBoolean(left.lessThan(right) || left.equals(right));
     if (op == ">=") return Value::createBoolean(left.greaterThan(right) || left.equals(right));
 
-    throw std::runtime_error("지원되지 않는 비교 연산자: " + op);
+    throw error::RuntimeError("지원되지 않는 비교 연산자: " + op);
 }
 
 Value Evaluator::applyLogicalOperation(const Value& left, const std::string& op, const Value& right)
@@ -597,7 +597,7 @@ Value Evaluator::applyLogicalOperation(const Value& left, const std::string& op,
         return Value::createBoolean(right.isTruthy());
     }
 
-    throw std::runtime_error("지원되지 않는 논리 연산자: " + op);
+    throw error::RuntimeError("지원되지 않는 논리 연산자: " + op);
 }
 
 Value Evaluator::evalArrayLiteral(ast::ArrayLiteral* lit)

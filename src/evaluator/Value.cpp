@@ -6,6 +6,8 @@
  */
 
 #include "Value.h"
+#include "../error/Error.h"
+#include "../types/Type.h"
 #include <sstream>
 #include <cmath>
 
@@ -98,7 +100,7 @@ int64_t Value::asInteger() const
 {
     if (!isInteger())
     {
-        throw std::runtime_error("Value is not an integer");
+        throw error::TypeError("값이 정수 타입이 아닙니다. 실제 타입: " + types::Type::typeKindToString(type_));
     }
     return std::get<int64_t>(data_);
 }
@@ -107,7 +109,7 @@ double Value::asFloat() const
 {
     if (!isFloat())
     {
-        throw std::runtime_error("Value is not a float");
+        throw error::TypeError("값이 실수 타입이 아닙니다. 실제 타입: " + types::Type::typeKindToString(type_));
     }
     return std::get<double>(data_);
 }
@@ -116,7 +118,7 @@ std::string Value::asString() const
 {
     if (!isString())
     {
-        throw std::runtime_error("Value is not a string");
+        throw error::TypeError("값이 문자열 타입이 아닙니다. 실제 타입: " + types::Type::typeKindToString(type_));
     }
     return std::get<std::string>(data_);
 }
@@ -125,7 +127,7 @@ bool Value::asBoolean() const
 {
     if (!isBoolean())
     {
-        throw std::runtime_error("Value is not a boolean");
+        throw error::TypeError("값이 논리 타입이 아닙니다. 실제 타입: " + types::Type::typeKindToString(type_));
     }
     return std::get<bool>(data_);
 }
@@ -134,7 +136,7 @@ std::shared_ptr<Function> Value::asFunction() const
 {
     if (!isFunction())
     {
-        throw std::runtime_error("Value is not a function");
+        throw error::TypeError("값이 함수 타입이 아닙니다. 실제 타입: " + types::Type::typeKindToString(type_));
     }
     return std::get<std::shared_ptr<Function>>(data_);
 }
@@ -143,7 +145,7 @@ Value::BuiltinFn Value::asBuiltinFunction() const
 {
     if (!isBuiltinFunction())
     {
-        throw std::runtime_error("Value is not a builtin function");
+        throw error::TypeError("값이 내장 함수 타입이 아닙니다. 실제 타입: " + types::Type::typeKindToString(type_));
     }
     return std::get<Value::BuiltinFn>(data_);
 }
@@ -152,7 +154,7 @@ std::vector<Value>& Value::asArray()
 {
     if (!isArray())
     {
-        throw std::runtime_error("Value is not an array");
+        throw error::TypeError("값이 배열 타입이 아닙니다. 실제 타입: " + types::Type::typeKindToString(type_));
     }
     return *std::get<std::shared_ptr<std::vector<Value>>>(data_);
 }
@@ -161,7 +163,7 @@ const std::vector<Value>& Value::asArray() const
 {
     if (!isArray())
     {
-        throw std::runtime_error("Value is not an array");
+        throw error::TypeError("값이 배열 타입이 아닙니다. 실제 타입: " + types::Type::typeKindToString(type_));
     }
     return *std::get<std::shared_ptr<std::vector<Value>>>(data_);
 }
@@ -307,7 +309,9 @@ bool Value::lessThan(const Value& other) const
     // 타입이 같아야 비교 가능
     if (type_ != other.type_)
     {
-        throw std::runtime_error("Cannot compare values of different types");
+        throw error::TypeError("서로 다른 타입의 값을 비교할 수 없습니다: " +
+                               types::Type::typeKindToString(type_) + " < " +
+                               types::Type::typeKindToString(other.type_));
     }
 
     switch (type_)
@@ -322,7 +326,8 @@ bool Value::lessThan(const Value& other) const
             return std::get<std::string>(data_) < std::get<std::string>(other.data_);
 
         default:
-            throw std::runtime_error("Type does not support less-than comparison");
+            throw error::TypeError("이 타입은 크기 비교를 지원하지 않습니다: " +
+                                   types::Type::typeKindToString(type_));
     }
 }
 
@@ -341,7 +346,9 @@ bool Value::greaterThan(const Value& other) const
     // 타입이 같아야 비교 가능
     if (type_ != other.type_)
     {
-        throw std::runtime_error("Cannot compare values of different types");
+        throw error::TypeError("서로 다른 타입의 값을 비교할 수 없습니다: " +
+                               types::Type::typeKindToString(type_) + " > " +
+                               types::Type::typeKindToString(other.type_));
     }
 
     switch (type_)
@@ -356,7 +363,8 @@ bool Value::greaterThan(const Value& other) const
             return std::get<std::string>(data_) > std::get<std::string>(other.data_);
 
         default:
-            throw std::runtime_error("Type does not support greater-than comparison");
+            throw error::TypeError("이 타입은 크기 비교를 지원하지 않습니다: " +
+                                   types::Type::typeKindToString(type_));
     }
 }
 

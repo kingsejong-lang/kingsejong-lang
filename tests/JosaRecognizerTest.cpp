@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "lexer/JosaRecognizer.h"
+#include "error/Error.h"
 
 /**
  * @file JosaRecognizerTest.cpp
@@ -203,8 +204,8 @@ TEST_F(JosaRecognizerTest, ShouldGetJosaType)
 TEST_F(JosaRecognizerTest, ShouldThrowOnInvalidJosa)
 {
     // Arrange & Act & Assert
-    EXPECT_THROW(JosaRecognizer::getType("사과"), std::invalid_argument);
-    EXPECT_THROW(JosaRecognizer::getType("만약"), std::invalid_argument);
+    EXPECT_THROW(JosaRecognizer::getType("사과"), kingsejong::error::KingSejongError);
+    EXPECT_THROW(JosaRecognizer::getType("만약"), kingsejong::error::KingSejongError);
 }
 
 /**

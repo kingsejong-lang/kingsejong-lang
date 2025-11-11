@@ -7,6 +7,7 @@
 
 #include "JosaRecognizer.h"
 #include "Token.h"
+#include "../error/Error.h"
 #include <stdexcept>
 #include <unordered_map>
 
@@ -41,7 +42,7 @@ JosaRecognizer::JosaType JosaRecognizer::getType(const std::string& str)
         return it->second;
     }
 
-    throw std::invalid_argument("Invalid josa: " + str);
+    throw error::RuntimeError("알 수 없는 조사입니다: " + str);
 }
 
 int JosaRecognizer::getFinalConsonantIndex(const std::string& ch)
@@ -155,7 +156,7 @@ std::string JosaRecognizer::select(const std::string& noun, JosaType type)
             return "에";  // 받침 무관
 
         default:
-            throw std::invalid_argument("Unknown JosaType");
+            throw error::RuntimeError("알 수 없는 조사 타입입니다");
     }
 }
 

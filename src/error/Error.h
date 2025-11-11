@@ -219,6 +219,11 @@ inline KingSejongError NameError(const std::string& message)
     return KingSejongError(ErrorType::NAME_ERROR, message);
 }
 
+inline KingSejongError NameError(const std::string& message, const SourceLocation& location)
+{
+    return KingSejongError(ErrorType::NAME_ERROR, message, location);
+}
+
 /**
  * @brief 값 에러 생성
  */

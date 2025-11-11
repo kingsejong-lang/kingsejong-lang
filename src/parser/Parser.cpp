@@ -128,15 +128,14 @@ bool Parser::expectPeek(TokenType type)
 
 void Parser::peekError(TokenType expected)
 {
-    std::string msg = "expected next token to be " +
-                      tokenTypeToString(expected) +
-                      ", got " + tokenTypeToString(peekToken_.type);
+    std::string msg = "다음 토큰으로 '" + tokenTypeToString(expected) + "'을(를) 예상했지만, '" +
+                      tokenTypeToString(peekToken_.type) + "'을(를) 받았습니다.";
     errors_.push_back(msg);
 }
 
 void Parser::noPrefixParseFnError(TokenType type)
 {
-    std::string msg = "no prefix parse function for " + tokenTypeToString(type);
+    std::string msg = "'" + tokenTypeToString(type) + "'으(로) 시작하는 표현식을 파싱할 수 없습니다.";
     errors_.push_back(msg);
 }
 
@@ -711,7 +710,7 @@ std::unique_ptr<Expression> Parser::parseIntegerLiteral()
     }
     catch (const std::exception&)
     {
-        errors_.push_back("could not parse " + curToken_.literal + " as integer");
+        errors_.push_back("'" + curToken_.literal + "'을(를) 정수로 변환할 수 없습니다.");
         return nullptr;
     }
 }
@@ -725,7 +724,7 @@ std::unique_ptr<Expression> Parser::parseFloatLiteral()
     }
     catch (const std::exception&)
     {
-        errors_.push_back("could not parse " + curToken_.literal + " as float");
+        errors_.push_back("'" + curToken_.literal + "'을(를) 실수로 변환할 수 없습니다.");
         return nullptr;
     }
 }
@@ -850,8 +849,8 @@ std::unique_ptr<Expression> Parser::parseRangeExpression(std::unique_ptr<Express
         !peekTokenIs(TokenType::IHA) &&
         !peekTokenIs(TokenType::ISANG))
     {
-        std::string msg = "expected range end keyword (까지/미만/이하/이상), got " +
-                         tokenTypeToString(peekToken_.type);
+        std::string msg = "범위 종료 키워드 (까지/미만/이하/이상)를 예상했지만, '" +
+                         tokenTypeToString(peekToken_.type) + "'을(를) 받았습니다.";
         errors_.push_back(msg);
         return nullptr;
     }

@@ -43,6 +43,7 @@ set(LIB_SOURCES
     src/bytecode/Compiler.cpp
     src/bytecode/VM.cpp
     src/jit/HotPathDetector.cpp
+    src/error/ErrorReporter.cpp
 )
 
 # 라이브러리 생성 (kingsejong_lib)

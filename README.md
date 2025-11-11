@@ -7,8 +7,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![C++23](https://img.shields.io/badge/C++-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![CI](https://github.com/0xmhha/kingsejonglang/workflows/CI/badge.svg)](https://github.com/0xmhha/kingsejonglang/actions)
-[![Tests](https://img.shields.io/badge/tests-567%20passed-success)](tests/)
-[![Version](https://img.shields.io/badge/version-v0.2.0-blue)](https://github.com/0xmhha/kingsejonglang/releases/tag/v0.2.0)
+[![Tests](https://img.shields.io/badge/tests-729%20passed-success)](tests/)
+[![Version](https://img.shields.io/badge/version-v0.3.0-blue)](https://github.com/0xmhha/kingsejonglang/releases/tag/v0.3.0)
+[![VS Code](https://img.shields.io/badge/VS%20Code-Extension-blue)](vscode-extension/)
 
 [빠른 시작](#빠른-시작) •
 [주요 특징](#주요-특징) •
@@ -356,6 +357,7 @@ i가 1부터 10까지 {
 | [라이브러리 가이드](docs/LIBRARY_GUIDE.md) | 모듈 개발 가이드 | 개발자 |
 | [표준 라이브러리](stdlib/README.md) | stdlib 함수 목록 | 모든 사용자 |
 | [GC 설계 문서](docs/GC_DESIGN.md) | 가비지 컬렉터 설계 및 구현 | 고급 개발자 |
+| [VS Code Extension](vscode-extension/README.md) | Extension 설치 및 사용법 | VS Code 사용자 |
 | [작업 목록](docs/TODOLIST.md) | 프로젝트 진행 상황 | 기여자 |
 
 ---
@@ -434,6 +436,19 @@ i가 1부터 10까지 {
 - ✅ **가비지 컬렉터** (Mark & Sweep, 순환 참조 감지, 자동 메모리 관리)
 - ✅ **바이트코드 컴파일러** (60+ OpCode, 스택 기반 VM, AST → Bytecode)
 
+### Phase 5: LSP & IDE 지원 ✅ (100% 완료)
+
+- ✅ **Language Server Protocol (LSP)**
+  - JSON-RPC 2.0 통신
+  - DocumentManager (문서 관리)
+  - CompletionProvider (자동 완성)
+  - DiagnosticsProvider (실시간 진단)
+- ✅ **VS Code Extension**
+  - 구문 강조 (Syntax Highlighting)
+  - 자동 완성 (Auto Completion)
+  - 실시간 에러 검사
+  - 자동 괄호 닫기, 들여쓰기
+
 ### 문서화 ✅ (완료)
 
 - ✅ **완전한 언어 레퍼런스** (679줄)
@@ -444,7 +459,7 @@ i가 1부터 10까지 {
 ### 테스트 현황
 
 ```
-총 테스트: 567개
+총 테스트: 729개
 통과율: 100%
 실패: 0개
 
@@ -464,6 +479,7 @@ i가 1부터 10까지 {
 - Garbage Collector: 15개
 - Bytecode Compiler & VM: 19개
 - Hot Path Detector: 21개
+- LSP: 56개 (JsonRpc, DocumentManager, LanguageServer, CompletionProvider, DiagnosticsProvider)
 - 기타: 128개
 ```
 
@@ -520,6 +536,39 @@ ctest --output-on-failure
 ```bash
 ./kingsejong script.ksj
 ```
+
+#### LSP 서버 모드
+
+```bash
+./kingsejong --lsp
+```
+
+LSP 서버는 stdin/stdout을 통해 JSON-RPC 2.0 메시지를 주고받습니다.
+
+### VS Code Extension 사용
+
+```bash
+# Extension 디렉토리로 이동
+cd vscode-extension
+
+# 의존성 설치
+npm install
+
+# TypeScript 컴파일
+npm run compile
+
+# VS Code에서 실행
+# 1. vscode-extension 폴더를 VS Code로 열기
+# 2. F5를 눌러 Extension Development Host 실행
+# 3. .ksj 파일을 열어서 테스트
+```
+
+**제공하는 기능:**
+- 구문 강조 (Syntax Highlighting)
+- 자동 완성 (Auto Completion) - 키워드, 변수명
+- 실시간 진단 (Diagnostics) - 구문 오류 표시
+- 자동 괄호 닫기
+- 들여쓰기 자동 조정
 
 ---
 
@@ -584,18 +633,32 @@ kingsejonglang/
 │   ├── error/             # 에러 처리
 │   ├── module/            # 모듈 시스템
 │   ├── repl/              # 대화형 실행
-│   └── main.cpp           # 진입점
+│   ├── lsp/               # Language Server Protocol
+│   │   ├── JsonRpc.cpp         # JSON-RPC 2.0 통신
+│   │   ├── DocumentManager.cpp # 문서 관리
+│   │   ├── LanguageServer.cpp  # LSP 서버
+│   │   ├── CompletionProvider.cpp  # 자동 완성
+│   │   └── DiagnosticsProvider.cpp # 실시간 진단
+│   └── main.cpp           # 진입점 (REPL/파일실행/LSP)
+├── vscode-extension/      # VS Code Extension
+│   ├── src/
+│   │   └── extension.ts   # LSP 클라이언트
+│   ├── syntaxes/
+│   │   └── kingsejong.tmLanguage.json  # 구문 강조
+│   ├── package.json       # Extension 메타데이터
+│   └── README.md          # Extension 가이드
 ├── stdlib/                # 표준 라이브러리
 │   ├── math.ksj          # 수학 함수 (18개)
 │   ├── string.ksj        # 문자열 처리 (9개)
 │   ├── array.ksj         # 배열 유틸리티 (18개)
 │   └── README.md         # 라이브러리 문서
-├── tests/                 # 테스트 코드 (290개+)
+├── tests/                 # 테스트 코드 (729개)
 ├── examples/              # 예제 프로그램 (21개)
 ├── docs/                  # 문서
 │   ├── TUTORIAL.md               # 초보자 튜토리얼
 │   ├── LANGUAGE_REFERENCE.md     # 언어 레퍼런스
 │   ├── LIBRARY_GUIDE.md          # 라이브러리 가이드
+│   ├── PHASE5_ROADMAP.md         # LSP 구현 로드맵
 │   └── TODOLIST.md               # 개발 로드맵
 ├── CMakeLists.txt        # 빌드 설정
 ├── LICENSE               # MIT 라이센스

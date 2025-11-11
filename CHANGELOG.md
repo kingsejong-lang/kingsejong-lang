@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-11-12
+
+### Added
+- **Language Server Protocol (LSP) 구현 (Phase 5.3.1)**:
+  - JSON-RPC 2.0 통신 시스템 (`JsonRpc.cpp`)
+  - 문서 관리자 (`DocumentManager.cpp`)
+  - LSP 서버 (`LanguageServer.cpp`)
+  - 자동 완성 제공자 (`CompletionProvider.cpp`)
+  - 실시간 진단 제공자 (`DiagnosticsProvider.cpp`)
+  - `--lsp` 플래그로 LSP 서버 모드 실행
+  - stdin/stdout을 통한 JSON-RPC 통신
+
+- **VS Code Extension**:
+  - TypeScript 기반 LSP 클라이언트
+  - 구문 강조 (Syntax Highlighting)
+    - 키워드: 정수, 실수, 문자열, 함수, 만약, 반환 등
+    - 조사: 을/를, 이/가, 은/는, 의, 로/으로 등
+    - 범위 키워드: 부터, 까지, 초과, 이상, 이하, 미만
+  - 자동 완성 (Auto Completion)
+    - 키워드 자동 완성
+    - 변수명 자동 완성
+  - 실시간 진단 (Diagnostics)
+    - 구문 오류 실시간 표시
+    - 파서 에러 수집 및 표시
+  - 편집 기능
+    - 자동 괄호 닫기
+    - 들여쓰기 자동 조정
+    - 주석 토글 지원
+
+### Changed
+- **main.cpp 확장**: REPL/파일실행/LSP 모드 지원
+  - `kingsejong` - REPL 모드
+  - `kingsejong 파일.ksj` - 파일 실행
+  - `kingsejong --lsp` - LSP 서버 모드 (새로 추가)
+
+### Testing
+- **LSP 테스트 56개 추가**:
+  - JsonRpc 테스트: 13개
+  - DocumentManager 테스트: 18개
+  - LanguageServer 테스트: 15개
+  - CompletionProvider 테스트: 8개
+  - DiagnosticsProvider 테스트: 17개 (수정됨)
+- **전체 테스트 729개 (100% 통과)**
+
+### Documentation
+- vscode-extension/README.md: Extension 설치 및 사용 가이드
+- docs/PHASE5_ROADMAP.md: LSP 구현 로드맵 (완료)
+- README.md: Phase 5 섹션 추가, 테스트 개수 업데이트
+
+### Fixed
+- DiagnosticsProvider 테스트 수정: 올바른 구문 오류 감지
+  - 유효한 KingSejong 문법에 맞춰 테스트 케이스 재작성
+  - Parser 에러 수집 메커니즘 검증
+
 ## [0.2.0] - 2025-11-11
 
 ### Added

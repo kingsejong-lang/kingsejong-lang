@@ -9,12 +9,15 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <cstring>
 #include "repl/Repl.h"
 #include "lexer/Lexer.h"
 #include "parser/Parser.h"
 #include "evaluator/Evaluator.h"
 #include "evaluator/Environment.h"
 #include "evaluator/Builtin.h"
+#include "lsp/LanguageServer.h"
+#include "lsp/JsonRpc.h"
 
 /**
  * @brief 파일을 읽고 실행
@@ -75,6 +78,63 @@ int executeFile(const std::string& filename)
 }
 
 /**
+ * @brief LSP 서버 모드 실행
+ * @return 종료 코드 (0: 성공, 1: 실패)
+ */
+int runLspServer()
+{
+    using namespace kingsejong::lsp;
+
+    try
+    {
+        LanguageServer server;
+        JsonRpc jsonRpc;
+
+        // stdin에서 메시지를 읽고 stdout으로 응답 전송
+        while (true)
+        {
+            try
+            {
+                // JSON-RPC 메시지 읽기 (Content-Length 헤더 포함)
+                auto request = jsonRpc.readMessage(std::cin);
+
+                // 요청 처리
+                auto response = server.handleRequest(request);
+
+                // 응답 전송 (notification이면 빈 응답)
+                if (!response.is_null())
+                {
+                    jsonRpc.writeMessage(std::cout, response);
+                }
+
+                // exit 메서드 처리 시 종료
+                if (request.contains("method") && request["method"] == "exit")
+                {
+                    break;
+                }
+            }
+            catch (const std::exception& e)
+            {
+                // 메시지 파싱 실패 시 에러 응답
+                std::cerr << "LSP Error: " << e.what() << "\n";
+                // EOF 또는 치명적 에러 시 종료
+                if (std::cin.eof())
+                {
+                    break;
+                }
+            }
+        }
+
+        return 0;
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "LSP Server Error: " << e.what() << "\n";
+        return 1;
+    }
+}
+
+/**
  * @brief 프로그램 진입점
  * @param argc 인자 개수
  * @param argv 인자 배열
@@ -84,6 +144,12 @@ int main(int argc, char* argv[])
 {
     // 내장 함수 등록
     kingsejong::evaluator::Builtin::registerAllBuiltins();
+
+    // --lsp 플래그 확인
+    if (argc == 2 && std::strcmp(argv[1], "--lsp") == 0)
+    {
+        return runLspServer();
+    }
 
     if (argc == 1)
     {
@@ -105,6 +171,7 @@ int main(int argc, char* argv[])
         std::cerr << "\n";
         std::cerr << "  kingsejong          - REPL 모드로 실행\n";
         std::cerr << "  kingsejong 파일.ksj  - 파일 실행\n";
+        std::cerr << "  kingsejong --lsp    - LSP 서버 모드\n";
         return 1;
     }
 }

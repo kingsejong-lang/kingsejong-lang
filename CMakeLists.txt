@@ -47,6 +47,11 @@ set(LIB_SOURCES
     src/debugger/BreakpointManager.cpp
     src/debugger/CallStack.cpp
     src/debugger/Debugger.cpp
+    src/lsp/JsonRpc.cpp
+    src/lsp/DocumentManager.cpp
+    src/lsp/LanguageServer.cpp
+    src/lsp/CompletionProvider.cpp
+    src/lsp/DiagnosticsProvider.cpp
 )
 
 # 라이브러리 생성 (kingsejong_lib)
@@ -55,6 +60,7 @@ target_include_directories(kingsejong_lib PUBLIC
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/include
 )
+target_link_libraries(kingsejong_lib PUBLIC nlohmann_json::nlohmann_json)
 
 # 실행 파일 소스
 set(SOURCES
@@ -98,6 +104,14 @@ FetchContent_Declare(
 # Windows에서 gtest 빌드 설정
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
+
+# nlohmann/json 설정 (LSP용)
+FetchContent_Declare(
+    json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.11.3
+)
+FetchContent_MakeAvailable(json)
 
 # 테스트 파일 수집
 file(GLOB_RECURSE TEST_SOURCES "tests/*.cpp")

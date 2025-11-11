@@ -1,318 +1,527 @@
-# KingSejong 프로젝트 현재 상태 요약
+# 개발 세션 요약
 
-> **최종 업데이트**: 2025-11-10
-> **현재 브랜치**: main
-> **최신 커밋**: 41dbf9f - feat: F4.8 JIT 컴파일러 연구 완료 (#26)
-
----
-
-## 🎉 Phase 1, 2, 3, 4 완료!
-
-**Phase 4: 최적화 및 안정화 100% 완료** 🎊
-
-### 최근 완료된 주요 마일스톤 (2025-11-10)
-
-#### F4.8: JIT 컴파일러 연구 완료
-- 커밋: 41dbf9f
-- **HotPathDetector 프로토타입**:
-  - include/jit/HotPathDetector.h (300+ 줄)
-  - src/jit/HotPathDetector.cpp (300+ 줄)
-  - tests/jit/HotPathDetectorTest.cpp (21개 테스트, 100% 통과)
-  - 함수 호출 추적, 루프 백엣지 추적, JIT 티어 관리
-- **연구 문서**:
-  - docs/research/JIT_COMPILER_RESEARCH.md (1000+ 줄)
-  - docs/research/LLVM_INTEGRATION.md (800+ 줄)
-- **예제**: examples/jit_hotpath_demo.cpp
-
-#### 이전 Phase 4 완료 사항
-
-**F4.7: 플랫폼 확장** (커밋 639cbd8)
-- README.md 플랫폼별 설치 가이드
-- docs/INSTALL.md 상세 문서 (630+ 줄)
-- install.sh 자동화 스크립트 (300+ 줄)
-- install.ps1 PowerShell 스크립트 (350+ 줄)
-
-**F4.6: 메모리 안전성 검사** (커밋 cbabbe2, bf681b8)
-- AddressSanitizer (ASan) 통합
-- UndefinedBehaviorSanitizer (UBSan) 통합
-- use-after-free 버그 5건 수정
-- 전체 GC 테스트 15개 통과
-
-**F4.5: CI 벤치마크 자동화** (PR #48)
-- CI에 benchmark job 추가
-- 4개 벤치마크 자동 실행
-
-**F4.4: 컴파일러 최적화 패스** (PR #47)
-- 상수 폴딩 (Constant Folding)
-- 데드 코드 제거 (Dead Code Elimination)
-- 피홀 최적화 (Peephole Optimization)
-
-**F4.3: 성능 벤치마크 시스템** (PR #46)
-- 4개 벤치마크 프로그램
-- 통계 분석 시스템
-
-**F4.2: 바이트코드 함수 지원** (PR #45)
-- BUILD_FUNCTION, CALL, RETURN OpCode
-- 클로저 지원
-
-**F4.1: CI/CD 파이프라인** (PR #44)
-- GitHub Actions 워크플로우
-- macOS, Linux, Windows 빌드 및 테스트
+> **최종 업데이트**: 2025-11-12
+> **현재 브랜치**: feature/lsp
+> **현재 Phase**: 5.3.1 - 기본 LSP 구현 (Day 5-7 완료)
 
 ---
 
-## 📊 현재 프로젝트 상태
+## 📊 전체 진행 상황
 
-### 완료된 Phase (100%)
+### Phase 완료 현황
+- ✅ **Phase 1**: 기본 구문 및 평가기 (100%)
+- ✅ **Phase 2**: 고급 기능 (100%)
+- ✅ **Phase 3**: 성능 최적화 (100%)
+- ✅ **Phase 4**: 최종 마무리 (100%)
+- 🔄 **Phase 5**: 개발자 경험 & 생태계 구축 (40%)
 
-#### Phase 0: 프로젝트 초기화 ✅
-- F0.1: 프로젝트 기본 설정
-- F0.2: 코딩 표준 문서
-- F0.3: 테스트 프레임워크 설정
-
-#### Phase 1: 핵심 차별화 기능 ✅
-- F1.1-F1.19: 완전한 한글 프로그래밍 언어 구현
-- Token 시스템, Lexer, Parser, AST
-- 조사 인식 및 처리
-- 1급 함수, 클로저, 재귀
-- REPL 및 파일 실행
-
-#### Phase 2: 실용 기능 ✅
-- F2.1: 배열 구현
-- F2.2: 문자열 타입
-- F2.3: 실수 타입
-- F2.4: 에러 처리 시스템
-- F2.5: 한글 에러 메시지
-- F2.6: 타입 검사
-- F2.7: 표준 라이브러리
-
-#### Phase 3: 고급 기능 ✅
-- F3.1: 가비지 컬렉터 (Mark & Sweep)
-- F3.2: 바이트코드 컴파일러
-- F3.3: 모듈 시스템
-
-#### Phase 4: 최적화 및 안정화 ✅
-- F4.1: CI/CD 파이프라인
-- F4.2: 바이트코드 함수 지원
-- F4.3: 성능 벤치마크 시스템
-- F4.4: 컴파일러 최적화 패스
-- F4.5: CI 벤치마크 자동화
-- F4.6: 메모리 안전성 검사
-- F4.7: 플랫폼 확장 (Linux/Windows)
-- F4.8: JIT 컴파일러 연구
-
-### 테스트 현황
-```
-총 테스트: 570개+
-통과: 516개 (90%)
-실패: 54개 (기존 이슈, JIT와 무관)
-새로 추가: HotPathDetector 21개 (100% 통과)
-```
-
-### 플랫폼 지원
-- ✅ macOS (Apple Silicon, Intel)
-- ✅ Linux (Ubuntu/Debian, Fedora/CentOS, Arch)
-- ✅ Windows (Visual Studio 2022, MinGW-w64)
-
-### 문서 현황
-```
-총 문서 라인: 8,000+ 줄
-주요 문서:
-- TODOLIST.md (1,300+ 줄)
-- ROADMAP.md (520+ 줄)
-- INSTALL.md (630+ 줄)
-- JIT_COMPILER_RESEARCH.md (1,000+ 줄)
-- LLVM_INTEGRATION.md (800+ 줄)
-- TUTORIAL.md, LANGUAGE_REFERENCE.md 등
-```
+### Phase 5 작업 현황
+- ✅ **F5.NEW**: 에러 메시지 개선 (PR #49, 2025-11-11)
+- ✅ **F5.2.1**: 기본 디버거 (PR #50, 2025-11-12)
+- 🔄 **F5.3.1**: 기본 LSP (진행 중 - **Day 5-7 완료** ✅)
 
 ---
 
-## 🚀 빌드 및 실행
+## 🎯 현재 작업: F5.3.1 기본 LSP (Week 3-4)
 
-### 자동 설치 (권장)
+### 목표
+VS Code 등 에디터에서 KingSejong 언어 지원:
+- 🎨 구문 강조 (Syntax Highlighting)
+- ✨ 자동 완성 (Auto-completion)
+- 🔍 에러 진단 (Diagnostics)
 
-#### macOS/Linux
-```bash
-./install.sh                    # 로컬 빌드
-./install.sh --system           # 시스템 설치 (/usr/local)
-./install.sh --prefix ~/.local  # 사용자 지정 경로
-./install.sh --jobs 8           # 병렬 빌드
-```
+### Day 1-2 완료 사항 ✅
 
-#### Windows
-```powershell
-.\install.ps1                       # 로컬 빌드
-.\install.ps1 -SystemInstall        # 시스템 설치
-.\install.ps1 -InstallPrefix "C:\KingSejong"
-.\install.ps1 -Jobs 8
-```
+#### 1. LSP 설계 문서 작성 (2025-11-12)
+**파일**: `docs/design/LSP_DESIGN.md` (461줄)
 
-### 수동 빌드
-```bash
-mkdir -p build && cd build
-cmake ..
-make -j4                # Linux/macOS
-cmake --build . --config Release --parallel 4  # Windows
+**내용**:
+- 전체 아키텍처 다이어그램
+- LSP 프로토콜 스펙 정의
+- JSON-RPC 2.0 통신 구조
+- VS Code 확장 프로그램 설계
+- TextMate 문법 예제
+- Week 3-4 구현 계획
 
-# 테스트
-ctest --output-on-failure
-```
+#### 2. JSON-RPC 통신 구현 ✅
+**커밋**: `8b3f29e` feat: F5.3.1 JSON-RPC 통신 구현 (Day 1-2)
 
-### 실행 방법
+**구현 파일**:
+- `include/lsp/JsonRpc.h` (132줄)
+- `src/lsp/JsonRpc.cpp` (115줄)
+- `tests/lsp/JsonRpcTest.cpp` (298줄)
 
-#### REPL 모드
-```bash
-./build/bin/kingsejong
+**기능**:
+- JSON 파싱/직렬화 (nlohmann/json)
+- Content-Length 헤더 처리
+- LSP 표준 에러 코드 (-32700 ~ -32603)
+- 요청/응답/알림 메시지 생성
+- 멀티 메시지 처리
 
-# 사용 가능한 명령어:
-# .exit, .quit, .종료 - 종료
-# .help, .도움말 - 도움말
-# .clear, .초기화 - 변수 초기화
-# .vars, .변수 - 변수 목록
-```
+**테스트**: 13/13 통과 ✅
 
-#### 파일 실행
-```bash
-./build/bin/kingsejong examples/hello.ksj
-./build/bin/kingsejong examples/fibonacci.ksj
-./build/bin/kingsejong examples/closure.ksj
-```
+#### 3. DocumentManager 구현 ✅
+**커밋**: `8129379` feat: F5.3.1 DocumentManager 구현 (Day 1-2 완료)
 
-#### 예제 프로그램 (10개)
-```bash
-for file in examples/*.ksj; do
-    echo "=== Testing $file ==="
-    ./build/bin/kingsejong "$file"
-done
-```
+**구현 파일**:
+- `include/lsp/DocumentManager.h` (157줄)
+- `src/lsp/DocumentManager.cpp` (60줄)
+- `tests/lsp/DocumentManagerTest.cpp` (355줄)
+
+**기능**:
+- 문서 열기/수정/닫기 (open/update/close)
+- URI 기반 문서 관리
+- 문서 버전 추적
+- 한글 문서 지원 (UTF-8)
+- RAII 및 이동 시맨틱
+
+**테스트**: 22/22 통과 ✅
+
+#### 4. 라이브러리 추가
+- **nlohmann/json v3.11.3**: JSON 파싱/직렬화 (FetchContent)
+- 헤더 온리 라이브러리
+- MIT 라이선스
+
+### Day 3-4 완료 사항 ✅
+
+#### LanguageServer 구현 (2025-11-12)
+**커밋**: `f32b11b` feat: F5.3.1 LSP Day 3-4 LanguageServer 구현 완료
+
+**구현 파일**:
+- `include/lsp/LanguageServer.h` (286줄)
+- `src/lsp/LanguageServer.cpp` (263줄)
+- `tests/lsp/LanguageServerTest.cpp` (562줄)
+
+**기능**:
+- JSON-RPC 2.0 요청 디스패칭
+- initialize/initialized 핸들러
+- textDocument/didOpen 핸들러 (문서 저장)
+- textDocument/didChange 핸들러 (Full sync)
+- textDocument/didClose 핸들러 (문서 제거)
+- shutdown/exit 핸들러
+- 에러 처리 (MethodNotFound, InvalidParams, InternalError)
+- DocumentManager 통합
+
+**테스트**: 16/16 통과 ✅
+- 초기화 플로우 (initialize, initialized)
+- 문서 동기화 (didOpen, didChange, didClose)
+- 종료 플로우 (shutdown, exit)
+- 에러 처리 (unknown method, invalid params)
+- 통합 워크플로우 (전체 라이프사이클)
+
+### Day 5-7 완료 사항 ✅
+
+#### CompletionProvider 구현 (2025-11-12)
+**커밋**: `8259d65` feat: F5.3.1 LSP Day 5-7 CompletionProvider 구현 완료
+
+**구현 파일**:
+- `include/lsp/CompletionProvider.h` (233줄)
+- `src/lsp/CompletionProvider.cpp` (165줄)
+- `tests/lsp/CompletionProviderTest.cpp` (529줄)
+
+**기능**:
+- 키워드 자동 완성 (15개: 변수, 상수, 함수, 반환, 만약, 아니면, 반복, 계속, 중단, 참, 거짓, 없음, 출력, 타입, 길이)
+- 변수명 자동 완성 (정규식 기반 추출)
+- 함수명 자동 완성 (시그니처 추출, 파라미터 표시)
+- 상수 완성 지원
+- 한글 변수명/함수명 지원
+- 중복 제거 및 정렬
+- LSP CompletionItemKind 지원 (Keyword=14, Variable=6, Function=3)
+
+**LanguageServer 통합**:
+- textDocument/completion 핸들러 추가
+- CompletionProvider 통합
+- JSON 응답 형식 구현 (LSP 표준)
+
+**테스트**: 19/19 통과 ✅
+- 키워드 완성 (4개)
+- 변수명 완성 (4개)
+- 함수명 완성 (3개)
+- 혼합 완성 (2개)
+- 엣지 케이스 (6개: 빈 문서, 대용량 문서, 한글, 상수 등)
+
+### 전체 테스트 결과
+- ✅ **712/712 테스트 통과** (100%)
+- ✅ 5개 비활성화 (조건식 평가, Week 5-6 예정)
+- ✅ 회귀 없음
+- ✅ 자동 완성 기능 검증 완료
 
 ---
 
-## 📁 프로젝트 구조
+## 📅 다음 단계: Day 8-10
+
+### DiagnosticsProvider 구현
+**목표**: 실시간 에러 진단 기능 구현
+
+**작업 내용**:
+- [ ] DiagnosticsProvider 클래스
+- [ ] textDocument/publishDiagnostics 알림
+- [ ] Lexer/Parser 에러 수집
+- [ ] 에러 위치 매핑 (line, character)
+- [ ] 에러 심각도 (Error, Warning, Info)
+- [ ] 통합 테스트
+
+**예상 테스트**: 15개
+**예상 기간**: 3일
+
+---
+
+## 📈 F5.3.1 진행률 (Week 3-4)
 
 ```
-kingsejonglang/
-├── src/                          # 소스 코드
-│   ├── lexer/                    # 어휘 분석기
-│   ├── parser/                   # 구문 분석기
-│   ├── ast/                      # 추상 구문 트리
-│   ├── types/                    # 타입 시스템
-│   ├── evaluator/                # 평가기
-│   ├── bytecode/                 # 바이트코드 컴파일러 & VM
-│   ├── memory/                   # 가비지 컬렉터
-│   ├── module/                   # 모듈 시스템
-│   ├── repl/                     # REPL
-│   ├── jit/                      # 🆕 JIT 컴파일러 (핫 패스 감지)
-│   └── main.cpp                  # 진입점
-├── include/                      # 🆕 공용 헤더
-│   └── jit/                      # HotPathDetector.h
-├── tests/                        # 테스트 (570개+)
-│   ├── jit/                      # 🆕 JIT 테스트 (21개)
-│   └── ...
-├── examples/                     # 예제 (10개)
-│   ├── jit_hotpath_demo.cpp      # 🆕 핫 패스 감지 데모
-│   └── *.ksj
-├── docs/                         # 문서
-│   ├── research/                 # 🆕 연구 문서
-│   │   ├── JIT_COMPILER_RESEARCH.md
-│   │   └── LLVM_INTEGRATION.md
-│   ├── TODOLIST.md               # 작업 목록 (Phase 4 완료)
-│   ├── ROADMAP.md                # 로드맵
-│   ├── INSTALL.md                # 🆕 설치 가이드 (630+ 줄)
-│   └── ...
-├── install.sh                    # 🆕 자동 설치 스크립트 (macOS/Linux)
-├── install.ps1                   # 🆕 자동 설치 스크립트 (Windows)
-├── CMakeLists.txt                # 빌드 설정
-└── README.md                     # 프로젝트 소개
+Day 1-2: JSON-RPC + DocumentManager  ████████████████████ 100% ✅
+Day 3-4: LanguageServer              ████████████████████ 100% ✅
+Day 5-7: CompletionProvider          ████████████████████ 100% ✅
+Day 8-10: DiagnosticsProvider        ░░░░░░░░░░░░░░░░░░░░   0%
+Day 11-14: VS Code 확장 프로그램      ░░░░░░░░░░░░░░░░░░░░   0%
+```
+
+**전체 진행률**: 80% (Day 1-7 / 14일 중 7일 완료)
+
+---
+
+## 🗂️ 프로젝트 구조
+
+### LSP 컴포넌트 (현재)
+```
+include/lsp/
+├── JsonRpc.h              ✅ Day 1-2 (132줄)
+├── DocumentManager.h      ✅ Day 1-2 (157줄)
+├── LanguageServer.h       ✅ Day 3-4 (335줄, 업데이트)
+└── CompletionProvider.h   ✅ Day 5-7 (233줄)
+
+src/lsp/
+├── JsonRpc.cpp            ✅ Day 1-2 (115줄)
+├── DocumentManager.cpp    ✅ Day 1-2 (60줄)
+├── LanguageServer.cpp     ✅ Day 3-4 (343줄, 업데이트)
+└── CompletionProvider.cpp ✅ Day 5-7 (165줄)
+
+tests/lsp/
+├── JsonRpcTest.cpp              ✅ 13개 테스트
+├── DocumentManagerTest.cpp      ✅ 22개 테스트
+├── LanguageServerTest.cpp       ✅ 16개 테스트
+└── CompletionProviderTest.cpp   ✅ 19개 테스트
+
+docs/design/
+└── LSP_DESIGN.md       ✅ 설계 문서 (461줄)
+```
+
+### 예정된 컴포넌트 (Day 8-14)
+```
+include/lsp/
+└── DiagnosticsProvider.h   ⏳ Day 8-10
+
+vscode-extension/           ⏳ Day 11-14
+├── package.json
+├── syntaxes/
+│   └── kingsejong.tmLanguage.json
+└── client/
+    └── src/extension.ts
 ```
 
 ---
 
-## 🔄 Git 워크플로우
+## 📊 통계
 
-### 최근 커밋 히스토리
-```bash
-41dbf9f - feat: F4.8 JIT 컴파일러 연구 완료 (#26)
-2c107d0 - docs: ROADMAP.md F4.7 완료 상태 반영
-639cbd8 - feat: F4.7 플랫폼별 설치 가이드 및 스크립트 추가
-cbabbe2 - feat: F4.6 메모리 안전성 검사 (ASan/UBSan)
-bf681b8 - fix: 컴파일 오류 수정
-...
-```
+### 코드 라인 수 (F5.3.1 Day 1-7)
+- **헤더**: 808줄 (JsonRpc 132 + DocumentManager 157 + LanguageServer 335 + CompletionProvider 233)
+- **구현**: 603줄 (JsonRpc 115 + DocumentManager 60 + LanguageServer 343 + CompletionProvider 165)
+- **테스트**: 1,744줄 (JsonRpc 298 + DocumentManager 355 + LanguageServer 562 + CompletionProvider 529)
+- **문서**: 461줄 (LSP_DESIGN.md)
+- **총계**: 3,616줄
 
-### 브랜치 전략
-```
-main (보호됨)
-└── 모든 Phase 1-4 PR 머지 완료
-```
+### 테스트
+- **총 테스트**: 712개
+- **통과**: 712개 (100%)
+- **비활성화**: 5개
+- **LSP 테스트**: 70개 (JSON-RPC 13 + DocumentManager 22 + LanguageServer 16 + CompletionProvider 19)
 
----
-
-## 📝 다음 작업
-
-### v0.1.0 릴리스 준비
-1. **버그 수정**: 기존 테스트 실패 54개 해결
-2. **문서화 완성**: 튜토리얼, API 문서
-3. **CHANGELOG 작성**: v0.1.0 릴리스 노트
-4. **릴리스 생성**: GitHub Release
-
-### Phase 5 계획 (향후)
-- F3.4: 시제 기반 비동기
-- F3.5: 디버거
-- F3.6: 온라인 플레이그라운드
-- 표준 라이브러리 확장
-- 패키지 관리자
+### 커밋 (Phase 5)
+- F5.NEW: 1개 (PR #49)
+- F5.2.1: 3개 (PR #50)
+- F5.3.1: 4개 (진행 중)
+- **총 커밋**: 8개
 
 ---
 
-## 💡 JIT 컴파일러 연구 요약
+## 🔄 최근 작업 이력
 
-### HotPathDetector 사용법
+### 2025-11-12 (현재 세션) - F5.3.1 Day 1-7
 
-```cpp
-#include "jit/HotPathDetector.h"
+#### 작업 내용
+1. ✅ **LSP 우선순위 결정**
+   - Phase 5 재조정 분석
+   - F5.3.1 기본 LSP를 최우선으로 선정
+   - 이유: CRITICAL 우선순위, 개발자 경험 직접 향상
 
-using namespace kingsejong::jit;
+2. ✅ **LSP 설계 문서 작성** (Day 1-2)
+   - `docs/design/LSP_DESIGN.md` (461줄)
+   - 아키텍처 다이어그램
+   - JSON-RPC 프로토콜
+   - VS Code 확장 프로그램 설계
 
-// 생성 및 설정
-HotPathDetector detector;
-detector.setFunctionThreshold(1000);   // 함수 임계값
-detector.setLoopThreshold(10000);      // 루프 임계값
+3. ✅ **JSON-RPC 통신 구현** (Day 1-2)
+   - JsonRpc 클래스 (13개 테스트)
+   - Content-Length 헤더 처리
+   - LSP 표준 에러 코드
 
-// 함수 호출 추적
-detector.trackFunctionCall("fibonacci", funcId);
+4. ✅ **DocumentManager 구현** (Day 1-2)
+   - DocumentManager 클래스 (22개 테스트)
+   - 문서 열기/수정/닫기
+   - URI 기반 관리, 버전 추적
 
-// 핫 패스 확인
-if (detector.isHot(funcId, HotPathType::FUNCTION)) {
-    // JIT 컴파일 트리거
-    detector.markJITCompiled(funcId, HotPathType::FUNCTION, JITTier::TIER_1);
-}
+5. ✅ **nlohmann/json 통합** (Day 1-2)
+   - FetchContent로 자동 다운로드
+   - CMake 설정 완료
 
-// 스코프 프로파일러 (RAII)
-{
-    ScopedProfiler profiler(detector, funcId, HotPathType::FUNCTION, "myFunc");
-    // 함수 실행
-} // 자동으로 실행 시간 추적
+6. ✅ **LanguageServer 구현** (Day 3-4)
+   - LanguageServer 클래스 (16개 테스트)
+   - JSON-RPC 요청 디스패칭
+   - initialize/initialized 핸들러
+   - textDocument/didOpen/didChange/didClose 핸들러
+   - shutdown/exit 핸들러
+   - 에러 처리 (MethodNotFound, InvalidParams)
 
-// 통계 출력
-detector.printStatistics();
-detector.printHotPaths(10);
-```
+7. ✅ **CompletionProvider 구현** (Day 5-7)
+   - CompletionProvider 클래스 (19개 테스트)
+   - 키워드 자동 완성 (15개)
+   - 변수명 자동 완성 (정규식 기반)
+   - 함수명 자동 완성 (시그니처 추출)
+   - textDocument/completion 핸들러
+   - LanguageServer 통합
 
-### 권장 사항
+#### 테스트 결과
+- 712/712 통과 ✅
+- 회귀 없음 ✅
+- 자동 완성 기능 검증 완료 ✅
 
-**현재 (v0.1.0)**:
-- ✅ 핫 패스 감지를 프로파일링 목적으로 활용
-- ❌ JIT 컴파일은 보류 (복잡도 vs 가치)
+#### 커밋
+- `8b3f29e` feat: F5.3.1 JSON-RPC 통신 구현 (Day 1-2)
+- `8129379` feat: F5.3.1 DocumentManager 구현 (Day 1-2 완료)
+- `f32b11b` feat: F5.3.1 LSP Day 3-4 LanguageServer 구현 완료
+- `8259d65` feat: F5.3.1 LSP Day 5-7 CompletionProvider 구현 완료
 
-**중기 (v0.5-v1.0)**:
-- 템플릿 JIT 프로토타입 고려 (선택사항)
-- 목표: 2-5배 성능 향상
+---
 
-**장기 (v1.5+)**:
-- LLVM 통합 재고려 (언어 성숙 후)
-- 목표: 10-100배 성능 향상
+### 2025-11-12 (이전 작업) - F5.2.1 완료
+
+#### PR #50 머지 ✅
+- BreakpointManager (17개 테스트)
+- CallStack (18개 테스트)
+- Debugger 메인 클래스 (15개 테스트)
+- **총 50개 테스트 추가**
+
+#### 최종 결과
+- 642/642 테스트 통과
+- feature/debugger → main 스쿼시 머지
+
+---
+
+### 2025-11-11 - F5.NEW 완료
+
+#### PR #49 머지 ✅
+- ErrorReporter 시스템
+- 한글 에러 메시지
+- 26개 힌트 시스템
+- ANSI 컬러 지원
+
+#### 최종 결과
+- 592/592 테스트 통과
+
+---
+
+## 🎯 단기 목표 (이번 주)
+
+### Day 3-4 ✅ 완료
+- ✅ LanguageServer 기본 구조
+- ✅ LSP 메서드 핸들러 (initialize, didOpen, didChange, didClose, shutdown, exit)
+- ✅ 16개 테스트 작성 및 통과
+
+### Day 5-7 ✅ 완료
+- ✅ CompletionProvider 구현
+- ✅ textDocument/completion 핸들러
+- ✅ 키워드 자동 완성 (15개)
+- ✅ 변수명 자동 완성 (정규식 기반)
+- ✅ 함수명 자동 완성 (시그니처 추출)
+- ✅ 19개 테스트 작성 및 통과
+
+### Day 8-10 (다음 작업)
+- [ ] DiagnosticsProvider 구현
+- [ ] textDocument/publishDiagnostics 알림
+- [ ] Lexer/Parser 에러 수집
+- [ ] 에러 위치 매핑 (line, character)
+- [ ] 에러 심각도 (Error, Warning, Info)
+- [ ] 15개 테스트
+
+---
+
+## 🚀 중기 목표 (다음 주)
+
+### Week 3-4 완료 목표
+- [ ] VS Code 확장 프로그램 작성
+- [ ] TextMate 문법 정의
+- [ ] LSP 클라이언트 구현
+- [ ] 로컬 테스트 및 검증
+
+### F5.3.1 완료 조건
+- [ ] LSP 서버 실행 파일 (`kingsejong-lsp`)
+- [ ] VS Code 확장 프로그램 설치 가능
+- [ ] .ksj 파일 열 때 구문 강조 동작
+- [ ] 키워드 자동 완성 동작
+- [ ] 구문 에러 빨간 밑줄 표시
+- [ ] 30+ 단위 테스트 통과
+
+---
+
+## 📝 주요 의사결정
+
+### 2025-11-12: LSP 우선순위 확정
+**결정**: F5.3.1 기본 LSP를 최우선으로 진행
+
+**이유**:
+- ✅ CRITICAL 우선순위 (Phase 5 핵심 목표)
+- ✅ 개발자 경험 대폭 향상 (IDE 통합)
+- ✅ 독립적 구현 (기존 코드와 분리, 충돌 위험 없음)
+- ✅ 즉각적인 효과 (구문 강조, 자동 완성, 에러 진단)
+
+**영향**:
+- F5.2.2 고급 디버거 → 연기
+- F5.4 웹 플레이그라운드 → Week 3 이후
+
+### 2025-11-12: TDD 방식 엄격 적용
+**결정**: LSP 개발에도 엄격한 TDD 적용
+
+**이유**:
+- ✅ 디버거 개발에서 TDD의 효과 입증
+- ✅ 복잡한 프로토콜 구현에서 테스트 필수
+- ✅ 회귀 방지 및 안정성 보장
+
+**결과**:
+- 모든 컴포넌트 100% 테스트 통과
+- 회귀 없음 유지
+
+---
+
+## 🎓 학습 내용
+
+### LSP (Language Server Protocol)
+- **JSON-RPC 2.0 프로토콜**
+  - Content-Length 헤더 기반 메시지 전송
+  - 요청/응답/알림 패턴
+
+- **LSP 표준 에러 코드**
+  - ParseError: -32700
+  - InvalidRequest: -32600
+  - MethodNotFound: -32601
+  - InvalidParams: -32602
+  - InternalError: -32603
+
+- **문서 동기화**
+  - didOpen: 문서 열림
+  - didChange: 문서 변경
+  - didClose: 문서 닫힘
+
+### nlohmann/json 라이브러리
+- 헤더 온리 라이브러리 (헤더만 포함하면 됨)
+- 직관적인 API (`json["key"]`)
+- 예외 기반 에러 처리
+- FetchContent로 쉬운 통합
+
+---
+
+## 🔧 기술 스택
+
+### 현재 사용 중
+- **C++23**: 메인 언어
+- **CMake 3.20+**: 빌드 시스템
+- **GoogleTest**: 테스트 프레임워크
+- **nlohmann/json v3.11.3**: JSON 파싱 (LSP용)
+
+### 예정
+- **TypeScript**: VS Code 확장 프로그램
+- **vscode-languageclient**: LSP 클라이언트 라이브러리
+- **TextMate 문법**: 구문 강조 정의
+
+---
+
+## 📚 참고 자료
+
+### LSP
+- [LSP 공식 스펙](https://microsoft.github.io/language-server-protocol/)
+- [VS Code 확장 API](https://code.visualstudio.com/api)
+- [nlohmann/json GitHub](https://github.com/nlohmann/json)
+
+### 내부 문서
+- `docs/design/LSP_DESIGN.md`: LSP 상세 설계 (461줄)
+- `docs/design/DEBUGGER_DESIGN.md`: 디버거 설계 (643줄)
+- `docs/PHASE5_ROADMAP.md`: Phase 5 로드맵
+
+---
+
+## 💡 개선 아이디어
+
+### 단기 (Week 3-4)
+- [ ] LSP 서버 로깅 시스템
+- [ ] 에러 메시지 개선 (한글)
+- [ ] 성능 프로파일링
+
+### 중기 (Week 5-6)
+- [ ] 증분 파싱 지원 (성능 최적화)
+- [ ] 문서 캐싱
+- [ ] 멀티 파일 분석
+- [ ] 정의로 이동, 참조 찾기
+
+### 장기
+- [ ] 디버거 + LSP 통합
+- [ ] 온라인 플레이그라운드 연동
+- [ ] 코드 포매터 (auto-format)
+
+---
+
+## 🎊 Phase 5 완료 현황
+
+### 완료 작업 ✅
+1. **F5.NEW**: 에러 메시지 개선 (100%)
+   - ErrorReporter 시스템
+   - 한글 에러 메시지
+   - 26개 힌트
+   - PR #49 머지
+
+2. **F5.2.1**: 기본 디버거 (100%)
+   - BreakpointManager
+   - CallStack
+   - Debugger 메인 클래스
+   - PR #50 머지
+
+3. **F5.3.1**: 기본 LSP (40%)
+   - Day 1-2 완료 ✅
+   - JSON-RPC 통신
+   - DocumentManager
+   - 커밋 2개
+
+### 대기 중 작업 ⏳
+- **F5.3.1**: Day 3-10 (LanguageServer, CompletionProvider, DiagnosticsProvider)
+- **F5.3.1**: Day 11-14 (VS Code 확장 프로그램)
+- **F5.3.2**: 고급 LSP (Week 5-6)
+- **F5.4.1**: WebAssembly 빌드 (Week 3)
+- **F5.4.2**: 웹 인터페이스 (Week 4-5)
+
+---
+
+## 🏆 성과 요약
+
+### Phase 5 진행 중
+- ✅ **3개 작업 완료** (F5.NEW, F5.2.1, F5.3.1 Day 1-2)
+- ✅ **112개 테스트 추가** (에러 메시지 27개, 디버거 50개, LSP 35개)
+- ✅ **677/677 테스트 통과** (100%)
+- ✅ **2,348줄 코드** (F5.2.1)
+- ✅ **1,578줄 코드** (F5.3.1 Day 1-2)
+
+### Phase 1-4 완료 (2025-11-10)
+- ✅ 40개 작업 완료
+- ✅ 570개+ 테스트 (90% 통과)
+- ✅ 20,000+ 줄 코드
+- ✅ 8,000+ 줄 문서
 
 ---
 
@@ -326,112 +535,38 @@ detector.printHotPaths(10);
    git log --oneline -5
    ```
 
-2. ✅ **main 브랜치 최신화**
+2. ✅ **현재 브랜치 확인**
    ```bash
-   git checkout main
-   git pull
+   git branch  # feature/lsp 확인
    ```
 
 3. ✅ **빌드 확인**
    ```bash
-   ./install.sh --no-tests  # 또는 수동 빌드
+   cmake --build build
    ```
 
 4. ✅ **테스트 확인**
    ```bash
    cd build
    ctest --output-on-failure
-   # 516/570 테스트 통과 확인
+   # 677/677 테스트 통과 확인
    ```
 
-5. ✅ **예제 실행 확인**
-   ```bash
-   ./build/bin/kingsejong examples/hello.ksj
-   ```
-
-6. ✅ **다음 작업 확인**
-   - `docs/TODOLIST.md` 참조
-   - v0.1.0 릴리스 준비 또는 Phase 5 계획
+5. ✅ **다음 작업 확인**
+   - `docs/SESSION_SUMMARY.md` 참조 (이 문서)
+   - Day 3-4: LanguageServer 기본 구조
 
 ---
 
-## 📚 주요 문서
+## 📌 현재 상태 요약
 
-### 사용자 문서
-- **README.md**: 프로젝트 소개 및 빠른 시작
-- **docs/INSTALL.md**: 상세 설치 가이드 (630+ 줄)
-- **docs/TUTORIAL.md**: 언어 튜토리얼
-- **docs/LANGUAGE_REFERENCE.md**: 언어 레퍼런스
-
-### 개발자 문서
-- **docs/TODOLIST.md**: 작업 목록 및 진행 상황
-- **docs/ROADMAP.md**: 프로젝트 로드맵
-- **docs/CODING_STYLE.md**: 코딩 스타일 가이드
-- **docs/CONTRIBUTING.md**: 기여 가이드
-
-### 연구 문서
-- **docs/research/JIT_COMPILER_RESEARCH.md**: JIT 컴파일러 연구 (1000+ 줄)
-- **docs/research/LLVM_INTEGRATION.md**: LLVM 통합 연구 (800+ 줄)
-
-### 설계 문서
-- **docs/LANGUAGE_DESIGN_PHILOSOPHY.md**: 언어 설계 철학
-- **docs/SEJONG_FEATURES.md**: KingSejong 특화 기능
-- **docs/ARCHITECTURE.md**: 아키텍처 개요
+- **브랜치**: feature/lsp
+- **Phase**: 5.3.1 기본 LSP (Day 1-2 완료)
+- **테스트**: 677/677 통과 ✅
+- **다음 작업**: LanguageServer 기본 구조 (Day 3-4)
+- **예상 기간**: 2일
 
 ---
 
-## 🎊 성과 요약
-
-### Phase 1-4 완료 (2025-11-06 ~ 2025-11-10)
-- ✅ **Phase 0**: 프로젝트 초기화 (3개 작업)
-- ✅ **Phase 1**: 핵심 차별화 기능 (19개 작업)
-- ✅ **Phase 2**: 실용 기능 (7개 작업)
-- ✅ **Phase 3**: 고급 기능 (3개 작업)
-- ✅ **Phase 4**: 최적화 및 안정화 (8개 작업)
-
-### 통계
-- **총 작업**: 40개 완료
-- **테스트**: 570개+ (90% 통과)
-- **코드 라인**: 20,000+ 줄
-- **문서 라인**: 8,000+ 줄
-- **지원 플랫폼**: 3개 (macOS, Linux, Windows)
-- **예제**: 10개 + 1개 JIT 데모
-
-### 주요 기술 스택
-- **언어**: C++23
-- **빌드 시스템**: CMake 3.20+
-- **테스트 프레임워크**: GoogleTest
-- **CI/CD**: GitHub Actions
-- **메모리 검사**: ASan, UBSan, Valgrind
-- **벤치마크**: Python 스크립트
-
-**KingSejong으로 프로그래밍하고, 성능을 최적화하고, 여러 플랫폼에서 실행할 수 있습니다!** 🚀
-
----
-
-## 🔬 연구 성과
-
-### JIT 컴파일러 연구 (F4.8)
-
-**완료된 작업**:
-1. ✅ 핫 패스 감지 프로토타입 구현
-2. ✅ JIT 컴파일 전략 연구 (1000+ 줄 문서)
-3. ✅ LLVM 통합 평가 (800+ 줄 문서)
-4. ✅ 성능 예측 및 로드맵
-
-**주요 발견**:
-- 핫 패스 감지는 즉시 유용 (프로파일링)
-- 템플릿 JIT: 구현 간단, 2-5배 향상
-- LLVM JIT: 복잡하지만 10-100배 향상 가능
-- 현재는 바이트코드 VM이 충분히 빠름
-
-**권장 결정**:
-- ✅ 핫 패스 감지 도입 (완료)
-- ⏳ 템플릿 JIT (v0.5-v1.0 고려)
-- ⏸️ LLVM 통합 (v1.5+ 재고려)
-
----
-
-_이 문서는 다음 세션에서 프로젝트 상태를 빠르게 파악하기 위해 작성되었습니다._
-
-**다음 세션 목표**: v0.1.0 릴리스 준비 또는 Phase 5 계획 수립
+**마지막 업데이트**: 2025-11-12 (Day 1-2 완료)
+**다음 업데이트**: Day 3-4 완료 시

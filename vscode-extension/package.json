@@ -1,0 +1,92 @@
+{
+  "name": "kingsejong",
+  "displayName": "KingSejong Language Support",
+  "description": "Language support for KingSejong - Korean-based programming language",
+  "version": "0.1.0",
+  "publisher": "kingsejong-team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kingsejong-team/kingsejonglang"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "kingsejong",
+    "korean",
+    "한글",
+    "프로그래밍"
+  ],
+  "activationEvents": [
+    "onLanguage:kingsejong"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "kingsejong",
+        "aliases": [
+          "KingSejong",
+          "킹세종"
+        ],
+        "extensions": [
+          ".ksj",
+          ".kingsejong"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./images/icon.png",
+          "dark": "./images/icon.png"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "kingsejong",
+        "scopeName": "source.kingsejong",
+        "path": "./syntaxes/kingsejong.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "KingSejong",
+      "properties": {
+        "kingsejong.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "LSP 서버와의 통신 로그 레벨"
+        },
+        "kingsejong.maxNumberOfProblems": {
+          "type": "number",
+          "default": 100,
+          "description": "표시할 최대 문제(에러/경고) 개수"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^8.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.75.0",
+    "@typescript-eslint/eslint-plugin": "^5.0.0",
+    "@typescript-eslint/parser": "^5.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.0.0"
+  }
+}

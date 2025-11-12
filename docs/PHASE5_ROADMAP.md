@@ -143,26 +143,36 @@ Phase 1-4에서 언어의 기반을 완성했습니다. Phase 5에서는 **개�
   - [ ] 복잡한 표현식 평가
 
 ### F5.3: LSP (Language Server Protocol) ⭐⭐⭐
-- 상태: 📝 대기
-- 브랜치: `feature/lsp`
+- 상태: ✅ **완료** (2025-11-12)
+- 브랜치: `feature/lsp` → `main`
 - **우선순위**: CRITICAL (HIGH에서 상향)
-- **예상 기간**: 4주
-- **목표**: VS Code 등 에디터 통합
+- **실제 기간**: 2주 (Day 5-14)
+- **목표**: VS Code 등 에디터 통합 ✅
 
-#### F5.3.1: 기본 LSP 서버
+#### F5.3.1: 기본 LSP 서버 ✅
 - **기간**: 2주
+- **완료일**: 2025-11-12
+- **PR**: #51
+- **릴리스**: v0.3.0
 - **작업**:
-  - [ ] LSP 서버 구현 (JSON-RPC)
-  - [ ] 구문 강조 (Syntax Highlighting)
-  - [ ] 자동 완성 (Auto-completion)
-  - [ ] 에러 진단 (Diagnostics)
+  - [x] LSP 서버 구현 (JSON-RPC)
+    - JsonRpc.cpp (13 tests)
+    - DocumentManager.cpp (18 tests)
+    - LanguageServer.cpp (15 tests)
+  - [x] 구문 강조 (Syntax Highlighting)
+    - kingsejong.tmLanguage.json
+  - [x] 자동 완성 (Auto-completion)
+    - CompletionProvider.cpp (8 tests)
+  - [x] 에러 진단 (Diagnostics)
+    - DiagnosticsProvider.cpp (17 tests)
 - **기능**:
-  - 키워드 자동 완성
-  - 변수명 자동 완성
-  - 실시간 에러 표시
+  - ✅ 키워드 자동 완성 (34개)
+  - ✅ 변수명 자동 완성
+  - ✅ 실시간 에러 표시
 - **테스트**:
-  - [ ] VS Code 확장 프로그램
-  - [ ] 자동 완성 동작
+  - [x] VS Code 확장 프로그램
+  - [x] 자동 완성 동작
+  - [x] 71개 LSP 테스트 추가 (729/729 통과)
 
 #### F5.3.2: 고급 LSP 기능
 - **기간**: 2주

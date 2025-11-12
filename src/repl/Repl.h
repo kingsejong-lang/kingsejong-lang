@@ -11,6 +11,7 @@
 #include "../parser/Parser.h"
 #include "../evaluator/Evaluator.h"
 #include "../evaluator/Environment.h"
+#include "../error/ErrorReporter.h"
 #include <string>
 #include <memory>
 
@@ -38,6 +39,9 @@ public:
 private:
     /// 전역 환경 (세션 동안 유지)
     std::shared_ptr<evaluator::Environment> env_;
+
+    /// 에러 리포터 (향상된 에러 메시지 제공)
+    std::unique_ptr<error::ErrorReporter> errorReporter_;
 
     /**
      * @brief 프롬프트 표시

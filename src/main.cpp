@@ -18,6 +18,7 @@
 #include "evaluator/Builtin.h"
 #include "lsp/LanguageServer.h"
 #include "lsp/JsonRpc.h"
+#include "error/ErrorReporter.h"
 
 /**
  * @brief 파일을 읽고 실행
@@ -26,6 +27,10 @@
  */
 int executeFile(const std::string& filename)
 {
+    // ErrorReporter 생성 및 기본 힌트 등록
+    kingsejong::error::ErrorReporter errorReporter;
+    errorReporter.registerDefaultHints();
+
     // 1. 파일 읽기
     std::ifstream file(filename);
     if (!file.is_open())
@@ -39,6 +44,9 @@ int executeFile(const std::string& filename)
     std::string source = buffer.str();
     file.close();
 
+    // 소스 코드 등록 (에러 메시지에서 사용)
+    errorReporter.registerSource(filename, source);
+
     try
     {
         // 2. Lexer
@@ -51,12 +59,12 @@ int executeFile(const std::string& filename)
         // 파서 에러 확인
         if (!parser.errors().empty())
         {
-            std::cerr << "파서 에러:\n";
+            // ErrorReporter로 각 에러를 출력
             for (const auto& err : parser.errors())
             {
-                std::cerr << "  " << err << "\n";
+                auto error = kingsejong::error::ParserError(err);
+                errorReporter.report(error);
             }
-            std::cerr << "파일: " << filename << "\n";
             return 1;
         }
 
@@ -69,10 +77,17 @@ int executeFile(const std::string& filename)
 
         return 0;
     }
+    catch (const kingsejong::error::KingSejongError& e)
+    {
+        // KingSejong 에러는 ErrorReporter로 출력
+        errorReporter.report(e);
+        return 1;
+    }
     catch (const std::exception& e)
     {
-        std::cerr << "에러: " << e.what() << "\n";
-        std::cerr << "파일: " << filename << "\n";
+        // 기타 예외는 RuntimeError로 변환
+        auto error = kingsejong::error::RuntimeError(e.what());
+        errorReporter.report(error);
         return 1;
     }
 }

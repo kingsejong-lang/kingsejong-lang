@@ -23,6 +23,10 @@ void Repl::start()
     // 전역 환경 생성
     env_ = std::make_shared<evaluator::Environment>();
 
+    // ErrorReporter 생성 및 기본 힌트 등록
+    errorReporter_ = std::make_unique<error::ErrorReporter>();
+    errorReporter_->registerDefaultHints();
+
     // 내장 함수 등록
     evaluator::Builtin::registerAllBuiltins();
 
@@ -142,6 +146,9 @@ bool Repl::isComplete(const std::string& input)
 
 void Repl::evalAndPrint(const std::string& input)
 {
+    // 소스 등록 (REPL 입력은 <stdin>으로 표시)
+    errorReporter_->registerSource("<stdin>", input);
+
     try
     {
         // Lexer
@@ -154,9 +161,11 @@ void Repl::evalAndPrint(const std::string& input)
         // 파서 에러 확인
         if (!parser.errors().empty())
         {
+            // ErrorReporter로 각 에러를 출력
             for (const auto& err : parser.errors())
             {
-                std::cerr << "파서 에러: " << err << "\n";
+                auto error = error::ParserError(err);
+                errorReporter_->report(error);
             }
             return;
         }
@@ -171,9 +180,16 @@ void Repl::evalAndPrint(const std::string& input)
             std::cout << result.toString() << "\n";
         }
     }
+    catch (const error::KingSejongError& e)
+    {
+        // KingSejong 에러는 ErrorReporter로 출력
+        errorReporter_->report(e);
+    }
     catch (const std::exception& e)
     {
-        std::cerr << "에러: " << e.what() << "\n";
+        // 기타 예외는 RuntimeError로 변환
+        auto error = error::RuntimeError(e.what());
+        errorReporter_->report(error);
     }
 }
 

@@ -14,9 +14,15 @@
 #include "debugger/BreakpointManager.h"
 #include "debugger/CallStack.h"
 #include "debugger/WatchpointManager.h"
+#include "debugger/CommandParser.h"
+#include "debugger/SourceCodeViewer.h"
 #include "error/Error.h"
 #include "evaluator/Environment.h"
+#include "evaluator/Evaluator.h"
+#include "ast/Node.h"
 #include <memory>
+#include <string>
+#include <iostream>
 
 namespace kingsejong {
 namespace debugger {
@@ -204,7 +210,83 @@ public:
      */
     bool shouldPause(const error::SourceLocation& location, const evaluator::Environment& env);
 
+    /**
+     * @brief 소스 코드 뷰어 접근
+     * @return SourceCodeViewer 참조
+     *
+     * Complexity: O(1)
+     */
+    SourceCodeViewer& getSourceViewer() {
+        return *sourceViewer_;
+    }
+
+    /**
+     * @brief 소스 코드 뷰어 접근 (const)
+     * @return SourceCodeViewer const 참조
+     *
+     * Complexity: O(1)
+     */
+    const SourceCodeViewer& getSourceViewer() const {
+        return *sourceViewer_;
+    }
+
+    /**
+     * @brief 디버거 REPL 시작
+     * @param program 실행할 AST 프로그램
+     * @param env 초기 환경
+     * @param input 입력 스트림 (기본값: std::cin)
+     * @param output 출력 스트림 (기본값: std::cout)
+     *
+     * 대화형 디버깅 세션을 시작합니다.
+     * 사용자 명령어를 받아서 실행하고, 결과를 출력합니다.
+     *
+     * 지원 명령어:
+     * - break <file>:<line> [condition] : 브레이크포인트 설정
+     * - delete <id> : 브레이크포인트 삭제
+     * - step/s : 단계 실행
+     * - next/n : 다음 줄
+     * - continue/c : 계속 실행
+     * - print/p <expr> : 표현식 출력
+     * - backtrace/bt : 호출 스택 출력
+     * - list/l [line] : 소스 코드 표시
+     * - watch/w <var> : 와치포인트 설정
+     * - unwatch/uw <var> : 와치포인트 삭제
+     * - help/h : 도움말
+     * - quit/q : 종료
+     */
+    void repl(
+        ast::Program* program,
+        std::shared_ptr<evaluator::Environment> env,
+        std::istream& input = std::cin,
+        std::ostream& output = std::cout
+    );
+
 private:
+    /**
+     * @brief 명령어 실행 핸들러
+     * @param cmd 파싱된 명령어
+     * @param env 현재 환경
+     * @param output 출력 스트림
+     * @return true if 계속 실행, false if 종료
+     */
+    bool handleCommand(
+        const Command& cmd,
+        std::shared_ptr<evaluator::Environment> env,
+        std::ostream& output
+    );
+
+    /**
+     * @brief 도움말 출력
+     * @param output 출력 스트림
+     */
+    void printHelp(std::ostream& output) const;
+
+    /**
+     * @brief 현재 상태 출력
+     * @param output 출력 스트림
+     */
+    void printStatus(std::ostream& output) const;
+
     /// 브레이크포인트 관리자 (RAII)
     std::unique_ptr<BreakpointManager> breakpoints_;
 
@@ -213,6 +295,12 @@ private:
 
     /// 와치포인트 관리자 (RAII)
     std::unique_ptr<WatchpointManager> watchpoints_;
+
+    /// 명령어 파서 (RAII)
+    std::unique_ptr<CommandParser> parser_;
+
+    /// 소스 코드 뷰어 (RAII)
+    std::unique_ptr<SourceCodeViewer> sourceViewer_;
 
     /// 현재 디버거 상태
     DebuggerState state_;

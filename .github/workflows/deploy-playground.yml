@@ -1,0 +1,114 @@
+name: Deploy Playground to GitHub Pages
+
+on:
+  # main 브랜치에 푸시될 때 실행
+  push:
+    branches:
+      - main
+    paths:
+      - 'web/**'
+      - 'src/**'
+      - 'include/**'
+      - 'wasm/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/deploy-playground.yml'
+
+  # 수동 실행 허용
+  workflow_dispatch:
+
+# GitHub Pages에 배포하기 위한 권한 설정
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 동시 실행 방지
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  # 1. WebAssembly 빌드
+  build-wasm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Emscripten
+        run: |
+          git clone https://github.com/emscripten-core/emsdk.git
+          cd emsdk
+          ./emsdk install latest
+          ./emsdk activate latest
+
+      - name: Build WASM
+        run: |
+          source emsdk/emsdk_env.sh
+          mkdir build-wasm
+          cd build-wasm
+          emcmake cmake .. -DCMAKE_BUILD_TYPE=Release -DEMSCRIPTEN=ON
+          emmake make kingsejong_wasm -j$(nproc)
+
+      - name: Upload WASM artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: wasm-files
+          path: |
+            build-wasm/wasm/kingsejong.js
+            build-wasm/wasm/kingsejong.wasm
+          retention-days: 1
+
+  # 2. 웹 플레이그라운드 빌드 및 배포
+  build-and-deploy:
+    needs: build-wasm
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Download WASM artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: wasm-files
+          path: web/public
+
+      - name: Install dependencies
+        working-directory: ./web
+        run: npm ci
+
+      - name: Build
+        working-directory: ./web
+        run: npm run build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './web/dist'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # 3. 배포 상태 확인
+  verify:
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check deployment
+        run: |
+          echo "✅ Playground deployed successfully!"
+          echo "🌐 URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"

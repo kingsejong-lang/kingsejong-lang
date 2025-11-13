@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KingSejong WASM 테스트</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        #output {
+            background: #f9f9f9;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            min-height: 100px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .error {
+            color: #d32f2f;
+            font-weight: bold;
+        }
+        .success {
+            color: #388e3c;
+        }
+        .info {
+            color: #1976d2;
+        }
+        #status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .ready {
+            background: #d4edda;
+            color: #155724;
+        }
+        .error-status {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <h1>🇰🇷 KingSejong 언어 WebAssembly 테스트</h1>
+
+    <div id="status" class="loading">
+        ⏳ WebAssembly 모듈 로딩 중...
+    </div>
+
+    <div class="container">
+        <label for="code">KingSejong 코드 입력:</label>
+        <textarea id="code" placeholder="예: 변수 x = 10 + 20&#10;x를 출력한다">변수 x = 10 + 20
+x를 출력한다</textarea>
+        <button id="runBtn" onclick="runCode()" disabled>실행</button>
+        <button onclick="resetInterpreter()" disabled id="resetBtn">초기화</button>
+    </div>
+
+    <div class="container">
+        <label for="output">실행 결과:</label>
+        <div id="output">(코드를 실행하면 결과가 여기에 표시됩니다)</div>
+    </div>
+
+    <script src="../build-wasm/wasm/kingsejong.js"></script>
+    <script>
+        let interpreter = null;
+        const statusDiv = document.getElementById('status');
+        const outputDiv = document.getElementById('output');
+        const runBtn = document.getElementById('runBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // WASM 모듈 로드
+        createKingSejong().then(module => {
+            interpreter = new module.KingSejongInterpreter();
+
+            statusDiv.className = 'ready';
+            statusDiv.textContent = '✅ 준비 완료! ' + interpreter.version();
+
+            runBtn.disabled = false;
+            resetBtn.disabled = false;
+
+            console.log('KingSejong WASM module loaded successfully');
+            console.log('Version:', interpreter.version());
+        }).catch(error => {
+            statusDiv.className = 'error-status';
+            statusDiv.textContent = '❌ 모듈 로드 실패: ' + error.message;
+            console.error('Failed to load WASM module:', error);
+        });
+
+        function runCode() {
+            if (!interpreter) {
+                outputDiv.innerHTML = '<span class="error">인터프리터가 초기화되지 않았습니다.</span>';
+                return;
+            }
+
+            const code = document.getElementById('code').value;
+            if (!code.trim()) {
+                outputDiv.innerHTML = '<span class="info">코드를 입력해주세요.</span>';
+                return;
+            }
+
+            try {
+                const result = interpreter.evaluate(code);
+
+                if (result.startsWith('ERROR: ')) {
+                    outputDiv.innerHTML = '<span class="error">' +
+                        escapeHtml(result) +
+                        '</span>';
+                } else if (result === '') {
+                    outputDiv.innerHTML = '<span class="info">(반환값 없음)</span>';
+                } else {
+                    outputDiv.innerHTML = '<span class="success">' +
+                        escapeHtml(result) +
+                        '</span>';
+                }
+            } catch (error) {
+                outputDiv.innerHTML = '<span class="error">실행 오류: ' +
+                    escapeHtml(error.message) +
+                    '</span>';
+                console.error('Runtime error:', error);
+            }
+        }
+
+        function resetInterpreter() {
+            if (interpreter) {
+                interpreter.reset();
+                outputDiv.innerHTML = '<span class="info">✨ 인터프리터가 초기화되었습니다.</span>';
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 엔터 키로 실행 (Ctrl+Enter)
+        document.getElementById('code').addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                runCode();
+            }
+        });
+    </script>
+</body>
+</html>

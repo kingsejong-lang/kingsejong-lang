@@ -153,6 +153,78 @@ install(TARGETS kingsejong
     RUNTIME DESTINATION bin
 )
 
+# ============================================================================
+# WebAssembly 빌드 (Emscripten)
+# ============================================================================
+if(EMSCRIPTEN)
+    message(STATUS "Building for WebAssembly with Emscripten")
+
+    # WASM용 라이브러리 소스 (웹에서 필요한 것만)
+    set(WASM_LIB_SOURCES
+        src/lexer/Token.cpp
+        src/lexer/JosaRecognizer.cpp
+        src/lexer/Lexer.cpp
+        src/ast/Node.cpp
+        src/parser/Parser.cpp
+        src/types/Type.cpp
+        src/evaluator/Value.cpp
+        src/evaluator/Environment.cpp
+        src/evaluator/Evaluator.cpp
+        src/evaluator/Builtin.cpp
+        src/error/ErrorReporter.cpp
+        src/bytecode/OpCode.cpp
+        src/bytecode/Chunk.cpp
+        src/bytecode/Compiler.cpp
+        src/bytecode/VM.cpp
+        src/memory/GC.cpp
+    )
+
+    # WASM 라이브러리 생성
+    add_library(kingsejong_wasm_lib STATIC ${WASM_LIB_SOURCES})
+    target_include_directories(kingsejong_wasm_lib PUBLIC
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/include
+    )
+
+    # WASM 바인딩 타겟
+    add_executable(kingsejong_wasm
+        wasm/src/bindings.cpp
+    )
+
+    target_include_directories(kingsejong_wasm PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/wasm/include
+    )
+
+    target_link_libraries(kingsejong_wasm PRIVATE kingsejong_wasm_lib)
+
+    # Emscripten 링커 플래그
+    set_target_properties(kingsejong_wasm PROPERTIES
+        LINK_FLAGS "\
+            -s WASM=1 \
+            -s MODULARIZE=1 \
+            -s EXPORT_NAME='createKingSejong' \
+            -s ALLOW_MEMORY_GROWTH=1 \
+            -s EXPORTED_RUNTIME_METHODS='[\"ccall\",\"cwrap\"]' \
+            -s EXPORTED_FUNCTIONS='[\"_malloc\",\"_free\"]' \
+            -s ENVIRONMENT=web \
+            -s FILESYSTEM=0 \
+            -s ASSERTIONS=1 \
+            --bind \
+            -O3"
+    )
+
+    # 출력 파일 설정
+    set_target_properties(kingsejong_wasm PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/wasm
+        OUTPUT_NAME "kingsejong"
+    )
+
+    message(STATUS "WASM output: ${CMAKE_BINARY_DIR}/wasm/kingsejong.js")
+    message(STATUS "WASM module: ${CMAKE_BINARY_DIR}/wasm/kingsejong.wasm")
+endif()
+
 # 프로젝트 정보 출력
 message(STATUS "KingSejong Language Interpreter")
 message(STATUS "Version: ${PROJECT_VERSION}")

@@ -1,0 +1,26 @@
+{
+  "name": "kingsejong-playground",
+  "version": "0.1.0",
+  "description": "KingSejong 언어 온라인 플레이그라운드",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "monaco-editor": "^0.45.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  },
+  "keywords": [
+    "kingsejong",
+    "korean",
+    "programming-language",
+    "playground",
+    "webassembly"
+  ],
+  "author": "KingSejong Team",
+  "license": "MIT"
+}

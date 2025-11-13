@@ -311,7 +311,7 @@ TEST_F(TimeTest, ShouldCheckIfTimestampIsPast)
     // Arrange - 2020년 타임스탬프 (과거)
     std::string code = R"(
         가져오기 "stdlib/time"
-        과거 = 과거인가(1577836800)
+        과거 = 과거_확인(1577836800)
         과거
     )";
 
@@ -328,7 +328,7 @@ TEST_F(TimeTest, ShouldCheckIfTimestampIsFuture)
     // Arrange - 2099년 타임스탬프 (미래)
     std::string code = R"(
         가져오기 "stdlib/time"
-        미래 = 미래인가(4102444800)
+        미래 = 미래_확인(4102444800)
         미래
     )";
 

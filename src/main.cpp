@@ -19,6 +19,7 @@
 #include "lsp/LanguageServer.h"
 #include "lsp/JsonRpc.h"
 #include "error/ErrorReporter.h"
+#include "module/ModuleLoader.h"
 
 /**
  * @brief 파일을 읽고 실행
@@ -71,8 +72,12 @@ int executeFile(const std::string& filename)
         // 4. 환경 생성
         auto env = std::make_shared<kingsejong::evaluator::Environment>();
 
-        // 5. Evaluator
+        // 5. ModuleLoader 생성 및 설정
+        auto moduleLoader = std::make_shared<kingsejong::module::ModuleLoader>(".");
+
+        // 6. Evaluator
         kingsejong::evaluator::Evaluator evaluator(env);
+        evaluator.setModuleLoader(moduleLoader.get());
         evaluator.evalProgram(program.get());
 
         return 0;

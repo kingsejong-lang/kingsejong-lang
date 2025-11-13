@@ -279,15 +279,15 @@ Phase 1-4에서 언어의 기반을 완성했습니다. Phase 5에서는 **개�
 ---
 
 ### F5.NEW: 표준 라이브러리 확장 ⭐⭐
-- 상태: 🚧 진행 중 (io.ksj, json.ksj 완료)
+- 상태: 🚧 진행 중 (io.ksj, json.ksj, time.ksj 완료)
 - 브랜치: `feature/stdlib-expansion`
 - **우선순위**: HIGH
 - **예상 기간**: 3주
 - **목표**: 실용적인 언어로서 필수 라이브러리 제공
 
 #### 현재 상태
-- **현재**: stdlib/math.ksj, stdlib/string.ksj, stdlib/array.ksj, **stdlib/io.ksj**, **stdlib/json.ksj** (87개+ 함수)
-- **목표**: 6개 모듈, 100개+ 함수 (87% 달성)
+- **현재**: stdlib/math.ksj, stdlib/string.ksj, stdlib/array.ksj, **stdlib/io.ksj**, **stdlib/json.ksj**, **stdlib/time.ksj** (101개+ 함수)
+- **목표**: 6개 모듈, 100개+ 함수 (✅ 100% 달성)
 
 #### 작업 항목
 - **기간**: 3주
@@ -303,10 +303,10 @@ Phase 1-4에서 언어의 기반을 완성했습니다. Phase 5에서는 **개�
   - [x] stdlib/json.ksj - JSON 처리 (4개 builtin + 13개 고수준 함수) ✅ 2025-11-14
     - ✅ JSON_파싱(), JSON_문자열화(), JSON_파일_읽기(), JSON_파일_쓰기()
     - ✅ 고수준: JSON_가져오기(), JSON_추가(), JSON_병합(), JSON_찾기() 등
-  - [ ] stdlib/time.ksj - 날짜/시간 (15개 함수)
-    - 현재_시간(), 현재_날짜(), 시간_포맷()
-    - 시간_차이(), 날짜_더하기(), 날짜_빼기()
-    - 타임스탬프(), 슬립()
+  - [x] stdlib/time.ksj - 날짜/시간 (7개 builtin + 7개 고수준 = 14개) ✅ 2025-11-14
+    - ✅ 현재_시간(), 현재_날짜(), 현재_시각(), 현재_날짜시간()
+    - ✅ 시간_포맷(), 타임스탬프(), 슬립()
+    - ✅ 고수준: 시간_차이(), 날짜_더하기(), 날짜_빼기(), 년_추출(), ISO_날짜(), 과거인가(), 미래인가()
   - [ ] stdlib/regex.ksj - 정규표현식 (7개 함수)
     - 정규식_매칭(), 정규식_찾기(), 정규식_치환()
   - [ ] 기존 라이브러리 개선 (10개 함수 추가)

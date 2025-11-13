@@ -13,6 +13,9 @@
 #include <sstream>
 #include <filesystem>
 #include <nlohmann/json.hpp>
+#include <chrono>
+#include <iomanip>
+#include <thread>
 
 namespace kingsejong {
 namespace evaluator {
@@ -1284,6 +1287,162 @@ static Value builtin_JSON_파일_쓰기(const std::vector<Value>& args)
 }
 
 // ============================================================================
+// 시간/날짜 처리 함수
+// ============================================================================
+
+// 현재 Unix timestamp를 초 단위로 반환한다
+static Value builtin_현재_시간(const std::vector<Value>& args)
+{
+    if (!args.empty()) {
+        throw std::runtime_error("현재_시간() 함수는 인자가 필요하지 않습니다");
+    }
+
+    auto now = std::chrono::system_clock::now();
+    auto duration = now.time_since_epoch();
+    auto seconds = std::chrono::duration_cast<std::chrono::seconds>(duration).count();
+
+    return Value::createInteger(seconds);
+}
+
+// 현재 날짜를 YYYY-MM-DD 형식으로 반환한다
+static Value builtin_현재_날짜(const std::vector<Value>& args)
+{
+    if (!args.empty()) {
+        throw std::runtime_error("현재_날짜() 함수는 인자가 필요하지 않습니다");
+    }
+
+    auto now = std::chrono::system_clock::now();
+    auto time_t_now = std::chrono::system_clock::to_time_t(now);
+
+    std::tm tm_now;
+    #ifdef _WIN32
+        localtime_s(&tm_now, &time_t_now);
+    #else
+        localtime_r(&time_t_now, &tm_now);
+    #endif
+
+    std::ostringstream oss;
+    oss << std::put_time(&tm_now, "%Y-%m-%d");
+
+    return Value::createString(oss.str());
+}
+
+// 타임스탬프를 지정된 형식으로 변환한다
+static Value builtin_시간_포맷(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("시간_포맷() 함수는 정확히 2개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isInteger()) {
+        throw std::runtime_error("시간_포맷() 함수의 첫 번째 인자는 정수(타임스탬프)여야 합니다");
+    }
+
+    if (!args[1].isString()) {
+        throw std::runtime_error("시간_포맷() 함수의 두 번째 인자는 문자열(포맷)이어야 합니다");
+    }
+
+    int64_t timestamp = args[0].asInteger();
+    std::string format = args[1].asString();
+
+    std::time_t time_t_val = static_cast<std::time_t>(timestamp);
+    std::tm tm_val;
+
+    #ifdef _WIN32
+        localtime_s(&tm_val, &time_t_val);
+    #else
+        localtime_r(&time_t_val, &tm_val);
+    #endif
+
+    std::ostringstream oss;
+    oss << std::put_time(&tm_val, format.c_str());
+
+    return Value::createString(oss.str());
+}
+
+// 현재 시간을 밀리초 단위 타임스탬프로 반환한다
+static Value builtin_타임스탬프(const std::vector<Value>& args)
+{
+    if (!args.empty()) {
+        throw std::runtime_error("타임스탬프() 함수는 인자가 필요하지 않습니다");
+    }
+
+    auto now = std::chrono::system_clock::now();
+    auto duration = now.time_since_epoch();
+    auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+
+    return Value::createInteger(milliseconds);
+}
+
+// 지정된 시간만큼 대기한다 (밀리초)
+static Value builtin_슬립(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("슬립() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isInteger()) {
+        throw std::runtime_error("슬립() 함수의 인자는 정수(밀리초)여야 합니다");
+    }
+
+    int64_t milliseconds = args[0].asInteger();
+
+    if (milliseconds < 0) {
+        throw std::runtime_error("슬립() 함수의 인자는 0 이상이어야 합니다");
+    }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+
+    return Value::createNull();
+}
+
+// 현재 시간을 HH:MM:SS 형식으로 반환한다
+static Value builtin_현재_시각(const std::vector<Value>& args)
+{
+    if (!args.empty()) {
+        throw std::runtime_error("현재_시각() 함수는 인자가 필요하지 않습니다");
+    }
+
+    auto now = std::chrono::system_clock::now();
+    auto time_t_now = std::chrono::system_clock::to_time_t(now);
+
+    std::tm tm_now;
+    #ifdef _WIN32
+        localtime_s(&tm_now, &time_t_now);
+    #else
+        localtime_r(&time_t_now, &tm_now);
+    #endif
+
+    std::ostringstream oss;
+    oss << std::put_time(&tm_now, "%H:%M:%S");
+
+    return Value::createString(oss.str());
+}
+
+// 현재 날짜와 시간을 YYYY-MM-DD HH:MM:SS 형식으로 반환한다
+static Value builtin_현재_날짜시간(const std::vector<Value>& args)
+{
+    if (!args.empty()) {
+        throw std::runtime_error("현재_날짜시간() 함수는 인자가 필요하지 않습니다");
+    }
+
+    auto now = std::chrono::system_clock::now();
+    auto time_t_now = std::chrono::system_clock::to_time_t(now);
+
+    std::tm tm_now;
+    #ifdef _WIN32
+        localtime_s(&tm_now, &time_t_now);
+    #else
+        localtime_r(&time_t_now, &tm_now);
+    #endif
+
+    std::ostringstream oss;
+    oss << std::put_time(&tm_now, "%Y-%m-%d %H:%M:%S");
+
+    return Value::createString(oss.str());
+}
+
+// ============================================================================
 // 내장 함수 등록
 // ============================================================================
 
@@ -1330,6 +1489,15 @@ void Builtin::registerAllBuiltins()
     registerBuiltin("JSON_문자열화", builtin_JSON_문자열화);
     registerBuiltin("JSON_파일_읽기", builtin_JSON_파일_읽기);
     registerBuiltin("JSON_파일_쓰기", builtin_JSON_파일_쓰기);
+
+    // 시간/날짜 함수
+    registerBuiltin("현재_시간", builtin_현재_시간);
+    registerBuiltin("현재_날짜", builtin_현재_날짜);
+    registerBuiltin("시간_포맷", builtin_시간_포맷);
+    registerBuiltin("타임스탬프", builtin_타임스탬프);
+    registerBuiltin("슬립", builtin_슬립);
+    registerBuiltin("현재_시각", builtin_현재_시각);
+    registerBuiltin("현재_날짜시간", builtin_현재_날짜시간);
 }
 
 } // namespace evaluator

@@ -12,6 +12,7 @@
 #include "debugger/Debugger.h"
 #include "error/Error.h"
 #include "evaluator/Environment.h"
+#include "evaluator/Value.h"
 
 using namespace kingsejong::debugger;
 using namespace kingsejong::error;
@@ -282,4 +283,220 @@ TEST_F(DebuggerTest, ShouldHandleClearingAllState) {
     // Assert
     EXPECT_EQ(bpMgr.getAll().size(), 0);
     EXPECT_TRUE(stack.empty());
+}
+
+// ============================================================================
+// 와치포인트 통합 테스트
+// ============================================================================
+
+TEST_F(DebuggerTest, ShouldProvideWatchpointManager) {
+    // Act
+    WatchpointManager& wpMgr = debugger->getWatchpoints();
+
+    // Assert - 초기에는 와치포인트 없음
+    EXPECT_EQ(wpMgr.getAll().size(), 0u);
+}
+
+TEST_F(DebuggerTest, ShouldAddWatchpointThroughDebugger) {
+    // Arrange
+    auto env = std::make_shared<Environment>();
+    env->set("x", Value::createInteger(10));
+
+    // Act
+    WatchpointManager& wpMgr = debugger->getWatchpoints();
+    bool result = wpMgr.add("x", *env);
+
+    // Assert
+    EXPECT_TRUE(result);
+    EXPECT_EQ(wpMgr.getAll().size(), 1u);
+}
+
+// ============================================================================
+// 디버거 상태 관리 테스트
+// ============================================================================
+
+TEST_F(DebuggerTest, ShouldStartInIdleState) {
+    // Assert
+    EXPECT_EQ(debugger->getState(), DebuggerState::IDLE);
+}
+
+TEST_F(DebuggerTest, ShouldEnterSteppingState) {
+    // Act
+    debugger->step();
+
+    // Assert
+    EXPECT_EQ(debugger->getState(), DebuggerState::STEPPING);
+}
+
+TEST_F(DebuggerTest, ShouldEnterSteppingOverState) {
+    // Act
+    debugger->next();
+
+    // Assert
+    EXPECT_EQ(debugger->getState(), DebuggerState::STEPPING_OVER);
+}
+
+TEST_F(DebuggerTest, ShouldEnterRunningState) {
+    // Act
+    debugger->continueExecution();
+
+    // Assert
+    EXPECT_EQ(debugger->getState(), DebuggerState::RUNNING);
+}
+
+TEST_F(DebuggerTest, ShouldEnterPausedState) {
+    // Arrange
+    debugger->continueExecution();  // 먼저 RUNNING으로
+
+    // Act
+    debugger->pause();
+
+    // Assert
+    EXPECT_EQ(debugger->getState(), DebuggerState::PAUSED);
+}
+
+// ============================================================================
+// shouldPause() 테스트
+// ============================================================================
+
+TEST_F(DebuggerTest, ShouldPauseOnBreakpoint) {
+    // Arrange
+    SourceLocation loc("test.ksj", 10, 1);
+    auto env = std::make_shared<Environment>();
+
+    debugger->getBreakpoints().add(loc);
+    debugger->continueExecution();  // RUNNING 상태로
+
+    // Act
+    bool shouldPause = debugger->shouldPause(loc, *env);
+
+    // Assert
+    EXPECT_TRUE(shouldPause);
+    EXPECT_EQ(debugger->getState(), DebuggerState::PAUSED);
+}
+
+TEST_F(DebuggerTest, ShouldPauseWhenStepping) {
+    // Arrange
+    SourceLocation loc("test.ksj", 10, 1);
+    auto env = std::make_shared<Environment>();
+
+    debugger->step();  // STEPPING 상태로
+
+    // Act
+    bool shouldPause = debugger->shouldPause(loc, *env);
+
+    // Assert
+    EXPECT_TRUE(shouldPause);
+    EXPECT_EQ(debugger->getState(), DebuggerState::PAUSED);
+}
+
+TEST_F(DebuggerTest, ShouldPauseWhenSteppingOver) {
+    // Arrange
+    SourceLocation loc("test.ksj", 10, 1);
+    auto env = std::make_shared<Environment>();
+
+    // 스택 설정
+    debugger->getCallStack().push(CallStack::StackFrame("main", loc, env));
+
+    // next() 호출 (현재 깊이 = 1)
+    debugger->next();
+
+    // Act - 같은 깊이에서 다음 줄 실행
+    bool shouldPause = debugger->shouldPause(SourceLocation("test.ksj", 11, 1), *env);
+
+    // Assert
+    EXPECT_TRUE(shouldPause);
+    EXPECT_EQ(debugger->getState(), DebuggerState::PAUSED);
+}
+
+TEST_F(DebuggerTest, ShouldNotPauseWhenSteppingOverInDeepFunction) {
+    // Arrange
+    SourceLocation loc1("test.ksj", 10, 1);
+    SourceLocation loc2("test.ksj", 20, 1);
+    auto env = std::make_shared<Environment>();
+
+    // 스택 설정 (깊이 = 1)
+    debugger->getCallStack().push(CallStack::StackFrame("main", loc1, env));
+
+    // next() 호출 (stepOverDepth_ = 1)
+    debugger->next();
+
+    // 함수 호출로 스택 깊이 증가 (깊이 = 2)
+    debugger->getCallStack().push(CallStack::StackFrame("foo", loc2, env));
+
+    // Act - 더 깊은 함수 안에서는 멈추지 않음
+    bool shouldPause = debugger->shouldPause(loc2, *env);
+
+    // Assert
+    EXPECT_FALSE(shouldPause);
+    EXPECT_EQ(debugger->getState(), DebuggerState::STEPPING_OVER);
+}
+
+TEST_F(DebuggerTest, ShouldPauseWhenSteppingOverAfterFunctionReturn) {
+    // Arrange
+    SourceLocation loc1("test.ksj", 10, 1);
+    SourceLocation loc2("test.ksj", 20, 1);
+    auto env = std::make_shared<Environment>();
+
+    // 스택 설정 (깊이 = 1)
+    debugger->getCallStack().push(CallStack::StackFrame("main", loc1, env));
+
+    // next() 호출 (stepOverDepth_ = 1)
+    debugger->next();
+
+    // 함수 호출
+    debugger->getCallStack().push(CallStack::StackFrame("foo", loc2, env));
+
+    // 함수 반환
+    debugger->getCallStack().pop();
+
+    // Act - 함수에서 돌아온 후에는 멈춤
+    bool shouldPause = debugger->shouldPause(SourceLocation("test.ksj", 11, 1), *env);
+
+    // Assert
+    EXPECT_TRUE(shouldPause);
+    EXPECT_EQ(debugger->getState(), DebuggerState::PAUSED);
+}
+
+TEST_F(DebuggerTest, ShouldPauseOnWatchpointTrigger) {
+    // Arrange
+    auto env = std::make_shared<Environment>();
+    env->set("x", Value::createInteger(10));
+
+    debugger->getWatchpoints().add("x", *env);
+    debugger->continueExecution();  // RUNNING 상태로
+
+    // Act - 변수 값 변경
+    env->set("x", Value::createInteger(20));
+    bool shouldPause = debugger->shouldPause(SourceLocation("test.ksj", 10, 1), *env);
+
+    // Assert
+    EXPECT_TRUE(shouldPause);
+    EXPECT_EQ(debugger->getState(), DebuggerState::PAUSED);
+}
+
+TEST_F(DebuggerTest, ShouldNotPauseWhenRunning) {
+    // Arrange
+    SourceLocation loc("test.ksj", 10, 1);
+    auto env = std::make_shared<Environment>();
+
+    debugger->continueExecution();  // RUNNING 상태로
+
+    // Act - 브레이크포인트 없음
+    bool shouldPause = debugger->shouldPause(loc, *env);
+
+    // Assert
+    EXPECT_FALSE(shouldPause);
+}
+
+TEST_F(DebuggerTest, ShouldNotPauseWhenIdle) {
+    // Arrange
+    SourceLocation loc("test.ksj", 10, 1);
+    auto env = std::make_shared<Environment>();
+
+    // Act - IDLE 상태 (초기 상태)
+    bool shouldPause = debugger->shouldPause(loc, *env);
+
+    // Assert
+    EXPECT_FALSE(shouldPause);
 }

@@ -13,10 +13,25 @@
 
 #include "debugger/BreakpointManager.h"
 #include "debugger/CallStack.h"
+#include "debugger/WatchpointManager.h"
+#include "error/Error.h"
+#include "evaluator/Environment.h"
 #include <memory>
 
 namespace kingsejong {
 namespace debugger {
+
+/**
+ * @enum DebuggerState
+ * @brief 디버거 실행 상태
+ */
+enum class DebuggerState {
+    IDLE,           ///< 대기 상태 (프로그램 실행 전)
+    RUNNING,        ///< 실행 중 (다음 브레이크포인트까지)
+    STEPPING,       ///< 단계 실행 중 (step into)
+    STEPPING_OVER,  ///< 단계 건너뛰기 중 (step over)
+    PAUSED          ///< 일시 정지 (브레이크포인트 또는 사용자 요청)
+};
 
 /**
  * @class Debugger
@@ -104,6 +119,91 @@ public:
         return *callStack_;
     }
 
+    /**
+     * @brief 와치포인트 관리자 접근
+     * @return WatchpointManager 참조
+     *
+     * Complexity: O(1)
+     */
+    WatchpointManager& getWatchpoints() {
+        return *watchpoints_;
+    }
+
+    /**
+     * @brief 와치포인트 관리자 접근 (const)
+     * @return WatchpointManager const 참조
+     *
+     * Complexity: O(1)
+     */
+    const WatchpointManager& getWatchpoints() const {
+        return *watchpoints_;
+    }
+
+    /**
+     * @brief 현재 디버거 상태 조회
+     * @return 현재 DebuggerState
+     *
+     * Complexity: O(1)
+     */
+    DebuggerState getState() const {
+        return state_;
+    }
+
+    /**
+     * @brief 단계 실행 (step into)
+     *
+     * 한 줄 실행 후 멈춥니다. 함수 호출이 있으면 함수 안으로 들어갑니다.
+     * 상태를 STEPPING으로 변경합니다.
+     *
+     * Complexity: O(1)
+     */
+    void step();
+
+    /**
+     * @brief 다음 줄 실행 (step over)
+     *
+     * 한 줄 실행 후 멈춥니다. 함수 호출이 있어도 건너뜁니다.
+     * 상태를 STEPPING_OVER로 변경하고 현재 스택 깊이를 기록합니다.
+     *
+     * Complexity: O(1)
+     */
+    void next();
+
+    /**
+     * @brief 계속 실행 (continue)
+     *
+     * 다음 브레이크포인트까지 실행을 계속합니다.
+     * 상태를 RUNNING으로 변경합니다.
+     *
+     * Complexity: O(1)
+     */
+    void continueExecution();
+
+    /**
+     * @brief 실행 일시 정지
+     *
+     * 실행을 일시 정지하고 상태를 PAUSED로 변경합니다.
+     *
+     * Complexity: O(1)
+     */
+    void pause();
+
+    /**
+     * @brief 특정 위치에서 멈춰야 하는지 판단
+     * @param location 현재 실행 위치
+     * @param env 현재 환경
+     * @return true if 멈춰야 함, false otherwise
+     *
+     * 다음 조건에서 true를 반환합니다:
+     * - 브레이크포인트가 설정되어 있는 경우
+     * - STEPPING 상태인 경우
+     * - STEPPING_OVER 상태이고 스택 깊이가 stepOverDepth_ 이하인 경우
+     * - 와치포인트가 트리거된 경우
+     *
+     * Complexity: O(B + W) where B = 브레이크포인트 수, W = 와치포인트 수
+     */
+    bool shouldPause(const error::SourceLocation& location, const evaluator::Environment& env);
+
 private:
     /// 브레이크포인트 관리자 (RAII)
     std::unique_ptr<BreakpointManager> breakpoints_;
@@ -111,11 +211,14 @@ private:
     /// 콜 스택 (RAII)
     std::unique_ptr<CallStack> callStack_;
 
-    // TODO (Week 5-6): WatchpointManager 추가
-    // std::unique_ptr<WatchpointManager> watchpoints_;
+    /// 와치포인트 관리자 (RAII)
+    std::unique_ptr<WatchpointManager> watchpoints_;
 
-    // TODO (Week 5-6): Evaluator 추가 (run 메서드용)
-    // std::shared_ptr<evaluator::Evaluator> evaluator_;
+    /// 현재 디버거 상태
+    DebuggerState state_;
+
+    /// step over 시작 시점의 스택 깊이
+    size_t stepOverDepth_;
 };
 
 } // namespace debugger

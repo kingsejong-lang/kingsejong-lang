@@ -47,6 +47,7 @@ set(LIB_SOURCES
     src/debugger/BreakpointManager.cpp
     src/debugger/CallStack.cpp
     src/debugger/WatchpointManager.cpp
+    src/debugger/CommandParser.cpp
     src/debugger/Debugger.cpp
     src/lsp/JsonRpc.cpp
     src/lsp/DocumentManager.cpp

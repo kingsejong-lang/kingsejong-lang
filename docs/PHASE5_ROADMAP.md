@@ -146,7 +146,12 @@ Phase 1-4에서 언어의 기반을 완성했습니다. Phase 5에서는 **개�
     - 조건식 파싱 및 실행
     - 복잡한 표현식 지원 (&&, ||, 비교 연산)
     - 문자열 비교 지원
-  - [ ] 와치포인트 (변수 변경 감지)
+  - [x] 와치포인트 (변수 변경 감지) ✅
+    - WatchpointManager 구현
+    - 변수 값 변경 자동 감지
+    - 타입 변경 감지
+    - changeCount 추적
+    - 활성화/비활성화 지원
   - [ ] 소스 코드 표시
 - **테스트**:
   - [x] 조건부 브레이크포인트 (19/19 통과) ✅
@@ -155,6 +160,12 @@ Phase 1-4에서 언어의 기반을 완성했습니다. Phase 5에서는 **개�
     - ShouldHandleInvalidConditionGracefully
     - ShouldEvaluateComplexCondition
     - ShouldHandleStringComparisonInCondition
+  - [x] 와치포인트 (22/22 통과) ✅
+    - ShouldDetectValueChange
+    - ShouldDetectMultipleChanges
+    - ShouldDetectTypeChange
+    - ShouldTrackChangeCount
+    - ShouldNotDetectChangesWhenDisabled
   - [x] 메모리 안전성 (RAII, 누수 없음) ✅
 
 ### F5.3: LSP (Language Server Protocol) ⭐⭐⭐

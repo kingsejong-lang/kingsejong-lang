@@ -57,7 +57,14 @@ enum class NodeType
 
     // 배열 관련
     ARRAY_LITERAL,              ///< 배열 리터럴 ([1, 2, 3])
-    INDEX_EXPRESSION            ///< 인덱스 접근 (arr[0])
+    INDEX_EXPRESSION,           ///< 인덱스 접근 (arr[0])
+
+    // 패턴 매칭 (F5.5)
+    MATCH_EXPRESSION,           ///< 패턴 매칭 표현식 (값에 대해 { ... })
+    LITERAL_PATTERN,            ///< 리터럴 패턴 (1, "hello", 참)
+    WILDCARD_PATTERN,           ///< 와일드카드 패턴 (_)
+    BINDING_PATTERN,            ///< 바인딩 패턴 (변수명)
+    ARRAY_PATTERN               ///< 배열 패턴 ([a, b, ...rest])
 };
 
 /**

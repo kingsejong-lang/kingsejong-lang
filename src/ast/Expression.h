@@ -487,5 +487,237 @@ public:
     const Expression* index() const { return index_.get(); }
 };
 
+// ============================================================================
+// 패턴 매칭 (F5.5)
+// ============================================================================
+
+/**
+ * @class Pattern
+ * @brief 패턴 매칭 패턴의 기본 클래스
+ *
+ * 모든 패턴 노드는 이 클래스를 상속받습니다.
+ * 패턴은 값과 매칭되는지 검사하고, 변수 바인딩을 수행합니다.
+ */
+class Pattern : public Node
+{
+public:
+    virtual ~Pattern() = default;
+};
+
+/**
+ * @class LiteralPattern
+ * @brief 리터럴 패턴
+ *
+ * 특정 리터럴 값과 정확히 일치하는지 확인합니다.
+ *
+ * @example
+ * 1 -> "하나"
+ * "hello" -> "안녕"
+ * 참 -> "맞음"
+ */
+class LiteralPattern : public Pattern
+{
+private:
+    std::unique_ptr<Expression> value_;
+
+public:
+    explicit LiteralPattern(std::unique_ptr<Expression> value)
+        : value_(std::move(value))
+    {}
+
+    NodeType type() const override { return NodeType::LITERAL_PATTERN; }
+
+    std::string toString() const override
+    {
+        return value_->toString();
+    }
+
+    const Expression* value() const { return value_.get(); }
+};
+
+/**
+ * @class WildcardPattern
+ * @brief 와일드카드 패턴 (_)
+ *
+ * 모든 값과 매칭됩니다. 보통 기본 케이스로 사용됩니다.
+ *
+ * @example
+ * _ -> "기타"
+ */
+class WildcardPattern : public Pattern
+{
+public:
+    WildcardPattern() = default;
+
+    NodeType type() const override { return NodeType::WILDCARD_PATTERN; }
+
+    std::string toString() const override { return "_"; }
+};
+
+/**
+ * @class BindingPattern
+ * @brief 바인딩 패턴 (변수명)
+ *
+ * 값을 변수에 바인딩합니다. 모든 값과 매칭되며, 매칭된 값을 변수에 저장합니다.
+ *
+ * @example
+ * x -> x * 2     // x에 값이 바인딩됨
+ * name -> "안녕 " + name
+ */
+class BindingPattern : public Pattern
+{
+private:
+    std::string name_;
+
+public:
+    explicit BindingPattern(const std::string& name)
+        : name_(name)
+    {}
+
+    NodeType type() const override { return NodeType::BINDING_PATTERN; }
+
+    std::string toString() const override { return name_; }
+
+    const std::string& name() const { return name_; }
+};
+
+/**
+ * @class ArrayPattern
+ * @brief 배열 패턴 [a, b, ...rest]
+ *
+ * 배열을 분해하여 각 요소를 패턴과 매칭합니다.
+ * 선택적으로 나머지 요소를 수집할 수 있습니다.
+ *
+ * @example
+ * [첫번째, 두번째] -> 첫번째 + 두번째
+ * [head, ...tail] -> head
+ * [] -> "빈 배열"
+ */
+class ArrayPattern : public Pattern
+{
+private:
+    std::vector<std::unique_ptr<Pattern>> elements_;
+    std::string rest_;  // 나머지 요소 변수명 (빈 문자열이면 없음)
+
+public:
+    ArrayPattern(
+        std::vector<std::unique_ptr<Pattern>> elements,
+        const std::string& rest = ""
+    )
+        : elements_(std::move(elements))
+        , rest_(rest)
+    {}
+
+    NodeType type() const override { return NodeType::ARRAY_PATTERN; }
+
+    std::string toString() const override
+    {
+        std::string result = "[";
+        for (size_t i = 0; i < elements_.size(); i++) {
+            if (i > 0) result += ", ";
+            result += elements_[i]->toString();
+        }
+        if (!rest_.empty()) {
+            if (!elements_.empty()) result += ", ";
+            result += "..." + rest_;
+        }
+        result += "]";
+        return result;
+    }
+
+    const std::vector<std::unique_ptr<Pattern>>& elements() const { return elements_; }
+    const std::string& rest() const { return rest_; }
+};
+
+/**
+ * @class MatchCase
+ * @brief 패턴 매칭 케이스 (패턴 -> 결과)
+ *
+ * 하나의 패턴과 그에 대응하는 결과 표현식을 나타냅니다.
+ * 선택적으로 가드 조건을 추가할 수 있습니다.
+ *
+ * @example
+ * 1 -> "하나"
+ * x when x > 10 -> "큰 수"
+ * [a, b] -> a + b
+ */
+class MatchCase
+{
+private:
+    std::unique_ptr<Pattern> pattern_;
+    std::unique_ptr<Expression> guard_;     // 선택적 가드 조건
+    std::unique_ptr<Expression> body_;
+
+public:
+    MatchCase(
+        std::unique_ptr<Pattern> pattern,
+        std::unique_ptr<Expression> body,
+        std::unique_ptr<Expression> guard = nullptr
+    )
+        : pattern_(std::move(pattern))
+        , guard_(std::move(guard))
+        , body_(std::move(body))
+    {}
+
+    std::string toString() const
+    {
+        std::string result = pattern_->toString();
+        if (guard_) {
+            result += " when " + guard_->toString();
+        }
+        result += " -> " + body_->toString();
+        return result;
+    }
+
+    const Pattern* pattern() const { return pattern_.get(); }
+    const Expression* guard() const { return guard_.get(); }
+    const Expression* body() const { return body_.get(); }
+};
+
+/**
+ * @class MatchExpression
+ * @brief 패턴 매칭 표현식
+ *
+ * 값을 여러 패턴과 매칭하여 첫 번째로 매칭되는 케이스의 결과를 반환합니다.
+ *
+ * @example
+ * 값에 대해 {
+ *     1 -> "하나"
+ *     2 -> "둘"
+ *     x when x > 10 -> "큰 수"
+ *     _ -> "기타"
+ * }
+ */
+class MatchExpression : public Expression
+{
+private:
+    std::unique_ptr<Expression> value_;
+    std::vector<MatchCase> cases_;
+
+public:
+    MatchExpression(
+        std::unique_ptr<Expression> value,
+        std::vector<MatchCase> cases
+    )
+        : value_(std::move(value))
+        , cases_(std::move(cases))
+    {}
+
+    NodeType type() const override { return NodeType::MATCH_EXPRESSION; }
+
+    std::string toString() const override
+    {
+        std::string result = value_->toString() + "에 대해 {\n";
+        for (const auto& c : cases_) {
+            result += "    " + c.toString() + "\n";
+        }
+        result += "}";
+        return result;
+    }
+
+    const Expression* value() const { return value_.get(); }
+    const std::vector<MatchCase>& cases() const { return cases_; }
+};
+
 } // namespace ast
 } // namespace kingsejong

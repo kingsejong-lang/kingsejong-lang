@@ -80,6 +80,18 @@ std::string nodeTypeToString(NodeType type)
         case NodeType::INDEX_EXPRESSION:
             return "INDEX_EXPRESSION";
 
+        // 패턴 매칭
+        case NodeType::MATCH_EXPRESSION:
+            return "MATCH_EXPRESSION";
+        case NodeType::LITERAL_PATTERN:
+            return "LITERAL_PATTERN";
+        case NodeType::WILDCARD_PATTERN:
+            return "WILDCARD_PATTERN";
+        case NodeType::BINDING_PATTERN:
+            return "BINDING_PATTERN";
+        case NodeType::ARRAY_PATTERN:
+            return "ARRAY_PATTERN";
+
         default:
             return "UNKNOWN";
     }

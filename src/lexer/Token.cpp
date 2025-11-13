@@ -78,7 +78,11 @@ static const std::unordered_map<std::string, TokenType> keywords = {
 
     // 메서드 체이닝
     {"하고", TokenType::HAGO},
-    {"하라", TokenType::HARA}
+    {"하라", TokenType::HARA},
+
+    // 패턴 매칭
+    {"에", TokenType::E_DAEHAE},  // "에 대해"는 Lexer에서 별도 처리
+    {"when", TokenType::WHEN}
 };
 
 std::string tokenTypeToString(TokenType type)
@@ -166,6 +170,11 @@ std::string tokenTypeToString(TokenType type)
 
         case TokenType::HAGO:         return "HAGO";
         case TokenType::HARA:         return "HARA";
+
+        case TokenType::ARROW:        return "ARROW";
+        case TokenType::E_DAEHAE:     return "E_DAEHAE";
+        case TokenType::WHEN:         return "WHEN";
+        case TokenType::UNDERSCORE:   return "UNDERSCORE";
 
         default:                      return "UNKNOWN";
     }

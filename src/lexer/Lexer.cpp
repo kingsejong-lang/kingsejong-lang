@@ -396,8 +396,18 @@ Token Lexer::nextToken()
             break;
 
         case '-':
-            token = Token(TokenType::MINUS, std::string(1, ch));
-            readChar();
+            if (peekChar() == '>')
+            {
+                char prevCh = ch;
+                readChar();
+                token = Token(TokenType::ARROW, std::string(1, prevCh) + std::string(1, ch));
+                readChar();
+            }
+            else
+            {
+                token = Token(TokenType::MINUS, std::string(1, ch));
+                readChar();
+            }
             break;
 
         case '*':
@@ -460,6 +470,11 @@ Token Lexer::nextToken()
             readChar();
             break;
 
+        case '_':
+            token = Token(TokenType::UNDERSCORE, std::string(1, ch));
+            readChar();
+            break;
+
         case '"':
         case '\'':
             {
@@ -478,7 +493,35 @@ Token Lexer::nextToken()
             {
                 std::string identifier = readIdentifier();
                 TokenType type = lookupKeyword(identifier);
-                token = Token(type, identifier);
+
+                // "에 대해" 특별 처리
+                if (identifier == "에" && ch == ' ')
+                {
+                    // 공백 건너뛰기
+                    size_t savedPos = position;
+                    size_t savedReadPos = readPosition;
+                    char savedCh = ch;
+
+                    skipWhitespace();
+                    std::string next = readIdentifier();
+
+                    if (next == "대해")
+                    {
+                        token = Token(TokenType::E_DAEHAE, "에 대해");
+                    }
+                    else
+                    {
+                        // 롤백
+                        position = savedPos;
+                        readPosition = savedReadPos;
+                        ch = savedCh;
+                        token = Token(type, identifier);
+                    }
+                }
+                else
+                {
+                    token = Token(type, identifier);
+                }
             }
             else if (isDigit(ch))
             {

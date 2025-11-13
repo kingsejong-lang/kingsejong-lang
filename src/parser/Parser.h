@@ -177,6 +177,15 @@ private:
     std::unique_ptr<Expression> parseIndexExpression(std::unique_ptr<Expression> left);
     std::unique_ptr<Expression> parseJosaExpression(std::unique_ptr<Expression> left);
     std::unique_ptr<Expression> parseRangeExpression(std::unique_ptr<Expression> left);
+    std::unique_ptr<Expression> parseMatchExpression(std::unique_ptr<Expression> left);
+
+    // 패턴 매칭 파싱 (F5.5)
+    std::unique_ptr<Pattern> parsePattern();
+    std::unique_ptr<Pattern> parseLiteralPattern();
+    std::unique_ptr<Pattern> parseWildcardPattern();
+    std::unique_ptr<Pattern> parseBindingPattern();
+    std::unique_ptr<Pattern> parseArrayPattern();
+    MatchCase parseMatchCase();
 
     // 헬퍼 함수들
     std::vector<std::unique_ptr<Expression>> parseExpressionList(TokenType endToken);

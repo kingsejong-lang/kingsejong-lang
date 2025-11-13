@@ -129,7 +129,13 @@ enum class TokenType
 
     // 메서드 체이닝 연산자
     HAGO,         ///< 하고 (method chaining)
-    HARA          ///< 하라 (execute)
+    HARA,         ///< 하라 (execute)
+
+    // 패턴 매칭 (F5.5)
+    ARROW,        ///< -> (패턴 -> 결과)
+    E_DAEHAE,     ///< 에 대해 (match 키워드)
+    WHEN,         ///< when (가드 조건)
+    UNDERSCORE    ///< _ (와일드카드 패턴)
 };
 
 /**

@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![C++23](https://img.shields.io/badge/C++-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![CI](https://github.com/0xmhha/kingsejonglang/workflows/CI/badge.svg)](https://github.com/0xmhha/kingsejonglang/actions)
-[![Tests](https://img.shields.io/badge/tests-729%20passed-success)](tests/)
+[![Tests](https://img.shields.io/badge/tests-803%20passed-success)](tests/)
 [![Version](https://img.shields.io/badge/version-v0.3.1-blue)](https://github.com/0xmhha/kingsejonglang/releases/tag/v0.3.1)
 [![VS Code](https://img.shields.io/badge/VS%20Code-Extension-blue)](vscode-extension/)
 
@@ -438,15 +438,27 @@ i가 1부터 10까지 {
 
 ### Phase 5: LSP & IDE 지원 ✅ (100% 완료)
 
-- ✅ **Language Server Protocol (LSP)**
+- ✅ **Language Server Protocol (LSP) 기본 기능**
   - JSON-RPC 2.0 통신
   - DocumentManager (문서 관리)
   - CompletionProvider (자동 완성)
   - DiagnosticsProvider (실시간 진단)
+- ✅ **LSP 고급 기능**
+  - SymbolTable & SymbolCollector (심볼 관리)
+  - Go to Definition (정의로 이동)
+  - Hover Information (호버 정보)
+  - Find References (참조 찾기)
+  - Rename (심볼 이름 변경)
+  - UTF-16/UTF-8 변환 (한글 지원)
+  - 스코프 인식 (전역/로컬 변수 구분)
 - ✅ **VS Code Extension**
   - 구문 강조 (Syntax Highlighting)
   - 자동 완성 (Auto Completion)
   - 실시간 에러 검사
+  - 정의로 이동 (F12)
+  - 호버 정보 표시
+  - 참조 찾기 (Shift+F12)
+  - 심볼 이름 변경 (F2)
   - 자동 괄호 닫기, 들여쓰기
 
 ### 문서화 ✅ (완료)
@@ -459,7 +471,7 @@ i가 1부터 10까지 {
 ### 테스트 현황
 
 ```
-총 테스트: 729개
+총 테스트: 803개
 통과율: 100%
 실패: 0개
 
@@ -479,7 +491,8 @@ i가 1부터 10까지 {
 - Garbage Collector: 15개
 - Bytecode Compiler & VM: 19개
 - Hot Path Detector: 21개
-- LSP: 56개 (JsonRpc, DocumentManager, LanguageServer, CompletionProvider, DiagnosticsProvider)
+- LSP 기본: 56개 (JsonRpc, DocumentManager, LanguageServer, CompletionProvider, DiagnosticsProvider)
+- LSP 고급: 74개 (SymbolTable, SymbolCollector, LspUtils, GoToDefinition, Hover, FindReferences, Rename)
 - 기타: 128개
 ```
 
@@ -564,11 +577,21 @@ npm run compile
 ```
 
 **제공하는 기능:**
+
+**기본 기능:**
 - 구문 강조 (Syntax Highlighting)
-- 자동 완성 (Auto Completion) - 키워드, 변수명
+- 자동 완성 (Auto Completion) - 34개 키워드, 변수명
 - 실시간 진단 (Diagnostics) - 구문 오류 표시
 - 자동 괄호 닫기
 - 들여쓰기 자동 조정
+
+**고급 기능:**
+- 정의로 이동 (Go to Definition) - F12
+- 호버 정보 (Hover Information) - 타입/시그니처 표시
+- 참조 찾기 (Find References) - Shift+F12
+- 심볼 이름 변경 (Rename) - F2
+- 스코프 인식 - 전역/로컬 변수 구분
+- 한글 문자 지원 - UTF-16/UTF-8 변환
 
 ---
 
@@ -636,9 +659,12 @@ kingsejonglang/
 │   ├── lsp/               # Language Server Protocol
 │   │   ├── JsonRpc.cpp         # JSON-RPC 2.0 통신
 │   │   ├── DocumentManager.cpp # 문서 관리
-│   │   ├── LanguageServer.cpp  # LSP 서버
+│   │   ├── LanguageServer.cpp  # LSP 서버 (정의 이동, 호버, 참조 찾기, 이름 변경)
 │   │   ├── CompletionProvider.cpp  # 자동 완성
-│   │   └── DiagnosticsProvider.cpp # 실시간 진단
+│   │   ├── DiagnosticsProvider.cpp # 실시간 진단
+│   │   ├── SymbolTable.cpp     # 심볼 저장 및 조회
+│   │   ├── SymbolCollector.cpp # AST 기반 심볼 수집
+│   │   └── LspUtils.cpp        # UTF-16/UTF-8 변환 유틸리티
 │   └── main.cpp           # 진입점 (REPL/파일실행/LSP)
 ├── vscode-extension/      # VS Code Extension
 │   ├── src/
@@ -652,7 +678,21 @@ kingsejonglang/
 │   ├── string.ksj        # 문자열 처리 (9개)
 │   ├── array.ksj         # 배열 유틸리티 (18개)
 │   └── README.md         # 라이브러리 문서
-├── tests/                 # 테스트 코드 (729개)
+├── tests/                 # 테스트 코드 (803개)
+│   ├── lsp/              # LSP 테스트 (130개)
+│   │   ├── JsonRpcTest.cpp
+│   │   ├── DocumentManagerTest.cpp
+│   │   ├── LanguageServerTest.cpp
+│   │   ├── CompletionProviderTest.cpp
+│   │   ├── DiagnosticsProviderTest.cpp
+│   │   ├── SymbolTableTest.cpp
+│   │   ├── SymbolCollectorTest.cpp
+│   │   ├── LspUtilsTest.cpp
+│   │   ├── SymbolTableIntegrationTest.cpp
+│   │   ├── GoToDefinitionTest.cpp
+│   │   ├── HoverTest.cpp
+│   │   ├── FindReferencesTest.cpp
+│   │   └── RenameTest.cpp
 ├── examples/              # 예제 프로그램 (21개)
 ├── docs/                  # 문서
 │   ├── TUTORIAL.md               # 초보자 튜토리얼

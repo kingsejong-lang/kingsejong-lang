@@ -52,6 +52,9 @@ set(LIB_SOURCES
     src/lsp/LanguageServer.cpp
     src/lsp/CompletionProvider.cpp
     src/lsp/DiagnosticsProvider.cpp
+    src/lsp/SymbolTable.cpp
+    src/lsp/SymbolCollector.cpp
+    src/lsp/LspUtils.cpp
 )
 
 # 라이브러리 생성 (kingsejong_lib)

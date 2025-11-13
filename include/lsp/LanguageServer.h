@@ -17,6 +17,7 @@
 #include "lsp/JsonRpc.h"
 #include "lsp/CompletionProvider.h"
 #include "lsp/DiagnosticsProvider.h"
+#include "lsp/SymbolTable.h"
 
 namespace kingsejong {
 namespace lsp {
@@ -35,6 +36,7 @@ namespace lsp {
  * - textDocument/didChange: 문서 변경
  * - textDocument/didClose: 문서 닫기
  * - textDocument/completion: 자동 완성
+ * - textDocument/definition: 정의로 이동
  * - shutdown: 서버 종료 준비
  * - exit: 서버 종료
  *
@@ -292,6 +294,120 @@ private:
     nlohmann::json handleTextDocumentCompletion(const nlohmann::json& params);
 
     /**
+     * @brief textDocument/definition 핸들러
+     * @param params 정의 요청 파라미터
+     * @return 정의 위치 (Location 또는 null)
+     *
+     * params 형식:
+     * {
+     *   "textDocument": {
+     *     "uri": "file:///test.ksj"
+     *   },
+     *   "position": {
+     *     "line": 5,
+     *     "character": 10
+     *   }
+     * }
+     *
+     * 반환 형식 (성공):
+     * {
+     *   "uri": "file:///test.ksj",
+     *   "range": {
+     *     "start": {"line": 0, "character": 5},
+     *     "end": {"line": 0, "character": 6}
+     *   }
+     * }
+     *
+     * 반환 형식 (심볼 없음):
+     * null
+     *
+     * Preconditions:
+     * - getDocument(uri) != nullptr
+     *
+     * Complexity: O(log n) for symbol lookup
+     */
+    nlohmann::json handleTextDocumentDefinition(const nlohmann::json& params);
+
+    /**
+     * @brief textDocument/hover 핸들러
+     * @param params { textDocument: {uri}, position: {line, character} }
+     * @return Hover 정보 (contents와 range) 또는 null
+     *
+     * Hover 응답 형식:
+     * {
+     *   "contents": {
+     *     "kind": "markdown",
+     *     "value": "정수 x"
+     *   }
+     * }
+     *
+     * 또는 심볼을 찾지 못한 경우 null
+     *
+     * Preconditions:
+     * - getDocument(uri) != nullptr
+     *
+     * Complexity: O(log n) for symbol lookup
+     */
+    nlohmann::json handleTextDocumentHover(const nlohmann::json& params);
+
+    /**
+     * @brief textDocument/references 핸들러
+     * @param params { textDocument: {uri}, position: {line, character}, context: {includeDeclaration} }
+     * @return Location 배열 (심볼의 모든 참조 위치)
+     *
+     * References 응답 형식:
+     * [
+     *   {
+     *     "uri": "file:///test.ksj",
+     *     "range": {
+     *       "start": {"line": 0, "character": 5},
+     *       "end": {"line": 0, "character": 6}
+     *     }
+     *   },
+     *   ...
+     * ]
+     *
+     * context.includeDeclaration이 true면 정의 위치도 포함
+     *
+     * Preconditions:
+     * - getDocument(uri) != nullptr
+     *
+     * Complexity: O(n) where n = number of references
+     */
+    nlohmann::json handleTextDocumentReferences(const nlohmann::json& params);
+
+    /**
+     * @brief textDocument/rename 핸들러
+     * @param params { textDocument: {uri}, position: {line, character}, newName: string }
+     * @return WorkspaceEdit (문서 편집 작업) 또는 null
+     *
+     * WorkspaceEdit 응답 형식:
+     * {
+     *   "changes": {
+     *     "file:///test.ksj": [
+     *       {
+     *         "range": {
+     *           "start": {"line": 0, "character": 5},
+     *           "end": {"line": 0, "character": 6}
+     *         },
+     *         "newText": "newName"
+     *       },
+     *       ...
+     *     ]
+     *   }
+     * }
+     *
+     * 심볼의 정의와 모든 참조를 새 이름으로 변경
+     *
+     * Preconditions:
+     * - getDocument(uri) != nullptr
+     * - newName이 비어있지 않음
+     *
+     * Complexity: O(n) where n = number of references
+     */
+    nlohmann::json handleTextDocumentRename(const nlohmann::json& params);
+
+    /**
      * @brief shutdown 핸들러
      * @param params 빈 객체
      * @return null
@@ -341,6 +457,9 @@ private:
 
     /// 진단 제공자
     DiagnosticsProvider diagnosticsProvider_;
+
+    /// 심볼 테이블 (정의 이동, 참조 찾기 등)
+    SymbolTable symbolTable_;
 
     /// 초기화 상태
     bool initialized_ = false;

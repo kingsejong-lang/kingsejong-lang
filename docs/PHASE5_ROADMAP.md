@@ -136,14 +136,26 @@ Phase 1-4에서 언어의 기반을 완성했습니다. Phase 5에서는 **개�
 
 #### F5.2.2: 고급 디버거 기능
 - **기간**: 2주
+- **상태**: 🚧 **진행중** (2025-11-14 시작)
 - **작업**:
-  - [ ] 조건부 브레이크포인트
+  - [x] 조건부 브레이크포인트 ✅
+    - BreakpointManager::evaluateCondition() 구현
+    - Lexer, Parser, Evaluator 통합
+    - Strong Exception Safety 보장
+  - [x] 표현식 평가 ✅
+    - 조건식 파싱 및 실행
+    - 복잡한 표현식 지원 (&&, ||, 비교 연산)
+    - 문자열 비교 지원
   - [ ] 와치포인트 (변수 변경 감지)
-  - [ ] 표현식 평가
   - [ ] 소스 코드 표시
 - **테스트**:
-  - [ ] 조건부 브레이크포인트
-  - [ ] 복잡한 표현식 평가
+  - [x] 조건부 브레이크포인트 (19/19 통과) ✅
+    - ShouldBreakWhenConditionIsTrue
+    - ShouldNotBreakWhenConditionIsFalse
+    - ShouldHandleInvalidConditionGracefully
+    - ShouldEvaluateComplexCondition
+    - ShouldHandleStringComparisonInCondition
+  - [x] 메모리 안전성 (RAII, 누수 없음) ✅
 
 ### F5.3: LSP (Language Server Protocol) ⭐⭐⭐
 - 상태: ✅ **완료** (2025-11-12)

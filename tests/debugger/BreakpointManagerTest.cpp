@@ -146,8 +146,7 @@ TEST_F(BreakpointManagerTest, ShouldBreakWhenConditionIsTrue) {
     EXPECT_TRUE(shouldBreak);
 }
 
-// TODO: Week 5-6에 조건식 평가 구현 후 활성화
-TEST_F(BreakpointManagerTest, DISABLED_ShouldNotBreakWhenConditionIsFalse) {
+TEST_F(BreakpointManagerTest, ShouldNotBreakWhenConditionIsFalse) {
     // Arrange
     SourceLocation loc("test.ksj", 10, 1);
     manager->add(loc, "x > 10");
@@ -240,8 +239,7 @@ TEST_F(BreakpointManagerTest, ShouldThrowOnInvalidLocation) {
     EXPECT_THROW(manager->add(invalidLoc), std::invalid_argument);
 }
 
-// TODO: Week 5-6에 조건식 평가 구현 후 활성화
-TEST_F(BreakpointManagerTest, DISABLED_ShouldHandleInvalidConditionGracefully) {
+TEST_F(BreakpointManagerTest, ShouldHandleInvalidConditionGracefully) {
     // Arrange
     SourceLocation loc("test.ksj", 10, 1);
     manager->add(loc, "invalid syntax +++");

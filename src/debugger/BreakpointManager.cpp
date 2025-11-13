@@ -6,6 +6,10 @@
  */
 
 #include "debugger/BreakpointManager.h"
+#include "lexer/Lexer.h"
+#include "parser/Parser.h"
+#include "evaluator/Evaluator.h"
+#include "ast/Statement.h"
 #include <stdexcept>
 
 namespace kingsejong {
@@ -132,18 +136,65 @@ bool BreakpointManager::evaluateCondition(
     const std::string& condition,
     const evaluator::Environment& env) const
 {
-    // TODO: 조건식 평가 구현
-    // 현재는 단순화를 위해 항상 true 반환
-    // Week 5-6에 고급 기능으로 구현 예정
-    //
-    // 구현 계획:
-    // 1. Lexer로 토큰화
-    // 2. Parser로 표현식 파싱
-    // 3. Evaluator로 평가
-    // 4. isTruthy() 판별
-    (void)condition;  // 미사용 경고 제거
-    (void)env;        // 미사용 경고 제거
-    return true;
+    // 조건식 평가 with Strong Exception Safety Guarantee
+    // 파싱/평가 실패 시 false 반환 (예외 전파 안 함)
+
+    try {
+        // 1. Lexer로 토큰화
+        lexer::Lexer lexer(condition);
+
+        // 2. Parser로 프로그램 파싱
+        parser::Parser parser(lexer);
+        auto program = parser.parseProgram();
+
+        // 파싱 에러 체크
+        if (!parser.errors().empty() || !program) {
+            return false;
+        }
+
+        // 프로그램이 비어있거나 문장이 없으면 false
+        if (program->statements().empty()) {
+            return false;
+        }
+
+        // 첫 번째 문장을 표현식 문장으로 캐스팅
+        auto* exprStmt = dynamic_cast<ast::ExpressionStatement*>(
+            program->statements()[0].get()
+        );
+
+        if (!exprStmt || !exprStmt->expression()) {
+            return false;
+        }
+
+        // 3. Evaluator로 평가
+        // const Environment를 사용하기 위해 복사본 생성
+        auto envCopy = std::make_shared<evaluator::Environment>();
+
+        // 원본 환경에서 모든 변수를 복사
+        // Note: Environment가 직접 복사를 지원하지 않으므로
+        // const_cast를 사용하되 read-only 연산만 수행한다고 가정
+        // (조건식은 변수를 읽기만 하고 수정하지 않음)
+        evaluator::Evaluator evaluator(
+            std::make_shared<evaluator::Environment>(
+                const_cast<evaluator::Environment&>(env)
+            )
+        );
+
+        evaluator::Value result = evaluator.evalExpression(
+            const_cast<ast::Expression*>(exprStmt->expression())
+        );
+
+        // 4. isTruthy() 판별
+        return result.isTruthy();
+
+    } catch (const std::exception&) {
+        // 파싱 또는 평가 중 예외 발생 시 false 반환
+        // Strong Exception Safety: 상태 변경 없음
+        return false;
+    } catch (...) {
+        // 알 수 없는 예외도 처리
+        return false;
+    }
 }
 
 } // namespace debugger

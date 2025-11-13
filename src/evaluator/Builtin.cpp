@@ -12,6 +12,7 @@
 #include <fstream>
 #include <sstream>
 #include <filesystem>
+#include <nlohmann/json.hpp>
 
 namespace kingsejong {
 namespace evaluator {
@@ -1071,6 +1072,218 @@ static Value builtin_현재_디렉토리(const std::vector<Value>& args)
 }
 
 // ============================================================================
+// JSON 처리 함수
+// ============================================================================
+
+// JSON → Value 변환 헬퍼 함수
+static Value jsonToValue(const nlohmann::json& j)
+{
+    if (j.is_null()) {
+        return Value::createNull();
+    }
+    else if (j.is_boolean()) {
+        return Value::createBoolean(j.get<bool>());
+    }
+    else if (j.is_number_integer()) {
+        return Value::createInteger(j.get<int64_t>());
+    }
+    else if (j.is_number_float()) {
+        return Value::createFloat(j.get<double>());
+    }
+    else if (j.is_string()) {
+        return Value::createString(j.get<std::string>());
+    }
+    else if (j.is_array()) {
+        std::vector<Value> arr;
+        for (const auto& item : j) {
+            arr.push_back(jsonToValue(item));
+        }
+        return Value::createArray(arr);
+    }
+    else if (j.is_object()) {
+        // JSON object를 [["key", value], ...] 형태의 2D 배열로 변환
+        std::vector<Value> pairs;
+        for (auto it = j.begin(); it != j.end(); ++it) {
+            std::vector<Value> pair;
+            pair.push_back(Value::createString(it.key()));
+            pair.push_back(jsonToValue(it.value()));
+            pairs.push_back(Value::createArray(pair));
+        }
+        return Value::createArray(pairs);
+    }
+
+    return Value::createNull();
+}
+
+// Value → JSON 변환 헬퍼 함수
+static nlohmann::json valueToJson(const Value& val)
+{
+    if (val.isNull()) {
+        return nlohmann::json(nullptr);
+    }
+    else if (val.isBoolean()) {
+        return nlohmann::json(val.asBoolean());
+    }
+    else if (val.isInteger()) {
+        return nlohmann::json(val.asInteger());
+    }
+    else if (val.isFloat()) {
+        return nlohmann::json(val.asFloat());
+    }
+    else if (val.isString()) {
+        return nlohmann::json(val.asString());
+    }
+    else if (val.isArray()) {
+        const auto& arr = val.asArray();
+
+        // 빈 배열은 JSON 배열로
+        if (arr.empty()) {
+            return nlohmann::json::array();
+        }
+
+        // [["key", value], ...] 형태면 JSON object로 변환
+        bool isObject = true;
+        for (const auto& item : arr) {
+            if (!item.isArray() || item.asArray().size() != 2) {
+                isObject = false;
+                break;
+            }
+            if (!item.asArray()[0].isString()) {
+                isObject = false;
+                break;
+            }
+        }
+
+        if (isObject) {
+            // JSON object로 변환
+            nlohmann::json obj = nlohmann::json::object();
+            for (const auto& item : arr) {
+                std::string key = item.asArray()[0].asString();
+                obj[key] = valueToJson(item.asArray()[1]);
+            }
+            return obj;
+        }
+        else {
+            // 일반 JSON 배열로 변환
+            nlohmann::json json_arr = nlohmann::json::array();
+            for (const auto& item : arr) {
+                json_arr.push_back(valueToJson(item));
+            }
+            return json_arr;
+        }
+    }
+
+    return nlohmann::json(nullptr);
+}
+
+// JSON 문자열을 파싱한다
+static Value builtin_JSON_파싱(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("JSON_파싱() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isString()) {
+        throw std::runtime_error("JSON_파싱() 함수의 인자는 문자열이어야 합니다");
+    }
+
+    try {
+        std::string json_str = args[0].asString();
+        nlohmann::json j = nlohmann::json::parse(json_str);
+        return jsonToValue(j);
+    }
+    catch (const nlohmann::json::parse_error& e) {
+        throw std::runtime_error("JSON 파싱 오류: " + std::string(e.what()));
+    }
+}
+
+// 값을 JSON 문자열로 변환한다
+static Value builtin_JSON_문자열화(const std::vector<Value>& args)
+{
+    if (args.size() < 1 || args.size() > 2) {
+        throw std::runtime_error("JSON_문자열화() 함수는 1개 또는 2개의 인자가 필요합니다");
+    }
+
+    nlohmann::json j = valueToJson(args[0]);
+
+    // 두 번째 인자: 들여쓰기 크기 (선택적)
+    int indent = -1;  // -1이면 압축 형식
+    if (args.size() == 2) {
+        if (!args[1].isInteger()) {
+            throw std::runtime_error("JSON_문자열화() 함수의 두 번째 인자는 정수여야 합니다");
+        }
+        indent = static_cast<int>(args[1].asInteger());
+    }
+
+    std::string result = j.dump(indent);
+    return Value::createString(result);
+}
+
+// JSON 파일을 읽어서 파싱한다
+static Value builtin_JSON_파일_읽기(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("JSON_파일_읽기() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isString()) {
+        throw std::runtime_error("JSON_파일_읽기() 함수의 인자는 문자열(파일 경로)이어야 합니다");
+    }
+
+    std::string filepath = args[0].asString();
+
+    std::ifstream file(filepath);
+    if (!file.is_open()) {
+        throw std::runtime_error("JSON 파일을 열 수 없습니다: " + filepath);
+    }
+
+    try {
+        nlohmann::json j;
+        file >> j;
+        file.close();
+        return jsonToValue(j);
+    }
+    catch (const nlohmann::json::parse_error& e) {
+        file.close();
+        throw std::runtime_error("JSON 파일 파싱 오류: " + std::string(e.what()));
+    }
+}
+
+// 값을 JSON 파일로 저장한다
+static Value builtin_JSON_파일_쓰기(const std::vector<Value>& args)
+{
+    if (args.size() < 2 || args.size() > 3) {
+        throw std::runtime_error("JSON_파일_쓰기() 함수는 2개 또는 3개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isString()) {
+        throw std::runtime_error("JSON_파일_쓰기() 함수의 첫 번째 인자는 문자열(파일 경로)이어야 합니다");
+    }
+
+    std::string filepath = args[0].asString();
+    nlohmann::json j = valueToJson(args[1]);
+
+    // 세 번째 인자: 들여쓰기 크기 (선택적)
+    int indent = 2;  // 기본값: 2칸 들여쓰기
+    if (args.size() == 3) {
+        if (!args[2].isInteger()) {
+            throw std::runtime_error("JSON_파일_쓰기() 함수의 세 번째 인자는 정수여야 합니다");
+        }
+        indent = static_cast<int>(args[2].asInteger());
+    }
+
+    std::ofstream file(filepath);
+    if (!file.is_open()) {
+        throw std::runtime_error("JSON 파일을 열 수 없습니다: " + filepath);
+    }
+
+    file << j.dump(indent);
+    file.close();
+
+    return Value::createNull();
+}
+
+// ============================================================================
 // 내장 함수 등록
 // ============================================================================
 
@@ -1111,6 +1324,12 @@ void Builtin::registerAllBuiltins()
     registerBuiltin("디렉토리_삭제", builtin_디렉토리_삭제);
     registerBuiltin("디렉토리_목록", builtin_디렉토리_목록);
     registerBuiltin("현재_디렉토리", builtin_현재_디렉토리);
+
+    // JSON 처리 함수
+    registerBuiltin("JSON_파싱", builtin_JSON_파싱);
+    registerBuiltin("JSON_문자열화", builtin_JSON_문자열화);
+    registerBuiltin("JSON_파일_읽기", builtin_JSON_파일_읽기);
+    registerBuiltin("JSON_파일_쓰기", builtin_JSON_파일_쓰기);
 }
 
 } // namespace evaluator

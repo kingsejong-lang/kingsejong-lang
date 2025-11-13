@@ -1,0 +1,136 @@
+# stdlib/json.ksj 사용 예제
+# JSON 처리 기능 시연
+
+출력("=== KingSejong JSON 예제 ===\n")
+
+가져오기("stdlib/json.ksj")
+
+출력("1. 기본 JSON 파싱과 문자열화")
+json_str = "{\"name\":\"Alice\",\"age\":30,\"city\":\"Seoul\"}"
+출력("JSON 문자열: " + json_str)
+
+데이터 = JSON_파싱(json_str)
+출력("파싱 결과 (2D 배열):")
+출력(데이터)
+
+다시_문자열 = JSON_문자열화(데이터, 2)
+출력("\n예쁘게 출력:")
+출력(다시_문자열)
+
+출력("\n2. JSON object 다루기")
+person = [
+    ["name", "Bob"],
+    ["age", 25],
+    ["job", "Developer"]
+]
+
+출력("Person object:")
+JSON_예쁘게출력(person)
+
+이름 = JSON_가져오기(person, "name")
+출력("\n이름: " + 이름)
+
+나이 = JSON_가져오기(person, "age")
+출력("나이: " + 타입(나이))
+
+출력("\n3. JSON object 수정")
+person2 = JSON_추가(person, "city", "Busan")
+출력("도시 추가:")
+JSON_예쁘게출력(person2)
+
+person3 = JSON_제거(person2, "age")
+출력("\n나이 제거:")
+JSON_예쁘게출력(person3)
+
+출력("\n4. JSON 키와 값 목록")
+키들 = JSON_키목록(person)
+출력("모든 키:")
+출력(키들)
+
+값들 = JSON_값목록(person)
+출력("모든 값:")
+출력(값들)
+
+출력("\n5. JSON object 병합")
+obj1 = [["a", 1], ["b", 2]]
+obj2 = [["b", 3], ["c", 4]]
+병합결과 = JSON_병합(obj1, obj2)
+출력("obj1과 obj2 병합:")
+JSON_예쁘게출력(병합결과)
+
+출력("\n6. JSON 배열 처리")
+users_json = "[{\"name\":\"Alice\",\"age\":30},{\"name\":\"Bob\",\"age\":25},{\"name\":\"Charlie\",\"age\":30}]"
+users = JSON_파싱(users_json)
+출력("사용자 목록:")
+출력(타입(길이(users)) + "명")
+
+출력("\n7. JSON 파일 저장과 읽기")
+테스트_데이터 = [
+    ["title", "KingSejong 프로젝트"],
+    ["version", "0.3.2"],
+    ["features", ["LSP", "REPL", "JSON"]]
+]
+
+파일경로 = "test_data.json"
+JSON_파일_쓰기(파일경로, 테스트_데이터, 2)
+출력("JSON 파일 저장 완료: " + 파일경로)
+
+읽은_데이터 = JSON_파일_읽기(파일경로)
+출력("파일에서 읽은 데이터:")
+JSON_예쁘게출력(읽은_데이터)
+
+제목 = JSON_가져오기(읽은_데이터, "title")
+출력("\n프로젝트 제목: " + 제목)
+
+파일_삭제(파일경로)
+출력("테스트 파일 삭제 완료")
+
+출력("\n8. JSON 키 존재 확인")
+config = [
+    ["debug", 참],
+    ["port", 8080],
+    ["host", "localhost"]
+]
+
+debug존재 = JSON_키존재(config, "debug")
+출력("debug 키 존재: " + 타입(debug존재))
+
+timeout존재 = JSON_키존재(config, "timeout")
+출력("timeout 키 존재: " + 타입(timeout존재))
+
+출력("\n9. 배열에서 JSON object로 변환")
+keys = ["이름", "나이", "도시"]
+values = ["김철수", 28, "서울"]
+result = 배열을_JSON객체로(keys, values)
+출력("변환 결과:")
+JSON_예쁘게출력(result)
+
+출력("\n10. 실용적인 예제 - 설정 파일 관리")
+config_file = "app_config.json"
+
+기본설정 = [
+    ["app_name", "MyApp"],
+    ["version", "1.0.0"],
+    ["port", 3000],
+    ["debug", 거짓]
+]
+
+JSON_파일_쓰기(config_file, 기본설정, 2)
+출력("설정 파일 생성 완료")
+
+설정 = JSON_파일_읽기(config_file)
+앱이름 = JSON_가져오기(설정, "app_name")
+포트 = JSON_가져오기(설정, "port")
+
+출력("앱 이름: " + 앱이름)
+출력("포트: " + 타입(포트))
+
+새설정 = JSON_추가(설정, "debug", 참)
+새설정 = JSON_추가(새설정, "log_level", "info")
+JSON_파일_쓰기(config_file, 새설정, 2)
+출력("설정 업데이트 완료")
+
+파일_삭제(config_file)
+출력("설정 파일 삭제 완료")
+
+출력("\n=== 완료 ===")

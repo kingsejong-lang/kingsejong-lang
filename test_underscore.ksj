@@ -1,0 +1,2 @@
+test_value = 10
+출력(test_value)

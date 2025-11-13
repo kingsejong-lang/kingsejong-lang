@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![C++23](https://img.shields.io/badge/C++-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![CI](https://github.com/0xmhha/kingsejonglang/workflows/CI/badge.svg)](https://github.com/0xmhha/kingsejonglang/actions)
-[![Tests](https://img.shields.io/badge/tests-803%20passed-success)](tests/)
+[![Tests](https://img.shields.io/badge/tests-825%20passed-success)](tests/)
 [![Version](https://img.shields.io/badge/version-v0.3.1-blue)](https://github.com/0xmhha/kingsejonglang/releases/tag/v0.3.1)
 [![VS Code](https://img.shields.io/badge/VS%20Code-Extension-blue)](vscode-extension/)
 
@@ -226,6 +226,7 @@ $ ./kingsejong
 - `math.ksj` - 18개 수학 함수 (절댓값, 거듭제곱, 팩토리얼, GCD, 소수 판별 등)
 - `string.ksj` - 9개 문자열 처리 함수 (반복, 결합, 채우기 등)
 - `array.ksj` - 18개 배열 유틸리티 (범위, 중복 제거, zip 등)
+- `io.ksj` - 25개 파일 I/O 함수 (파일 읽기/쓰기, 디렉토리 관리, 경로 처리 등) ⭐ NEW
 
 ### 📐 4. 자연스러운 범위 표현
 
@@ -428,7 +429,7 @@ i가 1부터 10까지 {
 - ✅ 에러 처리 시스템
 - ✅ 한글 에러 메시지
 - ✅ 타입 검사
-- ✅ **표준 라이브러리** (math, string, array - 45개 함수)
+- ✅ **표준 라이브러리** (math, string, array, io - 70개+ 함수)
 
 ### Phase 3: 고급 기능 ✅ (100% 완료)
 
@@ -471,7 +472,7 @@ i가 1부터 10까지 {
 ### 테스트 현황
 
 ```
-총 테스트: 803개
+총 테스트: 825개
 통과율: 100%
 실패: 0개
 
@@ -613,7 +614,7 @@ npm run compile
 
 ### 실용성
 
-- **표준 라이브러리** - 45개 유틸리티 함수
+- **표준 라이브러리** - 70개+ 유틸리티 함수 (math, string, array, io)
 - **REPL** - 빠른 프로토타이핑
 - **에러 메시지 한글화** - 친절한 피드백
 - **100% 테스트 통과** - 안정성 보장
@@ -678,7 +679,7 @@ kingsejonglang/
 │   ├── string.ksj        # 문자열 처리 (9개)
 │   ├── array.ksj         # 배열 유틸리티 (18개)
 │   └── README.md         # 라이브러리 문서
-├── tests/                 # 테스트 코드 (803개)
+├── tests/                 # 테스트 코드 (825개)
 │   ├── lsp/              # LSP 테스트 (130개)
 │   │   ├── JsonRpcTest.cpp
 │   │   ├── DocumentManagerTest.cpp

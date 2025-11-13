@@ -9,6 +9,9 @@
 #include <iostream>
 #include <stdexcept>
 #include <cmath>
+#include <fstream>
+#include <sstream>
+#include <filesystem>
 
 namespace kingsejong {
 namespace evaluator {
@@ -772,6 +775,302 @@ static Value builtin_제곱(const std::vector<Value>& args)
 }
 
 // ============================================================================
+// 파일 I/O 함수
+// ============================================================================
+
+/**
+ * @brief 파일_읽기(경로) - 파일의 전체 내용을 읽어 문자열로 반환
+ *
+ * @param args[0] 파일 경로 (문자열)
+ * @return 파일 내용 (문자열) 또는 에러
+ */
+static Value builtin_파일_읽기(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("파일_읽기() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isString()) {
+        throw std::runtime_error("파일_읽기() 함수의 인자는 문자열(파일 경로)이어야 합니다");
+    }
+
+    std::string filepath = args[0].asString();
+    std::ifstream file(filepath);
+
+    if (!file.is_open()) {
+        throw std::runtime_error("파일을 열 수 없습니다: " + filepath);
+    }
+
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    file.close();
+
+    return Value::createString(buffer.str());
+}
+
+/**
+ * @brief 파일_쓰기(경로, 내용) - 파일에 내용을 씁니다 (덮어쓰기)
+ *
+ * @param args[0] 파일 경로 (문자열)
+ * @param args[1] 파일에 쓸 내용 (문자열)
+ * @return null
+ */
+static Value builtin_파일_쓰기(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("파일_쓰기() 함수는 정확히 2개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isString()) {
+        throw std::runtime_error("파일_쓰기() 함수의 첫 번째 인자는 문자열(파일 경로)이어야 합니다");
+    }
+
+    if (!args[1].isString()) {
+        throw std::runtime_error("파일_쓰기() 함수의 두 번째 인자는 문자열(내용)이어야 합니다");
+    }
+
+    std::string filepath = args[0].asString();
+    std::string content = args[1].asString();
+
+    std::ofstream file(filepath);
+    if (!file.is_open()) {
+        throw std::runtime_error("파일을 열 수 없습니다: " + filepath);
+    }
+
+    file << content;
+    file.close();
+
+    return Value::createNull();
+}
+
+/**
+ * @brief 파일_추가(경로, 내용) - 파일에 내용을 추가합니다 (append)
+ *
+ * @param args[0] 파일 경로 (문자열)
+ * @param args[1] 파일에 추가할 내용 (문자열)
+ * @return null
+ */
+static Value builtin_파일_추가(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("파일_추가() 함수는 정확히 2개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isString()) {
+        throw std::runtime_error("파일_추가() 함수의 첫 번째 인자는 문자열(파일 경로)이어야 합니다");
+    }
+
+    if (!args[1].isString()) {
+        throw std::runtime_error("파일_추가() 함수의 두 번째 인자는 문자열(내용)이어야 합니다");
+    }
+
+    std::string filepath = args[0].asString();
+    std::string content = args[1].asString();
+
+    std::ofstream file(filepath, std::ios::app);
+    if (!file.is_open()) {
+        throw std::runtime_error("파일을 열 수 없습니다: " + filepath);
+    }
+
+    file << content;
+    file.close();
+
+    return Value::createNull();
+}
+
+/**
+ * @brief 파일_존재(경로) - 파일이 존재하는지 확인
+ *
+ * @param args[0] 파일 경로 (문자열)
+ * @return 존재 여부 (불리언)
+ */
+static Value builtin_파일_존재(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("파일_존재() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isString()) {
+        throw std::runtime_error("파일_존재() 함수의 인자는 문자열(파일 경로)이어야 합니다");
+    }
+
+    std::string filepath = args[0].asString();
+    bool exists = std::filesystem::exists(filepath);
+
+    return Value::createBoolean(exists);
+}
+
+/**
+ * @brief 줄별_읽기(경로) - 파일을 줄별로 읽어 배열로 반환
+ *
+ * @param args[0] 파일 경로 (문자열)
+ * @return 줄들의 배열
+ */
+static Value builtin_줄별_읽기(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("줄별_읽기() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isString()) {
+        throw std::runtime_error("줄별_읽기() 함수의 인자는 문자열(파일 경로)이어야 합니다");
+    }
+
+    std::string filepath = args[0].asString();
+    std::ifstream file(filepath);
+
+    if (!file.is_open()) {
+        throw std::runtime_error("파일을 열 수 없습니다: " + filepath);
+    }
+
+    std::vector<Value> lines;
+    std::string line;
+
+    while (std::getline(file, line)) {
+        lines.push_back(Value::createString(line));
+    }
+
+    file.close();
+
+    return Value::createArray(lines);
+}
+
+/**
+ * @brief 파일_삭제(경로) - 파일을 삭제
+ *
+ * @param args[0] 파일 경로 (문자열)
+ * @return null
+ */
+static Value builtin_파일_삭제(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("파일_삭제() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isString()) {
+        throw std::runtime_error("파일_삭제() 함수의 인자는 문자열(파일 경로)이어야 합니다");
+    }
+
+    std::string filepath = args[0].asString();
+
+    if (!std::filesystem::exists(filepath)) {
+        throw std::runtime_error("파일이 존재하지 않습니다: " + filepath);
+    }
+
+    if (!std::filesystem::remove(filepath)) {
+        throw std::runtime_error("파일을 삭제할 수 없습니다: " + filepath);
+    }
+
+    return Value::createNull();
+}
+
+/**
+ * @brief 디렉토리_생성(경로) - 디렉토리를 생성 (중첩 디렉토리 지원)
+ *
+ * @param args[0] 디렉토리 경로 (문자열)
+ * @return null
+ */
+static Value builtin_디렉토리_생성(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("디렉토리_생성() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isString()) {
+        throw std::runtime_error("디렉토리_생성() 함수의 인자는 문자열(디렉토리 경로)이어야 합니다");
+    }
+
+    std::string dirpath = args[0].asString();
+
+    if (!std::filesystem::create_directories(dirpath)) {
+        // create_directories는 이미 존재하면 false 반환
+        if (!std::filesystem::exists(dirpath)) {
+            throw std::runtime_error("디렉토리를 생성할 수 없습니다: " + dirpath);
+        }
+    }
+
+    return Value::createNull();
+}
+
+/**
+ * @brief 디렉토리_삭제(경로) - 디렉토리를 삭제 (하위 파일/디렉토리 모두 삭제)
+ *
+ * @param args[0] 디렉토리 경로 (문자열)
+ * @return null
+ */
+static Value builtin_디렉토리_삭제(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("디렉토리_삭제() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isString()) {
+        throw std::runtime_error("디렉토리_삭제() 함수의 인자는 문자열(디렉토리 경로)이어야 합니다");
+    }
+
+    std::string dirpath = args[0].asString();
+
+    if (!std::filesystem::exists(dirpath)) {
+        throw std::runtime_error("디렉토리가 존재하지 않습니다: " + dirpath);
+    }
+
+    std::filesystem::remove_all(dirpath);
+
+    return Value::createNull();
+}
+
+/**
+ * @brief 디렉토리_목록(경로) - 디렉토리 내 파일/디렉토리 목록을 배열로 반환
+ *
+ * @param args[0] 디렉토리 경로 (문자열)
+ * @return 파일/디렉토리 이름 배열
+ */
+static Value builtin_디렉토리_목록(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("디렉토리_목록() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isString()) {
+        throw std::runtime_error("디렉토리_목록() 함수의 인자는 문자열(디렉토리 경로)이어야 합니다");
+    }
+
+    std::string dirpath = args[0].asString();
+
+    if (!std::filesystem::exists(dirpath)) {
+        throw std::runtime_error("디렉토리가 존재하지 않습니다: " + dirpath);
+    }
+
+    if (!std::filesystem::is_directory(dirpath)) {
+        throw std::runtime_error("경로가 디렉토리가 아닙니다: " + dirpath);
+    }
+
+    std::vector<Value> entries;
+
+    for (const auto& entry : std::filesystem::directory_iterator(dirpath)) {
+        entries.push_back(Value::createString(entry.path().filename().string()));
+    }
+
+    return Value::createArray(entries);
+}
+
+/**
+ * @brief 현재_디렉토리() - 현재 작업 디렉토리 경로를 반환
+ *
+ * @return 현재 작업 디렉토리 경로 (문자열)
+ */
+static Value builtin_현재_디렉토리(const std::vector<Value>& args)
+{
+    if (args.size() != 0) {
+        throw std::runtime_error("현재_디렉토리() 함수는 인자가 필요하지 않습니다");
+    }
+
+    std::string current_path = std::filesystem::current_path().string();
+
+    return Value::createString(current_path);
+}
+
+// ============================================================================
 // 내장 함수 등록
 // ============================================================================
 
@@ -800,6 +1099,18 @@ void Builtin::registerAllBuiltins()
     registerBuiltin("절대값", builtin_절대값);
     registerBuiltin("제곱근", builtin_제곱근);
     registerBuiltin("제곱", builtin_제곱);
+
+    // 파일 I/O 함수
+    registerBuiltin("파일_읽기", builtin_파일_읽기);
+    registerBuiltin("파일_쓰기", builtin_파일_쓰기);
+    registerBuiltin("파일_추가", builtin_파일_추가);
+    registerBuiltin("파일_존재", builtin_파일_존재);
+    registerBuiltin("줄별_읽기", builtin_줄별_읽기);
+    registerBuiltin("파일_삭제", builtin_파일_삭제);
+    registerBuiltin("디렉토리_생성", builtin_디렉토리_생성);
+    registerBuiltin("디렉토리_삭제", builtin_디렉토리_삭제);
+    registerBuiltin("디렉토리_목록", builtin_디렉토리_목록);
+    registerBuiltin("현재_디렉토리", builtin_현재_디렉토리);
 }
 
 } // namespace evaluator

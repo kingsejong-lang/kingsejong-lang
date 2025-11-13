@@ -248,7 +248,11 @@ nlohmann::json LanguageServer::handleInitialize(const nlohmann::json& params)
         {"textDocumentSync", 1},  // Full sync
         {"completionProvider", {
             {"triggerCharacters", nlohmann::json::array()}
-        }}
+        }},
+        {"definitionProvider", true},      // Go to Definition (F12)
+        {"hoverProvider", true},           // Hover Information
+        {"referencesProvider", true},      // Find References (Shift+F12)
+        {"renameProvider", true}           // Rename Symbol (F2)
     };
 
     initialized_ = true;
@@ -257,7 +261,7 @@ nlohmann::json LanguageServer::handleInitialize(const nlohmann::json& params)
         {"capabilities", capabilities},
         {"serverInfo", {
             {"name", "kingsejong-lsp"},
-            {"version", "0.1.0"}
+            {"version", "0.3.2"}
         }}
     };
 }

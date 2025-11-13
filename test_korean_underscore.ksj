@@ -1,4 +1,0 @@
-파일_쓰기("test.txt", "Hello")
-내용 = 파일_읽기("test.txt")
-출력(내용)
-파일_삭제("test.txt")

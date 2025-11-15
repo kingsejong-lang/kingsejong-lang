@@ -17,6 +17,9 @@
 #include <iomanip>
 #include <thread>
 #include <regex>
+#include <random>
+#include <algorithm>
+#include <functional>
 
 namespace kingsejong {
 namespace evaluator {
@@ -1678,6 +1681,341 @@ static Value builtin_정규표현식_개수(const std::vector<Value>& args)
 }
 
 // ============================================================================
+// 암호화 함수
+// ============================================================================
+
+/**
+ * @brief Base64_인코딩(문자열) - Base64 인코딩
+ */
+static Value builtin_Base64_인코딩(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("Base64_인코딩(문자열): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("Base64_인코딩(문자열): 문자열 타입이어야 합니다");
+    }
+
+    static const char base64_chars[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz"
+        "0123456789+/";
+
+    std::string input = args[0].asString();
+    std::string result;
+    int val = 0;
+    int valb = -6;
+
+    for (unsigned char c : input) {
+        val = (val << 8) + c;
+        valb += 8;
+        while (valb >= 0) {
+            result.push_back(base64_chars[(val >> valb) & 0x3F]);
+            valb -= 6;
+        }
+    }
+
+    if (valb > -6) {
+        result.push_back(base64_chars[((val << 8) >> (valb + 8)) & 0x3F]);
+    }
+
+    while (result.size() % 4) {
+        result.push_back('=');
+    }
+
+    return Value::createString(result);
+}
+
+/**
+ * @brief Base64_디코딩(문자열) - Base64 디코딩
+ */
+static Value builtin_Base64_디코딩(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("Base64_디코딩(문자열): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("Base64_디코딩(문자열): 문자열 타입이어야 합니다");
+    }
+
+    static const unsigned char base64_table[256] = {
+        64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+        64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+        64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 62, 64, 64, 64, 63,
+        52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 64, 64, 64, 64, 64, 64,
+        64,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14,
+        15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 64, 64, 64, 64, 64,
+        64, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+        41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 64, 64, 64, 64, 64,
+        64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+        64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+        64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+        64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+        64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+        64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+        64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64,
+        64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
+    };
+
+    std::string input = args[0].asString();
+    std::string result;
+    int val = 0;
+    int valb = -8;
+
+    for (unsigned char c : input) {
+        if (base64_table[c] == 64) break;
+        val = (val << 6) + base64_table[c];
+        valb += 6;
+        if (valb >= 0) {
+            result.push_back(char((val >> valb) & 0xFF));
+            valb -= 8;
+        }
+    }
+
+    return Value::createString(result);
+}
+
+/**
+ * @brief 문자열_해시(문자열) - 간단한 해시 생성
+ */
+static Value builtin_문자열_해시(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("문자열_해시(문자열): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("문자열_해시(문자열): 문자열 타입이어야 합니다");
+    }
+
+    std::string input = args[0].asString();
+    std::hash<std::string> hasher;
+    size_t hash_value = hasher(input);
+
+    std::ostringstream oss;
+    oss << std::hex << hash_value;
+    return Value::createString(oss.str());
+}
+
+/**
+ * @brief 파일_해시(경로) - 파일 해시
+ */
+static Value builtin_파일_해시(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("파일_해시(경로): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("파일_해시(경로): 문자열 타입이어야 합니다");
+    }
+
+    std::string path = args[0].asString();
+    std::ifstream file(path, std::ios::binary);
+    if (!file) {
+        throw std::runtime_error("파일을 열 수 없습니다: " + path);
+    }
+
+    std::ostringstream oss;
+    oss << file.rdbuf();
+    std::string content = oss.str();
+
+    std::hash<std::string> hasher;
+    size_t hash_value = hasher(content);
+
+    std::ostringstream result;
+    result << std::hex << hash_value;
+    return Value::createString(result.str());
+}
+
+/**
+ * @brief 해시_비교(문자열1, 문자열2) - 해시 비교
+ */
+static Value builtin_해시_비교(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("해시_비교(문자열1, 문자열2): 2개의 인자가 필요합니다");
+    }
+    if (!args[0].isString() || !args[1].isString()) {
+        throw std::runtime_error("해시_비교(문자열1, 문자열2): 문자열 타입이어야 합니다");
+    }
+
+    std::hash<std::string> hasher;
+    size_t hash1 = hasher(args[0].asString());
+    size_t hash2 = hasher(args[1].asString());
+
+    return Value::createBoolean(hash1 == hash2);
+}
+
+/**
+ * @brief 체크섬(문자열) - 간단한 체크섬 계산
+ */
+static Value builtin_체크섬(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("체크섬(문자열): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("체크섬(문자열): 문자열 타입이어야 합니다");
+    }
+
+    std::string input = args[0].asString();
+    uint32_t checksum = 0;
+
+    for (unsigned char c : input) {
+        checksum = (checksum << 1) | (checksum >> 31);
+        checksum += c;
+    }
+
+    return Value::createInteger(static_cast<int64_t>(checksum));
+}
+
+/**
+ * @brief XOR_암호화(문자열, 키) - XOR 암호화
+ */
+static Value builtin_XOR_암호화(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("XOR_암호화(문자열, 키): 2개의 인자가 필요합니다");
+    }
+    if (!args[0].isString() || !args[1].isString()) {
+        throw std::runtime_error("XOR_암호화(문자열, 키): 문자열 타입이어야 합니다");
+    }
+
+    std::string text = args[0].asString();
+    std::string key = args[1].asString();
+
+    if (key.empty()) {
+        throw std::runtime_error("키는 비어있을 수 없습니다");
+    }
+
+    std::string result;
+    size_t key_idx = 0;
+
+    for (char c : text) {
+        result.push_back(c ^ key[key_idx]);
+        key_idx = (key_idx + 1) % key.length();
+    }
+
+    return Value::createString(result);
+}
+
+/**
+ * @brief XOR_복호화(문자열, 키) - XOR 복호화 (암호화와 동일)
+ */
+static Value builtin_XOR_복호화(const std::vector<Value>& args)
+{
+    return builtin_XOR_암호화(args);  // XOR은 대칭
+}
+
+/**
+ * @brief 시저_암호화(문자열, 이동) - Caesar cipher 암호화
+ */
+static Value builtin_시저_암호화(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("시저_암호화(문자열, 이동): 2개의 인자가 필요합니다");
+    }
+    if (!args[0].isString() || !args[1].isInteger()) {
+        throw std::runtime_error("시저_암호화(문자열, 이동): 문자열과 정수 타입이어야 합니다");
+    }
+
+    std::string text = args[0].asString();
+    int64_t shift = args[1].asInteger();
+    std::string result;
+
+    for (char c : text) {
+        if (c >= 'a' && c <= 'z') {
+            result.push_back('a' + (c - 'a' + shift + 26) % 26);
+        } else if (c >= 'A' && c <= 'Z') {
+            result.push_back('A' + (c - 'A' + shift + 26) % 26);
+        } else {
+            result.push_back(c);
+        }
+    }
+
+    return Value::createString(result);
+}
+
+/**
+ * @brief 시저_복호화(문자열, 이동) - Caesar cipher 복호화
+ */
+static Value builtin_시저_복호화(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("시저_복호화(문자열, 이동): 2개의 인자가 필요합니다");
+    }
+    if (!args[0].isString() || !args[1].isInteger()) {
+        throw std::runtime_error("시저_복호화(문자열, 이동): 문자열과 정수 타입이어야 합니다");
+    }
+
+    // 복호화는 -shift로 암호화
+    std::vector<Value> decrypt_args = args;
+    decrypt_args[1] = Value::createInteger(-args[1].asInteger());
+    return builtin_시저_암호화(decrypt_args);
+}
+
+/**
+ * @brief 랜덤_문자열(길이) - 랜덤 문자열 생성
+ */
+static Value builtin_랜덤_문자열(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("랜덤_문자열(길이): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isInteger()) {
+        throw std::runtime_error("랜덤_문자열(길이): 정수 타입이어야 합니다");
+    }
+
+    int64_t length = args[0].asInteger();
+    if (length < 0) {
+        throw std::runtime_error("길이는 0 이상이어야 합니다");
+    }
+
+    static const char alphanum[] =
+        "0123456789"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz";
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, sizeof(alphanum) - 2);
+
+    std::string result;
+    result.reserve(length);
+
+    for (int64_t i = 0; i < length; ++i) {
+        result.push_back(alphanum[dis(gen)]);
+    }
+
+    return Value::createString(result);
+}
+
+/**
+ * @brief 랜덤_숫자(최소, 최대) - 랜덤 정수 생성
+ */
+static Value builtin_랜덤_숫자(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("랜덤_숫자(최소, 최대): 2개의 인자가 필요합니다");
+    }
+    if (!args[0].isInteger() || !args[1].isInteger()) {
+        throw std::runtime_error("랜덤_숫자(최소, 최대): 정수 타입이어야 합니다");
+    }
+
+    int64_t min = args[0].asInteger();
+    int64_t max = args[1].asInteger();
+
+    if (min > max) {
+        throw std::runtime_error("최소값은 최대값보다 작거나 같아야 합니다");
+    }
+
+    std::random_device rd;
+    std::mt19937_64 gen(rd());
+    std::uniform_int_distribution<int64_t> dis(min, max);
+
+    return Value::createInteger(dis(gen));
+}
+
+// ============================================================================
 // 내장 함수 등록
 // ============================================================================
 
@@ -1745,6 +2083,20 @@ void Builtin::registerAllBuiltins()
     registerBuiltin("전화번호_검증", builtin_전화번호_검증);
     registerBuiltin("정규표현식_추출", builtin_정규표현식_추출);
     registerBuiltin("정규표현식_개수", builtin_정규표현식_개수);
+
+    // 암호화 함수
+    registerBuiltin("Base64_인코딩", builtin_Base64_인코딩);
+    registerBuiltin("Base64_디코딩", builtin_Base64_디코딩);
+    registerBuiltin("문자열_해시", builtin_문자열_해시);
+    registerBuiltin("파일_해시", builtin_파일_해시);
+    registerBuiltin("해시_비교", builtin_해시_비교);
+    registerBuiltin("체크섬", builtin_체크섬);
+    registerBuiltin("XOR_암호화", builtin_XOR_암호화);
+    registerBuiltin("XOR_복호화", builtin_XOR_복호화);
+    registerBuiltin("시저_암호화", builtin_시저_암호화);
+    registerBuiltin("시저_복호화", builtin_시저_복호화);
+    registerBuiltin("랜덤_문자열", builtin_랜덤_문자열);
+    registerBuiltin("랜덤_숫자", builtin_랜덤_숫자);
 }
 
 } // namespace evaluator

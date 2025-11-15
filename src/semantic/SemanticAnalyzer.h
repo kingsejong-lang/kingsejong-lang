@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <unordered_set>
 
 namespace kingsejong {
 namespace semantic {
@@ -67,6 +68,7 @@ public:
     SemanticAnalyzer()
         : symbolTable_()
     {
+        initBuiltinFunctions();
     }
 
     /**
@@ -102,8 +104,23 @@ public:
     }
 
 private:
-    SymbolTable symbolTable_;               ///< 심볼 테이블
-    std::vector<SemanticError> errors_;     ///< 에러 목록
+    SymbolTable symbolTable_;                    ///< 심볼 테이블
+    std::vector<SemanticError> errors_;          ///< 에러 목록
+    std::unordered_set<std::string> builtins_;   ///< Builtin 함수 목록
+
+    // ========================================================================
+    // Builtin 함수 초기화
+    // ========================================================================
+
+    /**
+     * @brief Builtin 함수 목록 초기화
+     */
+    void initBuiltinFunctions();
+
+    /**
+     * @brief 식별자가 builtin 함수인지 확인
+     */
+    bool isBuiltinFunction(const std::string& name) const;
 
     // ========================================================================
     // Phase 1: Symbol Table 구축
@@ -143,7 +160,7 @@ private:
     /**
      * @brief Statement의 이름 해석
      */
-    void resolveNamesInStatement(ast::Statement* stmt);
+    void resolveNamesInStatement(const ast::Statement* stmt);
 
     /**
      * @brief Expression의 이름 해석

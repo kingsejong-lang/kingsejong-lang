@@ -15,6 +15,54 @@ using namespace ast;
 using namespace types;
 
 // ============================================================================
+// Builtin 함수 초기화
+// ============================================================================
+
+void SemanticAnalyzer::initBuiltinFunctions()
+{
+    // 기본 I/O
+    builtins_.insert("출력");
+    builtins_.insert("입력");
+
+    // 타입 및 변환
+    builtins_.insert("타입");
+    builtins_.insert("정수");
+    builtins_.insert("실수");
+    builtins_.insert("문자열");
+
+    // 문자열 함수
+    builtins_.insert("길이");
+    builtins_.insert("분리");
+    builtins_.insert("찾기");
+    builtins_.insert("바꾸기");
+    builtins_.insert("대문자");
+    builtins_.insert("소문자");
+
+    // 수학 함수
+    builtins_.insert("반올림");
+    builtins_.insert("올림");
+    builtins_.insert("내림");
+    builtins_.insert("절대값");
+    builtins_.insert("제곱근");
+    builtins_.insert("제곱");
+
+    // 파일 I/O
+    builtins_.insert("파일_읽기");
+    builtins_.insert("파일_쓰기");
+
+    // 배열 함수
+    builtins_.insert("추가");
+    builtins_.insert("삭제");
+    builtins_.insert("정렬");
+    builtins_.insert("뒤집기");
+}
+
+bool SemanticAnalyzer::isBuiltinFunction(const std::string& name) const
+{
+    return builtins_.find(name) != builtins_.end();
+}
+
+// ============================================================================
 // 메인 진입점
 // ============================================================================
 
@@ -159,51 +207,202 @@ void SemanticAnalyzer::resolveNames(Program* program)
     }
 }
 
-void SemanticAnalyzer::resolveNamesInStatement(Statement* stmt)
+void SemanticAnalyzer::resolveNamesInStatement(const Statement* stmt)
 {
-    // TODO: Statement의 모든 식별자 검증
-    // 현재는 skeleton
     if (!stmt) return;
 
-    // ExpressionStatement
-    if (auto exprStmt = dynamic_cast<const ExpressionStatement*>(stmt))
-    {
-        resolveNamesInExpression(exprStmt->expression());
-    }
-    // VarDeclaration
-    else if (auto varDecl = dynamic_cast<const VarDeclaration*>(stmt))
+    // VarDeclaration: 초기화 값 검증
+    if (auto varDecl = dynamic_cast<const VarDeclaration*>(stmt))
     {
         if (varDecl->initializer())
         {
             resolveNamesInExpression(varDecl->initializer());
         }
     }
-    // 기타 문장들...
+
+    // AssignmentStatement: 할당 값 검증 (변수명은 이미 정의되어 있어야 함)
+    else if (auto assignStmt = dynamic_cast<const AssignmentStatement*>(stmt))
+    {
+        const std::string& varName = assignStmt->varName();
+
+        // 할당 대상 변수가 정의되어 있는지 확인 (타입 검사 단계에서도 확인하지만 여기서도 체크)
+        if (!symbolTable_.isDefined(varName))
+        {
+            addError("정의되지 않은 변수에 할당 시도: " + varName);
+        }
+
+        // 할당 값 검증
+        resolveNamesInExpression(assignStmt->value());
+    }
+
+    // ExpressionStatement: 표현식 검증
+    else if (auto exprStmt = dynamic_cast<const ExpressionStatement*>(stmt))
+    {
+        resolveNamesInExpression(exprStmt->expression());
+    }
+
+    // ReturnStatement: 반환 값 검증
+    else if (auto retStmt = dynamic_cast<const ReturnStatement*>(stmt))
+    {
+        if (retStmt->returnValue())
+        {
+            resolveNamesInExpression(retStmt->returnValue());
+        }
+    }
+
+    // IfStatement: 조건과 블록들 검증
+    else if (auto ifStmt = dynamic_cast<const IfStatement*>(stmt))
+    {
+        resolveNamesInExpression(ifStmt->condition());
+
+        if (ifStmt->thenBranch())
+        {
+            resolveNamesInStatement(ifStmt->thenBranch());
+        }
+
+        if (ifStmt->elseBranch())
+        {
+            resolveNamesInStatement(ifStmt->elseBranch());
+        }
+    }
+
+    // WhileStatement: 조건과 본문 검증
+    else if (auto whileStmt = dynamic_cast<const WhileStatement*>(stmt))
+    {
+        resolveNamesInExpression(whileStmt->condition());
+
+        if (whileStmt->body())
+        {
+            resolveNamesInStatement(whileStmt->body());
+        }
+    }
+
+    // BlockStatement: 모든 문장 검증
+    else if (auto blockStmt = dynamic_cast<const BlockStatement*>(stmt))
+    {
+        for (const auto& s : blockStmt->statements())
+        {
+            resolveNamesInStatement(s.get());
+        }
+    }
+
+    // RangeForStatement: 범위와 본문 검증
+    else if (auto forStmt = dynamic_cast<const RangeForStatement*>(stmt))
+    {
+        resolveNamesInExpression(forStmt->start());
+        resolveNamesInExpression(forStmt->end());
+
+        if (forStmt->body())
+        {
+            resolveNamesInStatement(forStmt->body());
+        }
+    }
+
+    // RepeatStatement: 횟수와 본문 검증
+    else if (auto repeatStmt = dynamic_cast<const RepeatStatement*>(stmt))
+    {
+        resolveNamesInExpression(repeatStmt->count());
+
+        if (repeatStmt->body())
+        {
+            resolveNamesInStatement(repeatStmt->body());
+        }
+    }
 }
 
 void SemanticAnalyzer::resolveNamesInExpression(const Expression* expr)
 {
-    // TODO: Expression의 모든 식별자 검증
-    // 현재는 skeleton
     if (!expr) return;
 
-    // Identifier
+    // Identifier: 변수나 함수가 정의되었는지 확인
     if (auto ident = dynamic_cast<const Identifier*>(expr))
     {
         const std::string& name = ident->name();
-        if (!symbolTable_.isDefined(name))
+
+        // builtin 함수나 정의된 심볼이 아니면 에러
+        if (!isBuiltinFunction(name) && !symbolTable_.isDefined(name))
         {
-            // 미정의 변수 경고 (현재는 에러로 처리하지 않음 - builtin 함수 등이 있을 수 있음)
-            // addError("Undefined variable: " + name);
+            addError("정의되지 않은 식별자: " + name);
         }
     }
-    // BinaryExpression
+
+    // BinaryExpression: 좌변과 우변 검증
     else if (auto binExpr = dynamic_cast<const BinaryExpression*>(expr))
     {
         resolveNamesInExpression(binExpr->left());
         resolveNamesInExpression(binExpr->right());
     }
-    // 기타 표현식들...
+
+    // UnaryExpression: 피연산자 검증
+    else if (auto unaryExpr = dynamic_cast<const UnaryExpression*>(expr))
+    {
+        resolveNamesInExpression(unaryExpr->operand());
+    }
+
+    // CallExpression: 함수와 인자들 검증
+    else if (auto callExpr = dynamic_cast<const CallExpression*>(expr))
+    {
+        resolveNamesInExpression(callExpr->function());
+        for (const auto& arg : callExpr->arguments())
+        {
+            resolveNamesInExpression(arg.get());
+        }
+    }
+
+    // IndexExpression: 배열과 인덱스 검증
+    else if (auto indexExpr = dynamic_cast<const IndexExpression*>(expr))
+    {
+        resolveNamesInExpression(indexExpr->array());
+        resolveNamesInExpression(indexExpr->index());
+    }
+
+    // ArrayLiteral: 모든 요소 검증
+    else if (auto arrayLit = dynamic_cast<const ArrayLiteral*>(expr))
+    {
+        for (const auto& elem : arrayLit->elements())
+        {
+            resolveNamesInExpression(elem.get());
+        }
+    }
+
+    // FunctionLiteral: 함수 본문 검증 (매개변수는 함수 스코프에서 처리)
+    else if (dynamic_cast<const FunctionLiteral*>(expr))
+    {
+        // TODO: 함수 스코프 관리 구현 후 매개변수 등록 및 본문 검증
+        // 현재는 skeleton
+    }
+
+    // JosaExpression: 대상 표현식과 메서드 검증
+    else if (auto josaExpr = dynamic_cast<const JosaExpression*>(expr))
+    {
+        resolveNamesInExpression(josaExpr->object());
+        resolveNamesInExpression(josaExpr->method());
+    }
+
+    // MatchExpression: 패턴 매칭 표현식 검증
+    else if (auto matchExpr = dynamic_cast<const MatchExpression*>(expr))
+    {
+        // 매칭 대상 표현식 검증
+        resolveNamesInExpression(matchExpr->value());
+
+        // 각 케이스의 결과 표현식 검증
+        for (const auto& matchCase : matchExpr->cases())
+        {
+            // 가드 조건 검증
+            if (matchCase.guard())
+            {
+                resolveNamesInExpression(matchCase.guard());
+            }
+
+            // 결과 표현식 검증
+            if (matchCase.body())
+            {
+                resolveNamesInExpression(matchCase.body());
+            }
+        }
+    }
+
+    // 리터럴들은 검증 불필요 (IntegerLiteral, FloatLiteral, StringLiteral, BooleanLiteral)
 }
 
 // ============================================================================

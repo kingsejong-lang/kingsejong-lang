@@ -64,6 +64,8 @@ set(LIB_SOURCES
     src/linter/rules/UnusedVariableRule.cpp
     src/linter/rules/DeadCodeRule.cpp
     src/linter/rules/NoSelfComparisonRule.cpp
+    src/linter/rules/ConstantConditionRule.cpp
+    src/linter/rules/EmptyBlockRule.cpp
     src/formatter/Formatter.cpp
 )
 

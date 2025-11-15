@@ -54,7 +54,7 @@
 
 ---
 
-## 🎯 현재 상태 (v0.3.5)
+## 🎯 현재 상태 (v0.3.6)
 
 ### Phase 5 완료 ✅
 - ✅ LSP, 디버거, 플레이그라운드
@@ -62,15 +62,16 @@
 - ✅ Semantic Analyzer 완성
 
 ### Phase 6 진행중 🚧
-- ✅ Linter 기본 구현 완료 (3개 규칙, 14개 테스트)
+- ✅ Linter 완전 구현 (5개 규칙, 22개 테스트)
   - UnusedVariableRule, DeadCodeRule, NoSelfComparisonRule
+  - ConstantConditionRule, EmptyBlockRule
 - ✅ Formatter 기본 구현 완료 (18개 테스트)
   - AST 기반 코드 재포맷팅, 들여쓰기/공백 규칙
 - 📝 stdlib 대폭 확장 (200개+ 함수) 예정
 - 📝 JIT 컴파일러 Tier 1 예정
 
 ### 전체 테스트
-- ✅ **1107개 테스트 통과** (Phase 5: 1075개 + Linter: 14개 + Formatter: 18개)
+- ✅ **1115개 테스트 통과** (Phase 5: 1075개 + Linter: 22개 + Formatter: 18개)
 
 ---
 
@@ -78,16 +79,17 @@
 
 ### 6.1: 코드 품질 도구 (4주)
 
-#### Linter (ksjlint) - 2주 🚧
+#### Linter (ksjlint) - 2주 ✅
 - [x] AST 기반 정적 분석
 - [x] 규칙 엔진 설계 (Rule base class, visitor pattern)
-- [x] 기본 규칙 구현 - 14개 테스트
+- [x] 기본 규칙 구현 - 22개 테스트
   - [x] UnusedVariableRule (미사용 변수 감지)
   - [x] DeadCodeRule (return 후 도달 불가능 코드)
   - [x] NoSelfComparisonRule (자기 비교 감지)
+  - [x] ConstantConditionRule (항상 참/거짓 조건)
+  - [x] EmptyBlockRule (빈 블록 감지)
 - [ ] 설정 파일 (.ksjlintrc)
-- [ ] 추가 규칙 (타입 불일치, 네이밍 컨벤션 등)
-- [ ] 테스트 확장 (현재 14개 → 목표 30개+)
+- [ ] 추가 규칙 (네이밍 컨벤션 등)
 
 #### Formatter (ksjfmt) - 2주 ✅
 - [x] AST 기반 코드 포맷팅 엔진

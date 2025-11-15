@@ -12,6 +12,8 @@
 #include "linter/rules/UnusedVariableRule.h"
 #include "linter/rules/DeadCodeRule.h"
 #include "linter/rules/NoSelfComparisonRule.h"
+#include "linter/rules/ConstantConditionRule.h"
+#include "linter/rules/EmptyBlockRule.h"
 
 using namespace kingsejong;
 using namespace kingsejong::lexer;
@@ -404,4 +406,206 @@ TEST(LinterTest, ShouldDetectMultipleSelfComparisons)
 
     // r1과 r2가 자기 비교 (r3는 정상)
     EXPECT_EQ(linter.warningCount(), 2);
+}
+
+// ============================================================================
+// ConstantConditionRule 테스트
+// ============================================================================
+
+/**
+ * @test 항상 참인 if 조건 감지
+ */
+TEST(LinterTest, ShouldDetectConstantTrueCondition)
+{
+    std::string code = R"(
+만약 (참) {
+    출력(1)
+}
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<ConstantConditionRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    EXPECT_EQ(linter.warningCount(), 1);
+
+    const auto& issues = linter.issues();
+    ASSERT_EQ(issues.size(), 1);
+    EXPECT_EQ(issues[0].ruleId, "constant-condition");
+}
+
+/**
+ * @test 항상 거짓인 if 조건 감지
+ */
+TEST(LinterTest, ShouldDetectConstantFalseCondition)
+{
+    std::string code = R"(
+만약 (거짓) {
+    출력(1)
+}
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<ConstantConditionRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    EXPECT_EQ(linter.warningCount(), 1);
+}
+
+/**
+ * @test 변수 조건은 체크하지 않음 (상수가 아님)
+ */
+TEST(LinterTest, ShouldNotDetectVariableCondition)
+{
+    std::string code = R"(
+정수 x = 10
+만약 (x > 0) {
+    출력(1)
+}
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<ConstantConditionRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    // 변수 조건이므로 경고 없음
+    EXPECT_EQ(linter.warningCount(), 0);
+}
+
+/**
+ * @test 정수 0은 거짓으로 간주
+ */
+TEST(LinterTest, ShouldTreatZeroAsFalse)
+{
+    std::string code = R"(
+만약 (0) {
+    출력(1)
+}
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<ConstantConditionRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    EXPECT_EQ(linter.warningCount(), 1);
+}
+
+// ============================================================================
+// EmptyBlockRule 테스트
+// ============================================================================
+
+/**
+ * @test 빈 if 블록 감지
+ */
+TEST(LinterTest, ShouldDetectEmptyIfBlock)
+{
+    std::string code = R"(
+만약 (참) {
+}
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<EmptyBlockRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    EXPECT_EQ(linter.warningCount(), 1);
+
+    const auto& issues = linter.issues();
+    ASSERT_EQ(issues.size(), 1);
+    EXPECT_EQ(issues[0].ruleId, "empty-block");
+}
+
+/**
+ * @test 빈 else 블록 감지
+ */
+TEST(LinterTest, ShouldDetectEmptyElseBlock)
+{
+    std::string code = R"(
+만약 (참) {
+    출력(1)
+} 아니면 {
+}
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<EmptyBlockRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    EXPECT_EQ(linter.warningCount(), 1);
+}
+
+/**
+ * @test 빈 함수 본문 감지 (INFO 레벨)
+ */
+TEST(LinterTest, ShouldDetectEmptyFunction)
+{
+    std::string code = R"(
+정수 f = 함수() {
+}
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<EmptyBlockRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    EXPECT_EQ(linter.issues().size(), 1);
+    // 함수는 INFO 레벨이므로 warningCount()에 포함되지 않음
+}
+
+/**
+ * @test 내용이 있는 블록은 감지하지 않음
+ */
+TEST(LinterTest, ShouldNotDetectNonEmptyBlock)
+{
+    std::string code = R"(
+만약 (참) {
+    출력(1)
+}
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<EmptyBlockRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    EXPECT_EQ(linter.issues().size(), 0);
 }

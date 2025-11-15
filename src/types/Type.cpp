@@ -66,7 +66,7 @@ void Type::initBuiltinTypes()
     integerType_ = new Type(TypeKind::INTEGER, "정수");
     floatType_ = new Type(TypeKind::FLOAT, "실수");
     stringType_ = new Type(TypeKind::STRING, "문자열");
-    booleanType_ = new Type(TypeKind::BOOLEAN, "참거짓");
+    booleanType_ = new Type(TypeKind::BOOLEAN, "논리");
     nullType_ = new Type(TypeKind::NULL_TYPE, "없음");
     rangeType_ = new Type(TypeKind::RANGE, "범위");
 
@@ -74,7 +74,8 @@ void Type::initBuiltinTypes()
     builtinTypes_["정수"] = integerType_;
     builtinTypes_["실수"] = floatType_;
     builtinTypes_["문자열"] = stringType_;
-    builtinTypes_["참거짓"] = booleanType_;
+    builtinTypes_["논리"] = booleanType_;
+    builtinTypes_["참거짓"] = booleanType_;  // 별칭
     builtinTypes_["불린"] = booleanType_;  // 별칭
     builtinTypes_["없음"] = nullType_;
     builtinTypes_["범위"] = rangeType_;

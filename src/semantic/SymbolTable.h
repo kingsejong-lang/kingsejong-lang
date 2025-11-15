@@ -98,12 +98,12 @@ public:
      * @param name 심볼 이름
      * @return 심볼 포인터 (없으면 nullptr)
      */
-    Symbol* lookupLocal(const std::string& name)
+    Symbol* lookupLocal(const std::string& name) const
     {
         auto it = symbols_.find(name);
         if (it != symbols_.end())
         {
-            return &it->second;
+            return const_cast<Symbol*>(&it->second);
         }
         return nullptr;
     }
@@ -113,13 +113,13 @@ public:
      * @param name 심볼 이름
      * @return 심볼 포인터 (없으면 nullptr)
      */
-    Symbol* lookup(const std::string& name)
+    Symbol* lookup(const std::string& name) const
     {
         // 현재 스코프에서 찾기
         auto it = symbols_.find(name);
         if (it != symbols_.end())
         {
-            return &it->second;
+            return const_cast<Symbol*>(&it->second);
         }
 
         // 부모 스코프에서 찾기
@@ -136,7 +136,7 @@ public:
      * @param name 심볼 이름
      * @return 정의되어 있으면 true
      */
-    bool isDefined(const std::string& name)
+    bool isDefined(const std::string& name) const
     {
         return lookup(name) != nullptr;
     }
@@ -222,7 +222,7 @@ public:
      * @param name 심볼 이름
      * @return 심볼 포인터 (없으면 nullptr)
      */
-    Symbol* lookup(const std::string& name)
+    Symbol* lookup(const std::string& name) const
     {
         return currentScope_->lookup(name);
     }
@@ -232,7 +232,7 @@ public:
      * @param name 심볼 이름
      * @return 정의되어 있으면 true
      */
-    bool isDefined(const std::string& name)
+    bool isDefined(const std::string& name) const
     {
         return currentScope_->isDefined(name);
     }

@@ -109,6 +109,12 @@ void SemanticAnalyzer::registerVariable(VarDeclaration* varDecl)
     const std::string& varName = varDecl->varName();
     Type* varType = varDecl->varType();
 
+    // 타입이 명시되지 않은 경우 초기화 값에서 타입 추론
+    if (!varType && varDecl->initializer())
+    {
+        varType = inferType(varDecl->initializer());
+    }
+
     // 이미 정의된 변수인지 확인 (현재 스코프에서만)
     if (symbolTable_.currentScope()->lookupLocal(varName))
     {

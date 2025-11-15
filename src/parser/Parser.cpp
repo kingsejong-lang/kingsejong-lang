@@ -563,19 +563,25 @@ std::unique_ptr<ReturnStatement> Parser::parseReturnStatement()
 
 std::unique_ptr<IfStatement> Parser::parseIfStatement()
 {
-    // "만약" 다음 LPAREN 확인
-    if (!expectPeek(TokenType::LPAREN))
+    // 조건식 파싱: 괄호는 선택사항
+    // "만약 (조건) {" 또는 "만약 조건 {" 모두 지원
+    bool hasParentheses = peekTokenIs(TokenType::LPAREN);
+
+    if (hasParentheses)
     {
-        return nullptr;
+        nextToken(); // '(' 로 이동
     }
 
     nextToken(); // 조건식 시작
 
     auto condition = parseExpression(Precedence::LOWEST);
 
-    if (!expectPeek(TokenType::RPAREN))
+    if (hasParentheses)
     {
-        return nullptr;
+        if (!expectPeek(TokenType::RPAREN))
+        {
+            return nullptr;
+        }
     }
 
     // then 블록 파싱

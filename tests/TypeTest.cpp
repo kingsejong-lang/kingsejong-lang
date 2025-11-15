@@ -69,7 +69,7 @@ TEST(TypeTest, ShouldCreateBooleanType)
 
     ASSERT_NE(boolType, nullptr);
     EXPECT_EQ(boolType->kind(), TypeKind::BOOLEAN);
-    EXPECT_EQ(boolType->koreanName(), "참거짓");
+    EXPECT_EQ(boolType->koreanName(), "논리");
     EXPECT_EQ(boolType->englishName(), "BOOLEAN");
 }
 
@@ -136,7 +136,7 @@ TEST(TypeTest, ShouldGetBuiltinTypeByKoreanName_String)
 }
 
 /**
- * @test 한글 이름으로 빌트인 타입 가져오기 - "참거짓"
+ * @test 한글 이름으로 빌트인 타입 가져오기 - "참거짓" (별칭)
  */
 TEST(TypeTest, ShouldGetBuiltinTypeByKoreanName_Boolean)
 {
@@ -144,7 +144,7 @@ TEST(TypeTest, ShouldGetBuiltinTypeByKoreanName_Boolean)
 
     ASSERT_NE(type, nullptr);
     EXPECT_EQ(type->kind(), TypeKind::BOOLEAN);
-    EXPECT_EQ(type->koreanName(), "참거짓");
+    EXPECT_EQ(type->koreanName(), "논리");  // 실제 타입 이름은 "논리", "참거짓"은 별칭
 }
 
 /**

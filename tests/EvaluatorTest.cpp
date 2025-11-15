@@ -343,7 +343,7 @@ TEST(EvaluatorTest, ShouldThrowOnModuloByZero)
 // 복합 표현식 테스트
 // ============================================================================
 
-TEST(EvaluatorTest, DISABLED_ShouldEvaluateComplexExpression)
+TEST(EvaluatorTest, ShouldEvaluateComplexExpression)
 {
     auto result = evalInput(R"(
         정수 a = 5
@@ -352,8 +352,8 @@ TEST(EvaluatorTest, DISABLED_ShouldEvaluateComplexExpression)
         (a + b) * c
     )");
 
-    // 파서가 괄호 표현식을 CALL_EXPRESSION으로 잘못 인식하는 문제
-    // TODO: 파서의 괄호 처리 개선 후 활성화
+    // Parser-level ASI로 해결됨: 줄이 바뀌면 자동으로 세미콜론 삽입
+    // 정수 c = 2 다음에 개행되므로 ASI가 적용되어 (a + b)가 함수 호출로 인식되지 않음
     EXPECT_TRUE(result.isInteger());
     EXPECT_EQ(result.asInteger(), 16);  // (5+3)*2 = 16
 }

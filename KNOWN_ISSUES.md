@@ -2,14 +2,50 @@
 
 ## Current Status (2025-11-15)
 
-**모든 테스트 통과**: 1003/1003 tests passing (100% success rate) ✅
+**모든 테스트 통과**: 1004/1004 tests passing (100% success rate) ✅
 
-모든 loop statement 및 패턴 매칭 관련 문제가 해결되었습니다.
+모든 loop statement, 패턴 매칭, 괄호 표현식 파싱 문제가 해결되었습니다.
 
-### 알려진 이슈 (1개)
-1. **Parser - 괄호 표현식 처리 버그**: 파서가 `(a + b) * c` 같은 표현식에서 괄호를 함수 호출로 잘못 인식
-   - 비활성화된 테스트: `EvaluatorTest.DISABLED_ShouldEvaluateComplexExpression`
-   - 상세 내용은 ISSUES.md 참조
+### 알려진 이슈
+없음 ✅
+
+---
+
+## Recently Resolved Issues (2025-11-15)
+
+### ✅ Parser - 괄호 표현식 ASI(Automatic Semicolon Insertion) 구현
+
+**문제**: 파서가 `(a + b) * c` 같은 표현식에서 괄호를 함수 호출로 잘못 인식
+```
+정수 c = 2
+(a + b) * c  // 2(a+b)*c로 파싱됨 (함수 호출)
+```
+
+**해결 방법**: Parser-level ASI 구현
+
+**구현 내용**:
+1. **Token에 위치 정보 추가** (`src/lexer/Token.h`):
+   - `int line`, `int column` 필드 추가
+   - 소스 코드 위치 추적 (1부터 시작)
+
+2. **Lexer 위치 추적** (`src/lexer/Lexer.cpp`):
+   - `currentLine`, `currentColumn` 필드 추가
+   - `readChar()`에서 개행 문자 감지 시 line 증가
+   - 모든 토큰에 위치 정보 설정
+
+3. **Parser-level ASI 구현** (`src/parser/Parser.cpp`):
+   - `parseExpression()`의 infix 파싱 루프에 line 변경 체크 추가
+   - `parseStatement()`의 세미콜론 처리에 ASI 로직 추가
+   - 줄이 바뀌면 자동으로 세미콜론 삽입 (표현식 끝으로 간주)
+
+4. **테스트 활성화**:
+   - `EvaluatorTest.ShouldEvaluateComplexExpression` 활성화
+   - (5+3)*2 = 16 정상 계산
+
+**효과**:
+- ✅ 괄호 표현식 정상 파싱
+- ✅ 세미콜론 생략 가능 (JavaScript-style ASI)
+- ✅ 에러 메시지에 line/column 정보 준비 완료 (향후 활용)
 
 ---
 

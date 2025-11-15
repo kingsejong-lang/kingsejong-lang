@@ -370,10 +370,15 @@ std::unique_ptr<ExpressionStatement> Parser::parseExpressionStatement()
 {
     auto expr = parseExpression(Precedence::LOWEST);
 
-    // 선택적 세미콜론
+    // 선택적 세미콜론 또는 ASI (Automatic Semicolon Insertion)
     if (peekTokenIs(TokenType::SEMICOLON))
     {
         nextToken();
+    }
+    // ASI: 줄이 바뀌면 자동으로 세미콜론 삽입
+    else if (curToken_.line < peekToken_.line)
+    {
+        // 세미콜론 없어도 OK (줄이 바뀜)
     }
 
     return std::make_unique<ExpressionStatement>(std::move(expr));
@@ -405,10 +410,15 @@ std::unique_ptr<VarDeclaration> Parser::parseVarDeclaration()
         initializer = parseExpression(Precedence::LOWEST);
     }
 
-    // 선택적 세미콜론
+    // 선택적 세미콜론 또는 ASI (Automatic Semicolon Insertion)
     if (peekTokenIs(TokenType::SEMICOLON))
     {
         nextToken();
+    }
+    // ASI: 줄이 바뀌면 자동으로 세미콜론 삽입
+    else if (curToken_.line < peekToken_.line)
+    {
+        // 세미콜론 없어도 OK (줄이 바뀜)
     }
 
     return std::make_unique<VarDeclaration>(typeName, varName, std::move(initializer), varType);
@@ -429,10 +439,15 @@ std::unique_ptr<AssignmentStatement> Parser::parseAssignmentStatement()
 
     auto value = parseExpression(Precedence::LOWEST);
 
-    // 선택적 세미콜론
+    // 선택적 세미콜론 또는 ASI (Automatic Semicolon Insertion)
     if (peekTokenIs(TokenType::SEMICOLON))
     {
         nextToken();
+    }
+    // ASI: 줄이 바뀌면 자동으로 세미콜론 삽입
+    else if (curToken_.line < peekToken_.line)
+    {
+        // 세미콜론 없어도 OK (줄이 바뀜)
     }
 
     return std::make_unique<AssignmentStatement>(varName, std::move(value));
@@ -449,10 +464,15 @@ std::unique_ptr<ReturnStatement> Parser::parseReturnStatement()
         returnValue = parseExpression(Precedence::LOWEST);
     }
 
-    // 선택적 세미콜론
+    // 선택적 세미콜론 또는 ASI (Automatic Semicolon Insertion)
     if (peekTokenIs(TokenType::SEMICOLON))
     {
         nextToken();
+    }
+    // ASI: 줄이 바뀌면 자동으로 세미콜론 삽입
+    else if (curToken_.line < peekToken_.line)
+    {
+        // 세미콜론 없어도 OK (줄이 바뀜)
     }
 
     return std::make_unique<ReturnStatement>(std::move(returnValue));
@@ -672,6 +692,13 @@ std::unique_ptr<Expression> Parser::parseExpression(Precedence precedence, Parse
     // Infix 파싱 (우선순위 기반)
     while (!peekTokenIs(TokenType::SEMICOLON) && precedence < peekPrecedence())
     {
+        // ASI: 줄이 바뀌면 infix 파싱 중단 (표현식 끝으로 간주)
+        // 예: "정수 c = 2" 다음에 "(a + b)"가 다음 줄에 있으면 함수 호출이 아님
+        if (curToken_.line < peekToken_.line)
+        {
+            break;
+        }
+
         // Range 기능이 비활성화되어 있으면 Range 연산자 건너뛰기
         if (!hasFeature(features, ParseFeature::Range))
         {

@@ -142,20 +142,24 @@ enum class TokenType
  * @struct Token
  * @brief 토큰 구조체
  *
- * 토큰의 타입과 리터럴 값을 저장합니다.
+ * 토큰의 타입과 리터럴 값, 위치 정보를 저장합니다.
  */
 struct Token
 {
     TokenType type;       ///< 토큰 타입
     std::string literal;  ///< 토큰의 실제 문자열 값
+    int line;             ///< 소스 코드 줄 번호 (1부터 시작)
+    int column;           ///< 소스 코드 열 번호 (1부터 시작)
 
     /**
      * @brief Token 생성자
      * @param t 토큰 타입
      * @param lit 토큰 리터럴
+     * @param l 줄 번호
+     * @param c 열 번호
      */
-    Token(TokenType t = TokenType::ILLEGAL, const std::string& lit = "")
-        : type(t), literal(lit)
+    Token(TokenType t = TokenType::ILLEGAL, const std::string& lit = "", int l = 1, int c = 1)
+        : type(t), literal(lit), line(l), column(c)
     {
     }
 };

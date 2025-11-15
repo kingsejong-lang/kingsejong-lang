@@ -44,6 +44,8 @@ private:
     size_t position;            ///< 현재 읽는 위치
     size_t readPosition;        ///< 다음 읽을 위치
     char ch;                    ///< 현재 문자
+    int currentLine;            ///< 현재 줄 번호 (1부터 시작)
+    int currentColumn;          ///< 현재 열 번호 (1부터 시작)
 
     /**
      * @brief 다음 문자를 읽어서 ch에 저장

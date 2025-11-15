@@ -13,7 +13,7 @@ namespace kingsejong {
 namespace lexer {
 
 Lexer::Lexer(const std::string& input)
-    : input(input), position(0), readPosition(0), ch('\0')
+    : input(input), position(0), readPosition(0), ch('\0'), currentLine(1), currentColumn(1)
 {
     // 첫 번째 문자 읽기
     readChar();
@@ -29,6 +29,18 @@ void Lexer::readChar()
     {
         ch = input[readPosition];
     }
+
+    // 위치 정보 업데이트
+    if (ch == '\n')
+    {
+        currentLine++;
+        currentColumn = 1;
+    }
+    else if (ch != '\0')
+    {
+        currentColumn++;
+    }
+
     position = readPosition;
     readPosition++;
 }
@@ -342,6 +354,10 @@ Token Lexer::nextToken()
 {
     skipWhitespace();
 
+    // 토큰 시작 위치 저장
+    int tokenLine = currentLine;
+    int tokenColumn = currentColumn;
+
     Token token;
 
     switch (ch)
@@ -545,6 +561,10 @@ Token Lexer::nextToken()
             }
             break;
     }
+
+    // 토큰에 위치 정보 설정
+    token.line = tokenLine;
+    token.column = tokenColumn;
 
     return token;
 }

@@ -30,6 +30,7 @@ set(LIB_SOURCES
     src/lexer/Lexer.cpp
     src/ast/Node.cpp
     src/parser/Parser.cpp
+    src/semantic/SemanticAnalyzer.cpp
     src/types/Type.cpp
     src/evaluator/Value.cpp
     src/evaluator/Environment.cpp
@@ -166,6 +167,7 @@ if(EMSCRIPTEN)
         src/lexer/Lexer.cpp
         src/ast/Node.cpp
         src/parser/Parser.cpp
+        src/semantic/SemanticAnalyzer.cpp
         src/types/Type.cpp
         src/evaluator/Value.cpp
         src/evaluator/Environment.cpp

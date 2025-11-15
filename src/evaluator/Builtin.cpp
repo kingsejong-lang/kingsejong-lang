@@ -16,6 +16,7 @@
 #include <chrono>
 #include <iomanip>
 #include <thread>
+#include <regex>
 
 namespace kingsejong {
 namespace evaluator {
@@ -1443,6 +1444,240 @@ static Value builtin_현재_날짜시간(const std::vector<Value>& args)
 }
 
 // ============================================================================
+// 정규표현식 함수
+// ============================================================================
+
+/**
+ * @brief 정규표현식_일치(문자열, 패턴) - 전체 문자열이 패턴과 일치하는지 확인
+ */
+static Value builtin_정규표현식_일치(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("정규표현식_일치(문자열, 패턴): 2개의 인자가 필요합니다");
+    }
+    if (!args[0].isString() || !args[1].isString()) {
+        throw std::runtime_error("정규표현식_일치(문자열, 패턴): 문자열 타입이어야 합니다");
+    }
+
+    try {
+        std::regex pattern(args[1].asString());
+        bool matches = std::regex_match(args[0].asString(), pattern);
+        return Value::createBoolean(matches);
+    } catch (const std::regex_error& e) {
+        throw std::runtime_error("정규표현식 오류: " + std::string(e.what()));
+    }
+}
+
+/**
+ * @brief 정규표현식_검색(문자열, 패턴) - 패턴이 문자열 내에 존재하는지 확인
+ */
+static Value builtin_정규표현식_검색(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("정규표현식_검색(문자열, 패턴): 2개의 인자가 필요합니다");
+    }
+    if (!args[0].isString() || !args[1].isString()) {
+        throw std::runtime_error("정규표현식_검색(문자열, 패턴): 문자열 타입이어야 합니다");
+    }
+
+    try {
+        std::regex pattern(args[1].asString());
+        bool found = std::regex_search(args[0].asString(), pattern);
+        return Value::createBoolean(found);
+    } catch (const std::regex_error& e) {
+        throw std::runtime_error("정규표현식 오류: " + std::string(e.what()));
+    }
+}
+
+/**
+ * @brief 정규표현식_모두_찾기(문자열, 패턴) - 모든 일치 항목을 배열로 반환
+ */
+static Value builtin_정규표현식_모두_찾기(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("정규표현식_모두_찾기(문자열, 패턴): 2개의 인자가 필요합니다");
+    }
+    if (!args[0].isString() || !args[1].isString()) {
+        throw std::runtime_error("정규표현식_모두_찾기(문자열, 패턴): 문자열 타입이어야 합니다");
+    }
+
+    try {
+        std::regex pattern(args[1].asString());
+        std::string text = args[0].asString();
+        std::vector<Value> matches;
+
+        auto begin = std::sregex_iterator(text.begin(), text.end(), pattern);
+        auto end = std::sregex_iterator();
+
+        for (std::sregex_iterator i = begin; i != end; ++i) {
+            matches.push_back(Value::createString(i->str()));
+        }
+
+        return Value::createArray(matches);
+    } catch (const std::regex_error& e) {
+        throw std::runtime_error("정규표현식 오류: " + std::string(e.what()));
+    }
+}
+
+/**
+ * @brief 정규표현식_치환(문자열, 패턴, 교체) - 패턴과 일치하는 부분을 교체 문자열로 치환
+ */
+static Value builtin_정규표현식_치환(const std::vector<Value>& args)
+{
+    if (args.size() != 3) {
+        throw std::runtime_error("정규표현식_치환(문자열, 패턴, 교체): 3개의 인자가 필요합니다");
+    }
+    if (!args[0].isString() || !args[1].isString() || !args[2].isString()) {
+        throw std::runtime_error("정규표현식_치환(문자열, 패턴, 교체): 모두 문자열 타입이어야 합니다");
+    }
+
+    try {
+        std::regex pattern(args[1].asString());
+        std::string result = std::regex_replace(args[0].asString(), pattern, args[2].asString());
+        return Value::createString(result);
+    } catch (const std::regex_error& e) {
+        throw std::runtime_error("정규표현식 오류: " + std::string(e.what()));
+    }
+}
+
+/**
+ * @brief 정규표현식_분리(문자열, 패턴) - 패턴으로 문자열을 분리하여 배열 반환
+ */
+static Value builtin_정규표현식_분리(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("정규표현식_분리(문자열, 패턴): 2개의 인자가 필요합니다");
+    }
+    if (!args[0].isString() || !args[1].isString()) {
+        throw std::runtime_error("정규표현식_분리(문자열, 패턴): 문자열 타입이어야 합니다");
+    }
+
+    try {
+        std::regex pattern(args[1].asString());
+        std::string text = args[0].asString();
+        std::vector<Value> parts;
+
+        std::sregex_token_iterator iter(text.begin(), text.end(), pattern, -1);
+        std::sregex_token_iterator end;
+
+        for (; iter != end; ++iter) {
+            parts.push_back(Value::createString(*iter));
+        }
+
+        return Value::createArray(parts);
+    } catch (const std::regex_error& e) {
+        throw std::runtime_error("정규표현식 오류: " + std::string(e.what()));
+    }
+}
+
+/**
+ * @brief 이메일_검증(문자열) - 이메일 형식이 유효한지 확인
+ */
+static Value builtin_이메일_검증(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("이메일_검증(문자열): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("이메일_검증(문자열): 문자열 타입이어야 합니다");
+    }
+
+    // 간단한 이메일 패턴
+    std::regex pattern(R"(^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$)");
+    bool valid = std::regex_match(args[0].asString(), pattern);
+    return Value::createBoolean(valid);
+}
+
+/**
+ * @brief URL_검증(문자열) - URL 형식이 유효한지 확인
+ */
+static Value builtin_URL_검증(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("URL_검증(문자열): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("URL_검증(문자열): 문자열 타입이어야 합니다");
+    }
+
+    // 간단한 URL 패턴
+    std::regex pattern(R"(^https?://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(/.*)?$)");
+    bool valid = std::regex_match(args[0].asString(), pattern);
+    return Value::createBoolean(valid);
+}
+
+/**
+ * @brief 전화번호_검증(문자열) - 한국 전화번호 형식이 유효한지 확인
+ */
+static Value builtin_전화번호_검증(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("전화번호_검증(문자열): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("전화번호_검증(문자열): 문자열 타입이어야 합니다");
+    }
+
+    // 한국 전화번호 패턴: 010-XXXX-XXXX, 02-XXX-XXXX, 031-XXX-XXXX 등
+    std::regex pattern(R"(^0\d{1,2}-\d{3,4}-\d{4}$)");
+    bool valid = std::regex_match(args[0].asString(), pattern);
+    return Value::createBoolean(valid);
+}
+
+/**
+ * @brief 정규표현식_추출(문자열, 패턴) - 첫 번째 일치 항목 추출
+ */
+static Value builtin_정규표현식_추출(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("정규표현식_추출(문자열, 패턴): 2개의 인자가 필요합니다");
+    }
+    if (!args[0].isString() || !args[1].isString()) {
+        throw std::runtime_error("정규표현식_추출(문자열, 패턴): 문자열 타입이어야 합니다");
+    }
+
+    try {
+        std::regex pattern(args[1].asString());
+        std::string text = args[0].asString();
+        std::smatch match;
+
+        if (std::regex_search(text, match, pattern)) {
+            return Value::createString(match.str());
+        }
+
+        return Value::createString("");  // 일치하는 항목이 없으면 빈 문자열
+    } catch (const std::regex_error& e) {
+        throw std::runtime_error("정규표현식 오류: " + std::string(e.what()));
+    }
+}
+
+/**
+ * @brief 정규표현식_개수(문자열, 패턴) - 일치하는 항목의 개수 반환
+ */
+static Value builtin_정규표현식_개수(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("정규표현식_개수(문자열, 패턴): 2개의 인자가 필요합니다");
+    }
+    if (!args[0].isString() || !args[1].isString()) {
+        throw std::runtime_error("정규표현식_개수(문자열, 패턴): 문자열 타입이어야 합니다");
+    }
+
+    try {
+        std::regex pattern(args[1].asString());
+        std::string text = args[0].asString();
+
+        auto begin = std::sregex_iterator(text.begin(), text.end(), pattern);
+        auto end = std::sregex_iterator();
+
+        int64_t count = std::distance(begin, end);
+        return Value::createInteger(count);
+    } catch (const std::regex_error& e) {
+        throw std::runtime_error("정규표현식 오류: " + std::string(e.what()));
+    }
+}
+
+// ============================================================================
 // 내장 함수 등록
 // ============================================================================
 
@@ -1498,6 +1733,18 @@ void Builtin::registerAllBuiltins()
     registerBuiltin("슬립", builtin_슬립);
     registerBuiltin("현재_시각", builtin_현재_시각);
     registerBuiltin("현재_날짜시간", builtin_현재_날짜시간);
+
+    // 정규표현식 함수
+    registerBuiltin("정규표현식_일치", builtin_정규표현식_일치);
+    registerBuiltin("정규표현식_검색", builtin_정규표현식_검색);
+    registerBuiltin("정규표현식_모두_찾기", builtin_정규표현식_모두_찾기);
+    registerBuiltin("정규표현식_치환", builtin_정규표현식_치환);
+    registerBuiltin("정규표현식_분리", builtin_정규표현식_분리);
+    registerBuiltin("이메일_검증", builtin_이메일_검증);
+    registerBuiltin("URL_검증", builtin_URL_검증);
+    registerBuiltin("전화번호_검증", builtin_전화번호_검증);
+    registerBuiltin("정규표현식_추출", builtin_정규표현식_추출);
+    registerBuiltin("정규표현식_개수", builtin_정규표현식_개수);
 }
 
 } // namespace evaluator

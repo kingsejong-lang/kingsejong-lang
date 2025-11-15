@@ -118,7 +118,7 @@ private:
     /**
      * @brief Statement를 분석하여 심볼 등록
      */
-    void registerSymbolFromStatement(ast::Statement* stmt);
+    void registerSymbolFromStatement(const ast::Statement* stmt);
 
     /**
      * @brief 변수 선언 등록
@@ -163,7 +163,7 @@ private:
     /**
      * @brief Statement의 타입 검사
      */
-    void checkTypesInStatement(ast::Statement* stmt);
+    void checkTypesInStatement(const ast::Statement* stmt);
 
     /**
      * @brief Expression의 타입 추론 및 검사

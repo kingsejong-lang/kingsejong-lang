@@ -54,28 +54,52 @@ void SemanticAnalyzer::buildSymbolTable(Program* program)
     }
 }
 
-void SemanticAnalyzer::registerSymbolFromStatement(Statement* stmt)
+void SemanticAnalyzer::registerSymbolFromStatement(const Statement* stmt)
 {
     if (!stmt) return;
 
     // 변수 선언
-    if (auto varDecl = dynamic_cast<VarDeclaration*>(stmt))
+    if (auto varDecl = dynamic_cast<const VarDeclaration*>(stmt))
     {
-        registerVariable(varDecl);
+        registerVariable(const_cast<VarDeclaration*>(varDecl));
     }
     // 할당문 (함수 선언도 할당문으로 변환됨)
-    else if (auto assignStmt = dynamic_cast<AssignmentStatement*>(stmt))
+    else if (auto assignStmt = dynamic_cast<const AssignmentStatement*>(stmt))
     {
-        // 함수 리터럴 할당인지 확인 (const_cast 필요)
+        // 함수 리터럴 할당인지 확인
         if (auto funcLit = dynamic_cast<const FunctionLiteral*>(assignStmt->value()))
         {
-            // registerFunction은 const가 아닌 포인터를 받으므로 const_cast 사용
             registerFunction(assignStmt->varName(), const_cast<FunctionLiteral*>(funcLit));
         }
-        // 일반 할당문은 Symbol Table에 등록하지 않음 (변수 선언이 아니므로)
     }
-    // 기타 문장들은 현재 버전에서는 스킵
-    // TODO: BlockStatement, IfStatement, WhileStatement 등 처리
+    // BlockStatement: 블록 내 모든 문장 등록
+    else if (auto blockStmt = dynamic_cast<const BlockStatement*>(stmt))
+    {
+        for (const auto& s : blockStmt->statements())
+        {
+            registerSymbolFromStatement(s.get());
+        }
+    }
+    // IfStatement: then과 else 블록 등록
+    else if (auto ifStmt = dynamic_cast<const IfStatement*>(stmt))
+    {
+        if (ifStmt->thenBranch())
+        {
+            registerSymbolFromStatement(ifStmt->thenBranch());
+        }
+        if (ifStmt->elseBranch())
+        {
+            registerSymbolFromStatement(ifStmt->elseBranch());
+        }
+    }
+    // WhileStatement: body 등록
+    else if (auto whileStmt = dynamic_cast<const WhileStatement*>(stmt))
+    {
+        if (whileStmt->body())
+        {
+            registerSymbolFromStatement(whileStmt->body());
+        }
+    }
 }
 
 void SemanticAnalyzer::registerVariable(VarDeclaration* varDecl)
@@ -136,12 +160,12 @@ void SemanticAnalyzer::resolveNamesInStatement(Statement* stmt)
     if (!stmt) return;
 
     // ExpressionStatement
-    if (auto exprStmt = dynamic_cast<ExpressionStatement*>(stmt))
+    if (auto exprStmt = dynamic_cast<const ExpressionStatement*>(stmt))
     {
         resolveNamesInExpression(exprStmt->expression());
     }
     // VarDeclaration
-    else if (auto varDecl = dynamic_cast<VarDeclaration*>(stmt))
+    else if (auto varDecl = dynamic_cast<const VarDeclaration*>(stmt))
     {
         if (varDecl->initializer())
         {
@@ -190,14 +214,12 @@ void SemanticAnalyzer::checkTypes(Program* program)
     }
 }
 
-void SemanticAnalyzer::checkTypesInStatement(Statement* stmt)
+void SemanticAnalyzer::checkTypesInStatement(const Statement* stmt)
 {
-    // TODO: Statement의 타입 검사
-    // 현재는 skeleton
     if (!stmt) return;
 
-    // VarDeclaration
-    if (auto varDecl = dynamic_cast<VarDeclaration*>(stmt))
+    // VarDeclaration: 변수 선언 시 초기화 값의 타입 검사
+    if (auto varDecl = dynamic_cast<const VarDeclaration*>(stmt))
     {
         if (varDecl->initializer())
         {
@@ -206,19 +228,106 @@ void SemanticAnalyzer::checkTypesInStatement(Statement* stmt)
 
             if (initType && varType && !isTypeCompatible(varType, initType))
             {
-                addError("Type mismatch: cannot assign " + initType->koreanName() +
-                        " to " + varType->koreanName());
+                addError("타입 불일치: " + varType->koreanName() + " 변수에 " +
+                        initType->koreanName() + " 값을 할당할 수 없습니다");
             }
+        }
+    }
+
+    // AssignmentStatement: 할당문의 타입 검사
+    else if (auto assignStmt = dynamic_cast<const AssignmentStatement*>(stmt))
+    {
+        const std::string& varName = assignStmt->varName();
+        Symbol* symbol = symbolTable_.lookup(varName);
+
+        if (!symbol)
+        {
+            addError("정의되지 않은 변수: " + varName);
+            return;
+        }
+
+        Type* valueType = inferType(assignStmt->value());
+        Type* varType = symbol->type;
+
+        if (valueType && varType && !isTypeCompatible(varType, valueType))
+        {
+            addError("타입 불일치: " + varType->koreanName() + " 변수 '" + varName +
+                    "'에 " + valueType->koreanName() + " 값을 할당할 수 없습니다");
+        }
+    }
+
+    // ExpressionStatement: 표현식 문장의 타입 검사
+    else if (auto exprStmt = dynamic_cast<const ExpressionStatement*>(stmt))
+    {
+        // 표현식 자체의 타입을 검사 (부작용 확인용)
+        inferType(exprStmt->expression());
+    }
+
+    // ReturnStatement: 반환문의 타입 검사
+    else if (auto retStmt = dynamic_cast<const ReturnStatement*>(stmt))
+    {
+        if (retStmt->returnValue())
+        {
+            // TODO: 현재 함수의 반환 타입과 비교
+            // 함수 컨텍스트 추적 필요
+            inferType(retStmt->returnValue());
+        }
+    }
+
+    // IfStatement: if문의 조건 타입 검사
+    else if (auto ifStmt = dynamic_cast<const IfStatement*>(stmt))
+    {
+        Type* condType = inferType(ifStmt->condition());
+
+        if (condType && condType->koreanName() != "논리")
+        {
+            addError("if문의 조건은 논리 타입이어야 합니다 (현재: " +
+                    condType->koreanName() + ")");
+        }
+
+        // then과 else 블록의 타입 검사
+        if (ifStmt->thenBranch())
+        {
+            checkTypesInStatement(ifStmt->thenBranch());
+        }
+        if (ifStmt->elseBranch())
+        {
+            checkTypesInStatement(ifStmt->elseBranch());
+        }
+    }
+
+    // BlockStatement: 블록 내 모든 문장 검사
+    else if (auto blockStmt = dynamic_cast<const BlockStatement*>(stmt))
+    {
+        for (const auto& s : blockStmt->statements())
+        {
+            checkTypesInStatement(s.get());
+        }
+    }
+
+    // WhileStatement: while문의 조건 타입 검사
+    else if (auto whileStmt = dynamic_cast<const WhileStatement*>(stmt))
+    {
+        Type* condType = inferType(whileStmt->condition());
+
+        if (condType && condType->koreanName() != "논리")
+        {
+            addError("while문의 조건은 논리 타입이어야 합니다 (현재: " +
+                    condType->koreanName() + ")");
+        }
+
+        if (whileStmt->body())
+        {
+            checkTypesInStatement(whileStmt->body());
         }
     }
 }
 
 Type* SemanticAnalyzer::inferType(const Expression* expr)
 {
-    // TODO: 타입 추론 구현
-    // 현재는 기본만 구현
     if (!expr) return nullptr;
 
+    // 리터럴 타입 추론
     if (dynamic_cast<const IntegerLiteral*>(expr))
     {
         return Type::getBuiltin("정수");
@@ -235,10 +344,100 @@ Type* SemanticAnalyzer::inferType(const Expression* expr)
     {
         return Type::getBuiltin("논리");
     }
+
+    // 식별자 타입 추론
     else if (auto ident = dynamic_cast<const Identifier*>(expr))
     {
         Symbol* symbol = symbolTable_.lookup(ident->name());
         return symbol ? symbol->type : nullptr;
+    }
+
+    // 이항 연산 타입 추론
+    else if (auto binExpr = dynamic_cast<const BinaryExpression*>(expr))
+    {
+        Type* leftType = inferType(binExpr->left());
+        Type* rightType = inferType(binExpr->right());
+
+        if (!leftType || !rightType) return nullptr;
+
+        const std::string& op = binExpr->op();
+
+        // 산술 연산자 (+, -, *, /, %)
+        if (op == "+" || op == "-" || op == "*" || op == "/" || op == "%")
+        {
+            // 정수 + 정수 = 정수
+            if (leftType->koreanName() == "정수" && rightType->koreanName() == "정수")
+            {
+                return Type::getBuiltin("정수");
+            }
+            // 실수가 하나라도 있으면 실수
+            else if (leftType->koreanName() == "실수" || rightType->koreanName() == "실수")
+            {
+                return Type::getBuiltin("실수");
+            }
+            // 문자열 + 문자열 = 문자열 (연결)
+            else if (op == "+" && leftType->koreanName() == "문자열" && rightType->koreanName() == "문자열")
+            {
+                return Type::getBuiltin("문자열");
+            }
+        }
+
+        // 비교 연산자 (<, >, <=, >=, ==, !=)
+        else if (op == "<" || op == ">" || op == "<=" || op == ">=" || op == "==" || op == "!=")
+        {
+            return Type::getBuiltin("논리");
+        }
+
+        // 논리 연산자 (&&, ||)
+        else if (op == "&&" || op == "||")
+        {
+            return Type::getBuiltin("논리");
+        }
+    }
+
+    // 단항 연산 타입 추론
+    else if (auto unaryExpr = dynamic_cast<const UnaryExpression*>(expr))
+    {
+        Type* operandType = inferType(unaryExpr->operand());
+
+        if (!operandType) return nullptr;
+
+        const std::string& op = unaryExpr->op();
+
+        // 부정 연산자 (!)
+        if (op == "!")
+        {
+            return Type::getBuiltin("논리");
+        }
+        // 부호 연산자 (-, +)
+        else if (op == "-" || op == "+")
+        {
+            return operandType;  // 같은 타입 반환
+        }
+    }
+
+    // 배열 리터럴 타입 추론
+    else if (dynamic_cast<const ArrayLiteral*>(expr))
+    {
+        // TODO: 배열 타입 시스템 구현 후 처리
+        // 현재는 기본 타입만 지원하므로 nullptr 반환
+        return nullptr;
+    }
+
+    // 배열 인덱스 접근 타입 추론
+    else if (dynamic_cast<const IndexExpression*>(expr))
+    {
+        // TODO: 배열의 요소 타입 반환
+        // 현재는 기본 타입만 지원하므로 nullptr 반환
+        return nullptr;
+    }
+
+    // 함수 호출 타입 추론
+    else if (dynamic_cast<const CallExpression*>(expr))
+    {
+        // TODO: 함수의 반환 타입 반환
+        // 현재는 함수 타입 시스템이 없으므로 nullptr 반환
+        return nullptr;
     }
 
     return nullptr;

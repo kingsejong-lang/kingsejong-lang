@@ -147,6 +147,64 @@ void Parser::noPrefixParseFnError(TokenType type)
     errors_.push_back(msg);
 }
 
+/**
+ * @brief Panic Mode Recovery: 에러 후 안전한 지점까지 건너뛰기
+ *
+ * 파싱 에러가 발생했을 때, 다음 문장의 시작이나 세미콜론 같은
+ * 동기화 지점(synchronization point)까지 토큰을 건너뛰어
+ * 파싱을 계속할 수 있도록 합니다.
+ *
+ * 동기화 지점:
+ * - 세미콜론 (;)
+ * - 문장 시작 키워드 (정수, 실수, 만약, 함수, 반환 등)
+ * - 블록 시작/끝 ({ })
+ * - EOF
+ */
+void Parser::synchronize()
+{
+    while (!curTokenIs(TokenType::EOF_TOKEN))
+    {
+        // 세미콜론을 만나면 다음 토큰으로 이동하고 중단
+        if (curTokenIs(TokenType::SEMICOLON))
+        {
+            nextToken();
+            return;
+        }
+
+        // 다음 문장의 시작으로 보이는 키워드들
+        // 이 키워드들을 만나면 현재 위치에서 중단 (토큰 소비 X)
+        switch (peekToken_.type)
+        {
+            // 타입 키워드 (변수 선언 시작)
+            case TokenType::JEONGSU:    // 정수
+            case TokenType::SILSU:      // 실수
+            case TokenType::MUNJAYEOL:  // 문자열
+            case TokenType::NONLI:      // 논리
+
+            // 제어문 키워드
+            case TokenType::MANYAK:     // 만약 (if)
+            case TokenType::DONGAN:     // 동안 (while)
+
+            // 함수 키워드
+            case TokenType::HAMSU:      // 함수
+            case TokenType::BANHWAN:    // 반환 (return)
+
+            // 모듈 키워드
+            case TokenType::GAJYEOOGI:  // 가져오기 (import)
+
+            // 블록 끝
+            case TokenType::RBRACE:     // }
+                nextToken();  // peekToken을 curToken으로 만들고 중단
+                return;
+
+            default:
+                break;
+        }
+
+        nextToken();
+    }
+}
+
 // ============================================================================
 // 우선순위
 // ============================================================================
@@ -228,6 +286,12 @@ std::unique_ptr<Program> Parser::parseProgram()
         if (stmt)
         {
             program->addStatement(std::move(stmt));
+        }
+        else
+        {
+            // Error Recovery: 파싱 실패 시 다음 문장 시작까지 건너뛰기
+            // 이렇게 하면 여러 에러를 한 번에 수집할 수 있음
+            synchronize();
         }
         nextToken();
     }

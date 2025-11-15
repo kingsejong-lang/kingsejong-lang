@@ -136,6 +136,7 @@ private:
     // 에러 처리
     void peekError(TokenType expected);
     void noPrefixParseFnError(TokenType type);
+    void synchronize();  ///< Panic Mode Recovery: 다음 문장 시작까지 건너뛰기
 
     // 우선순위
     Precedence curPrecedence() const;

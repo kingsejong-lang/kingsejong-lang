@@ -3,7 +3,8 @@
 > **비전**: 한국어로 누구나 쉽게 프로그래밍할 수 있는 세상
 
 **최종 업데이트**: 2025-11-15
-**현재 버전**: v0.3.6 (Phase 6 진행중)
+**현재 버전**: v0.3.7 (Phase 6 진행중)
+**중요 문서**: [아키텍처 분석](./ARCHITECTURE_ANALYSIS.md) | [개선 계획](./ANALYSIS_IMPROVEMENTS.md) | [엔진 설계](../lab/idea.md)
 
 ---
 
@@ -19,15 +20,16 @@
 | **Phase 3** | 2025-11 중 | ✅ 100% | 고급 기능 (GC, 바이트코드, 모듈 시스템) |
 | **Phase 4** | 2025-11 중 | ✅ 100% | 최적화 (CI/CD, 성능, 메모리 안전성) |
 | **Phase 5** | 2025-11 중 | ✅ 100% | 개발자 경험 (LSP, 디버거, 플레이그라운드, 패턴 매칭) |
-| **Phase 6** | 2025-11 말 | 🚧 55% | 언어 개선, Linter, Formatter, stdlib (utils, regex, crypto) |
+| **Phase 6** | 2025-11 말 | 🚧 60% | 언어 개선, Linter, Formatter, stdlib (utils, regex, crypto, os) |
 
 ### 통계
 
 ```
-코드: 20,200+ 줄
-테스트: 1160개 (100% 통과)
+코드: 21,500+ 줄 (+1,281 from os.ksj)
+테스트: 1180개 (100% 통과) (+20 OSTest)
+stdlib: 212개+ 함수 (+39 from os.ksj)
 문서: 4,700+ 줄
-예제: 23개
+예제: 24개
 플랫폼: macOS, Linux, Windows
 ```
 
@@ -99,20 +101,22 @@
 }
 ```
 
-#### F5.8: Semantic Analyzer 완성 (v0.3.3)
-- ✅ Name Resolution (이름 해석)
-- ✅ Type Checking (배열/함수 타입 검사)
-- ✅ Scope Management (함수, 블록, 반복문 스코프)
+#### F5.8: Semantic Analyzer 기본 구현 (v0.3.3)
+- ✅ Name Resolution (이름 해석) - 기본 구현
+- ✅ Type Checking (배열/함수 타입 검사) - 기본 구현
+- ✅ Scope Management (함수, 블록, 반복문 스코프) - 기본 구현
 - ✅ 35개 builtin 함수 등록
-- ✅ 29개 새 테스트
+- ✅ 29개 테스트
+- ⚠️ **한계**: 휴리스틱 기반, Symbol Table 미완성 ([ANALYSIS_IMPROVEMENTS.md](./ANALYSIS_IMPROVEMENTS.md) P0 참조)
 
 ---
 
 ## 🔮 Phase 6: 완성도 향상 (v0.5.0) 🚧
 
 **기간**: 2025-11 말 ~ 2026-01 (2개월)
-**목표**: 프로덕션 수준의 언어
-**진행률**: 55%
+**목표**: 프로덕션 수준의 언어 + 아키텍처 개선
+**진행률**: 60%
+**참고**: [ANALYSIS_IMPROVEMENTS.md](./ANALYSIS_IMPROVEMENTS.md), [엔진 설계](../lab/idea.md)
 
 ### 완료
 
@@ -160,17 +164,75 @@
   - 12개 builtin 함수, 30개 편의 함수
   - Base64, 해싱, XOR/시저 암호화, 랜덤 생성
   - 비밀번호 관리, 토큰 생성, 데이터 보안
+- [x] stdlib/os.ksj - OS & 파일 시스템 (39개) ✅
+  - 26개 builtin 함수, 13개 유틸리티
+  - 환경변수, 디렉토리, 파일, 경로, 시스템 정보
+  - 크로스 플랫폼 (macOS/Linux/Windows)
+  - 20개 테스트 (OSTest.cpp)
+  - **Lexer 버그 수정**: "경로", "디렉토리인가" 조사 분리 예외 추가
 - [ ] stdlib/http.ksj - HTTP 클라이언트/서버 (20개)
 - [ ] stdlib/db.ksj - 데이터베이스 (15개)
-- [ ] **목표**: 200개+ 함수 (현재: 173개+)
+- [ ] **목표**: 250개+ 함수 (현재: 212개+, 85% 달성)
 
-#### 6.3: 성능 최적화
-- [ ] JIT 컴파일러 Tier 1 (템플릿 JIT)
-- [ ] 증분 GC (Incremental GC)
+#### 6.3: 아키텍처 개선 ⭐ **긴급** (ANALYSIS_IMPROVEMENTS.md P0)
+**현재 문제**: 휴리스틱 기반 파싱, Symbol Table 미완성, 조사 분리 불완전
+
+##### P0 - 긴급 과제 (예상 3-4주)
+- [ ] **Semantic Analyzer 완전 구현** ⭐⭐⭐⭐⭐
+  - [ ] Symbol Table 완전 구현 (Scope 기반)
+  - [ ] Name Resolution (변수/함수 정확 추적)
+  - [ ] Type Checking 강화
+  - [ ] 모호성 해결 (휴리스틱 제거)
+  - [ ] 예상 공수: 2주
+- [ ] **SourceLocation 위치 정보 추가** ⭐⭐⭐⭐
+  - [ ] Token에 line, column 정보
+  - [ ] AST 노드에 위치 정보
+  - [ ] 에러 메시지에 정확한 위치 표시
+  - [ ] 예상 공수: 3일
+- [ ] **Error Recovery 구현** ⭐⭐⭐⭐
+  - [ ] Panic Mode Recovery
+  - [ ] 여러 에러 한 번에 보고
+  - [ ] 동기화 토큰 정의
+  - [ ] 예상 공수: 1주
+
+##### P1 - 중요 과제 (예상 3주)
+- [ ] **형태소 분석기 분리** ⭐⭐⭐⭐
+  - [ ] Dictionary 클래스 (명사/동사/조사 사전)
+  - [ ] MorphologicalAnalyzer 구현
+  - [ ] Lexer 조사 분리 정확도 95% → 99%+
+  - [ ] 예상 공수: 2주
+- [ ] **Lookahead 확장 (LL(1) → LL(2))** ⭐⭐⭐
+  - [ ] peekPeekToken 추가
+  - [ ] 복잡한 문법 처리
+  - [ ] 예상 공수: 3일
+- [ ] **문법 개선 (모호성 제거)** ⭐⭐⭐
+  - [ ] 명시적 키워드 도입 검토
+  - [ ] 기존 코드 마이그레이션 계획
+  - [ ] 예상 공수: 1주
+
+##### P2 - 개선 과제 (장기)
+- [ ] **GC 개선 (Mark-and-Sweep)** ⭐⭐⭐
+  - [ ] 순환 참조 해결
+  - [ ] 증분 GC (Incremental GC)
+  - [ ] 예상 공수: 2주
+
+#### 6.4: 성능 최적화 (lab/idea.md Phase 2)
+- [ ] **프로파일링 인프라**
+  - [ ] Hot path 탐지
+  - [ ] 실행 중 타입 힌트 수집
+  - [ ] 브랜치 편향 분석
+- [ ] **Inline Cache (IC)** ⭐⭐⭐⭐
+  - [ ] 메서드 호출 최적화
+  - [ ] 프로퍼티 접근 캐싱
+- [ ] **JIT 컴파일러 (선택적)** ⭐⭐⭐⭐⭐
+  - [ ] 기본 Off, 서버/로컬만 활성화
+  - [ ] 템플릿 JIT (Tier 1)
+  - [ ] LLVM 백엔드 연구 (Phase 3)
+  - [ ] 예상 공수: 2-3개월
 - [ ] 메모리 풀링
-- [ ] 성능 목표: 2-5배 향상
+- [ ] 성능 목표: 2-10배 향상 (JIT 활성화 시)
 
-#### 6.4: 패키지 관리자
+#### 6.5: 패키지 관리자
 - [ ] 패키지 레지스트리 설계
 - [ ] 의존성 해결 알고리즘
 - [ ] `세종패키지` CLI 도구
@@ -205,6 +267,70 @@
 - [ ] 컴파일 타임 매크로
 - [ ] AST 조작
 - [ ] 코드 생성
+
+---
+
+## 🏗️ 엔진 진화 계획 (lab/idea.md)
+
+> **비전**: "훈민정음의 철학 → 디지털 코드"
+
+### 현재 상태 (Phase 1)
+```
+AST Interpreter (Tree-walking)
++ Bytecode VM (Stack-based, 기본 구현)
++ Deterministic Mode
++ C++23 기반
+```
+
+### Phase 2: Optimized Runtime (v0.6-0.8)
+**목표**: V8 모델 차용, 성능 10배 향상
+
+```
+Register-based Bytecode VM
++ Hot path 탐지
++ Inline Cache (IC)
++ Peephole 최적화
++ Constant Folding
++ JIT 컴파일러 (선택적, 기본 Off)
+  - 서버/로컬: -DENABLE_JIT=ON
+  - 웹/임베디드: JIT 비활성화
+```
+
+**아키텍처 전환**:
+- Stack-based → **Register-based VM** (Lua 스타일)
+- Tree-walking → Bytecode 전용
+- 단일 Eval Loop (CPython 구조)
+
+### Phase 3: AI/DSL 확장 (v1.0+)
+**목표**: 범용 언어 플랫폼
+
+```
+Homoiconic IR (Lisp형)
++ 코드 = 데이터 구조
++ DSL 엔진 (훈민정코)
++ 자연어 → 코드 변환
++ AI 모델 연동
+```
+
+**확장성**:
+- 모든 DSL, 스크립트가 SejongVM에서 실행
+- 공통 Bytecode 포맷
+- 플러그인 아키텍처
+
+### 기술 스펙
+- **언어**: C++23 (GCC 13+, Clang 16+, MSVC 2022+)
+- **빌드**: CMake ≥ 3.20
+- **테스트**: GoogleTest
+- **플랫폼**: macOS / Linux / Windows / WebAssembly / Embedded
+- **옵션**: `ENABLE_JIT`, `ENABLE_DETERMINISTIC`, `ENABLE_PROFILER`
+
+### 타깃별 전략
+
+| 타깃 | JIT | 특징 |
+|------|-----|------|
+| 웹 (WASM) | ❌ | 브라우저 내 교육용, VM 시각화 UI |
+| 임베디드 | ❌ | 저전력 (64~128KB RAM), Deterministic 필수 |
+| 서버/CLI | ✅ 옵션 | 연구/실험용, IC + JIT 활성화 가능 |
 
 ---
 
@@ -269,11 +395,24 @@ VS Code 통합
 - [ ] 패턴 매칭 (선택)
 
 ### v0.5.0 (Phase 6 완료)
+- [x] 표준 라이브러리 200개+ ✅ (212개+)
+- [ ] **아키텍처 개선 (P0 완료)** ⭐
+  - [ ] Semantic Analyzer 완전 구현
+  - [ ] Symbol Table 완전 구현
+  - [ ] Error Recovery
+  - [ ] SourceLocation 추가
+- [ ] **형태소 분석기 (P1 완료)** ⭐
+  - [ ] Dictionary 기반 조사 분리
+  - [ ] 99%+ 정확도
 - [ ] 패키지 관리자 출시
-- [ ] 표준 라이브러리 200개+
-- [ ] JIT Tier 1 구현
-- [ ] 성능 2배 향상
 - [ ] 50+ GitHub Stars
+
+### v0.6.0 - v0.8.0 (엔진 최적화)
+- [ ] **Register-based VM 전환** ⭐⭐⭐⭐⭐
+- [ ] Inline Cache (IC)
+- [ ] JIT Tier 1 구현 (선택적)
+- [ ] 성능 5-10배 향상
+- [ ] Profiling 인프라
 
 ### v1.0.0 (Phase 7 완료)
 - [ ] 완전한 타입 시스템
@@ -313,11 +452,14 @@ VS Code 통합
 2025-11 초   Phase 2 (실용 기능)
 2025-11 중   Phase 3 (고급 기능)
 2025-11 중   Phase 4 (최적화)
-2025-11 중   Phase 5 (개발자 경험) ← 현재
-2025-12      Phase 6 시작
+2025-11 중   Phase 5 (개발자 경험)
+2025-11 말   Phase 6 시작 (stdlib 확장) ← 현재
+2025-12      Phase 6 아키텍처 개선 (P0/P1)
 2026-01      v0.5.0 릴리스
-2026-02      Phase 7 시작
-2026-06      v1.0.0 정식 릴리스
+2026-02      Phase 6.5: 엔진 최적화 시작
+2026-04      v0.6.0-0.8.0 (Register VM + JIT)
+2026-06      Phase 7 시작
+2026-12      v1.0.0 정식 릴리스
 ```
 
 ---
@@ -342,6 +484,20 @@ VS Code 통합
 ---
 
 **마지막 업데이트**: 2025-11-15
-**현재 진행률**: Phase 6 55% (언어 개선 + Linter + Formatter + stdlib/utils + stdlib/regex + stdlib/crypto 완료)
-**다음 마일스톤**: v0.4.0 (stdlib 확장 계속 - http, db)
-**장기 비전**: 한국어로 프로그래밍하는 자연스러운 언어
+**현재 버전**: v0.3.7
+**현재 진행률**: Phase 6 60%
+**완료**: stdlib/os.ksj (39개 함수, 20개 테스트), Lexer 조사 분리 버그 수정
+**다음 우선순위**:
+1. **아키텍처 개선 (P0 긴급)** - Semantic Analyzer, Symbol Table, Error Recovery
+2. stdlib 확장 계속 (http, db)
+3. 형태소 분석기 분리 (P1)
+
+**장기 비전**:
+- **기술**: Register-based VM + 선택적 JIT + AI/DSL 확장
+- **철학**: 훈민정음의 디지털 후계자
+- **목표**: 한국어로 프로그래밍하는 자연스러운 언어
+
+**핵심 문서**:
+- [아키텍처 분석](./ARCHITECTURE_ANALYSIS.md)
+- [개선 계획 (P0/P1/P2)](./ANALYSIS_IMPROVEMENTS.md)
+- [엔진 설계](../lab/idea.md)

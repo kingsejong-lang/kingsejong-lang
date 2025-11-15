@@ -1,10 +1,15 @@
 # Known Issues
 
-## Current Status
+## Current Status (2025-11-15)
 
-**모든 테스트 통과**: 268/268 tests passing (100% success rate) ✅
+**모든 테스트 통과**: 1003/1003 tests passing (100% success rate) ✅
 
-현재 알려진 주요 이슈는 없습니다. 모든 loop statement 관련 문제가 해결되었습니다.
+모든 loop statement 및 패턴 매칭 관련 문제가 해결되었습니다.
+
+### 알려진 이슈 (1개)
+1. **Parser - 괄호 표현식 처리 버그**: 파서가 `(a + b) * c` 같은 표현식에서 괄호를 함수 호출로 잘못 인식
+   - 비활성화된 테스트: `EvaluatorTest.DISABLED_ShouldEvaluateComplexExpression`
+   - 상세 내용은 ISSUES.md 참조
 
 ---
 

@@ -280,7 +280,7 @@ TEST(EvaluatorTest, ShouldEvaluateMultipleVarDeclarations)
     EXPECT_EQ(result.asInteger(), 30);
 }
 
-TEST(EvaluatorTest, DISABLED_ShouldEvaluateVarReassignment)
+TEST(EvaluatorTest, ShouldEvaluateVarReassignment)
 {
     auto result = evalInput(R"(
         정수 x = 5
@@ -288,8 +288,7 @@ TEST(EvaluatorTest, DISABLED_ShouldEvaluateVarReassignment)
         x
     )");
 
-    // 현재 재할당 구문이 Parser에 없으므로 이 테스트는 실패할 것
-    // TODO: AssignmentExpression 구현 후 활성화
+    // AssignmentStatement가 구현되어 정상 동작
     EXPECT_TRUE(result.isInteger());
     EXPECT_EQ(result.asInteger(), 10);
 }

@@ -174,7 +174,7 @@ TEST(IfStatementTest, ShouldEvaluateNestedIf)
 // 변수 할당과 함께 사용
 // ============================================================================
 
-TEST(IfStatementTest, DISABLED_ShouldWorkWithVariableDeclaration)
+TEST(IfStatementTest, ShouldWorkWithVariableDeclaration)
 {
     auto result = evalInput(R"(
         정수 x = 10
@@ -187,9 +187,8 @@ TEST(IfStatementTest, DISABLED_ShouldWorkWithVariableDeclaration)
         result
     )");
 
-    // TODO: Assignment 구현 후 활성화
-    // EXPECT_TRUE(result.isInteger());
-    // EXPECT_EQ(result.asInteger(), 100);
+    EXPECT_TRUE(result.isInteger());
+    EXPECT_EQ(result.asInteger(), 100);
 }
 
 TEST(IfStatementTest, ShouldReturnValueFromBlock)

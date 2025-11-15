@@ -530,6 +530,33 @@ cmake -DENABLE_ASAN=ON -DENABLE_UBSAN=ON ..
 make && ctest --output-on-failure
 ```
 
+## Git Commit Message Standards
+
+### NEVER Include These Lines
+
+**IMPORTANT**: When creating git commits, NEVER include:
+- "Co-Authored-By: Claude <noreply@anthropic.com>"
+- "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+
+**Allowed commit message format**:
+```
+feat: Brief description
+
+Detailed description of changes...
+```
+
+**FORBIDDEN commit message format**:
+```
+feat: Brief description
+
+Detailed description...
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)  ← NEVER include
+Co-Authored-By: Claude <noreply@anthropic.com>  ← NEVER include
+```
+
+This rule applies to ALL git commits in this project.
+
 ## Summary
 
 This document establishes strict code quality standards for C++ development:
@@ -539,5 +566,6 @@ This document establishes strict code quality standards for C++ development:
 3. **Testing**: Comprehensive tests including sanitizers and edge cases
 4. **Documentation**: Doxygen-style comments for all public APIs
 5. **Static Analysis**: Regular use of cppcheck, clang-tidy, and sanitizers
+6. **Git Commits**: Clean commit messages without co-author or generated-by lines
 
 All code must pass these standards before being considered complete.

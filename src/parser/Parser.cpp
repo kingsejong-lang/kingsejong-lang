@@ -48,6 +48,7 @@ void Parser::registerParseFunctions()
     registerPrefixFn(TokenType::JEONGSU, [this]() { return parseIdentifier(); });
     registerPrefixFn(TokenType::SILSU, [this]() { return parseIdentifier(); });
     registerPrefixFn(TokenType::MUNJAYEOL, [this]() { return parseIdentifier(); });
+    registerPrefixFn(TokenType::BAEYEOL, [this]() { return parseIdentifier(); });
 
     // Infix 파싱 함수 등록
     registerInfixFn(TokenType::PLUS, [this](auto left) { return parseBinaryExpression(std::move(left)); });
@@ -363,10 +364,16 @@ std::unique_ptr<Statement> Parser::parseStatement()
 
     // 타입 키워드로 시작하면 변수 선언
     // 단, 타입 키워드 뒤에 LPAREN이 오면 함수 호출이므로 표현식으로 처리
+    // 또한 LBRACKET이 오면 인덱스 접근이므로 표현식으로 처리
+    // Josa가 오면 조사 표현식이므로 표현식으로 처리
     // 예: 정수(3.14), 실수(42)는 타입 변환 함수 호출
+    // 예: 배열[0]은 변수 "배열"의 인덱스 접근
+    // 예: 배열을 정렬한다는 조사 표현식
     if ((curTokenIs(TokenType::JEONGSU) || curTokenIs(TokenType::SILSU) ||
-         curTokenIs(TokenType::MUNJAYEOL) || curTokenIs(TokenType::NONLI)) &&
-        !peekTokenIs(TokenType::LPAREN))
+         curTokenIs(TokenType::MUNJAYEOL) || curTokenIs(TokenType::NONLI) ||
+         curTokenIs(TokenType::BAEYEOL)) &&
+        !peekTokenIs(TokenType::LPAREN) && !peekTokenIs(TokenType::LBRACKET) &&
+        !isJosaToken(peekToken_.type))
     {
         return parseVarDeclaration();
     }
@@ -471,9 +478,16 @@ std::unique_ptr<VarDeclaration> Parser::parseVarDeclaration()
     // 타입 이름으로 Type 객체 조회
     types::Type* varType = types::Type::getBuiltin(typeName);
 
-    // 변수 이름
-    if (!expectPeek(TokenType::IDENTIFIER))
+    // 변수 이름 (IDENTIFIER 또는 타입 키워드도 변수명으로 허용)
+    nextToken();
+    if (!curTokenIs(TokenType::IDENTIFIER) &&
+        !curTokenIs(TokenType::JEONGSU) &&
+        !curTokenIs(TokenType::SILSU) &&
+        !curTokenIs(TokenType::MUNJAYEOL) &&
+        !curTokenIs(TokenType::NONLI) &&
+        !curTokenIs(TokenType::BAEYEOL))
     {
+        peekError(TokenType::IDENTIFIER);
         return nullptr;
     }
 

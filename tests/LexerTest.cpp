@@ -519,7 +519,7 @@ TEST(LexerTest, TokenizeJosaChain)
     Lexer lexer(input);
 
     Token tok1 = lexer.nextToken();
-    EXPECT_EQ(tok1.type, TokenType::IDENTIFIER);
+    EXPECT_EQ(tok1.type, TokenType::BAEYEOL);  // 배열 is now a keyword
     EXPECT_EQ(tok1.literal, "배열");
 
     Token tok2 = lexer.nextToken();

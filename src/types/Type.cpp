@@ -79,6 +79,7 @@ void Type::initBuiltinTypes()
     builtinTypes_["불린"] = booleanType_;  // 별칭
     builtinTypes_["없음"] = nullType_;
     builtinTypes_["범위"] = rangeType_;
+    builtinTypes_["배열"] = new Type(TypeKind::ARRAY, "배열");  // 배열 타입
 }
 
 Type* Type::getBuiltin(const std::string& koreanName)

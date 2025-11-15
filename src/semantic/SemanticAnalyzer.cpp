@@ -622,26 +622,100 @@ Type* SemanticAnalyzer::inferType(const Expression* expr)
     }
 
     // 배열 리터럴 타입 추론
-    else if (dynamic_cast<const ArrayLiteral*>(expr))
+    else if (auto arrayLit = dynamic_cast<const ArrayLiteral*>(expr))
     {
-        // TODO: 배열 타입 시스템 구현 후 처리
-        // 현재는 기본 타입만 지원하므로 nullptr 반환
-        return nullptr;
+        // 배열 요소들의 타입 일관성 검사
+        if (!arrayLit->elements().empty())
+        {
+            Type* firstType = inferType(arrayLit->elements()[0].get());
+
+            // 모든 요소가 같은 타입인지 확인
+            for (size_t i = 1; i < arrayLit->elements().size(); i++)
+            {
+                Type* elemType = inferType(arrayLit->elements()[i].get());
+                if (firstType && elemType &&
+                    firstType->koreanName() != elemType->koreanName())
+                {
+                    addError("배열 요소의 타입이 일치하지 않습니다: " +
+                            firstType->koreanName() + " vs " + elemType->koreanName());
+                }
+            }
+        }
+
+        return Type::getBuiltin("배열");
     }
 
     // 배열 인덱스 접근 타입 추론
-    else if (dynamic_cast<const IndexExpression*>(expr))
+    else if (auto indexExpr = dynamic_cast<const IndexExpression*>(expr))
     {
-        // TODO: 배열의 요소 타입 반환
-        // 현재는 기본 타입만 지원하므로 nullptr 반환
+        Type* arrayType = inferType(indexExpr->array());
+        Type* indexType = inferType(indexExpr->index());
+
+        // 배열이 실제로 배열 타입인지 확인
+        if (arrayType && arrayType->koreanName() != "배열" &&
+            arrayType->koreanName() != "문자열")  // 문자열도 인덱스 접근 가능
+        {
+            addError("인덱스 접근은 배열 또는 문자열에만 사용할 수 있습니다 (현재: " +
+                    arrayType->koreanName() + ")");
+        }
+
+        // 인덱스가 정수 타입인지 확인
+        if (indexType && indexType->koreanName() != "정수")
+        {
+            addError("배열 인덱스는 정수여야 합니다 (현재: " +
+                    indexType->koreanName() + ")");
+        }
+
+        // 문자열 인덱스 접근은 문자열 반환
+        if (arrayType && arrayType->koreanName() == "문자열")
+        {
+            return Type::getBuiltin("문자열");
+        }
+
+        // 배열 요소 타입은 현재 추론 불가 (나중에 제네릭 타입으로 확장)
+        // 일단 nullptr 반환
         return nullptr;
     }
 
     // 함수 호출 타입 추론
-    else if (dynamic_cast<const CallExpression*>(expr))
+    else if (auto callExpr = dynamic_cast<const CallExpression*>(expr))
     {
-        // TODO: 함수의 반환 타입 반환
-        // 현재는 함수 타입 시스템이 없으므로 nullptr 반환
+        // 함수가 정의되어 있는지 확인
+        if (auto funcIdent = dynamic_cast<const Identifier*>(callExpr->function()))
+        {
+            const std::string& funcName = funcIdent->name();
+
+            // builtin 함수가 아니고 정의되지 않았으면 에러 (Name Resolution에서 이미 체크했지만)
+            if (!isBuiltinFunction(funcName) && !symbolTable_.isDefined(funcName))
+            {
+                addError("정의되지 않은 함수: " + funcName);
+            }
+
+            // builtin 함수들의 반환 타입 (알려진 것들만)
+            if (funcName == "길이")
+            {
+                return Type::getBuiltin("정수");
+            }
+            else if (funcName == "정수")
+            {
+                return Type::getBuiltin("정수");
+            }
+            else if (funcName == "실수")
+            {
+                return Type::getBuiltin("실수");
+            }
+            else if (funcName == "문자열")
+            {
+                return Type::getBuiltin("문자열");
+            }
+            else if (funcName == "타입")
+            {
+                return Type::getBuiltin("문자열");
+            }
+            // 그 외 builtin 함수나 사용자 정의 함수는 반환 타입 알 수 없음
+        }
+
+        // 함수 반환 타입을 알 수 없는 경우
         return nullptr;
     }
 

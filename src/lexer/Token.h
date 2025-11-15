@@ -110,6 +110,7 @@ enum class TokenType
     MUNJA,        ///< 문자 (char)
     MUNJAYEOL,    ///< 문자열 (string)
     NONLI,        ///< 논리 (boolean)
+    BAEYEOL,      ///< 배열 (array)
 
     // 불리언 리터럴
     CHAM,         ///< 참 (true)

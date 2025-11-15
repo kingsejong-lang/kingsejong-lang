@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(cmake:*)",
-      "Bash(make:*)"
+      "Bash(make:*)",
+      "Bash(./build/bin/kingsejong_tests:*)"
     ],
     "deny": [],
     "ask": []

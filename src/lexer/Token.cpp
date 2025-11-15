@@ -71,6 +71,7 @@ static const std::unordered_map<std::string, TokenType> keywords = {
     {"문자", TokenType::MUNJA},
     {"문자열", TokenType::MUNJAYEOL},
     {"논리", TokenType::NONLI},
+    {"배열", TokenType::BAEYEOL},
 
     // 불리언 리터럴
     {"참", TokenType::CHAM},
@@ -153,6 +154,7 @@ std::string tokenTypeToString(TokenType type)
         case TokenType::MUNJA:        return "MUNJA";
         case TokenType::MUNJAYEOL:    return "MUNJAYEOL";
         case TokenType::NONLI:        return "NONLI";
+        case TokenType::BAEYEOL:      return "BAEYEOL";
 
         case TokenType::CHAM:         return "CHAM";
         case TokenType::GEOJIT:       return "GEOJIT";

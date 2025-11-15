@@ -8,6 +8,7 @@
 #include "Parser.h"
 #include "types/Type.h"
 #include <stdexcept>
+#include <iostream>
 
 namespace kingsejong {
 namespace parser {
@@ -73,6 +74,9 @@ void Parser::registerParseFunctions()
     registerInfixFn(TokenType::JOSA_EURO, [this](auto left) { return parseJosaExpression(std::move(left)); });
     registerInfixFn(TokenType::JOSA_ESO, [this](auto left) { return parseJosaExpression(std::move(left)); });
     registerInfixFn(TokenType::JOSA_E, [this](auto left) { return parseJosaExpression(std::move(left)); });
+
+    // 패턴 매칭 파싱 함수 등록 (F5.5)
+    registerInfixFn(TokenType::E_DAEHAE, [this](auto left) { return parseMatchExpression(std::move(left)); });
 
     // 범위 파싱 함수 등록
     registerInfixFn(TokenType::BUTEO, [this](auto left) { return parseRangeExpression(std::move(left)); });
@@ -184,6 +188,7 @@ Parser::Precedence Parser::tokenPrecedence(TokenType type) const
         case TokenType::JOSA_EURO:
         case TokenType::JOSA_ESO:
         case TokenType::JOSA_E:
+        case TokenType::E_DAEHAE:
             return Precedence::CALL;
         // 범위 토큰들 - RANGE 우선순위 (ASSIGN보다 높고 OR보다 낮음)
         case TokenType::BUTEO:
@@ -1073,6 +1078,145 @@ std::unique_ptr<Expression> Parser::parseFunctionLiteral()
     }
 
     return std::make_unique<FunctionLiteral>(std::move(parameters), std::move(body));
+}
+
+// ============================================================================
+// 패턴 매칭 파싱 (F5.5)
+// ============================================================================
+
+std::unique_ptr<Expression> Parser::parseMatchExpression(std::unique_ptr<Expression> left)
+{
+    nextToken(); // '{' 로 이동
+
+    if (!curTokenIs(TokenType::LBRACE))
+    {
+        errors_.push_back("패턴 매칭에는 '{'가 필요합니다");
+        return nullptr;
+    }
+
+    nextToken(); // 첫 번째 패턴으로 이동
+
+    std::vector<MatchCase> cases;
+
+    while (curToken_.type != TokenType::RBRACE && curToken_.type != TokenType::EOF_TOKEN)
+    {
+        MatchCase matchCase = parseMatchCase();
+        cases.push_back(std::move(matchCase));
+
+        if (peekTokenIs(TokenType::RBRACE))
+        {
+            nextToken();
+        }
+        else
+        {
+            nextToken();
+        }
+    }
+
+    if (!curTokenIs(TokenType::RBRACE))
+    {
+        errors_.push_back("패턴 매칭에는 '}'가 필요합니다");
+        return nullptr;
+    }
+
+    // Don't advance past '}' - leave curToken at '}'
+    return std::make_unique<MatchExpression>(std::move(left), std::move(cases));
+}
+
+MatchCase Parser::parseMatchCase()
+{
+    auto pattern = parsePattern();
+    if (!pattern)
+    {
+        errors_.push_back("패턴 파싱 실패");
+        return MatchCase(nullptr, nullptr, nullptr);
+    }
+
+    std::unique_ptr<Expression> guard = nullptr;
+    if (peekTokenIs(TokenType::WHEN))
+    {
+        nextToken();
+        nextToken();
+        guard = parseExpression(Precedence::LOWEST);
+    }
+
+    if (!expectPeek(TokenType::ARROW))
+    {
+        errors_.push_back("패턴 매칭 케이스에는 '->'가 필요합니다");
+        return MatchCase(std::move(pattern), nullptr, nullptr);
+    }
+
+    nextToken(); // 본문 표현식으로 이동
+
+    auto body = parseExpression(Precedence::LOWEST);
+
+    if (!body)
+    {
+        errors_.push_back("패턴 매칭 본문 파싱 실패");
+        return MatchCase(std::move(pattern), nullptr, nullptr);
+    }
+
+    // **중요**: MatchCase 생성자는 (pattern, body, guard) 순서!
+    return MatchCase(std::move(pattern), std::move(body), std::move(guard));
+}
+
+std::unique_ptr<Pattern> Parser::parsePattern()
+{
+    if (curTokenIs(TokenType::UNDERSCORE))
+    {
+        return std::make_unique<WildcardPattern>();
+    }
+
+    if (curTokenIs(TokenType::LBRACKET))
+    {
+        return parseArrayPattern();
+    }
+
+    if (curTokenIs(TokenType::INTEGER) || curTokenIs(TokenType::FLOAT) ||
+        curTokenIs(TokenType::STRING) || curTokenIs(TokenType::CHAM) ||
+        curTokenIs(TokenType::GEOJIT))
+    {
+        auto value = parseExpression(Precedence::LOWEST);
+        return std::make_unique<LiteralPattern>(std::move(value));
+    }
+
+    if (curTokenIs(TokenType::IDENTIFIER))
+    {
+        std::string name = curToken_.literal;
+        return std::make_unique<BindingPattern>(name);
+    }
+
+    errors_.push_back("알 수 없는 패턴: " + tokenTypeToString(curToken_.type));
+    return nullptr;
+}
+
+std::unique_ptr<Pattern> Parser::parseArrayPattern()
+{
+    std::vector<std::unique_ptr<Pattern>> elements;
+    std::string rest;
+
+    nextToken();
+
+    while (!curTokenIs(TokenType::RBRACKET) && !curTokenIs(TokenType::EOF_TOKEN))
+    {
+        auto pattern = parsePattern();
+        if (pattern)
+        {
+            elements.push_back(std::move(pattern));
+        }
+
+        if (peekTokenIs(TokenType::COMMA))
+        {
+            nextToken();
+            nextToken();
+        }
+        else if (peekTokenIs(TokenType::RBRACKET))
+        {
+            nextToken();
+        }
+    }
+
+    return std::make_unique<ArrayPattern>(std::move(elements), rest);
 }
 
 } // namespace parser

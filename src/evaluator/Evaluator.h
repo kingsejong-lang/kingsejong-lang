@@ -194,6 +194,13 @@ private:
      */
     Value evalJosaExpression(ast::JosaExpression* expr);
 
+    /**
+     * @brief 패턴 매칭 표현식 평가
+     * @param expr 패턴 매칭 표현식 노드
+     * @return 매칭된 케이스의 결과 Value
+     */
+    Value evalMatchExpression(ast::MatchExpression* expr);
+
     // Statement 실행 함수들
 
     /**

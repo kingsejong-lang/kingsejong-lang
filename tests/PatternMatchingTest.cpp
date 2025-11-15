@@ -41,9 +41,13 @@ protected:
 
         auto env = std::make_shared<evaluator::Environment>();
         evaluator::Evaluator evaluator(env);
-        evaluator::Value result = evaluator.eval(program.get());
 
-        return result.toString();
+        try {
+            evaluator::Value result = evaluator.eval(program.get());
+            return result.toString();
+        } catch (const std::exception& e) {
+            return "ERROR: " + std::string(e.what());
+        }
     }
 };
 
@@ -53,8 +57,8 @@ protected:
 
 TEST_F(PatternMatchingTest, IntegerLiteralPattern) {
     std::string code = R"(
-변수 x = 1
-변수 결과 = x에 대해 {
+정수 x = 1
+정수 결과 = x 에 대해 {
     1 -> "하나"
     2 -> "둘"
     3 -> "셋"
@@ -67,8 +71,8 @@ TEST_F(PatternMatchingTest, IntegerLiteralPattern) {
 
 TEST_F(PatternMatchingTest, IntegerLiteralPattern_SecondCase) {
     std::string code = R"(
-변수 x = 2
-변수 결과 = x에 대해 {
+정수 x = 2
+정수 결과 = x 에 대해 {
     1 -> "하나"
     2 -> "둘"
     3 -> "셋"
@@ -81,8 +85,8 @@ TEST_F(PatternMatchingTest, IntegerLiteralPattern_SecondCase) {
 
 TEST_F(PatternMatchingTest, StringLiteralPattern) {
     std::string code = R"(
-변수 과일 = "사과"
-변수 결과 = 과일에 대해 {
+문자열 과일 = "사과"
+문자열 결과 = 과일 에 대해 {
     "사과" -> "빨강"
     "바나나" -> "노랑"
     "포도" -> "보라"
@@ -95,8 +99,8 @@ TEST_F(PatternMatchingTest, StringLiteralPattern) {
 
 TEST_F(PatternMatchingTest, BooleanLiteralPattern) {
     std::string code = R"(
-변수 상태 = 참
-변수 결과 = 상태에 대해 {
+논리 상태 = 참
+정수 결과 = 상태 에 대해 {
     참 -> "켜짐"
     거짓 -> "꺼짐"
 }
@@ -112,8 +116,8 @@ TEST_F(PatternMatchingTest, BooleanLiteralPattern) {
 
 TEST_F(PatternMatchingTest, WildcardPattern) {
     std::string code = R"(
-변수 x = 999
-변수 결과 = x에 대해 {
+정수 x = 999
+정수 결과 = x 에 대해 {
     1 -> "하나"
     2 -> "둘"
     _ -> "기타"
@@ -127,8 +131,8 @@ TEST_F(PatternMatchingTest, WildcardPattern) {
 TEST_F(PatternMatchingTest, WildcardPattern_FirstMatch) {
     // 패턴은 위에서 아래로 첫 번째 매칭만 실행
     std::string code = R"(
-변수 x = 1
-변수 결과 = x에 대해 {
+정수 x = 1
+정수 결과 = x 에 대해 {
     1 -> "정확히 1"
     _ -> "기타"
 }
@@ -144,8 +148,8 @@ TEST_F(PatternMatchingTest, WildcardPattern_FirstMatch) {
 
 TEST_F(PatternMatchingTest, BindingPattern) {
     std::string code = R"(
-변수 x = 10
-변수 결과 = x에 대해 {
+정수 x = 10
+정수 결과 = x 에 대해 {
     1 -> "하나"
     n -> n * 2
 }
@@ -157,8 +161,8 @@ TEST_F(PatternMatchingTest, BindingPattern) {
 
 TEST_F(PatternMatchingTest, BindingPattern_WithString) {
     std::string code = R"(
-변수 이름 = "철수"
-변수 결과 = 이름에 대해 {
+문자열 이름 = "철수"
+정수 결과 = 이름 에 대해 {
     "홍길동" -> "안녕, 길동씨"
     name -> "안녕, " + name + "님"
 }
@@ -174,8 +178,8 @@ TEST_F(PatternMatchingTest, BindingPattern_WithString) {
 
 TEST_F(PatternMatchingTest, ExpressionAsBody) {
     std::string code = R"(
-변수 x = 3
-변수 결과 = x에 대해 {
+정수 x = 3
+정수 결과 = x 에 대해 {
     1 -> 1 * 1
     2 -> 2 * 2
     3 -> 3 * 3
@@ -189,11 +193,11 @@ TEST_F(PatternMatchingTest, ExpressionAsBody) {
 
 TEST_F(PatternMatchingTest, NestedMatchExpression) {
     std::string code = R"(
-변수 x = 2
-변수 y = 3
-변수 결과 = x에 대해 {
+정수 x = 2
+정수 y = 3
+정수 결과 = x 에 대해 {
     1 -> "x는 1"
-    2 -> y에 대해 {
+    2 -> y 에 대해 {
         1 -> "x는 2, y는 1"
         2 -> "x는 2, y는 2"
         3 -> "x는 2, y는 3"
@@ -212,8 +216,8 @@ TEST_F(PatternMatchingTest, NestedMatchExpression) {
 
 TEST_F(PatternMatchingTest, NoMatchingCase) {
     std::string code = R"(
-변수 x = 999
-변수 결과 = x에 대해 {
+정수 x = 999
+정수 결과 = x 에 대해 {
     1 -> "하나"
     2 -> "둘"
 }
@@ -237,8 +241,8 @@ TEST_F(PatternMatchingTest, NoMatchingCase) {
 
 TEST_F(PatternMatchingTest, FizzBuzz) {
     std::string code = R"(
-변수 fizzbuzz = 함수(n) {
-    반환 n에 대해 {
+fizzbuzz = 함수(n) {
+    반환 n 에 대해 {
         15 -> "FizzBuzz"
         12 -> "Fizz"
         10 -> "Buzz"
@@ -258,8 +262,8 @@ fizzbuzz(15)
 
 TEST_F(PatternMatchingTest, DayOfWeek) {
     std::string code = R"(
-변수 요일 = 함수(n) {
-    반환 n에 대해 {
+정수 요일 = 함수(n) {
+    반환 n 에 대해 {
         1 -> "월요일"
         2 -> "화요일"
         3 -> "수요일"

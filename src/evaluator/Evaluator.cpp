@@ -12,6 +12,7 @@
 #include <sstream>
 #include <cmath>
 #include <algorithm>
+#include <iostream>
 
 namespace kingsejong {
 namespace evaluator {
@@ -70,6 +71,9 @@ Value Evaluator::eval(ast::Node* node)
 
         case ast::NodeType::CALL_EXPRESSION:
             return evalCallExpression(static_cast<ast::CallExpression*>(node));
+
+        case ast::NodeType::MATCH_EXPRESSION:
+            return evalMatchExpression(static_cast<ast::MatchExpression*>(node));
 
         case ast::NodeType::ARRAY_LITERAL:
             return evalArrayLiteral(static_cast<ast::ArrayLiteral*>(node));
@@ -1034,6 +1038,166 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
         "배열에 대한 메서드 '" + methodName + "'를 찾을 수 없습니다.\n" +
         "해결 방법: 지원되는 메서드는 '정렬한다', '역순으로_나열한다', '걸러낸다', '변환한다' 등입니다."
     );
+}
+
+Value Evaluator::evalMatchExpression(ast::MatchExpression* node)
+{
+    Value matchValue = eval(const_cast<ast::Expression*>(node->value()));
+
+    for (const auto& matchCase : node->cases())
+    {
+        bool matched = false;
+        auto caseEnv = std::make_shared<Environment>(env_);
+
+        auto pattern = matchCase.pattern();
+        if (!pattern)
+        {
+            continue;
+        }
+
+        switch (pattern->type())
+        {
+            case ast::NodeType::LITERAL_PATTERN:
+            {
+                auto literalPattern = static_cast<const ast::LiteralPattern*>(pattern);
+                Value patternValue = eval(const_cast<ast::Expression*>(literalPattern->value()));
+
+                if (matchValue.getType() != patternValue.getType())
+                {
+                    break;
+                }
+
+                if (matchValue.getType() == types::TypeKind::INTEGER &&
+                    matchValue.asInteger() == patternValue.asInteger())
+                {
+                    matched = true;
+                }
+                else if (matchValue.getType() == types::TypeKind::STRING &&
+                         matchValue.asString() == patternValue.asString())
+                {
+                    matched = true;
+                }
+                else if (matchValue.getType() == types::TypeKind::BOOLEAN &&
+                         matchValue.asBoolean() == patternValue.asBoolean())
+                {
+                    matched = true;
+                }
+                break;
+            }
+
+            case ast::NodeType::WILDCARD_PATTERN:
+            {
+                matched = true;
+                break;
+            }
+
+            case ast::NodeType::BINDING_PATTERN:
+            {
+                auto bindingPattern = static_cast<const ast::BindingPattern*>(pattern);
+                std::string name = bindingPattern->name();
+                caseEnv->set(name, matchValue);
+                matched = true;
+                break;
+            }
+
+            case ast::NodeType::ARRAY_PATTERN:
+            {
+                if (matchValue.getType() != types::TypeKind::ARRAY)
+                {
+                    break;
+                }
+
+                auto arrayPattern = static_cast<const ast::ArrayPattern*>(pattern);
+                const auto& elements = arrayPattern->elements();
+                const auto& matchArray = matchValue.asArray();
+
+                if (elements.size() != matchArray.size())
+                {
+                    break;
+                }
+
+                matched = true;
+                for (size_t i = 0; i < elements.size(); i++)
+                {
+                    auto elemPattern = elements[i].get();
+                    Value elemValue = matchArray[i];
+
+                    if (elemPattern->type() == ast::NodeType::LITERAL_PATTERN)
+                    {
+                        auto literalPattern = static_cast<const ast::LiteralPattern*>(elemPattern);
+                        Value patternValue = eval(const_cast<ast::Expression*>(literalPattern->value()));
+
+                        if (elemValue.getType() != patternValue.getType())
+                        {
+                            matched = false;
+                            break;
+                        }
+
+                        if (elemValue.getType() == types::TypeKind::INTEGER &&
+                            elemValue.asInteger() != patternValue.asInteger())
+                        {
+                            matched = false;
+                            break;
+                        }
+                        else if (elemValue.getType() == types::TypeKind::STRING &&
+                                 elemValue.asString() != patternValue.asString())
+                        {
+                            matched = false;
+                            break;
+                        }
+                        else if (elemValue.getType() == types::TypeKind::BOOLEAN &&
+                                 elemValue.asBoolean() != patternValue.asBoolean())
+                        {
+                            matched = false;
+                            break;
+                        }
+                    }
+                    else if (elemPattern->type() == ast::NodeType::WILDCARD_PATTERN)
+                    {
+                        continue;
+                    }
+                    else if (elemPattern->type() == ast::NodeType::BINDING_PATTERN)
+                    {
+                        auto bindingPattern = static_cast<const ast::BindingPattern*>(elemPattern);
+                        caseEnv->set(bindingPattern->name(), elemValue);
+                    }
+                    else
+                    {
+                        matched = false;
+                        break;
+                    }
+                }
+                break;
+            }
+
+            default:
+                break;
+        }
+
+        if (matched)
+        {
+            if (matchCase.guard())
+            {
+                auto prevEnv = env_;
+                env_ = caseEnv;
+                Value guardResult = eval(const_cast<ast::Expression*>(matchCase.guard()));
+                env_ = prevEnv;
+
+                if (guardResult.getType() != types::TypeKind::BOOLEAN || !guardResult.asBoolean())
+                {
+                    continue;
+                }
+            }
+
+            auto prevEnv = env_;
+            env_ = caseEnv;
+            Value result = eval(const_cast<ast::Expression*>(matchCase.body()));
+            env_ = prevEnv;
+            return result;
+        }
+    }
+
+    throw error::RuntimeError("매칭되는 패턴이 없습니다");
 }
 
 } // namespace evaluator

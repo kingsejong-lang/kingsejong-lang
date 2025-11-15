@@ -492,9 +492,8 @@ Token Lexer::nextToken()
             if (isLetter(ch))
             {
                 std::string identifier = readIdentifier();
-                TokenType type = lookupKeyword(identifier);
 
-                // "에 대해" 특별 처리
+                // "에 대해" 특별 처리 (lookupKeyword 전에 체크)
                 if (identifier == "에" && ch == ' ')
                 {
                     // 공백 건너뛰기
@@ -515,11 +514,14 @@ Token Lexer::nextToken()
                         position = savedPos;
                         readPosition = savedReadPos;
                         ch = savedCh;
+                        // 조사 "에"로 처리
+                        TokenType type = lookupKeyword(identifier);
                         token = Token(type, identifier);
                     }
                 }
                 else
                 {
+                    TokenType type = lookupKeyword(identifier);
                     token = Token(type, identifier);
                 }
             }

@@ -257,6 +257,33 @@ std::string Lexer::readIdentifier()
                 return identifier;
             }
 
+            // Builtin 함수/변수명 보호: "경로", "절대경로" 등
+            if (lastChar == "로")
+            {
+                // "경로", "절대경로" 등 builtin 관련 명사
+                if (identifier == "경로" || identifier == "절대경로")
+                {
+                    return identifier;
+                }
+            }
+
+            // Builtin 함수명 보호: "디렉토리인가", "파일인가", "존재하는가" 등
+            if (lastChar == "가")
+            {
+                // "~인가" 패턴 (boolean 질문형 함수)
+                // "인" = 3바이트
+                if (base.length() >= 3 && base.substr(base.length() - 3) == "인")
+                {
+                    return identifier;
+                }
+                // "~존재하는가" 패턴
+                // "존재하는" = 4글자 × 3바이트 = 12바이트
+                if (base.length() >= 12 && base.substr(base.length() - 12) == "존재하는")
+                {
+                    return identifier;
+                }
+            }
+
             // 조사 또는 키워드를 분리
             identifier = base;
             position -= 3;

@@ -20,6 +20,18 @@
 #include <random>
 #include <algorithm>
 #include <functional>
+#include <cstdlib>
+
+#ifdef _WIN32
+    #include <windows.h>
+    #include <direct.h>
+    #define getcwd _getcwd
+    #define chdir _chdir
+#else
+    #include <unistd.h>
+    #include <pwd.h>
+    #include <sys/stat.h>
+#endif
 
 namespace kingsejong {
 namespace evaluator {
@@ -2016,6 +2028,481 @@ static Value builtin_랜덤_숫자(const std::vector<Value>& args)
 }
 
 // ============================================================================
+// OS 및 파일 시스템 함수
+// ============================================================================
+
+/**
+ * @brief 환경변수_읽기(이름) - 환경 변수 읽기
+ */
+static Value builtin_환경변수_읽기(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("환경변수_읽기(이름): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("환경변수_읽기(이름): 문자열 타입이어야 합니다");
+    }
+
+    std::string name = args[0].asString();
+    const char* value = std::getenv(name.c_str());
+
+    if (value == nullptr) {
+        return Value::createString("");
+    }
+
+    return Value::createString(value);
+}
+
+/**
+ * @brief 환경변수_쓰기(이름, 값) - 환경 변수 설정
+ */
+static Value builtin_환경변수_쓰기(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("환경변수_쓰기(이름, 값): 2개의 인자가 필요합니다");
+    }
+    if (!args[0].isString() || !args[1].isString()) {
+        throw std::runtime_error("환경변수_쓰기(이름, 값): 문자열 타입이어야 합니다");
+    }
+
+    std::string name = args[0].asString();
+    std::string value = args[1].asString();
+
+#ifdef _WIN32
+    _putenv_s(name.c_str(), value.c_str());
+#else
+    setenv(name.c_str(), value.c_str(), 1);
+#endif
+
+    return Value::createBoolean(true);
+}
+
+/**
+ * @brief 환경변수_존재하는가(이름) - 환경 변수 존재 여부
+ */
+static Value builtin_환경변수_존재하는가(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("환경변수_존재하는가(이름): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("환경변수_존재하는가(이름): 문자열 타입이어야 합니다");
+    }
+
+    std::string name = args[0].asString();
+    const char* value = std::getenv(name.c_str());
+
+    return Value::createBoolean(value != nullptr);
+}
+
+/**
+ * @brief 환경변수_삭제(이름) - 환경 변수 삭제
+ */
+static Value builtin_환경변수_삭제(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("환경변수_삭제(이름): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("환경변수_삭제(이름): 문자열 타입이어야 합니다");
+    }
+
+    std::string name = args[0].asString();
+
+#ifdef _WIN32
+    _putenv_s(name.c_str(), "");
+#else
+    unsetenv(name.c_str());
+#endif
+
+    return Value::createBoolean(true);
+}
+
+/**
+ * @brief 디렉토리_변경(경로) - 작업 디렉토리 변경
+ */
+static Value builtin_디렉토리_변경(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("디렉토리_변경(경로): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("디렉토리_변경(경로): 문자열 타입이어야 합니다");
+    }
+
+    std::string path = args[0].asString();
+
+    try {
+        std::filesystem::current_path(path);
+        return Value::createBoolean(true);
+    } catch (const std::exception& e) {
+        throw std::runtime_error("디렉토리를 변경할 수 없습니다: " + std::string(e.what()));
+    }
+}
+
+/**
+ * @brief 디렉토리_나열(경로) - 디렉토리 내용 나열
+ */
+static Value builtin_디렉토리_나열(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("디렉토리_나열(경로): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("디렉토리_나열(경로): 문자열 타입이어야 합니다");
+    }
+
+    std::string path = args[0].asString();
+
+    try {
+        std::vector<Value> entries;
+        for (const auto& entry : std::filesystem::directory_iterator(path)) {
+            entries.push_back(Value::createString(entry.path().filename().string()));
+        }
+        return Value::createArray(entries);
+    } catch (const std::exception& e) {
+        throw std::runtime_error("디렉토리를 나열할 수 없습니다: " + std::string(e.what()));
+    }
+}
+
+/**
+ * @brief 디렉토리인가(경로) - 디렉토리 여부 확인
+ */
+static Value builtin_디렉토리인가(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("디렉토리인가(경로): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("디렉토리인가(경로): 문자열 타입이어야 합니다");
+    }
+
+    std::string path = args[0].asString();
+
+    try {
+        return Value::createBoolean(std::filesystem::is_directory(path));
+    } catch (const std::exception&) {
+        return Value::createBoolean(false);
+    }
+}
+
+/**
+ * @brief 임시_디렉토리() - 임시 디렉토리 경로
+ */
+static Value builtin_임시_디렉토리(const std::vector<Value>& args)
+{
+    if (args.size() != 0) {
+        throw std::runtime_error("임시_디렉토리(): 인자가 필요하지 않습니다");
+    }
+
+    try {
+        auto path = std::filesystem::temp_directory_path();
+        return Value::createString(path.string());
+    } catch (const std::exception& e) {
+        throw std::runtime_error("임시 디렉토리를 읽을 수 없습니다: " + std::string(e.what()));
+    }
+}
+
+/**
+ * @brief 파일_존재하는가(경로) - 파일 존재 여부
+ */
+static Value builtin_파일_존재하는가(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("파일_존재하는가(경로): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("파일_존재하는가(경로): 문자열 타입이어야 합니다");
+    }
+
+    std::string path = args[0].asString();
+
+    try {
+        return Value::createBoolean(std::filesystem::exists(path));
+    } catch (const std::exception&) {
+        return Value::createBoolean(false);
+    }
+}
+
+/**
+ * @brief 파일_복사(출발, 목적) - 파일 복사
+ */
+static Value builtin_파일_복사(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("파일_복사(출발, 목적): 2개의 인자가 필요합니다");
+    }
+    if (!args[0].isString() || !args[1].isString()) {
+        throw std::runtime_error("파일_복사(출발, 목적): 문자열 타입이어야 합니다");
+    }
+
+    std::string from = args[0].asString();
+    std::string to = args[1].asString();
+
+    try {
+        std::filesystem::copy_file(from, to, std::filesystem::copy_options::overwrite_existing);
+        return Value::createBoolean(true);
+    } catch (const std::exception& e) {
+        throw std::runtime_error("파일을 복사할 수 없습니다: " + std::string(e.what()));
+    }
+}
+
+/**
+ * @brief 파일_이동(출발, 목적) - 파일 이동
+ */
+static Value builtin_파일_이동(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("파일_이동(출발, 목적): 2개의 인자가 필요합니다");
+    }
+    if (!args[0].isString() || !args[1].isString()) {
+        throw std::runtime_error("파일_이동(출발, 목적): 문자열 타입이어야 합니다");
+    }
+
+    std::string from = args[0].asString();
+    std::string to = args[1].asString();
+
+    try {
+        std::filesystem::rename(from, to);
+        return Value::createBoolean(true);
+    } catch (const std::exception& e) {
+        throw std::runtime_error("파일을 이동할 수 없습니다: " + std::string(e.what()));
+    }
+}
+
+/**
+ * @brief 파일_크기(경로) - 파일 크기 (바이트)
+ */
+static Value builtin_파일_크기(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("파일_크기(경로): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("파일_크기(경로): 문자열 타입이어야 합니다");
+    }
+
+    std::string path = args[0].asString();
+
+    try {
+        auto size = std::filesystem::file_size(path);
+        return Value::createInteger(static_cast<int64_t>(size));
+    } catch (const std::exception& e) {
+        throw std::runtime_error("파일 크기를 읽을 수 없습니다: " + std::string(e.what()));
+    }
+}
+
+/**
+ * @brief 파일인가(경로) - 일반 파일 여부
+ */
+static Value builtin_파일인가(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("파일인가(경로): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("파일인가(경로): 문자열 타입이어야 합니다");
+    }
+
+    std::string path = args[0].asString();
+
+    try {
+        return Value::createBoolean(std::filesystem::is_regular_file(path));
+    } catch (const std::exception&) {
+        return Value::createBoolean(false);
+    }
+}
+
+/**
+ * @brief 경로_결합(경로1, 경로2) - 경로 결합
+ */
+static Value builtin_경로_결합(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("경로_결합(경로1, 경로2): 2개의 인자가 필요합니다");
+    }
+    if (!args[0].isString() || !args[1].isString()) {
+        throw std::runtime_error("경로_결합(경로1, 경로2): 문자열 타입이어야 합니다");
+    }
+
+    std::filesystem::path path1 = args[0].asString();
+    std::filesystem::path path2 = args[1].asString();
+
+    auto combined = path1 / path2;
+    return Value::createString(combined.string());
+}
+
+/**
+ * @brief 파일명_추출(경로) - 파일명 추출
+ */
+static Value builtin_파일명_추출(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("파일명_추출(경로): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("파일명_추출(경로): 문자열 타입이어야 합니다");
+    }
+
+    std::filesystem::path path = args[0].asString();
+    return Value::createString(path.filename().string());
+}
+
+/**
+ * @brief 확장자_추출(경로) - 확장자 추출
+ */
+static Value builtin_확장자_추출(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("확장자_추출(경로): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("확장자_추출(경로): 문자열 타입이어야 합니다");
+    }
+
+    std::filesystem::path path = args[0].asString();
+    return Value::createString(path.extension().string());
+}
+
+/**
+ * @brief 절대경로(경로) - 절대 경로 변환
+ */
+static Value builtin_절대경로(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("절대경로(경로): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("절대경로(경로): 문자열 타입이어야 합니다");
+    }
+
+    std::filesystem::path path = args[0].asString();
+
+    try {
+        auto abs = std::filesystem::absolute(path);
+        return Value::createString(abs.string());
+    } catch (const std::exception& e) {
+        throw std::runtime_error("절대 경로를 계산할 수 없습니다: " + std::string(e.what()));
+    }
+}
+
+/**
+ * @brief 경로_존재하는가(경로) - 경로 존재 여부
+ */
+static Value builtin_경로_존재하는가(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("경로_존재하는가(경로): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("경로_존재하는가(경로): 문자열 타입이어야 합니다");
+    }
+
+    std::string path = args[0].asString();
+
+    try {
+        return Value::createBoolean(std::filesystem::exists(path));
+    } catch (const std::exception&) {
+        return Value::createBoolean(false);
+    }
+}
+
+/**
+ * @brief OS_이름() - 운영체제 이름
+ */
+static Value builtin_OS_이름(const std::vector<Value>& args)
+{
+    if (args.size() != 0) {
+        throw std::runtime_error("OS_이름(): 인자가 필요하지 않습니다");
+    }
+
+#ifdef _WIN32
+    return Value::createString("Windows");
+#elif __APPLE__
+    return Value::createString("macOS");
+#elif __linux__
+    return Value::createString("Linux");
+#else
+    return Value::createString("Unknown");
+#endif
+}
+
+/**
+ * @brief 사용자_이름() - 현재 사용자 이름
+ */
+static Value builtin_사용자_이름(const std::vector<Value>& args)
+{
+    if (args.size() != 0) {
+        throw std::runtime_error("사용자_이름(): 인자가 필요하지 않습니다");
+    }
+
+#ifdef _WIN32
+    char username[256];
+    DWORD username_len = sizeof(username);
+    if (GetUserNameA(username, &username_len)) {
+        return Value::createString(username);
+    }
+    return Value::createString("unknown");
+#else
+    const char* username = getenv("USER");
+    if (username) {
+        return Value::createString(username);
+    }
+
+    struct passwd* pwd = getpwuid(getuid());
+    if (pwd) {
+        return Value::createString(pwd->pw_name);
+    }
+
+    return Value::createString("unknown");
+#endif
+}
+
+/**
+ * @brief 호스트_이름() - 호스트 이름
+ */
+static Value builtin_호스트_이름(const std::vector<Value>& args)
+{
+    if (args.size() != 0) {
+        throw std::runtime_error("호스트_이름(): 인자가 필요하지 않습니다");
+    }
+
+#ifdef _WIN32
+    char hostname[256];
+    DWORD hostname_len = sizeof(hostname);
+    if (GetComputerNameA(hostname, &hostname_len)) {
+        return Value::createString(hostname);
+    }
+    return Value::createString("unknown");
+#else
+    char hostname[256];
+    if (gethostname(hostname, sizeof(hostname)) == 0) {
+        return Value::createString(hostname);
+    }
+    return Value::createString("unknown");
+#endif
+}
+
+/**
+ * @brief 프로세스_종료(코드) - 프로세스 종료
+ */
+static Value builtin_프로세스_종료(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("프로세스_종료(코드): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isInteger()) {
+        throw std::runtime_error("프로세스_종료(코드): 정수 타입이어야 합니다");
+    }
+
+    int code = static_cast<int>(args[0].asInteger());
+    std::exit(code);
+
+    // Never reached
+    return Value::createNull();
+}
+
+// ============================================================================
 // 내장 함수 등록
 // ============================================================================
 
@@ -2045,25 +2532,57 @@ void Builtin::registerAllBuiltins()
     registerBuiltin("제곱근", builtin_제곱근);
     registerBuiltin("제곱", builtin_제곱);
 
-    // 파일 I/O 함수
+    // ========== 파일 I/O ==========
     registerBuiltin("파일_읽기", builtin_파일_읽기);
     registerBuiltin("파일_쓰기", builtin_파일_쓰기);
     registerBuiltin("파일_추가", builtin_파일_추가);
     registerBuiltin("파일_존재", builtin_파일_존재);
     registerBuiltin("줄별_읽기", builtin_줄별_읽기);
-    registerBuiltin("파일_삭제", builtin_파일_삭제);
+
+    // ========== 환경변수 ==========
+    registerBuiltin("환경변수_읽기", builtin_환경변수_읽기);
+    registerBuiltin("환경변수_쓰기", builtin_환경변수_쓰기);
+    registerBuiltin("환경변수_존재하는가", builtin_환경변수_존재하는가);
+    registerBuiltin("환경변수_삭제", builtin_환경변수_삭제);
+
+    // ========== 디렉토리 ==========
+    registerBuiltin("현재_디렉토리", builtin_현재_디렉토리);
+    registerBuiltin("디렉토리_변경", builtin_디렉토리_변경);
     registerBuiltin("디렉토리_생성", builtin_디렉토리_생성);
     registerBuiltin("디렉토리_삭제", builtin_디렉토리_삭제);
     registerBuiltin("디렉토리_목록", builtin_디렉토리_목록);
-    registerBuiltin("현재_디렉토리", builtin_현재_디렉토리);
+    registerBuiltin("디렉토리_나열", builtin_디렉토리_나열);
+    registerBuiltin("디렉토리인가", builtin_디렉토리인가);
+    registerBuiltin("임시_디렉토리", builtin_임시_디렉토리);
 
-    // JSON 처리 함수
+    // ========== 파일 시스템 ==========
+    registerBuiltin("파일_존재하는가", builtin_파일_존재하는가);
+    registerBuiltin("파일_삭제", builtin_파일_삭제);
+    registerBuiltin("파일_복사", builtin_파일_복사);
+    registerBuiltin("파일_이동", builtin_파일_이동);
+    registerBuiltin("파일_크기", builtin_파일_크기);
+    registerBuiltin("파일인가", builtin_파일인가);
+
+    // ========== 경로 ==========
+    registerBuiltin("경로_결합", builtin_경로_결합);
+    registerBuiltin("파일명_추출", builtin_파일명_추출);
+    registerBuiltin("확장자_추출", builtin_확장자_추출);
+    registerBuiltin("절대경로", builtin_절대경로);
+    registerBuiltin("경로_존재하는가", builtin_경로_존재하는가);
+
+    // ========== 시스템 정보 ==========
+    registerBuiltin("OS_이름", builtin_OS_이름);
+    registerBuiltin("사용자_이름", builtin_사용자_이름);
+    registerBuiltin("호스트_이름", builtin_호스트_이름);
+    registerBuiltin("프로세스_종료", builtin_프로세스_종료);
+
+    // ========== JSON 처리 ==========
     registerBuiltin("JSON_파싱", builtin_JSON_파싱);
     registerBuiltin("JSON_문자열화", builtin_JSON_문자열화);
     registerBuiltin("JSON_파일_읽기", builtin_JSON_파일_읽기);
     registerBuiltin("JSON_파일_쓰기", builtin_JSON_파일_쓰기);
 
-    // 시간/날짜 함수
+    // ========== 시간/날짜 ==========
     registerBuiltin("현재_시간", builtin_현재_시간);
     registerBuiltin("현재_날짜", builtin_현재_날짜);
     registerBuiltin("시간_포맷", builtin_시간_포맷);
@@ -2072,7 +2591,7 @@ void Builtin::registerAllBuiltins()
     registerBuiltin("현재_시각", builtin_현재_시각);
     registerBuiltin("현재_날짜시간", builtin_현재_날짜시간);
 
-    // 정규표현식 함수
+    // ========== 정규표현식 ==========
     registerBuiltin("정규표현식_일치", builtin_정규표현식_일치);
     registerBuiltin("정규표현식_검색", builtin_정규표현식_검색);
     registerBuiltin("정규표현식_모두_찾기", builtin_정규표현식_모두_찾기);
@@ -2084,7 +2603,7 @@ void Builtin::registerAllBuiltins()
     registerBuiltin("정규표현식_추출", builtin_정규표현식_추출);
     registerBuiltin("정규표현식_개수", builtin_정규표현식_개수);
 
-    // 암호화 함수
+    // ========== 암호화 ==========
     registerBuiltin("Base64_인코딩", builtin_Base64_인코딩);
     registerBuiltin("Base64_디코딩", builtin_Base64_디코딩);
     registerBuiltin("문자열_해시", builtin_문자열_해시);

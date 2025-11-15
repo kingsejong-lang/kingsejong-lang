@@ -508,14 +508,32 @@ Value Evaluator::evalRangeForStatement(ast::RangeForStatement* stmt)
 
     Value result = Value::createNull();
 
-    // 범위 반복 (start부터 end까지, inclusive)
-    for (int64_t i = start; i <= end; ++i)
-    {
-        // 반복 변수 설정
-        env_->set(stmt->varName(), Value::createInteger(i));
+    // 범위 반복 (끝 값 포함 여부에 따라 조건 변경)
+    bool endInclusive = stmt->endInclusive();
 
-        // 본문 실행
-        result = eval(const_cast<ast::BlockStatement*>(stmt->body()));
+    if (endInclusive)
+    {
+        // 끝 값 포함 (까지, 이하, 이상)
+        for (int64_t i = start; i <= end; ++i)
+        {
+            // 반복 변수 설정
+            env_->set(stmt->varName(), Value::createInteger(i));
+
+            // 본문 실행
+            result = eval(const_cast<ast::BlockStatement*>(stmt->body()));
+        }
+    }
+    else
+    {
+        // 끝 값 미만 (미만)
+        for (int64_t i = start; i < end; ++i)
+        {
+            // 반복 변수 설정
+            env_->set(stmt->varName(), Value::createInteger(i));
+
+            // 본문 실행
+            result = eval(const_cast<ast::BlockStatement*>(stmt->body()));
+        }
     }
 
     return result;

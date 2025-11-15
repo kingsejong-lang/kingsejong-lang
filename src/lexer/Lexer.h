@@ -69,6 +69,13 @@ private:
     void skipWhitespace();
 
     /**
+     * @brief 주석을 건너뜀
+     *
+     * # 문자부터 줄 끝까지를 주석으로 처리하여 건너뜁니다.
+     */
+    void skipComment();
+
+    /**
      * @brief 식별자 또는 한글 키워드를 읽음
      * @return 식별자/키워드 문자열
      *

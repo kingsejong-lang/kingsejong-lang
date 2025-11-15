@@ -432,18 +432,21 @@ private:
     std::unique_ptr<Expression> start_;         ///< 시작 값 표현식
     std::unique_ptr<Expression> end_;           ///< 끝 값 표현식
     std::unique_ptr<BlockStatement> body_;      ///< 반복 본문
+    bool endInclusive_;                         ///< 끝 값 포함 여부 (까지=true, 미만=false)
 
 public:
     RangeForStatement(
         const std::string& varName,
         std::unique_ptr<Expression> start,
         std::unique_ptr<Expression> end,
-        std::unique_ptr<BlockStatement> body
+        std::unique_ptr<BlockStatement> body,
+        bool endInclusive = true
     )
         : varName_(varName)
         , start_(std::move(start))
         , end_(std::move(end))
         , body_(std::move(body))
+        , endInclusive_(endInclusive)
     {}
 
     NodeType type() const override { return NodeType::RANGE_FOR_STATEMENT; }
@@ -458,6 +461,7 @@ public:
     const Expression* start() const { return start_.get(); }
     const Expression* end() const { return end_.get(); }
     const BlockStatement* body() const { return body_.get(); }
+    bool endInclusive() const { return endInclusive_; }
 };
 
 /**

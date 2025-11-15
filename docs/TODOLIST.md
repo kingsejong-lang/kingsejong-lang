@@ -62,12 +62,16 @@
 - ✅ Semantic Analyzer 완성
 
 ### Phase 6 진행중 🚧
+- ✅ 언어 기능 개선
+  - 주석 지원 (# 단일 라인 주석)
+  - 범위 반복문 개선 (까지/미만/이하/이상 키워드)
 - ✅ Linter 완전 구현 (5개 규칙, 22개 테스트)
   - UnusedVariableRule, DeadCodeRule, NoSelfComparisonRule
   - ConstantConditionRule, EmptyBlockRule
 - ✅ Formatter 기본 구현 완료 (18개 테스트)
   - AST 기반 코드 재포맷팅, 들여쓰기/공백 규칙
-- 📝 stdlib 대폭 확장 (200개+ 함수) 예정
+- 🚧 stdlib 대폭 확장 (200개+ 함수)
+  - ✅ stdlib/utils.ksj - 유틸리티 함수 (30개)
 - 📝 JIT 컴파일러 Tier 1 예정
 
 ### 전체 테스트
@@ -76,6 +80,18 @@
 ---
 
 ## 📝 다음 단계 (Phase 6: 완성도 향상)
+
+### 6.0: 언어 기능 개선 ✅
+- [x] 주석 지원 (# 단일 라인 주석)
+  - [x] Lexer에 skipComment() 구현
+  - [x] nextToken()에서 주석 자동 건너뛰기
+- [x] 범위 반복문 개선
+  - [x] "까지" (끝 값 포함)
+  - [x] "미만" (끝 값 미포함)
+  - [x] "이하" (끝 값 포함)
+  - [x] "이상" (끝 값 포함)
+  - [x] RangeForStatement에 endInclusive 필드 추가
+  - [x] Evaluator에서 조건 분기 구현
 
 ### 6.1: 코드 품질 도구 (4주)
 
@@ -102,11 +118,20 @@
 - [ ] 설정 파일 (.ksjfmtrc)
 
 ### 6.2: 표준 라이브러리 확장 (4주)
+- [x] stdlib/utils.ksj - 유틸리티 함수 (30개)
+  - [x] 타입 검사 (정수인가, 실수인가, 문자열인가, 배열인가, 함수인가)
+  - [x] 범위 체크 (범위_안에, 양수인가, 음수인가, 짝수인가, 홀수인가)
+  - [x] 변환 함수 (정수를_문자로, 참거짓을_문자열로)
+  - [x] 조건 함수 (선택)
+  - [x] 배열 생성 (정수_범위, 범위_단계, 채우기)
+  - [x] 문자열 함수 (문자열_반복, 비어있는가)
+  - [x] 수학 유틸리티 (절댓값, 최댓값, 최솟값, 제한, 교환)
+  - [x] examples/stdlib_utils.ksj 예제 추가
 - [ ] stdlib/http.ksj - HTTP 클라이언트/서버 (20개)
 - [ ] stdlib/regex.ksj - 정규표현식 (10개)
 - [ ] stdlib/crypto.ksj - 암호화 (12개)
 - [ ] stdlib/db.ksj - 데이터베이스 (15개)
-- [ ] **목표**: 200개+ 함수
+- [ ] **목표**: 200개+ 함수 (현재: 131개)
 
 ### 6.3: 성능 최적화 (4주)
 - [ ] JIT 컴파일러 Tier 1 (템플릿 JIT)

@@ -697,10 +697,38 @@ std::unique_ptr<RangeForStatement> Parser::parseRangeForStatement()
     nextToken(); // 끝 표현식으로 이동
     auto end = parseExpression(Precedence::LOWEST, ParseFeature::All & ~ParseFeature::Range);
 
-    // "까지" 명시적으로 확인
-    if (!expectPeek(TokenType::KKAJI))
+    // 범위 종료 키워드 확인 (까지/미만/이하/이상)
+    if (!peekTokenIs(TokenType::KKAJI) &&
+        !peekTokenIs(TokenType::MIMAN) &&
+        !peekTokenIs(TokenType::IHA) &&
+        !peekTokenIs(TokenType::ISANG))
     {
+        std::string msg = "범위 종료 키워드 (까지/미만/이하/이상)를 예상했지만, '" +
+                         tokenTypeToString(peekToken_.type) + "'을(를) 받았습니다.";
+        errors_.push_back(msg);
         return nullptr;
+    }
+
+    nextToken(); // 범위 종료 키워드로 이동
+    TokenType endToken = curToken_.type;
+
+    // 끝 키워드에 따라 inclusive 결정
+    bool endInclusive = true;
+    if (endToken == TokenType::MIMAN)  // 미만
+    {
+        endInclusive = false;
+    }
+    else if (endToken == TokenType::IHA)  // 이하
+    {
+        endInclusive = true;
+    }
+    else if (endToken == TokenType::KKAJI)  // 까지
+    {
+        endInclusive = true;
+    }
+    else if (endToken == TokenType::ISANG)  // 이상
+    {
+        endInclusive = true;
     }
 
     // "반복한다" 또는 "반복" 확인 (선택적)
@@ -731,7 +759,8 @@ std::unique_ptr<RangeForStatement> Parser::parseRangeForStatement()
         varName,
         std::move(start),
         std::move(end),
-        std::move(body)
+        std::move(body),
+        endInclusive
     );
 }
 
@@ -770,7 +799,14 @@ std::vector<std::unique_ptr<Statement>> Parser::parseStatements(TokenType endTok
         {
             statements.push_back(std::move(stmt));
         }
-        nextToken();
+
+        // parseStatement()가 이미 세미콜론까지 소비했는지 확인
+        // 세미콜론이 있었다면 curToken은 세미콜론, 없었다면 표현식 마지막
+        // 어느 경우든 peekToken이 endToken이 아니면 다음으로 이동
+        if (!peekTokenIs(endToken) && !peekTokenIs(TokenType::EOF_TOKEN))
+        {
+            nextToken();
+        }
     }
 
     return statements;

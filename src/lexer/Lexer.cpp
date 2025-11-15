@@ -62,6 +62,19 @@ void Lexer::skipWhitespace()
     }
 }
 
+void Lexer::skipComment()
+{
+    // # 문자부터 줄 끝까지 건너뛰기
+    if (ch == '#')
+    {
+        while (ch != '\n' && ch != '\0')
+        {
+            readChar();
+        }
+        // \n은 skipWhitespace()에서 처리되도록 남겨둠
+    }
+}
+
 bool Lexer::isLetter(char c) const
 {
     return (c >= 'a' && c <= 'z') ||
@@ -352,7 +365,19 @@ Token Lexer::makeTwoCharToken(char ch1, char ch2, TokenType type1, TokenType typ
 
 Token Lexer::nextToken()
 {
-    skipWhitespace();
+    // 공백과 주석을 모두 건너뛰기
+    while (true)
+    {
+        skipWhitespace();
+        if (ch == '#')
+        {
+            skipComment();
+        }
+        else
+        {
+            break;
+        }
+    }
 
     // 토큰 시작 위치 저장
     int tokenLine = currentLine;

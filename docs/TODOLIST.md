@@ -54,7 +54,7 @@
 
 ---
 
-## 🎯 현재 상태 (v0.3.4)
+## 🎯 현재 상태 (v0.3.5)
 
 ### Phase 5 완료 ✅
 - ✅ LSP, 디버거, 플레이그라운드
@@ -62,14 +62,15 @@
 - ✅ Semantic Analyzer 완성
 
 ### Phase 6 진행중 🚧
-- 🚧 Linter 기본 구현 완료 (3개 규칙, 14개 테스트)
+- ✅ Linter 기본 구현 완료 (3개 규칙, 14개 테스트)
   - UnusedVariableRule, DeadCodeRule, NoSelfComparisonRule
-- 📝 Formatter (ksjfmt) 예정
+- ✅ Formatter 기본 구현 완료 (18개 테스트)
+  - AST 기반 코드 재포맷팅, 들여쓰기/공백 규칙
 - 📝 stdlib 대폭 확장 (200개+ 함수) 예정
 - 📝 JIT 컴파일러 Tier 1 예정
 
 ### 전체 테스트
-- ✅ **1089개 테스트 통과** (Phase 5: 1075개 + Linter: 14개)
+- ✅ **1107개 테스트 통과** (Phase 5: 1075개 + Linter: 14개 + Formatter: 18개)
 
 ---
 
@@ -88,12 +89,15 @@
 - [ ] 추가 규칙 (타입 불일치, 네이밍 컨벤션 등)
 - [ ] 테스트 확장 (현재 14개 → 목표 30개+)
 
-#### Formatter (ksjfmt) - 2주
-- [ ] 코드 포맷팅 엔진
-- [ ] 들여쓰기, 공백, 줄바꿈 규칙
+#### Formatter (ksjfmt) - 2주 ✅
+- [x] AST 기반 코드 포맷팅 엔진
+- [x] 들여쓰기 규칙 (커스터마이징 가능)
+- [x] 공백 규칙 (연산자 주변, 콤마 뒤 등)
+- [x] 줄바꿈 및 블록 포맷팅
+- [x] FormatterOptions (들여쓰기 크기, 스페이스/탭 선택)
+- [x] 18개 테스트 (기본 포맷팅, 블록 구조, 옵션 테스트)
 - [ ] VS Code 통합
 - [ ] 설정 파일 (.ksjfmtrc)
-- [ ] 테스트 (20개+)
 
 ### 6.2: 표준 라이브러리 확장 (4주)
 - [ ] stdlib/http.ksj - HTTP 클라이언트/서버 (20개)

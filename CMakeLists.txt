@@ -64,6 +64,7 @@ set(LIB_SOURCES
     src/linter/rules/UnusedVariableRule.cpp
     src/linter/rules/DeadCodeRule.cpp
     src/linter/rules/NoSelfComparisonRule.cpp
+    src/formatter/Formatter.cpp
 )
 
 # 라이브러리 생성 (kingsejong_lib)

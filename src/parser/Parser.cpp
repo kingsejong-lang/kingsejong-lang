@@ -7,11 +7,15 @@
 
 #include "Parser.h"
 #include "types/Type.h"
+#include "semantic/SymbolTable.h"
 #include <stdexcept>
 #include <iostream>
 
 namespace kingsejong {
 namespace parser {
+
+// 프로토타입: 전역 Symbol Table
+static semantic::SymbolTable globalSymbolTable;
 
 Parser::Parser(Lexer& lexer)
     : lexer_(lexer)
@@ -238,6 +242,14 @@ std::unique_ptr<Program> Parser::parseProgram()
 // 범위 for문의 변수 이름일 가능성이 높은지 확인하는 헬퍼 함수
 static bool isLikelyLoopVariable(const std::string& str)
 {
+    // Symbol Table 체크 (우선순위)
+    // 이미 변수나 함수로 정의되어 있으면 루프 변수가 아님
+    if (globalSymbolTable.isVariable(str) || globalSymbolTable.isFunction(str))
+    {
+        return false;
+    }
+
+    // Symbol Table에 없으면 휴리스틱 사용
     // 일반적인 루프 변수 이름
     if (str == "i" || str == "j" || str == "k" ||
         str == "index" || str == "idx" || str == "n" || str == "m")
@@ -276,6 +288,10 @@ std::unique_ptr<Statement> Parser::parseStatement()
         {
             return nullptr;
         }
+
+        // Symbol Table에 함수 등록 (프로토타입)
+        // 함수의 반환 타입은 추후 타입 추론으로 결정 (현재는 nullptr)
+        globalSymbolTable.define(functionName, semantic::SymbolKind::FUNCTION, nullptr);
 
         // 할당문으로 변환
         return std::make_unique<AssignmentStatement>(functionName, std::move(functionLiteral));
@@ -420,6 +436,9 @@ std::unique_ptr<VarDeclaration> Parser::parseVarDeclaration()
     {
         // 세미콜론 없어도 OK (줄이 바뀜)
     }
+
+    // Symbol Table에 변수 등록 (프로토타입)
+    globalSymbolTable.define(varName, semantic::SymbolKind::VARIABLE, varType);
 
     return std::make_unique<VarDeclaration>(typeName, varName, std::move(initializer), varType);
 }

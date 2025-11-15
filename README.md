@@ -7,8 +7,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![C++23](https://img.shields.io/badge/C++-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![CI](https://github.com/0xmhha/kingsejonglang/workflows/CI/badge.svg)](https://github.com/0xmhha/kingsejonglang/actions)
-[![Tests](https://img.shields.io/badge/tests-883%20passed-success)](tests/)
-[![Version](https://img.shields.io/badge/version-v0.3.1-blue)](https://github.com/0xmhha/kingsejonglang/releases/tag/v0.3.1)
+[![Tests](https://img.shields.io/badge/tests-1003%20passed-success)](tests/)
+[![Version](https://img.shields.io/badge/version-v0.3.3-blue)](https://github.com/0xmhha/kingsejonglang/releases/tag/v0.3.3)
 [![VS Code](https://img.shields.io/badge/VS%20Code-Extension-blue)](vscode-extension/)
 
 [빠른 시작](#빠른-시작) •
@@ -439,30 +439,46 @@ i가 1부터 10까지 {
 - ✅ **가비지 컬렉터** (Mark & Sweep, 순환 참조 감지, 자동 메모리 관리)
 - ✅ **바이트코드 컴파일러** (60+ OpCode, 스택 기반 VM, AST → Bytecode)
 
-### Phase 5: LSP & IDE 지원 ✅ (100% 완료)
+### Phase 5: 개발자 경험 & 생태계 ✅ (필수 100% 완료)
 
-- ✅ **Language Server Protocol (LSP) 기본 기능**
+- ✅ **에러 메시지 개선**
+  - 100% 한글 에러 메시지
+  - 정확한 위치 표시 (줄, 열 번호)
+  - 해결 힌트 제공
+- ✅ **Language Server Protocol (LSP)**
   - JSON-RPC 2.0 통신
-  - DocumentManager (문서 관리)
-  - CompletionProvider (자동 완성)
-  - DiagnosticsProvider (실시간 진단)
-- ✅ **LSP 고급 기능**
+  - 기본 기능 (자동 완성, 진단, 문서 관리)
+  - 고급 기능 (정의 이동, 호버, 참조 찾기, 이름 변경)
   - SymbolTable & SymbolCollector (심볼 관리)
-  - Go to Definition (정의로 이동)
-  - Hover Information (호버 정보)
-  - Find References (참조 찾기)
-  - Rename (심볼 이름 변경)
   - UTF-16/UTF-8 변환 (한글 지원)
   - 스코프 인식 (전역/로컬 변수 구분)
+  - 130개 테스트
 - ✅ **VS Code Extension**
   - 구문 강조 (Syntax Highlighting)
-  - 자동 완성 (Auto Completion)
+  - 자동 완성 (34개 키워드)
   - 실시간 에러 검사
   - 정의로 이동 (F12)
   - 호버 정보 표시
   - 참조 찾기 (Shift+F12)
   - 심볼 이름 변경 (F2)
   - 자동 괄호 닫기, 들여쓰기
+- ✅ **디버거 (179개 테스트)**
+  - 브레이크포인트 (조건부 포함)
+  - 와치포인트 (변수 변경 감지)
+  - 단계별 실행 (step, next, continue)
+  - 변수 검사, 콜스택 표시
+  - REPL 통합
+  - 소스 코드 뷰어
+- ✅ **온라인 플레이그라운드**
+  - WebAssembly 빌드 (Emscripten)
+  - JavaScript API 바인딩
+  - 웹 인터페이스 (Vite + Monaco Editor)
+  - 예제 갤러리 (10개)
+  - GitHub Pages 자동 배포
+- ✅ **표준 라이브러리 확장 (101개+ 함수)**
+  - stdlib/io.ksj - 파일 I/O (25개)
+  - stdlib/json.ksj - JSON 처리 (17개)
+  - stdlib/time.ksj - 날짜/시간 (14개)
 
 ### 문서화 ✅ (완료)
 
@@ -474,29 +490,24 @@ i가 1부터 10까지 {
 ### 테스트 현황
 
 ```
-총 테스트: 859개
+총 테스트: 1003개
 통과율: 100%
-실패: 0개
+비활성화: 1개 (괄호 표현식 버그)
 
 주요 테스트:
-- Lexer/Parser: 32개 + 27개 = 59개
+- Lexer/Parser: 59개
 - Evaluator: 30개
-- Type System: 18개 + 30개 (TypeChecker) = 48개
-- Value: 37개
-- Environment: 23개
+- Type System: 48개
+- Array: 62개
 - Float: 48개
 - String: 45개
-- Array: 37개 + 25개 (ArrayMethod) = 62개
 - Function: 13개
 - Loop: 21개
-- If Statement: 14개
-- Module System: 8개
-- Garbage Collector: 15개
-- Bytecode Compiler & VM: 19개
-- Hot Path Detector: 21개
-- LSP 기본: 56개 (JsonRpc, DocumentManager, LanguageServer, CompletionProvider, DiagnosticsProvider)
-- LSP 고급: 74개 (SymbolTable, SymbolCollector, LspUtils, GoToDefinition, Hover, FindReferences, Rename)
-- 기타: 128개
+- GC: 15개
+- Bytecode: 19개
+- LSP: 130개 (기본 + 고급)
+- 디버거: 179개 (BreakpointManager, WatchpointManager, Debugger, CommandParser, SourceCodeViewer, DebuggerRepl)
+- 기타: 334개
 ```
 
 ---
@@ -616,10 +627,12 @@ npm run compile
 
 ### 실용성
 
-- **표준 라이브러리** - 70개+ 유틸리티 함수 (math, string, array, io)
+- **표준 라이브러리** - 100+ 유틸리티 함수 (math, string, array, io, json, time)
+- **디버거** - 브레이크포인트, 단계 실행, 변수 검사
+- **온라인 플레이그라운드** - 즉시 실행 (WebAssembly)
 - **REPL** - 빠른 프로토타이핑
 - **에러 메시지 한글화** - 친절한 피드백
-- **100% 테스트 통과** - 안정성 보장
+- **100% 테스트 통과** - 안정성 보장 (1003개)
 
 ---
 
@@ -668,6 +681,13 @@ kingsejonglang/
 │   │   ├── SymbolTable.cpp     # 심볼 저장 및 조회
 │   │   ├── SymbolCollector.cpp # AST 기반 심볼 수집
 │   │   └── LspUtils.cpp        # UTF-16/UTF-8 변환 유틸리티
+│   ├── debugger/          # 디버거
+│   │   ├── Debugger.cpp        # 디버거 엔진
+│   │   ├── BreakpointManager.cpp # 브레이크포인트 관리
+│   │   ├── WatchpointManager.cpp # 와치포인트 관리
+│   │   ├── CallStack.cpp       # 콜스택 관리
+│   │   ├── CommandParser.cpp   # 디버거 명령 파싱
+│   │   └── SourceCodeViewer.cpp # 소스 코드 표시
 │   └── main.cpp           # 진입점 (REPL/파일실행/LSP)
 ├── vscode-extension/      # VS Code Extension
 │   ├── src/
@@ -681,7 +701,7 @@ kingsejonglang/
 │   ├── string.ksj        # 문자열 처리 (9개)
 │   ├── array.ksj         # 배열 유틸리티 (18개)
 │   └── README.md         # 라이브러리 문서
-├── tests/                 # 테스트 코드 (825개)
+├── tests/                 # 테스트 코드 (1003개)
 │   ├── lsp/              # LSP 테스트 (130개)
 │   │   ├── JsonRpcTest.cpp
 │   │   ├── DocumentManagerTest.cpp
@@ -696,13 +716,21 @@ kingsejonglang/
 │   │   ├── HoverTest.cpp
 │   │   ├── FindReferencesTest.cpp
 │   │   └── RenameTest.cpp
+│   ├── debugger/         # 디버거 테스트 (179개)
+│   │   ├── BreakpointManagerTest.cpp
+│   │   ├── WatchpointManagerTest.cpp
+│   │   ├── DebuggerTest.cpp
+│   │   ├── CallStackTest.cpp
+│   │   ├── CommandParserTest.cpp
+│   │   ├── SourceCodeViewerTest.cpp
+│   │   └── DebuggerReplTest.cpp
 ├── examples/              # 예제 프로그램 (21개)
 ├── docs/                  # 문서
 │   ├── TUTORIAL.md               # 초보자 튜토리얼
 │   ├── LANGUAGE_REFERENCE.md     # 언어 레퍼런스
 │   ├── LIBRARY_GUIDE.md          # 라이브러리 가이드
-│   ├── PHASE5_ROADMAP.md         # LSP 구현 로드맵
-│   └── TODOLIST.md               # 개발 로드맵
+│   ├── TODOLIST.md               # 작업 목록 (통합)
+│   └── ROADMAP.md                # 개발 로드맵 (통합)
 ├── CMakeLists.txt        # 빌드 설정
 ├── LICENSE               # MIT 라이센스
 └── README.md             # 이 파일

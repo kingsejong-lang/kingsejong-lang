@@ -2,7 +2,7 @@
 
 > **프로젝트**: KingSejong Programming Language (`.ksj`)
 > **최종 업데이트**: 2025-11-15
-> **현재 버전**: v0.3.2 (개발 중)
+> **현재 버전**: v0.3.3 (Phase 5 완료)
 > **상태 기호**: ✅ 완료 | 🚧 진행중 | 📝 예정 | ⏸️ 보류
 
 ---
@@ -42,83 +42,79 @@
 - 메모리 안전성 (ASan, UBSan, Valgrind)
 - JIT 컴파일러 연구 (HotPathDetector)
 
-#### Phase 5: 개발자 경험 & 생태계 ✅ (필수 100%)
+#### Phase 5: 개발자 경험 & 생태계 ✅ (100%)
 - ✅ 에러 메시지 개선 (한글화, 위치 표시, 힌트)
 - ✅ LSP 구현 (정의 이동, 호버, 참조 찾기, 이름 변경)
 - ✅ VS Code Extension (구문 강조, 자동 완성, 진단)
 - ✅ 디버거 (브레이크포인트, 단계 실행, 변수 검사) - 179개 테스트
 - ✅ 온라인 플레이그라운드 (WebAssembly, Monaco Editor)
 - ✅ 표준 라이브러리 확장 (io, json, time) - 101개+ 함수
+- ✅ 패턴 매칭 (리터럴, 와일드카드, 바인딩, 가드) - 13개 테스트
+- ✅ Semantic Analyzer (Name Resolution, Type Checking, Scope) - 29개 테스트
 
 ---
 
-## 🎯 현재 작업 (v0.3.2)
+## 🎯 현재 상태 (v0.3.3)
 
-### 진행 중
-1. **Parser 개선** 🚧 - 괄호 표현식 처리 버그 수정
-2. **F5.5 패턴 매칭** 📝 (선택) - MatchExpression, 다양한 패턴 지원
+### Phase 5 완료 ✅
+- ✅ LSP, 디버거, 플레이그라운드
+- ✅ 패턴 매칭
+- ✅ Semantic Analyzer 완성
+- ✅ 전체 1075개 테스트 통과
 
-### 알려진 이슈
-- **Parser 버그**: `(a + b) * c` 같은 괄호 표현식을 함수 호출로 잘못 인식
-  - 위치: Parser.cpp (parseGroupedExpression vs parseCallExpression)
-  - 영향: 수식 그룹화 불가
-  - 우선순위: P2 (중간)
+### 다음 단계: Phase 6
+- 📝 Linter (ksjlint)
+- 📝 Formatter (ksjfmt)
+- 📝 stdlib 대폭 확장 (200개+ 함수)
+- 📝 JIT 컴파일러 Tier 1
 
 ---
 
-## 📝 다음 단계 (Phase 5 선택 작업)
+## 📝 다음 단계 (Phase 6: 완성도 향상)
 
-### F5.5: 패턴 매칭 (3주, MEDIUM)
+### 6.1: 코드 품질 도구 (4주)
 
-**목표**: 직관적인 패턴 매칭 구문 구현
+#### Linter (ksjlint) - 2주
+- [ ] AST 기반 정적 분석
+- [ ] 규칙 엔진 설계
+- [ ] 기본 규칙 (미사용 변수, 타입 불일치, 스타일)
+- [ ] 설정 파일 (.ksjlintrc)
+- [ ] 테스트 (30개+)
 
-#### 작업 항목
-- [ ] AST 노드 (MatchExpression, Pattern 계층)
-- [ ] Lexer 토큰 (E_DAEHAE, ARROW, UNDERSCORE, WHEN)
-- [ ] Parser 구현
-  - [ ] parseMatchExpression
-  - [ ] parseMatchCase
-  - [ ] parsePattern (리터럴, 와일드카드, 바인딩, 배열)
-- [ ] Evaluator 구현
-  - [ ] evalMatchExpression
-  - [ ] 패턴 매칭 로직 (타입 검사, 값 비교, 바인딩)
-  - [ ] 가드 조건 평가
-- [ ] 테스트 작성 (20개+)
+#### Formatter (ksjfmt) - 2주
+- [ ] 코드 포맷팅 엔진
+- [ ] 들여쓰기, 공백, 줄바꿈 규칙
+- [ ] VS Code 통합
+- [ ] 설정 파일 (.ksjfmtrc)
+- [ ] 테스트 (20개+)
 
-**문법 예시**:
-```ksj
-결과 = 값 에 대해 {
-    1 -> "하나"
-    2 -> "둘"
-    [첫번째, 나머지...] -> 첫번째
-    n 만약 n > 10 -> "큰 수"
-    _ -> "기타"
-}
-```
+### 6.2: 표준 라이브러리 확장 (4주)
+- [ ] stdlib/http.ksj - HTTP 클라이언트/서버 (20개)
+- [ ] stdlib/regex.ksj - 정규표현식 (10개)
+- [ ] stdlib/crypto.ksj - 암호화 (12개)
+- [ ] stdlib/db.ksj - 데이터베이스 (15개)
+- [ ] **목표**: 200개+ 함수
 
-### F5.6: 비동기 프로그래밍 (4주, LOW, 선택)
-
-**목표**: 시제 기반 비동기 프로그래밍
-
-- [ ] Promise Value 타입
-- [ ] async/await 구문
-- [ ] 이벤트 루프
-- [ ] 시제 분석 (현재/미래/과거)
+### 6.3: 성능 최적화 (4주)
+- [ ] JIT 컴파일러 Tier 1 (템플릿 JIT)
+- [ ] 증분 GC (Incremental GC)
+- [ ] 메모리 풀링
+- [ ] **목표**: 2-5배 성능 향상
 
 ---
 
 ## 📊 테스트 현황
 
 ```
-총 테스트: 1003개
+총 테스트: 1075개
 통과율: 100%
-비활성화: 1개 (괄호 표현식 버그)
 
 주요 테스트:
-- Lexer/Parser: 59개
+- Lexer/Parser: 60개
 - Evaluator: 30개
 - Type System: 48개
 - Array: 62개
+- ArrayFunctionType: 16개 (NEW)
 - Float: 48개
 - String: 45개
 - Function: 13개
@@ -127,7 +123,9 @@
 - Bytecode: 19개
 - LSP: 130개
 - 디버거: 179개
-- 기타: 334개
+- 패턴 매칭: 13개
+- Name Resolution: 13개 (NEW)
+- 기타: 363개
 ```
 
 ---
@@ -226,12 +224,12 @@ perf: 성능 개선
 
 ### 코드
 - **총 코드**: 17,400+ 줄
-- **테스트**: 1003개 (100% 통과)
+- **테스트**: 1075개 (100% 통과)
 - **문서**: 4,200+ 줄
 - **예제**: 21개
 
 ### 성능
-- **테스트 실행**: ~200ms
+- **테스트 실행**: ~160ms
 - **메모리 안전성**: ASan/UBSan 클린
 - **플랫폼 지원**: macOS, Linux, Windows
 
@@ -257,5 +255,5 @@ perf: 성능 개선
 ---
 
 **마지막 업데이트**: 2025-11-15
-**현재 상태**: Phase 5 필수 완료, 선택 작업 진행 중
-**다음 우선순위**: Parser 개선 (괄호 표현식 버그 수정)
+**현재 상태**: Phase 5 완료 (100%)
+**다음 우선순위**: Phase 6 시작 (Linter → Formatter → stdlib 확장 → JIT)

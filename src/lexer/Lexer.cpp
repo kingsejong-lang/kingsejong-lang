@@ -563,8 +563,7 @@ Token Lexer::nextToken()
     }
 
     // 토큰에 위치 정보 설정
-    token.line = tokenLine;
-    token.column = tokenColumn;
+    token.location.update(tokenLine, tokenColumn);
 
     return token;
 }

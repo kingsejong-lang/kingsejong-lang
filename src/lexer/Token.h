@@ -9,6 +9,7 @@
 
 #include <string>
 #include <unordered_map>
+#include "ast/SourceLocation.h"
 
 namespace kingsejong {
 namespace lexer {
@@ -146,10 +147,9 @@ enum class TokenType
  */
 struct Token
 {
-    TokenType type;       ///< 토큰 타입
-    std::string literal;  ///< 토큰의 실제 문자열 값
-    int line;             ///< 소스 코드 줄 번호 (1부터 시작)
-    int column;           ///< 소스 코드 열 번호 (1부터 시작)
+    TokenType type;                ///< 토큰 타입
+    std::string literal;           ///< 토큰의 실제 문자열 값
+    ast::SourceLocation location;  ///< 소스 코드 위치 정보
 
     /**
      * @brief Token 생성자
@@ -159,7 +159,18 @@ struct Token
      * @param c 열 번호
      */
     Token(TokenType t = TokenType::ILLEGAL, const std::string& lit = "", int l = 1, int c = 1)
-        : type(t), literal(lit), line(l), column(c)
+        : type(t), literal(lit), location(l, c)
+    {
+    }
+
+    /**
+     * @brief 파일명을 포함한 Token 생성자
+     * @param t 토큰 타입
+     * @param lit 토큰 리터럴
+     * @param loc 소스 위치
+     */
+    Token(TokenType t, const std::string& lit, const ast::SourceLocation& loc)
+        : type(t), literal(lit), location(loc)
     {
     }
 };

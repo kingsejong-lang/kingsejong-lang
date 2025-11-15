@@ -392,7 +392,7 @@ std::unique_ptr<ExpressionStatement> Parser::parseExpressionStatement()
         nextToken();
     }
     // ASI: 줄이 바뀌면 자동으로 세미콜론 삽입
-    else if (curToken_.line < peekToken_.line)
+    else if (curToken_.location.line < peekToken_.location.line)
     {
         // 세미콜론 없어도 OK (줄이 바뀜)
     }
@@ -432,7 +432,7 @@ std::unique_ptr<VarDeclaration> Parser::parseVarDeclaration()
         nextToken();
     }
     // ASI: 줄이 바뀌면 자동으로 세미콜론 삽입
-    else if (curToken_.line < peekToken_.line)
+    else if (curToken_.location.line < peekToken_.location.line)
     {
         // 세미콜론 없어도 OK (줄이 바뀜)
     }
@@ -464,7 +464,7 @@ std::unique_ptr<AssignmentStatement> Parser::parseAssignmentStatement()
         nextToken();
     }
     // ASI: 줄이 바뀌면 자동으로 세미콜론 삽입
-    else if (curToken_.line < peekToken_.line)
+    else if (curToken_.location.line < peekToken_.location.line)
     {
         // 세미콜론 없어도 OK (줄이 바뀜)
     }
@@ -489,7 +489,7 @@ std::unique_ptr<ReturnStatement> Parser::parseReturnStatement()
         nextToken();
     }
     // ASI: 줄이 바뀌면 자동으로 세미콜론 삽입
-    else if (curToken_.line < peekToken_.line)
+    else if (curToken_.location.line < peekToken_.location.line)
     {
         // 세미콜론 없어도 OK (줄이 바뀜)
     }
@@ -713,7 +713,7 @@ std::unique_ptr<Expression> Parser::parseExpression(Precedence precedence, Parse
     {
         // ASI: 줄이 바뀌면 infix 파싱 중단 (표현식 끝으로 간주)
         // 예: "정수 c = 2" 다음에 "(a + b)"가 다음 줄에 있으면 함수 호출이 아님
-        if (curToken_.line < peekToken_.line)
+        if (curToken_.location.line < peekToken_.location.line)
         {
             break;
         }
@@ -749,7 +749,9 @@ std::unique_ptr<Expression> Parser::parseExpression(Precedence precedence, Parse
 
 std::unique_ptr<Expression> Parser::parseIdentifier()
 {
-    return std::make_unique<Identifier>(curToken_.literal);
+    auto node = std::make_unique<Identifier>(curToken_.literal);
+    node->setLocation(curToken_.location);
+    return node;
 }
 
 std::unique_ptr<Expression> Parser::parseIntegerLiteral()
@@ -757,7 +759,9 @@ std::unique_ptr<Expression> Parser::parseIntegerLiteral()
     try
     {
         int64_t value = std::stoll(curToken_.literal);
-        return std::make_unique<IntegerLiteral>(value);
+        auto node = std::make_unique<IntegerLiteral>(value);
+        node->setLocation(curToken_.location);
+        return node;
     }
     catch (const std::exception&)
     {
@@ -771,7 +775,9 @@ std::unique_ptr<Expression> Parser::parseFloatLiteral()
     try
     {
         double value = std::stod(curToken_.literal);
-        return std::make_unique<FloatLiteral>(value);
+        auto node = std::make_unique<FloatLiteral>(value);
+        node->setLocation(curToken_.location);
+        return node;
     }
     catch (const std::exception&)
     {
@@ -782,13 +788,17 @@ std::unique_ptr<Expression> Parser::parseFloatLiteral()
 
 std::unique_ptr<Expression> Parser::parseStringLiteral()
 {
-    return std::make_unique<StringLiteral>(curToken_.literal);
+    auto node = std::make_unique<StringLiteral>(curToken_.literal);
+    node->setLocation(curToken_.location);
+    return node;
 }
 
 std::unique_ptr<Expression> Parser::parseBooleanLiteral()
 {
     bool value = curTokenIs(TokenType::CHAM);
-    return std::make_unique<BooleanLiteral>(value);
+    auto node = std::make_unique<BooleanLiteral>(value);
+    node->setLocation(curToken_.location);
+    return node;
 }
 
 std::unique_ptr<Expression> Parser::parsePrefixExpression()

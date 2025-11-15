@@ -9,6 +9,7 @@
 
 #include <string>
 #include <memory>
+#include "ast/SourceLocation.h"
 
 namespace kingsejong {
 namespace ast {
@@ -80,6 +81,7 @@ std::string nodeTypeToString(NodeType type);
  *
  * 모든 AST 노드는 이 클래스를 상속받아야 합니다.
  * 가상 소멸자를 통해 다형성을 지원하고 메모리 누수를 방지합니다.
+ * 모든 노드는 소스 코드에서의 위치 정보를 가집니다.
  */
 class Node
 {
@@ -116,6 +118,37 @@ public:
     {
         return nodeTypeToString(type());
     }
+
+    /**
+     * @brief 노드의 소스 위치를 반환
+     * @return SourceLocation 참조
+     */
+    const SourceLocation& location() const
+    {
+        return location_;
+    }
+
+    /**
+     * @brief 노드의 소스 위치를 설정
+     * @param loc 새 위치 정보
+     */
+    void setLocation(const SourceLocation& loc)
+    {
+        location_ = loc;
+    }
+
+    /**
+     * @brief 노드의 소스 위치를 설정 (줄, 열)
+     * @param line 줄 번호
+     * @param column 열 번호
+     */
+    void setLocation(int line, int column)
+    {
+        location_ = SourceLocation(line, column);
+    }
+
+protected:
+    SourceLocation location_;  ///< 소스 코드에서의 위치 정보
 };
 
 /**

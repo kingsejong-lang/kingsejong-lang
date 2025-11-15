@@ -189,8 +189,8 @@ void SemanticAnalyzer::registerFunction(const std::string& name, FunctionLiteral
     // 현재는 반환 타입을 알 수 없으므로 nullptr
     symbolTable_.define(name, SymbolKind::FUNCTION, nullptr);
 
-    // TODO: 함수 스코프 관리 및 매개변수 등록은 향후 구현
-    // 현재는 기본 등록만 수행
+    // 함수 매개변수와 본문은 Phase 2 (Name Resolution)에서 처리
+    // 여기서는 함수 이름만 등록
 }
 
 // ============================================================================
@@ -257,12 +257,16 @@ void SemanticAnalyzer::resolveNamesInStatement(const Statement* stmt)
 
         if (ifStmt->thenBranch())
         {
+            symbolTable_.enterScope();  // then 블록 스코프 진입
             resolveNamesInStatement(ifStmt->thenBranch());
+            symbolTable_.exitScope();   // then 블록 스코프 탈출
         }
 
         if (ifStmt->elseBranch())
         {
+            symbolTable_.enterScope();  // else 블록 스코프 진입
             resolveNamesInStatement(ifStmt->elseBranch());
+            symbolTable_.exitScope();   // else 블록 스코프 탈출
         }
     }
 
@@ -273,17 +277,23 @@ void SemanticAnalyzer::resolveNamesInStatement(const Statement* stmt)
 
         if (whileStmt->body())
         {
+            symbolTable_.enterScope();  // while 본문 스코프 진입
             resolveNamesInStatement(whileStmt->body());
+            symbolTable_.exitScope();   // while 본문 스코프 탈출
         }
     }
 
     // BlockStatement: 모든 문장 검증
     else if (auto blockStmt = dynamic_cast<const BlockStatement*>(stmt))
     {
+        symbolTable_.enterScope();  // 블록 스코프 진입
+
         for (const auto& s : blockStmt->statements())
         {
             resolveNamesInStatement(s.get());
         }
+
+        symbolTable_.exitScope();  // 블록 스코프 탈출
     }
 
     // RangeForStatement: 범위와 본문 검증
@@ -294,7 +304,13 @@ void SemanticAnalyzer::resolveNamesInStatement(const Statement* stmt)
 
         if (forStmt->body())
         {
+            symbolTable_.enterScope();  // for 본문 스코프 진입
+
+            // 루프 변수를 스코프에 등록 (타입은 범위의 타입과 동일하게 정수로 가정)
+            symbolTable_.define(forStmt->varName(), SymbolKind::VARIABLE, types::Type::integerType());
+
             resolveNamesInStatement(forStmt->body());
+            symbolTable_.exitScope();   // for 본문 스코프 탈출
         }
     }
 
@@ -305,7 +321,9 @@ void SemanticAnalyzer::resolveNamesInStatement(const Statement* stmt)
 
         if (repeatStmt->body())
         {
+            symbolTable_.enterScope();  // repeat 본문 스코프 진입
             resolveNamesInStatement(repeatStmt->body());
+            symbolTable_.exitScope();   // repeat 본문 스코프 탈출
         }
     }
 }
@@ -366,10 +384,24 @@ void SemanticAnalyzer::resolveNamesInExpression(const Expression* expr)
     }
 
     // FunctionLiteral: 함수 본문 검증 (매개변수는 함수 스코프에서 처리)
-    else if (dynamic_cast<const FunctionLiteral*>(expr))
+    else if (auto funcLit = dynamic_cast<const FunctionLiteral*>(expr))
     {
-        // TODO: 함수 스코프 관리 구현 후 매개변수 등록 및 본문 검증
-        // 현재는 skeleton
+        symbolTable_.enterScope();  // 함수 스코프 진입
+
+        // 매개변수들을 함수 스코프에 등록
+        for (const auto& param : funcLit->parameters())
+        {
+            // 매개변수 타입은 현재 알 수 없으므로 nullptr
+            symbolTable_.define(param, SymbolKind::VARIABLE, nullptr);
+        }
+
+        // 함수 본문 검증
+        if (funcLit->body())
+        {
+            resolveNamesInStatement(funcLit->body());
+        }
+
+        symbolTable_.exitScope();  // 함수 스코프 탈출
     }
 
     // JosaExpression: 대상 표현식과 메서드 검증

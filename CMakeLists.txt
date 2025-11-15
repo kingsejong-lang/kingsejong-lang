@@ -59,6 +59,11 @@ set(LIB_SOURCES
     src/lsp/SymbolTable.cpp
     src/lsp/SymbolCollector.cpp
     src/lsp/LspUtils.cpp
+    src/linter/Linter.cpp
+    src/linter/Rule.cpp
+    src/linter/rules/UnusedVariableRule.cpp
+    src/linter/rules/DeadCodeRule.cpp
+    src/linter/rules/NoSelfComparisonRule.cpp
 )
 
 # 라이브러리 생성 (kingsejong_lib)

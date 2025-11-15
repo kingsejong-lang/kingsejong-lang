@@ -54,19 +54,22 @@
 
 ---
 
-## 🎯 현재 상태 (v0.3.3)
+## 🎯 현재 상태 (v0.3.4)
 
 ### Phase 5 완료 ✅
 - ✅ LSP, 디버거, 플레이그라운드
 - ✅ 패턴 매칭
 - ✅ Semantic Analyzer 완성
-- ✅ 전체 1075개 테스트 통과
 
-### 다음 단계: Phase 6
-- 📝 Linter (ksjlint)
-- 📝 Formatter (ksjfmt)
-- 📝 stdlib 대폭 확장 (200개+ 함수)
-- 📝 JIT 컴파일러 Tier 1
+### Phase 6 진행중 🚧
+- 🚧 Linter 기본 구현 완료 (3개 규칙, 14개 테스트)
+  - UnusedVariableRule, DeadCodeRule, NoSelfComparisonRule
+- 📝 Formatter (ksjfmt) 예정
+- 📝 stdlib 대폭 확장 (200개+ 함수) 예정
+- 📝 JIT 컴파일러 Tier 1 예정
+
+### 전체 테스트
+- ✅ **1089개 테스트 통과** (Phase 5: 1075개 + Linter: 14개)
 
 ---
 
@@ -74,12 +77,16 @@
 
 ### 6.1: 코드 품질 도구 (4주)
 
-#### Linter (ksjlint) - 2주
-- [ ] AST 기반 정적 분석
-- [ ] 규칙 엔진 설계
-- [ ] 기본 규칙 (미사용 변수, 타입 불일치, 스타일)
+#### Linter (ksjlint) - 2주 🚧
+- [x] AST 기반 정적 분석
+- [x] 규칙 엔진 설계 (Rule base class, visitor pattern)
+- [x] 기본 규칙 구현 - 14개 테스트
+  - [x] UnusedVariableRule (미사용 변수 감지)
+  - [x] DeadCodeRule (return 후 도달 불가능 코드)
+  - [x] NoSelfComparisonRule (자기 비교 감지)
 - [ ] 설정 파일 (.ksjlintrc)
-- [ ] 테스트 (30개+)
+- [ ] 추가 규칙 (타입 불일치, 네이밍 컨벤션 등)
+- [ ] 테스트 확장 (현재 14개 → 목표 30개+)
 
 #### Formatter (ksjfmt) - 2주
 - [ ] 코드 포맷팅 엔진

@@ -853,3 +853,126 @@ TEST(LinterTest, ShouldAllowNumbersInVariableInitialization)
     // 변수 초기화의 숫자는 허용
     EXPECT_EQ(linter.issues().size(), 0);
 }
+
+/**
+ * @test 심각도 오버라이드 (HINT -> ERROR)
+ */
+TEST(LinterTest, ShouldOverrideSeverityToError)
+{
+    std::string code = R"(
+정수 x = 10
+y = x + 42
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    // 설정: no-magic-number를 ERROR로 변경
+    std::string config = R"({
+        "rules": {
+            "no-magic-number": "error"
+        }
+    })";
+
+    Linter linter;
+    linter.addRule(std::make_unique<NoMagicNumberRule>());
+    ASSERT_TRUE(linter.loadConfigFromString(config));
+    linter.analyze(program.get(), "test.ksj");
+
+    // 매직 넘버가 감지되어야 함
+    ASSERT_GE(linter.issues().size(), 1);
+
+    // 심각도가 ERROR로 오버라이드되어야 함 (원래는 HINT)
+    bool foundError = false;
+    for (const auto& issue : linter.issues())
+    {
+        if (issue.ruleId == "no-magic-number")
+        {
+            EXPECT_EQ(issue.severity, IssueSeverity::ERROR);
+            foundError = true;
+        }
+    }
+    EXPECT_TRUE(foundError);
+}
+
+/**
+ * @test 심각도 오버라이드 (WARNING -> INFO)
+ */
+TEST(LinterTest, ShouldOverrideSeverityToInfo)
+{
+    std::string code = R"(
+정수 x = 5
+정수 y = 10
+정수 z = 15  # 사용되지 않음
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    // 설정: unused-variable을 INFO로 낮춤
+    std::string config = R"({
+        "rules": {
+            "unused-variable": "info"
+        }
+    })";
+
+    Linter linter;
+    linter.addRule(std::make_unique<UnusedVariableRule>());
+    ASSERT_TRUE(linter.loadConfigFromString(config));
+    linter.analyze(program.get(), "test.ksj");
+
+    // z가 미사용 변수로 감지되어야 함
+    ASSERT_GE(linter.issues().size(), 1);
+
+    // 심각도가 INFO로 오버라이드되어야 함 (원래는 WARNING)
+    bool foundInfo = false;
+    for (const auto& issue : linter.issues())
+    {
+        if (issue.ruleId == "unused-variable")
+        {
+            EXPECT_EQ(issue.severity, IssueSeverity::INFO);
+            foundInfo = true;
+        }
+    }
+    EXPECT_TRUE(foundInfo);
+}
+
+/**
+ * @test 심각도 오버라이드 없으면 기본값 사용
+ */
+TEST(LinterTest, ShouldUseDefaultSeverityWhenNoOverride)
+{
+    std::string code = R"(
+정수 x = 5
+y = x + 42
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    // 설정 없이 실행
+    Linter linter;
+    linter.addRule(std::make_unique<NoMagicNumberRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    // 매직 넘버가 감지되어야 함
+    ASSERT_GE(linter.issues().size(), 1);
+
+    // 심각도가 기본값(HINT)이어야 함
+    bool foundHint = false;
+    for (const auto& issue : linter.issues())
+    {
+        if (issue.ruleId == "no-magic-number")
+        {
+            EXPECT_EQ(issue.severity, IssueSeverity::HINT);
+            foundHint = true;
+        }
+    }
+    EXPECT_TRUE(foundHint);
+}

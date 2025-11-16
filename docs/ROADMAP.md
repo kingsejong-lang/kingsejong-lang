@@ -161,10 +161,11 @@ stdlib: 255개 함수 ✅ (목표 초과 달성!)
   - LinterConfig (.ksjlint.json)
     - 규칙별 활성화/비활성화
     - 규칙별 심각도 설정 (error/warning/info/hint/off)
+    - 규칙별 심각도 오버라이드 (런타임 적용)
   - FormatterConfig (.ksjfmt.json)
     - 들여쓰기, 공백, 줄바꿈 옵션
   - 자동 설정 파일 검색 (현재 디렉토리부터 상위로)
-  - 8개 테스트 (100% 통과)
+  - 11개 테스트 (100% 통과)
 - [ ] VS Code 통합
 - [x] **테스트 프레임워크 (ksjtest)** ✅
   - 5개 builtin assert 함수 (assert, assert_같음, assert_다름, assert_참, assert_거짓)

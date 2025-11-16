@@ -22,7 +22,11 @@ void Rule::reportIssue(
 {
     if (linter_)
     {
-        linter_->addIssue(LinterIssue{message, severity, ruleId_, line, column, linter_->filename_});
+        // 설정 파일에서 오버라이드된 심각도가 있으면 사용
+        auto overrideSeverity = linter_->getRuleSeverity(ruleId_);
+        IssueSeverity finalSeverity = overrideSeverity.has_value() ? overrideSeverity.value() : severity;
+
+        linter_->addIssue(LinterIssue{message, finalSeverity, ruleId_, line, column, linter_->filename_});
     }
 }
 

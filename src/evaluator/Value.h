@@ -63,6 +63,33 @@ public:
 };
 
 /**
+ * @class ErrorObject
+ * @brief 에러 객체
+ *
+ * 예외 처리 시스템에서 사용하는 에러 정보를 저장합니다.
+ */
+class ErrorObject
+{
+private:
+    std::string message_;  ///< 에러 메시지
+    std::string type_;     ///< 에러 타입 (예: "RuntimeError", "TypeError")
+
+public:
+    /**
+     * @brief ErrorObject 생성자
+     * @param message 에러 메시지
+     * @param type 에러 타입 (기본값: "Error")
+     */
+    ErrorObject(std::string message, std::string type = "Error")
+        : message_(std::move(message))
+        , type_(std::move(type))
+    {}
+
+    const std::string& message() const { return message_; }
+    const std::string& type() const { return type_; }
+};
+
+/**
  * @class Value
  * @brief 런타임 값을 표현하는 클래스
  *
@@ -93,7 +120,8 @@ public:
         std::nullptr_t,                         // NULL_TYPE
         std::shared_ptr<Function>,              // FUNCTION
         BuiltinFn,                              // BUILTIN_FUNCTION
-        std::shared_ptr<std::vector<Value>>     // ARRAY
+        std::shared_ptr<std::vector<Value>>,    // ARRAY
+        std::shared_ptr<ErrorObject>            // ERROR
     >;
 
 private:
@@ -164,6 +192,14 @@ public:
     static Value createArray(const std::vector<Value>& elements);
 
     /**
+     * @brief 에러 값 생성
+     * @param message 에러 메시지
+     * @param type 에러 타입 (기본값: "Error")
+     * @return Value 객체
+     */
+    static Value createError(const std::string& message, const std::string& type = "Error");
+
+    /**
      * @brief 값의 타입 반환
      * @return TypeKind
      */
@@ -218,6 +254,12 @@ public:
     bool isArray() const { return type_ == types::TypeKind::ARRAY; }
 
     /**
+     * @brief 에러 값인지 확인
+     * @return 에러이면 true
+     */
+    bool isError() const { return type_ == types::TypeKind::ERROR; }
+
+    /**
      * @brief 정수 값 반환
      * @return int64_t 값
      * @throws std::runtime_error 정수가 아닌 경우
@@ -266,6 +308,13 @@ public:
      */
     std::vector<Value>& asArray();
     const std::vector<Value>& asArray() const;
+
+    /**
+     * @brief 에러 값 반환
+     * @return shared_ptr<ErrorObject>
+     * @throws std::runtime_error 에러가 아닌 경우
+     */
+    std::shared_ptr<ErrorObject> asError() const;
 
     /**
      * @brief 값을 문자열로 변환

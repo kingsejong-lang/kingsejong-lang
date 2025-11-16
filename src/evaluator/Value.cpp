@@ -92,6 +92,14 @@ Value Value::createArray(const std::vector<Value>& elements)
     return v;
 }
 
+Value Value::createError(const std::string& message, const std::string& type)
+{
+    Value v;
+    v.type_ = types::TypeKind::ERROR;
+    v.data_ = std::make_shared<ErrorObject>(message, type);
+    return v;
+}
+
 // ============================================================================
 // 타입 변환 및 접근
 // ============================================================================
@@ -168,6 +176,15 @@ const std::vector<Value>& Value::asArray() const
     return *std::get<std::shared_ptr<std::vector<Value>>>(data_);
 }
 
+std::shared_ptr<ErrorObject> Value::asError() const
+{
+    if (!isError())
+    {
+        throw std::runtime_error("값이 에러 타입이 아닙니다. 실제 타입: " + types::Type::typeKindToString(type_));
+    }
+    return std::get<std::shared_ptr<ErrorObject>>(data_);
+}
+
 // ============================================================================
 // 문자열 변환
 // ============================================================================
@@ -217,6 +234,12 @@ std::string Value::toString() const
             return result;
         }
 
+        case types::TypeKind::ERROR:
+        {
+            auto err = std::get<std::shared_ptr<ErrorObject>>(data_);
+            return err->type() + ": " + err->message();
+        }
+
         default:
             return "<unknown value>";
     }
@@ -250,6 +273,9 @@ bool Value::isTruthy() const
             auto arr = std::get<std::shared_ptr<std::vector<Value>>>(data_);
             return !arr->empty();
         }
+
+        case types::TypeKind::ERROR:
+            return false;  // 에러는 항상 거짓
 
         default:
             return true;
@@ -288,6 +314,13 @@ bool Value::equals(const Value& other) const
 
         case types::TypeKind::NULL_TYPE:
             return true;  // null == null
+
+        case types::TypeKind::ERROR:
+        {
+            auto err1 = std::get<std::shared_ptr<ErrorObject>>(data_);
+            auto err2 = std::get<std::shared_ptr<ErrorObject>>(other.data_);
+            return err1->message() == err2->message() && err1->type() == err2->type();
+        }
 
         default:
             return false;

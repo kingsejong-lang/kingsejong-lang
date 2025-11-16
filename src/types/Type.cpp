@@ -156,6 +156,8 @@ std::string Type::typeKindToString(TypeKind kind)
             return "BUILTIN_FUNCTION";
         case TypeKind::RANGE:
             return "RANGE";
+        case TypeKind::ERROR:
+            return "ERROR";
         default:
             return "UNKNOWN";
     }

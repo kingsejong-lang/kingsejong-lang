@@ -477,3 +477,97 @@ TEST(ValueTest, SmallInteger)
     EXPECT_TRUE(val.isInteger());
     EXPECT_EQ(val.asInteger(), -9223372036854775807LL - 1);
 }
+
+// ============================================================================
+// Error Value Tests (예외 처리 시스템)
+// ============================================================================
+
+/**
+ * @test 에러 값 생성 및 확인
+ */
+TEST(ValueTest, ShouldCreateErrorValue)
+{
+    Value val = Value::createError("Division by zero");
+
+    EXPECT_TRUE(val.isError());
+    EXPECT_FALSE(val.isInteger());
+    EXPECT_FALSE(val.isString());
+    EXPECT_FALSE(val.isBoolean());
+    EXPECT_FALSE(val.isNull());
+
+    EXPECT_EQ(val.getType(), TypeKind::ERROR);
+
+    auto err = val.asError();
+    EXPECT_EQ(err->message(), "Division by zero");
+    EXPECT_EQ(err->type(), "Error");  // 기본 타입
+}
+
+/**
+ * @test 커스텀 타입의 에러 값 생성
+ */
+TEST(ValueTest, ShouldCreateErrorValueWithCustomType)
+{
+    Value val = Value::createError("Type mismatch", "TypeError");
+
+    EXPECT_TRUE(val.isError());
+    EXPECT_EQ(val.getType(), TypeKind::ERROR);
+
+    auto err = val.asError();
+    EXPECT_EQ(err->message(), "Type mismatch");
+    EXPECT_EQ(err->type(), "TypeError");
+}
+
+/**
+ * @test 에러 값의 문자열 변환
+ */
+TEST(ValueTest, ErrorValueShouldConvertToString)
+{
+    Value val = Value::createError("Something went wrong", "RuntimeError");
+
+    std::string str = val.toString();
+    EXPECT_EQ(str, "RuntimeError: Something went wrong");
+}
+
+/**
+ * @test 에러 값은 항상 거짓으로 평가
+ */
+TEST(ValueTest, ErrorValueShouldBeFalsy)
+{
+    Value val = Value::createError("Error message");
+
+    EXPECT_FALSE(val.isTruthy());
+}
+
+/**
+ * @test 에러가 아닌 값에서 asError 호출 시 예외
+ */
+TEST(ValueTest, ShouldThrowWhenAsErrorCalledOnNonError)
+{
+    Value val = Value::createInteger(42);
+
+    EXPECT_THROW(val.asError(), std::runtime_error);
+}
+
+/**
+ * @test 에러 값 동등성 비교
+ */
+TEST(ValueTest, ShouldCompareErrorValues)
+{
+    Value err1 = Value::createError("Error 1", "TypeError");
+    Value err2 = Value::createError("Error 1", "TypeError");
+    Value err3 = Value::createError("Error 2", "TypeError");
+    Value err4 = Value::createError("Error 1", "RuntimeError");
+
+    // 같은 메시지와 타입
+    EXPECT_TRUE(err1.equals(err2));
+
+    // 다른 메시지
+    EXPECT_FALSE(err1.equals(err3));
+
+    // 다른 타입
+    EXPECT_FALSE(err1.equals(err4));
+
+    // 에러와 비에러 비교
+    Value num = Value::createInteger(42);
+    EXPECT_FALSE(err1.equals(num));
+}

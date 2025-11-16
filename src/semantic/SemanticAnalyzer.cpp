@@ -149,6 +149,13 @@ void SemanticAnalyzer::initBuiltinFunctions()
     builtins_.insert("DB_쿼리");
     builtins_.insert("DB_마지막_ID");
     builtins_.insert("DB_영향받은_행수");
+
+    // 테스트 프레임워크
+    builtins_.insert("assert");
+    builtins_.insert("assert_같음");
+    builtins_.insert("assert_다름");
+    builtins_.insert("assert_참");
+    builtins_.insert("assert_거짓");
 }
 
 bool SemanticAnalyzer::isBuiltinFunction(const std::string& name) const

@@ -2543,6 +2543,149 @@ static Value builtin_DB_영향받은_행수(const std::vector<Value>& args)
 }
 
 // ============================================================================
+// 테스트 프레임워크 - Assert 함수
+// ============================================================================
+
+/**
+ * @brief assert(조건, 메시지) - 조건이 거짓이면 에러
+ */
+static Value builtin_assert(const std::vector<Value>& args)
+{
+    if (args.size() < 1 || args.size() > 2) {
+        throw std::runtime_error("assert(조건, [메시지]): 1-2개의 인자가 필요합니다");
+    }
+
+    bool condition = args[0].isTruthy();
+
+    if (!condition) {
+        std::string message = "Assertion failed";
+        if (args.size() == 2 && args[1].isString()) {
+            message = args[1].asString();
+        }
+        throw std::runtime_error(message);
+    }
+
+    return Value::createNull();
+}
+
+/**
+ * @brief assert_같음(실제, 기대) - 두 값이 같은지 확인
+ */
+static Value builtin_assert_같음(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("assert_같음(실제, 기대): 2개의 인자가 필요합니다");
+    }
+
+    const Value& actual = args[0];
+    const Value& expected = args[1];
+
+    // 값 비교
+    bool equal = false;
+
+    // 타입별 비교
+    if (actual.isInteger() && expected.isInteger()) {
+        equal = (actual.asInteger() == expected.asInteger());
+    } else if (actual.isFloat() && expected.isFloat()) {
+        equal = (std::abs(actual.asFloat() - expected.asFloat()) < 1e-10);
+    } else if (actual.isString() && expected.isString()) {
+        equal = (actual.asString() == expected.asString());
+    } else if (actual.isBoolean() && expected.isBoolean()) {
+        equal = (actual.asBoolean() == expected.asBoolean());
+    } else if (actual.isNull() && expected.isNull()) {
+        equal = true;
+    } else if (actual.isArray() && expected.isArray()) {
+        // 배열 비교
+        auto actualArr = actual.asArray();
+        auto expectedArr = expected.asArray();
+        if (actualArr.size() != expectedArr.size()) {
+            equal = false;
+        } else {
+            equal = true;
+            for (size_t i = 0; i < actualArr.size(); i++) {
+                std::vector<Value> compareArgs = {actualArr[i], expectedArr[i]};
+                try {
+                    builtin_assert_같음(compareArgs);
+                } catch (...) {
+                    equal = false;
+                    break;
+                }
+            }
+        }
+    } else {
+        // 타입이 다르면 실패
+        equal = false;
+    }
+
+    if (!equal) {
+        std::string message = "값이 다릅니다. 기대: " + expected.toString() +
+                            ", 실제: " + actual.toString();
+        throw std::runtime_error(message);
+    }
+
+    return Value::createNull();
+}
+
+/**
+ * @brief assert_다름(실제, 기대) - 두 값이 다른지 확인
+ */
+static Value builtin_assert_다름(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("assert_다름(실제, 기대): 2개의 인자가 필요합니다");
+    }
+
+    try {
+        builtin_assert_같음(args);
+        // 같으면 에러
+        std::string message = "값이 같습니다: " + args[0].toString();
+        throw std::runtime_error(message);
+    } catch (const std::runtime_error& e) {
+        std::string errMsg = e.what();
+        // "값이 다릅니다"로 시작하면 성공
+        if (errMsg.find("값이 다릅니다") == 0) {
+            return Value::createNull();
+        }
+        // 그 외는 재발생
+        throw;
+    }
+}
+
+/**
+ * @brief assert_참(값) - 값이 참인지 확인
+ */
+static Value builtin_assert_참(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("assert_참(값): 1개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isTruthy()) {
+        std::string message = "값이 거짓입니다: " + args[0].toString();
+        throw std::runtime_error(message);
+    }
+
+    return Value::createNull();
+}
+
+/**
+ * @brief assert_거짓(값) - 값이 거짓인지 확인
+ */
+static Value builtin_assert_거짓(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("assert_거짓(값): 1개의 인자가 필요합니다");
+    }
+
+    if (args[0].isTruthy()) {
+        std::string message = "값이 참입니다: " + args[0].toString();
+        throw std::runtime_error(message);
+    }
+
+    return Value::createNull();
+}
+
+// ============================================================================
 // OS 및 파일 시스템 함수
 // ============================================================================
 
@@ -3144,6 +3287,13 @@ void Builtin::registerAllBuiltins()
     registerBuiltin("DB_쿼리", builtin_DB_쿼리);
     registerBuiltin("DB_마지막_ID", builtin_DB_마지막_ID);
     registerBuiltin("DB_영향받은_행수", builtin_DB_영향받은_행수);
+
+    // ========== 테스트 프레임워크 ==========
+    registerBuiltin("assert", builtin_assert);
+    registerBuiltin("assert_같음", builtin_assert_같음);
+    registerBuiltin("assert_다름", builtin_assert_다름);
+    registerBuiltin("assert_참", builtin_assert_참);
+    registerBuiltin("assert_거짓", builtin_assert_거짓);
 }
 
 } // namespace evaluator

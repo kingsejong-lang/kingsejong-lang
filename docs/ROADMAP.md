@@ -27,7 +27,7 @@
 ```
 코드: 22,000+ 줄
 테스트: 1230개 (100% 통과)
-stdlib: 250개 함수 ✅ (목표 달성!)
+stdlib: 255개 함수 ✅ (목표 초과 달성!)
 문서: 4,700+ 줄
 예제: 25개
 플랫폼: macOS, Linux, Windows
@@ -153,7 +153,10 @@ stdlib: 250개 함수 ✅ (목표 달성!)
 - [ ] Linter 추가 규칙 구현
 - [ ] Linter/Formatter 설정 파일 지원
 - [ ] VS Code 통합
-- [ ] 테스트 프레임워크 (ksjtest)
+- [x] **테스트 프레임워크 (ksjtest)** ✅
+  - 5개 builtin assert 함수 (assert, assert_같음, assert_다름, assert_참, assert_거짓)
+  - stdlib/test.ksj 문서 및 예제
+  - examples/stdlib_test.ksj 데모
 - [ ] 프로파일러 (ksjprof)
 
 #### 6.2: 표준 라이브러리 대폭 확장
@@ -188,7 +191,10 @@ stdlib: 250개 함수 ✅ (목표 달성!)
   - Queue (큐): 7개 함수 (FIFO)
   - Stack (스택): 7개 함수 (LIFO)
   - Deque (덱): 10개 함수 (양방향 큐)
-- [x] **목표**: 250개+ 함수 ✅ **달성!** (현재: 250개, 100% 달성)
+- [x] stdlib/test.ksj - 테스트 프레임워크 (5개) ✅
+  - assert, assert_같음, assert_다름, assert_참, assert_거짓
+  - 단위 테스트 작성 지원
+- [x] **목표**: 250개+ 함수 ✅ **초과 달성!** (현재: 255개, 102% 달성)
 
 #### 6.3: 아키텍처 개선 ⭐ **긴급** (ANALYSIS_IMPROVEMENTS.md P0)
 **현재 문제**: 휴리스틱 기반 파싱, Symbol Table 미완성, 조사 분리 불완전

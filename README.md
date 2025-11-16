@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![C++23](https://img.shields.io/badge/C++-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![CI](https://github.com/0xmhha/kingsejonglang/workflows/CI/badge.svg)](https://github.com/0xmhha/kingsejonglang/actions)
-[![Tests](https://img.shields.io/badge/tests-1003%20passed-success)](tests/)
+[![Tests](https://img.shields.io/badge/tests-1230%20passed-success)](tests/)
 [![Version](https://img.shields.io/badge/version-v0.3.3-blue)](https://github.com/0xmhha/kingsejonglang/releases/tag/v0.3.3)
 [![VS Code](https://img.shields.io/badge/VS%20Code-Extension-blue)](vscode-extension/)
 
@@ -228,7 +228,15 @@ $ ./kingsejong
 - `array.ksj` - 18개 배열 유틸리티 (범위, 중복 제거, zip 등)
 - `io.ksj` - 25개 파일 I/O 함수 (파일 읽기/쓰기, 디렉토리 관리, 경로 처리 등)
 - `json.ksj` - 17개 JSON 처리 함수 (파싱, 문자열화, 파일 I/O, object 조작 등)
-- `time.ksj` - 14개 시간/날짜 함수 (타임스탬프, 포맷팅, 날짜 연산, 슬립 등) ⭐ NEW
+- `time.ksj` - 14개 시간/날짜 함수 (타임스탬프, 포맷팅, 날짜 연산, 슬립 등)
+- `utils.ksj` - 30개 유틸리티 함수
+- `regex.ksj` - 30개+ 정규표현식 함수
+- `crypto.ksj` - 42개 암호화 함수
+- `os.ksj` - 39개 OS & 파일 시스템 함수
+- `http.ksj` - 20개 HTTP 클라이언트 함수
+- `db.ksj` - 15개 데이터베이스 함수 (SQLite)
+- `collections.ksj` - 50개 자료구조 함수 (Set, Map, Queue, Stack, Deque)
+- `test.ksj` - 5개 테스트 프레임워크 함수 (assert 계열) ⭐ NEW
 
 ### 📐 4. 자연스러운 범위 표현
 
@@ -431,7 +439,7 @@ i가 1부터 10까지 {
 - ✅ 에러 처리 시스템
 - ✅ 한글 에러 메시지
 - ✅ 타입 검사
-- ✅ **표준 라이브러리** (math, string, array, io, json, time - 101개+ 함수)
+- ✅ **표준 라이브러리** (14개 모듈, 255개 함수)
 
 ### Phase 3: 고급 기능 ✅ (100% 완료)
 
@@ -475,10 +483,9 @@ i가 1부터 10까지 {
   - 웹 인터페이스 (Vite + Monaco Editor)
   - 예제 갤러리 (10개)
   - GitHub Pages 자동 배포
-- ✅ **표준 라이브러리 확장 (101개+ 함수)**
-  - stdlib/io.ksj - 파일 I/O (25개)
-  - stdlib/json.ksj - JSON 처리 (17개)
-  - stdlib/time.ksj - 날짜/시간 (14개)
+- ✅ **표준 라이브러리 확장 (255개 함수)**
+  - 14개 모듈 (math, string, array, io, json, time, utils, regex, crypto, os, http, db, collections, test)
+  - stdlib/test.ksj - 테스트 프레임워크 (5개) ⭐ NEW
 
 ### 문서화 ✅ (완료)
 
@@ -627,12 +634,12 @@ npm run compile
 
 ### 실용성
 
-- **표준 라이브러리** - 100+ 유틸리티 함수 (math, string, array, io, json, time)
+- **표준 라이브러리** - 255개 함수 (14개 모듈)
 - **디버거** - 브레이크포인트, 단계 실행, 변수 검사
 - **온라인 플레이그라운드** - 즉시 실행 (WebAssembly)
 - **REPL** - 빠른 프로토타이핑
 - **에러 메시지 한글화** - 친절한 피드백
-- **100% 테스트 통과** - 안정성 보장 (1003개)
+- **100% 테스트 통과** - 안정성 보장 (1230개)
 
 ---
 
@@ -696,12 +703,13 @@ kingsejonglang/
 │   │   └── kingsejong.tmLanguage.json  # 구문 강조
 │   ├── package.json       # Extension 메타데이터
 │   └── README.md          # Extension 가이드
-├── stdlib/                # 표준 라이브러리
+├── stdlib/                # 표준 라이브러리 (255개 함수)
 │   ├── math.ksj          # 수학 함수 (18개)
 │   ├── string.ksj        # 문자열 처리 (9개)
 │   ├── array.ksj         # 배열 유틸리티 (18개)
-│   └── README.md         # 라이브러리 문서
-├── tests/                 # 테스트 코드 (1003개)
+│   ├── test.ksj          # 테스트 프레임워크 (5개) ⭐ NEW
+│   └── ... (14개 모듈)
+├── tests/                 # 테스트 코드 (1230개)
 │   ├── lsp/              # LSP 테스트 (130개)
 │   │   ├── JsonRpcTest.cpp
 │   │   ├── DocumentManagerTest.cpp

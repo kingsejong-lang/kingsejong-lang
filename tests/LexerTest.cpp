@@ -653,3 +653,80 @@ TEST(LexerTest, SlashVsComment)
 
     EXPECT_EQ(lexer.nextToken().type, TokenType::EOF_TOKEN);
 }
+
+// /* */ 멀티라인 주석 테스트
+TEST(LexerTest, MultilineCommentShouldBeIgnored)
+{
+    std::string input = "/* 이것은\n여러 줄\n주석입니다 */\n출력(\"Hello\")";
+    Lexer lexer(input);
+
+    // 주석은 무시되고 출력부터 시작
+    EXPECT_EQ(lexer.nextToken().literal, "출력");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::LPAREN);
+    EXPECT_EQ(lexer.nextToken().literal, "Hello");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::RPAREN);
+    EXPECT_EQ(lexer.nextToken().type, TokenType::EOF_TOKEN);
+}
+
+// 한 줄 멀티라인 주석 테스트
+TEST(LexerTest, SingleLineMultilineComment)
+{
+    std::string input = "x = 5 /* 주석 */ + 3";
+    Lexer lexer(input);
+
+    EXPECT_EQ(lexer.nextToken().literal, "x");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::ASSIGN);
+    EXPECT_EQ(lexer.nextToken().literal, "5");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::PLUS);
+    EXPECT_EQ(lexer.nextToken().literal, "3");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::EOF_TOKEN);
+}
+
+// 세 가지 주석 스타일 혼합
+TEST(LexerTest, AllCommentStylesMixed)
+{
+    std::string input = "# 해시 주석\n// 슬래시 주석\n/* 멀티라인\n주석 */\n출력(\"Test\")";
+    Lexer lexer(input);
+
+    EXPECT_EQ(lexer.nextToken().literal, "출력");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::LPAREN);
+    EXPECT_EQ(lexer.nextToken().literal, "Test");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::RPAREN);
+    EXPECT_EQ(lexer.nextToken().type, TokenType::EOF_TOKEN);
+}
+
+// 코드 사이 멀티라인 주석
+TEST(LexerTest, MultilineCommentBetweenCode)
+{
+    std::string input = "a = 10\n/* 주석\n여러 줄 */\nb = 20";
+    Lexer lexer(input);
+
+    EXPECT_EQ(lexer.nextToken().literal, "a");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::ASSIGN);
+    EXPECT_EQ(lexer.nextToken().literal, "10");
+
+    EXPECT_EQ(lexer.nextToken().literal, "b");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::ASSIGN);
+    EXPECT_EQ(lexer.nextToken().literal, "20");
+
+    EXPECT_EQ(lexer.nextToken().type, TokenType::EOF_TOKEN);
+}
+
+// 곱셈과 멀티라인 주석 구분
+TEST(LexerTest, MultiplyVsMultilineComment)
+{
+    std::string input = "x = 5 * 2\ny = 3 /* 주석 */";
+    Lexer lexer(input);
+
+    EXPECT_EQ(lexer.nextToken().literal, "x");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::ASSIGN);
+    EXPECT_EQ(lexer.nextToken().literal, "5");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::ASTERISK);  // 곱셈
+    EXPECT_EQ(lexer.nextToken().literal, "2");
+
+    EXPECT_EQ(lexer.nextToken().literal, "y");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::ASSIGN);
+    EXPECT_EQ(lexer.nextToken().literal, "3");
+
+    EXPECT_EQ(lexer.nextToken().type, TokenType::EOF_TOKEN);
+}

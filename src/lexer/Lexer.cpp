@@ -397,10 +397,10 @@ Token Lexer::nextToken()
             break;
 
         case '/':
-            // // 주석 체크
+            // 주석 체크
             if (peekChar() == '/')
             {
-                // // 주석 처리
+                // // 주석 처리 (한 줄 주석)
                 readChar(); // 첫 번째 /
                 readChar(); // 두 번째 /
                 while (ch != '\n' && ch != '\0')
@@ -410,8 +410,30 @@ Token Lexer::nextToken()
                 // 주석 스킵 후 다음 토큰 반환
                 return nextToken();
             }
+            else if (peekChar() == '*')
+            {
+                // /* */ 주석 처리 (멀티라인 주석)
+                readChar(); // /
+                readChar(); // *
+
+                // */를 찾을 때까지 스킵
+                while (ch != '\0')
+                {
+                    if (ch == '*' && peekChar() == '/')
+                    {
+                        readChar(); // *
+                        readChar(); // /
+                        break;
+                    }
+                    readChar();
+                }
+
+                // 주석 스킵 후 다음 토큰 반환
+                return nextToken();
+            }
             else
             {
+                // 나눗셈 연산자
                 token = Token(TokenType::SLASH, std::string(1, ch));
                 readChar();
             }

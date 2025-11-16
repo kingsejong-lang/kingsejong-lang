@@ -21,6 +21,7 @@
 #include "lsp/JsonRpc.h"
 #include "error/ErrorReporter.h"
 #include "module/ModuleLoader.h"
+#include "version/Version.h"
 
 /**
  * @brief 파일을 읽고 실행
@@ -170,6 +171,25 @@ int runLspServer()
 }
 
 /**
+ * @brief 도움말 출력
+ */
+void printHelp()
+{
+    std::cout << "사용법: kingsejong [옵션] [파일명]\n";
+    std::cout << "\n";
+    std::cout << "옵션:\n";
+    std::cout << "  -h, --help      이 도움말 메시지 출력\n";
+    std::cout << "  -v, --version   버전 정보 출력\n";
+    std::cout << "  --lsp           LSP 서버 모드로 실행\n";
+    std::cout << "\n";
+    std::cout << "사용 예시:\n";
+    std::cout << "  kingsejong              REPL 모드로 실행\n";
+    std::cout << "  kingsejong 파일.ksj      파일 실행\n";
+    std::cout << "  kingsejong --version    버전 정보 출력\n";
+    std::cout << "  kingsejong --lsp        LSP 서버 모드\n";
+}
+
+/**
  * @brief 프로그램 진입점
  * @param argc 인자 개수
  * @param argv 인자 배열
@@ -180,10 +200,30 @@ int main(int argc, char* argv[])
     // 내장 함수 등록
     kingsejong::evaluator::Builtin::registerAllBuiltins();
 
-    // --lsp 플래그 확인
-    if (argc == 2 && std::strcmp(argv[1], "--lsp") == 0)
+    // 인자가 1개 이상인 경우 옵션 확인
+    if (argc >= 2)
     {
-        return runLspServer();
+        std::string arg = argv[1];
+
+        // --version 또는 -v
+        if (arg == "--version" || arg == "-v")
+        {
+            std::cout << kingsejong::version::getFullVersionString() << "\n";
+            return 0;
+        }
+
+        // --help 또는 -h
+        if (arg == "--help" || arg == "-h")
+        {
+            printHelp();
+            return 0;
+        }
+
+        // --lsp 플래그
+        if (arg == "--lsp")
+        {
+            return runLspServer();
+        }
     }
 
     if (argc == 1)
@@ -202,11 +242,8 @@ int main(int argc, char* argv[])
     else
     {
         // 잘못된 사용법
-        std::cerr << "사용법: kingsejong [파일명]\n";
-        std::cerr << "\n";
-        std::cerr << "  kingsejong          - REPL 모드로 실행\n";
-        std::cerr << "  kingsejong 파일.ksj  - 파일 실행\n";
-        std::cerr << "  kingsejong --lsp    - LSP 서버 모드\n";
+        std::cerr << "에러: 잘못된 인자입니다.\n\n";
+        printHelp();
         return 1;
     }
 }

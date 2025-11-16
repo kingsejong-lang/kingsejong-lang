@@ -68,3 +68,7 @@ package-lock.json
 # WASM build artifacts
 *.wasm
 *.wasm.map
+
+# Claude local configuration
+CLAUDE.md
+CLAUDE.local.md

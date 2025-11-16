@@ -9,6 +9,7 @@
 #include "Builtin.h"
 #include "../error/Error.h"
 #include "../module/ModuleLoader.h"
+#include "jit/HotPathDetector.h"
 #include <sstream>
 #include <cmath>
 #include <algorithm>
@@ -347,6 +348,18 @@ Value Evaluator::evalCallExpression(ast::CallExpression* expr)
         );
     }
 
+    // Hot Path Tracking: 함수 호출 추적
+    std::string functionName = "anonymous";
+    size_t functionId = reinterpret_cast<size_t>(func.get());
+
+    // 함수 이름 추출 시도 (Identifier인 경우)
+    if (auto* identExpr = dynamic_cast<ast::Identifier*>(const_cast<ast::Expression*>(expr->function())))
+    {
+        functionName = identExpr->name();
+    }
+
+    auto startTime = std::chrono::steady_clock::now();
+
     // 6. 새로운 환경 생성 (클로저 기반)
     auto funcEnv = std::make_shared<Environment>(func->closure());
 
@@ -377,6 +390,17 @@ Value Evaluator::evalCallExpression(ast::CallExpression* expr)
 
     // 환경 복원
     env_ = previousEnv;
+
+    // Hot Path Tracking: 실행 시간 기록
+    if (hotPathDetector_)
+    {
+        auto endTime = std::chrono::steady_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(
+            endTime - startTime
+        ).count();
+
+        hotPathDetector_->trackFunctionCall(functionName, functionId, duration);
+    }
 
     return result;
 }
@@ -489,11 +513,20 @@ Value Evaluator::evalRepeatStatement(ast::RepeatStatement* stmt)
         );
     }
 
+    // Hot Path Tracking: 루프 ID 생성
+    size_t loopId = reinterpret_cast<size_t>(stmt);
+
     Value result = Value::createNull();
 
     // count 횟수만큼 반복
     for (int64_t i = 0; i < count; ++i)
     {
+        // Hot Path Tracking: 루프 백엣지 추적
+        if (hotPathDetector_)
+        {
+            hotPathDetector_->trackLoopBackedge(loopId);
+        }
+
         result = eval(const_cast<ast::BlockStatement*>(stmt->body()));
     }
 
@@ -521,6 +554,9 @@ Value Evaluator::evalRangeForStatement(ast::RangeForStatement* stmt)
     int64_t start = startValue.asInteger();
     int64_t end = endValue.asInteger();
 
+    // Hot Path Tracking: 루프 ID 생성
+    size_t loopId = reinterpret_cast<size_t>(stmt);
+
     Value result = Value::createNull();
 
     // 범위 반복 (끝 값 포함 여부에 따라 조건 변경)
@@ -531,6 +567,12 @@ Value Evaluator::evalRangeForStatement(ast::RangeForStatement* stmt)
         // 끝 값 포함 (까지, 이하, 이상)
         for (int64_t i = start; i <= end; ++i)
         {
+            // Hot Path Tracking: 루프 백엣지 추적
+            if (hotPathDetector_)
+            {
+                hotPathDetector_->trackLoopBackedge(loopId);
+            }
+
             // 반복 변수 설정
             env_->set(stmt->varName(), Value::createInteger(i));
 
@@ -543,6 +585,12 @@ Value Evaluator::evalRangeForStatement(ast::RangeForStatement* stmt)
         // 끝 값 미만 (미만)
         for (int64_t i = start; i < end; ++i)
         {
+            // Hot Path Tracking: 루프 백엣지 추적
+            if (hotPathDetector_)
+            {
+                hotPathDetector_->trackLoopBackedge(loopId);
+            }
+
             // 반복 변수 설정
             env_->set(stmt->varName(), Value::createInteger(i));
 

@@ -18,8 +18,9 @@
 
 namespace kingsejong {
 
-// Forward declaration
+// Forward declarations
 namespace module { class ModuleLoader; }
+namespace jit { class HotPathDetector; }
 
 namespace evaluator {
 
@@ -106,6 +107,12 @@ public:
     void setModuleLoader(module::ModuleLoader* loader) { moduleLoader_ = loader; }
 
     /**
+     * @brief HotPathDetector 설정
+     * @param detector 핫 패스 감지기 포인터
+     */
+    void setHotPathDetector(jit::HotPathDetector* detector) { hotPathDetector_ = detector; }
+
+    /**
      * @brief 최대 평가 횟수 설정
      * @param max 최대 평가 횟수
      */
@@ -120,6 +127,7 @@ public:
 private:
     std::shared_ptr<Environment> env_;  ///< 변수 저장 환경
     module::ModuleLoader* moduleLoader_ = nullptr;  ///< 모듈 로더
+    jit::HotPathDetector* hotPathDetector_ = nullptr;  ///< 핫 패스 감지기
 
     // 안전 장치
     size_t evaluationCount_ = 0;  ///< 평가 카운터

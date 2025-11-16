@@ -295,6 +295,41 @@ NativeFunction* JITCompilerT1::compileRange_x64(void* codePtr, bytecode::Chunk* 
                 break;
             }
 
+            case bytecode::OpCode::LOAD_VAR:
+            {
+                // Load from stack slot to virtual stack: push(stack[slot])
+                uint8_t slot = chunk->getCode()[ip++];
+                std::cerr << "[JIT] x64 LOAD_VAR: slot " << (int)slot << "\n";
+
+                // rax = stack[slot]
+                a.mov(rax, slot);
+                a.mov(rbx, ptr(rdi, rax, 3));  // rbx = stack[slot]
+
+                // Push to virtual stack
+                a.mov(ptr(rdi, r12, 3), rbx);  // stack[r12] = rbx
+                a.inc(r12);  // r12++
+                break;
+            }
+
+            case bytecode::OpCode::STORE_VAR:
+            {
+                // Store from virtual stack to stack slot: stack[slot] = pop()
+                uint8_t slot = chunk->getCode()[ip++];
+                std::cerr << "[JIT] x64 STORE_VAR: slot " << (int)slot << "\n";
+
+                // Pop from virtual stack (but keep value on stack)
+                a.dec(r12);  // r12--
+                a.mov(rax, ptr(rdi, r12, 3));  // rax = stack[r12]
+
+                // stack[slot] = rax
+                a.mov(rbx, slot);
+                a.mov(ptr(rdi, rbx, 3), rax);
+
+                // Push back (VM keeps value on stack after STORE_VAR)
+                a.inc(r12);  // r12++
+                break;
+            }
+
             case bytecode::OpCode::RETURN:
             {
                 // 스택 최상위 값을 반환
@@ -505,6 +540,49 @@ NativeFunction* JITCompilerT1::compileRange_ARM64(void* codePtr, bytecode::Chunk
                 a.neg(a64::x10, a64::x10);  // x10 = -a
                 a.lsl(a64::x12, a64::x9, 3);  // x12 = x9 << 3
                 a.str(a64::x10, a64::ptr(a64::x0, a64::x12));  // stack[x9] = x10
+                a.add(a64::x9, a64::x9, 1);  // x9++
+                break;
+            }
+
+            case bytecode::OpCode::LOAD_VAR:
+            {
+                // Load from stack slot to virtual stack: push(stack[slot])
+                uint8_t slot = chunk->getCode()[ip++];
+                std::cerr << "[JIT] ARM64 LOAD_VAR: slot " << (int)slot << "\n";
+
+                // x11 = slot * 8
+                a.mov(a64::x11, slot);
+                a.lsl(a64::x11, a64::x11, 3);  // x11 = slot << 3
+
+                // x10 = stack[slot]
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x11));
+
+                // Push to virtual stack
+                a.lsl(a64::x12, a64::x9, 3);  // x12 = x9 << 3
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x12));  // stack[x9] = x10
+                a.add(a64::x9, a64::x9, 1);  // x9++
+                break;
+            }
+
+            case bytecode::OpCode::STORE_VAR:
+            {
+                // Store from virtual stack to stack slot: stack[slot] = pop()
+                uint8_t slot = chunk->getCode()[ip++];
+                std::cerr << "[JIT] ARM64 STORE_VAR: slot " << (int)slot << "\n";
+
+                // Pop from virtual stack (but keep value on stack)
+                a.sub(a64::x9, a64::x9, 1);  // x9--
+                a.lsl(a64::x12, a64::x9, 3);  // x12 = x9 << 3
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));  // x10 = stack[x9]
+
+                // x11 = slot * 8
+                a.mov(a64::x11, slot);
+                a.lsl(a64::x11, a64::x11, 3);  // x11 = slot << 3
+
+                // stack[slot] = x10
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x11));
+
+                // Push back (VM keeps value on stack after STORE_VAR)
                 a.add(a64::x9, a64::x9, 1);  // x9++
                 break;
             }

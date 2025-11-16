@@ -355,3 +355,126 @@ TEST_F(JITCompilerT1Test, ShouldCompileFast)
 
     compiler_.freeFunction(nativeFunc);
 }
+
+// ============================================================================
+// 변수 접근 테스트
+// ============================================================================
+
+TEST_F(JITCompilerT1Test, ShouldCompileLoadVar)
+{
+    // 바이트코드: LOAD_VAR 0, RETURN
+    // 스택 슬롯 0에 있는 값을 로드
+
+    chunk_.writeOpCode(OpCode::LOAD_VAR, 1);
+    chunk_.write(0, 1);  // slot 0
+
+    chunk_.writeOpCode(OpCode::RETURN, 2);
+
+    auto* nativeFunc = compiler_.compileFunction(&chunk_, 0, chunk_.size());
+    ASSERT_NE(nativeFunc, nullptr);
+
+    EXPECT_NE(nativeFunc->code, nullptr);
+    EXPECT_GT(nativeFunc->codeSize, 0);
+
+    compiler_.freeFunction(nativeFunc);
+}
+
+TEST_F(JITCompilerT1Test, ShouldCompileStoreVar)
+{
+    // 바이트코드: LOAD_CONST 0 (42), STORE_VAR 0, RETURN
+    // 상수 42를 스택 슬롯 0에 저장
+
+    chunk_.addConstant(Value::createInteger(42));
+
+    chunk_.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk_.write(0, 1);
+
+    chunk_.writeOpCode(OpCode::STORE_VAR, 2);
+    chunk_.write(0, 2);  // slot 0
+
+    chunk_.writeOpCode(OpCode::RETURN, 3);
+
+    auto* nativeFunc = compiler_.compileFunction(&chunk_, 0, chunk_.size());
+    ASSERT_NE(nativeFunc, nullptr);
+
+    EXPECT_NE(nativeFunc->code, nullptr);
+    EXPECT_GT(nativeFunc->codeSize, 0);
+
+    compiler_.freeFunction(nativeFunc);
+}
+
+TEST_F(JITCompilerT1Test, ShouldCompileStoreAndLoadVar)
+{
+    // 바이트코드:
+    // LOAD_CONST 0 (100)
+    // STORE_VAR 0
+    // LOAD_VAR 0
+    // RETURN
+
+    chunk_.addConstant(Value::createInteger(100));
+
+    chunk_.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk_.write(0, 1);
+
+    chunk_.writeOpCode(OpCode::STORE_VAR, 2);
+    chunk_.write(0, 2);
+
+    chunk_.writeOpCode(OpCode::LOAD_VAR, 3);
+    chunk_.write(0, 3);
+
+    chunk_.writeOpCode(OpCode::RETURN, 4);
+
+    auto* nativeFunc = compiler_.compileFunction(&chunk_, 0, chunk_.size());
+    ASSERT_NE(nativeFunc, nullptr);
+
+    EXPECT_NE(nativeFunc->code, nullptr);
+    EXPECT_GT(nativeFunc->codeSize, 0);
+
+    compiler_.freeFunction(nativeFunc);
+}
+
+TEST_F(JITCompilerT1Test, ShouldCompileVarWithArithmetic)
+{
+    // 바이트코드:
+    // LOAD_CONST 0 (10)
+    // STORE_VAR 0       // var a = 10
+    // LOAD_VAR 0
+    // LOAD_CONST 1 (5)
+    // ADD              // a + 5
+    // STORE_VAR 1      // var b = a + 5
+    // LOAD_VAR 1
+    // RETURN
+
+    chunk_.addConstant(Value::createInteger(10));
+    chunk_.addConstant(Value::createInteger(5));
+
+    chunk_.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk_.write(0, 1);
+
+    chunk_.writeOpCode(OpCode::STORE_VAR, 2);
+    chunk_.write(0, 2);
+
+    chunk_.writeOpCode(OpCode::LOAD_VAR, 3);
+    chunk_.write(0, 3);
+
+    chunk_.writeOpCode(OpCode::LOAD_CONST, 4);
+    chunk_.write(1, 4);
+
+    chunk_.writeOpCode(OpCode::ADD, 5);
+
+    chunk_.writeOpCode(OpCode::STORE_VAR, 6);
+    chunk_.write(1, 6);
+
+    chunk_.writeOpCode(OpCode::LOAD_VAR, 7);
+    chunk_.write(1, 7);
+
+    chunk_.writeOpCode(OpCode::RETURN, 8);
+
+    auto* nativeFunc = compiler_.compileFunction(&chunk_, 0, chunk_.size());
+    ASSERT_NE(nativeFunc, nullptr);
+
+    EXPECT_NE(nativeFunc->code, nullptr);
+    EXPECT_GT(nativeFunc->codeSize, 0);
+
+    compiler_.freeFunction(nativeFunc);
+}

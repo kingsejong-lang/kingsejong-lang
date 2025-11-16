@@ -397,8 +397,24 @@ Token Lexer::nextToken()
             break;
 
         case '/':
-            token = Token(TokenType::SLASH, std::string(1, ch));
-            readChar();
+            // // 주석 체크
+            if (peekChar() == '/')
+            {
+                // // 주석 처리
+                readChar(); // 첫 번째 /
+                readChar(); // 두 번째 /
+                while (ch != '\n' && ch != '\0')
+                {
+                    readChar();
+                }
+                // 주석 스킵 후 다음 토큰 반환
+                return nextToken();
+            }
+            else
+            {
+                token = Token(TokenType::SLASH, std::string(1, ch));
+                readChar();
+            }
             break;
 
         case '%':

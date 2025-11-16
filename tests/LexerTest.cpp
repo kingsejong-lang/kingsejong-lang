@@ -576,3 +576,80 @@ TEST(LexerTest, TokenizeRealCodeSnippet)
     EXPECT_EQ(lexer.nextToken().type, TokenType::RBRACE);
     EXPECT_EQ(lexer.nextToken().type, TokenType::EOF_TOKEN);
 }
+
+// # 주석 테스트
+TEST(LexerTest, HashCommentShouldBeIgnored)
+{
+    std::string input = "# 이것은 주석입니다\n출력(\"Hello\")";
+    Lexer lexer(input);
+
+    // 주석은 무시되고 출력부터 시작
+    EXPECT_EQ(lexer.nextToken().literal, "출력");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::LPAREN);
+    EXPECT_EQ(lexer.nextToken().literal, "Hello");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::RPAREN);
+    EXPECT_EQ(lexer.nextToken().type, TokenType::EOF_TOKEN);
+}
+
+// // 주석 테스트
+TEST(LexerTest, DoubleSlashCommentShouldBeIgnored)
+{
+    std::string input = "// 이것은 주석입니다\n출력(\"Hello\")";
+    Lexer lexer(input);
+
+    // 주석은 무시되고 출력부터 시작
+    EXPECT_EQ(lexer.nextToken().literal, "출력");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::LPAREN);
+    EXPECT_EQ(lexer.nextToken().literal, "Hello");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::RPAREN);
+    EXPECT_EQ(lexer.nextToken().type, TokenType::EOF_TOKEN);
+}
+
+// 여러 줄 주석 테스트
+TEST(LexerTest, MultipleCommentsShouldBeIgnored)
+{
+    std::string input = "// 첫 번째 주석\n# 두 번째 주석\n출력(\"Test\")\n// 세 번째 주석";
+    Lexer lexer(input);
+
+    EXPECT_EQ(lexer.nextToken().literal, "출력");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::LPAREN);
+    EXPECT_EQ(lexer.nextToken().literal, "Test");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::RPAREN);
+    EXPECT_EQ(lexer.nextToken().type, TokenType::EOF_TOKEN);
+}
+
+// 코드와 주석 혼합 테스트
+TEST(LexerTest, CodeWithInlineComments)
+{
+    std::string input = "x = 5 // 변수 할당\ny = 10 # 또 다른 변수";
+    Lexer lexer(input);
+
+    EXPECT_EQ(lexer.nextToken().literal, "x");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::ASSIGN);
+    EXPECT_EQ(lexer.nextToken().literal, "5");
+
+    EXPECT_EQ(lexer.nextToken().literal, "y");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::ASSIGN);
+    EXPECT_EQ(lexer.nextToken().literal, "10");
+
+    EXPECT_EQ(lexer.nextToken().type, TokenType::EOF_TOKEN);
+}
+
+// 나눗셈과 주석 구분 테스트
+TEST(LexerTest, SlashVsComment)
+{
+    std::string input = "a = 10 / 2\nb = 20 // 주석";
+    Lexer lexer(input);
+
+    EXPECT_EQ(lexer.nextToken().literal, "a");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::ASSIGN);
+    EXPECT_EQ(lexer.nextToken().literal, "10");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::SLASH);  // 나눗셈
+    EXPECT_EQ(lexer.nextToken().literal, "2");
+
+    EXPECT_EQ(lexer.nextToken().literal, "b");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::ASSIGN);
+    EXPECT_EQ(lexer.nextToken().literal, "20");
+
+    EXPECT_EQ(lexer.nextToken().type, TokenType::EOF_TOKEN);
+}

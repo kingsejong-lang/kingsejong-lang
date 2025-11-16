@@ -129,6 +129,12 @@ void Dictionary::initializeDefaultDictionary()
     addNoun("참");
     addNoun("거짓");
 
+    // 예외 처리 키워드
+    addNoun("시도");    // "도" 조사와 충돌 방지
+    addNoun("오류");
+    addNoun("마지막");
+    addNoun("던지다");
+
     // ========================================
     // Builtin 변수 (stdlib에서 제공)
     // ========================================

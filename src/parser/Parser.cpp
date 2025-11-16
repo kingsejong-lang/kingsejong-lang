@@ -423,6 +423,18 @@ std::unique_ptr<Statement> Parser::parseStatement()
         return parseIfStatement();
     }
 
+    // 예외 처리 문장: 시도 { } 오류 { } 마지막 { }
+    if (curTokenIs(TokenType::SIDO))
+    {
+        return parseTryStatement();
+    }
+
+    // 예외 던지기: 던지다 expression
+    if (curTokenIs(TokenType::DEONJIDA))
+    {
+        return parseThrowStatement();
+    }
+
     // 할당 문장: identifier + "=" (범위 반복문보다 먼저 체크)
     if (curTokenIs(TokenType::IDENTIFIER) && peekTokenIs(TokenType::ASSIGN))
     {
@@ -856,6 +868,149 @@ std::unique_ptr<ImportStatement> Parser::parseImportStatement()
     std::string modulePath = curToken_.literal;
 
     auto stmt = std::make_unique<ImportStatement>(modulePath);
+    stmt->setLocation(startLoc);
+    return stmt;
+}
+
+/**
+ * @brief 던지다 문장 파싱
+ *
+ * 문법: 던지다 <expression> ;
+ *
+ * @example
+ * 던지다 "에러 메시지";
+ * 던지다 에러_생성("문제 발생");
+ */
+std::unique_ptr<ThrowStatement> Parser::parseThrowStatement()
+{
+    // 현재 토큰은 "던지다"
+    auto startLoc = curToken_.location;
+
+    // 다음 토큰부터 던질 값 파싱
+    nextToken();
+    auto value = parseExpression(Precedence::LOWEST);
+
+    if (!value)
+    {
+        errors_.push_back("던지다 문장에서 던질 값을 파싱할 수 없습니다.");
+        return nullptr;
+    }
+
+    // 선택적 세미콜론
+    if (peekTokenIs(TokenType::SEMICOLON))
+    {
+        nextToken();
+    }
+
+    auto stmt = std::make_unique<ThrowStatement>(std::move(value));
+    stmt->setLocation(startLoc);
+    return stmt;
+}
+
+/**
+ * @brief 시도-오류-마지막 블록 파싱
+ *
+ * 문법: 시도 { ... } [오류 (errorVar) { ... }]* [마지막 { ... }]
+ *
+ * @example
+ * 시도 {
+ *     결과 = 10 / 0;
+ * } 오류 (e) {
+ *     출력(e);
+ * } 마지막 {
+ *     정리();
+ * }
+ */
+std::unique_ptr<TryStatement> Parser::parseTryStatement()
+{
+    // 현재 토큰은 "시도"
+    auto startLoc = curToken_.location;
+
+    // Try 블록 파싱
+    if (!expectPeek(TokenType::LBRACE))
+    {
+        return nullptr;
+    }
+
+    auto tryBlock = parseBlockStatement();
+    if (!tryBlock)
+    {
+        return nullptr;
+    }
+
+    // Catch 절 파싱 (0개 이상)
+    std::vector<std::unique_ptr<CatchClause>> catchClauses;
+
+    while (peekTokenIs(TokenType::ORYU))
+    {
+        nextToken(); // "오류"로 이동
+
+        // 에러 변수명 파싱: (errorVarName)
+        if (!expectPeek(TokenType::LPAREN))
+        {
+            return nullptr;
+        }
+
+        if (!expectPeek(TokenType::IDENTIFIER))
+        {
+            return nullptr;
+        }
+
+        std::string errorVarName = curToken_.literal;
+
+        if (!expectPeek(TokenType::RPAREN))
+        {
+            return nullptr;
+        }
+
+        // Catch 블록 파싱
+        if (!expectPeek(TokenType::LBRACE))
+        {
+            return nullptr;
+        }
+
+        auto catchBody = parseBlockStatement();
+        if (!catchBody)
+        {
+            return nullptr;
+        }
+
+        catchClauses.push_back(
+            std::make_unique<CatchClause>(errorVarName, std::move(catchBody))
+        );
+    }
+
+    // Finally 블록 파싱 (선택적)
+    std::unique_ptr<BlockStatement> finallyBlock = nullptr;
+
+    if (peekTokenIs(TokenType::MAJIMAK))
+    {
+        nextToken(); // "마지막"으로 이동
+
+        if (!expectPeek(TokenType::LBRACE))
+        {
+            return nullptr;
+        }
+
+        finallyBlock = parseBlockStatement();
+        if (!finallyBlock)
+        {
+            return nullptr;
+        }
+    }
+
+    // 최소 하나의 catch 또는 finally가 있어야 함
+    if (catchClauses.empty() && !finallyBlock)
+    {
+        errors_.push_back("시도 문장에는 최소 하나의 오류 절 또는 마지막 절이 필요합니다.");
+        return nullptr;
+    }
+
+    auto stmt = std::make_unique<TryStatement>(
+        std::move(tryBlock),
+        std::move(catchClauses),
+        std::move(finallyBlock)
+    );
     stmt->setLocation(startLoc);
     return stmt;
 }

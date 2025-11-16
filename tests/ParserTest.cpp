@@ -926,3 +926,183 @@ TEST_F(ParserTest, ShouldParseVarDeclarationWithoutInitializer)
     ASSERT_NE(varDecl->varType(), nullptr);
     EXPECT_EQ(varDecl->varType()->kind(), kingsejong::types::TypeKind::INTEGER);
 }
+
+// ============================================================================
+// 예외 처리 파싱 테스트
+// ============================================================================
+
+/**
+ * @brief 던지다 문장 파싱 테스트
+ */
+TEST_F(ParserTest, ShouldParseThrowStatement)
+{
+    // Arrange
+    std::string input = "던지다 \"에러 메시지\";";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto throwStmt = dynamic_cast<ThrowStatement*>(program->statements()[0].get());
+    ASSERT_NE(throwStmt, nullptr);
+
+    auto value = dynamic_cast<const StringLiteral*>(throwStmt->value());
+    ASSERT_NE(value, nullptr);
+    EXPECT_EQ(value->value(), "에러 메시지");
+}
+
+/**
+ * @brief 시도-오류 블록 파싱 테스트 (단일 catch)
+ */
+TEST_F(ParserTest, ShouldParseTryStatementWithSingleCatch)
+{
+    // Arrange
+    std::string input = R"(
+        시도 {
+            결과 = 10 / 0;
+        } 오류 (e) {
+            출력(e);
+        }
+    )";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto tryStmt = dynamic_cast<TryStatement*>(program->statements()[0].get());
+    ASSERT_NE(tryStmt, nullptr);
+
+    // Try 블록 확인
+    ASSERT_NE(tryStmt->tryBlock(), nullptr);
+    EXPECT_EQ(tryStmt->tryBlock()->statements().size(), 1);
+
+    // Catch 절 확인
+    ASSERT_EQ(tryStmt->catchClauses().size(), 1);
+    const auto& catchClause = tryStmt->catchClauses()[0];
+    EXPECT_EQ(catchClause->errorVarName(), "e");
+    ASSERT_NE(catchClause->body(), nullptr);
+    EXPECT_EQ(catchClause->body()->statements().size(), 1);
+
+    // Finally 블록 없음
+    EXPECT_EQ(tryStmt->finallyBlock(), nullptr);
+}
+
+/**
+ * @brief 시도-오류-마지막 블록 파싱 테스트
+ */
+TEST_F(ParserTest, ShouldParseTryStatementWithFinally)
+{
+    // Arrange
+    std::string input = R"(
+        시도 {
+            파일_열기();
+        } 오류 (err) {
+            출력("에러 발생");
+        } 마지막 {
+            파일_닫기();
+        }
+    )";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto tryStmt = dynamic_cast<TryStatement*>(program->statements()[0].get());
+    ASSERT_NE(tryStmt, nullptr);
+
+    // Try 블록 확인
+    ASSERT_NE(tryStmt->tryBlock(), nullptr);
+
+    // Catch 절 확인
+    ASSERT_EQ(tryStmt->catchClauses().size(), 1);
+    EXPECT_EQ(tryStmt->catchClauses()[0]->errorVarName(), "err");
+
+    // Finally 블록 확인
+    ASSERT_NE(tryStmt->finallyBlock(), nullptr);
+    EXPECT_EQ(tryStmt->finallyBlock()->statements().size(), 1);
+}
+
+/**
+ * @brief 시도-마지막 블록 파싱 테스트 (catch 없이)
+ */
+TEST_F(ParserTest, ShouldParseTryStatementWithOnlyFinally)
+{
+    // Arrange
+    std::string input = R"(
+        시도 {
+            작업_수행();
+        } 마지막 {
+            정리();
+        }
+    )";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto tryStmt = dynamic_cast<TryStatement*>(program->statements()[0].get());
+    ASSERT_NE(tryStmt, nullptr);
+
+    // Try 블록 확인
+    ASSERT_NE(tryStmt->tryBlock(), nullptr);
+
+    // Catch 절 없음
+    EXPECT_EQ(tryStmt->catchClauses().size(), 0);
+
+    // Finally 블록 확인
+    ASSERT_NE(tryStmt->finallyBlock(), nullptr);
+}
+
+/**
+ * @brief 중첩된 던지다 문장 파싱 테스트
+ */
+TEST_F(ParserTest, ShouldParseThrowStatementWithExpression)
+{
+    // Arrange
+    std::string input = "던지다 에러_생성(\"문제 발생\");";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto throwStmt = dynamic_cast<ThrowStatement*>(program->statements()[0].get());
+    ASSERT_NE(throwStmt, nullptr);
+
+    // 함수 호출 표현식 확인
+    auto callExpr = dynamic_cast<const CallExpression*>(throwStmt->value());
+    ASSERT_NE(callExpr, nullptr);
+
+    auto function = dynamic_cast<const Identifier*>(callExpr->function());
+    ASSERT_NE(function, nullptr);
+    EXPECT_EQ(function->name(), "에러_생성");
+}

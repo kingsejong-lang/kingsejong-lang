@@ -83,7 +83,13 @@ static const std::unordered_map<std::string, TokenType> keywords = {
 
     // 패턴 매칭
     {"에", TokenType::E_DAEHAE},  // "에 대해"는 Lexer에서 별도 처리
-    {"when", TokenType::WHEN}
+    {"when", TokenType::WHEN},
+
+    // 예외 처리 (P0 Phase 2)
+    {"시도", TokenType::SIDO},
+    {"오류", TokenType::ORYU},
+    {"마지막", TokenType::MAJIMAK},
+    {"던지다", TokenType::DEONJIDA}
 };
 
 std::string tokenTypeToString(TokenType type)
@@ -177,6 +183,12 @@ std::string tokenTypeToString(TokenType type)
         case TokenType::E_DAEHAE:     return "E_DAEHAE";
         case TokenType::WHEN:         return "WHEN";
         case TokenType::UNDERSCORE:   return "UNDERSCORE";
+
+        // 예외 처리 키워드
+        case TokenType::SIDO:         return "SIDO";
+        case TokenType::ORYU:         return "ORYU";
+        case TokenType::MAJIMAK:      return "MAJIMAK";
+        case TokenType::DEONJIDA:     return "DEONJIDA";
 
         default:                      return "UNKNOWN";
     }

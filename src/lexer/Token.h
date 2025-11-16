@@ -137,7 +137,13 @@ enum class TokenType
     ARROW,        ///< -> (패턴 -> 결과)
     E_DAEHAE,     ///< 에 대해 (match 키워드)
     WHEN,         ///< when (가드 조건)
-    UNDERSCORE    ///< _ (와일드카드 패턴)
+    UNDERSCORE,   ///< _ (와일드카드 패턴)
+
+    // 예외 처리 키워드 (P0 Phase 2)
+    SIDO,         ///< 시도 (try)
+    ORYU,         ///< 오류 (catch)
+    MAJIMAK,      ///< 마지막 (finally)
+    DEONJIDA      ///< 던지다 (throw)
 };
 
 /**

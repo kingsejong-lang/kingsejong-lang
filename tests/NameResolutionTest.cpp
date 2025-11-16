@@ -118,8 +118,9 @@ x = 10
     SemanticAnalyzer analyzer;
     bool result = analyzer.analyze(program.get());
 
-    EXPECT_FALSE(result);  // x가 정의되지 않음
-    EXPECT_GT(analyzer.errors().size(), 0);
+    // 동적 타이핑: 선언되지 않은 변수에 할당하면 자동으로 등록됨
+    EXPECT_TRUE(result);  // x가 자동으로 등록됨
+    EXPECT_EQ(analyzer.errors().size(), 0);
 }
 
 /**

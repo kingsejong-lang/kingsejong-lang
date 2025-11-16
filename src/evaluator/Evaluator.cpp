@@ -42,6 +42,9 @@ Value Evaluator::eval(ast::Node* node)
         return Value::createNull();
     }
 
+    // 안전 장치 체크 (무한 루프 방지)
+    checkSafetyLimits();
+
     switch (node->type())
     {
         // Expressions
@@ -125,6 +128,10 @@ Value Evaluator::eval(ast::Node* node)
 
 Value Evaluator::evalProgram(ast::Program* program)
 {
+    // 실행 시작 시간 기록
+    startTime_ = std::chrono::steady_clock::now();
+    evaluationCount_ = 0;
+
     Value result = Value::createNull();
 
     for (const auto& stmt : program->statements())
@@ -1216,6 +1223,34 @@ Value Evaluator::evalMatchExpression(ast::MatchExpression* node)
     }
 
     throw error::RuntimeError("매칭되는 패턴이 없습니다");
+}
+
+// ============================================================================
+// 안전 장치
+// ============================================================================
+
+void Evaluator::checkSafetyLimits()
+{
+    // 평가 횟수 체크
+    if (++evaluationCount_ > maxEvaluations_)
+    {
+        throw error::RuntimeError(
+            "최대 평가 횟수 초과 (" + std::to_string(maxEvaluations_) + " 초과). 무한 루프 의심."
+        );
+    }
+
+    // 실행 시간 체크 (매 1000번마다 - 성능 최적화)
+    if (evaluationCount_ % 1000 == 0)
+    {
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime_);
+        if (elapsed > maxExecutionTime_)
+        {
+            throw error::RuntimeError(
+                "최대 실행 시간 초과 (" + std::to_string(maxExecutionTime_.count()) + "ms 초과). 무한 루프 또는 긴 연산 의심."
+            );
+        }
+    }
 }
 
 } // namespace evaluator

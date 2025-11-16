@@ -1,13 +1,152 @@
 # Known Issues
 
-## Current Status (2025-11-15)
+## Current Status (2025-11-16)
 
 **모든 테스트 통과**: 1004/1004 tests passing (100% success rate) ✅
 
 모든 loop statement, 패턴 매칭, 괄호 표현식 파싱 문제가 해결되었습니다.
 
 ### 알려진 이슈
-없음 ✅
+
+#### ⚠️ Parser 구조적 취약성 - 코드 변경에 따른 파싱 실패
+
+**현상**: 문법적으로 유효한 코드를 조금만 변경해도 파싱 에러가 발생하는 경우가 빈번함
+```
+# 예시: stdlib/collections.ksj 파싱 실패
+에러: "ASSIGN으로 시작하는 표현식을 파싱할 수 없습니다"
+```
+
+**근본 원인**:
+- Parser가 휴리스틱 기반으로 문장 유형을 구분 (예: `isLikelyLoopVariable()`)
+- Semantic Analyzer가 없어 Parser가 구문 분석과 의미 분석을 동시에 수행
+- 작은 코드 변경이 휴리스틱 조건을 벗어나면 파싱 실패
+
+**영향**:
+- stdlib 파일 개발 시 자주 파싱 에러 발생
+- 코드 리팩토링이 어려움
+- 개발자 경험 저하
+
+**해결 방향**:
+- Semantic Analyzer 도입 필요 (Symbol Table, Type Checking)
+- Parser와 Semantic Analysis 단계 분리
+- 관련 문서: `docs/ANALYSIS_IMPROVEMENTS.md` (P0 우선순위)
+
+**참고**:
+- CPython, V8, Ruby MRI 등 주요 언어는 모두 별도의 Semantic Analysis 단계를 가짐
+- 현재 KingSejong은 이 단계가 누락되어 있음
+
+---
+
+#### ⚠️ stdlib/collections.ksj - 배열 연결 연산자 미지원
+
+**보류 사유**: 배열 + 연산 미지원
+
+**현상**: collections.ksj 실행 시 배열 연결 에러 발생
+```
+에러: 지원되지 않는 연산: [] + [1]
+```
+
+**구현 상태**:
+- ✅ Set, Map, Queue, Stack, Deque 구현 완료 (46개 함수)
+- ✅ 모든 자료구조 로직 작성 완료
+- ❌ 배열 연결 연산자 (`배열 + 배열`) 미지원
+
+**해결 방법**:
+- 나중에 배열 연결 builtin 추가 필요
+- 또는 Evaluator/VM에서 배열 + 연산자 오버로딩 구현
+
+**영향**:
+- collections.ksj는 작성 완료되었으나 실행 불가
+- 배열 연결 연산자 지원 시 즉시 활성화 가능
+
+---
+
+## Recently Resolved Issues (2025-11-16)
+
+### ✅ Parser - parseStatements() 무한 루프 버그 수정
+
+**문제**: 블록 문장 파싱 중 무한 루프 발생, 메모리 폭주로 시스템 크래시 (PC 재부팅 2회 발생)
+
+**증상**:
+```
+# examples/stdlib_collections.ksj 실행 시 무한 루프
+# for 루프 구문에서 파서가 멈춤
+i가 0부터 5 미만 {
+    출력("i = " + 타입(i))
+}
+```
+
+**근본 원인**:
+- `Parser::parseStatements()` (src/parser/Parser.cpp:791-811)에서 조건부 `nextToken()` 호출
+- 원래 코드:
+  ```cpp
+  if (!peekTokenIs(endToken) && !peekTokenIs(TokenType::EOF_TOKEN)) {
+      nextToken();  // 조건부 토큰 진행
+  }
+  ```
+- `peekToken`이 `RBRACE` (endToken)일 때 `nextToken()`을 호출하지 않음
+- `curToken`이 계속 같은 위치에 머물러 무한 루프 발생
+- Parser는 컴파일 타임에 동작하므로 런타임 안전 장치로 방어 불가
+
+**해결 방법**: 무조건 `nextToken()` 호출로 변경
+
+**구현 내용** (src/parser/Parser.cpp:791-811):
+```cpp
+std::vector<std::unique_ptr<Statement>> Parser::parseStatements(TokenType endToken)
+{
+    std::vector<std::unique_ptr<Statement>> statements;
+
+    while (!curTokenIs(endToken) && !curTokenIs(TokenType::EOF_TOKEN))
+    {
+        auto stmt = parseStatement();
+        if (stmt)
+        {
+            statements.push_back(std::move(stmt));
+        }
+
+        // BUG FIX: 원래 조건은 peekToken이 endToken일 때 nextToken()을 호출하지 않아 무한 루프 발생
+        // 수정: 항상 nextToken() 호출하여 curToken을 진행시킴
+        nextToken();
+    }
+
+    return statements;
+}
+```
+
+**추가 안전 장치 구현**:
+
+1. **VM 안전 장치** (src/bytecode/VM.h, VM.cpp):
+   - 최대 명령어 수 제한 (기본: 10,000,000)
+   - 최대 실행 시간 제한 (기본: 5000ms)
+   - 최대 스택 크기 제한 (기본: 10,000)
+   - 런타임 무한 루프 방지
+
+2. **Evaluator 안전 장치** (src/evaluator/Evaluator.h, Evaluator.cpp):
+   - 최대 평가 횟수 제한 (기본: 10,000,000)
+   - 최대 실행 시간 제한 (기본: 5000ms)
+   - checkSafetyLimits() 함수로 매 평가마다 검증
+   - 성능 최적화: 1000번마다 시간 체크
+
+3. **안전 테스트 스크립트** (/tmp/safe_test.sh):
+   - 3초 타임아웃으로 테스트 실행
+   - 무한 루프 시 프로세스 강제 종료
+
+**테스트 결과**:
+```bash
+# 기본 루프 테스트 성공
+./build/bin/kingsejong /tmp/final_loop_test.ksj
+# 출력: i = 0, i = 1, i = 2 (정상)
+```
+
+**효과**:
+- ✅ For 루프 구문 정상 파싱
+- ✅ stdlib/collections.ksj import 테스트 성공
+- ✅ 시스템 크래시 방지 (런타임 안전 장치)
+- ⚠️ 일부 파일에서 새로운 파싱 에러 발생 (Parser 취약성 문제)
+
+**남은 이슈**:
+- stdlib/collections.ksj 전체 파일 파싱 시 "ASSIGN으로 시작하는 표현식" 에러
+- Parser 구조적 개선 필요 (위 "알려진 이슈" 참조)
 
 ---
 

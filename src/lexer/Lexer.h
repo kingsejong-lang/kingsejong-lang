@@ -8,6 +8,7 @@
  */
 
 #include "Token.h"
+#include "morphology/MorphologicalAnalyzer.h"
 #include <string>
 #include <cstddef>
 
@@ -31,6 +32,13 @@ public:
     explicit Lexer(const std::string& input);
 
     /**
+     * @brief Lexer 생성자 (파일명 포함)
+     * @param input 분석할 소스 코드 문자열 (UTF-8 인코딩)
+     * @param filename 소스 파일 이름
+     */
+    Lexer(const std::string& input, const std::string& filename);
+
+    /**
      * @brief 다음 토큰을 반환
      * @return Token 객체
      *
@@ -41,11 +49,14 @@ public:
 
 private:
     std::string input;          ///< 입력 소스 코드
+    std::string filename;       ///< 소스 파일 이름 (에러 메시지용)
     size_t position;            ///< 현재 읽는 위치
     size_t readPosition;        ///< 다음 읽을 위치
     char ch;                    ///< 현재 문자
     int currentLine;            ///< 현재 줄 번호 (1부터 시작)
     int currentColumn;          ///< 현재 열 번호 (1부터 시작)
+
+    morphology::MorphologicalAnalyzer morphAnalyzer_;  ///< 형태소 분석기 (RAII)
 
     /**
      * @brief 다음 문자를 읽어서 ch에 저장

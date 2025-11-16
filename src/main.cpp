@@ -13,6 +13,7 @@
 #include "repl/Repl.h"
 #include "lexer/Lexer.h"
 #include "parser/Parser.h"
+#include "semantic/SemanticAnalyzer.h"
 #include "evaluator/Evaluator.h"
 #include "evaluator/Environment.h"
 #include "evaluator/Builtin.h"
@@ -50,8 +51,8 @@ int executeFile(const std::string& filename)
 
     try
     {
-        // 2. Lexer
-        kingsejong::lexer::Lexer lexer(source);
+        // 2. Lexer (파일명 포함)
+        kingsejong::lexer::Lexer lexer(source, filename);
 
         // 3. Parser
         kingsejong::parser::Parser parser(lexer);
@@ -69,13 +70,27 @@ int executeFile(const std::string& filename)
             return 1;
         }
 
-        // 4. 환경 생성
+        // 4. Semantic Analyzer (의미 분석)
+        kingsejong::semantic::SemanticAnalyzer semanticAnalyzer;
+        bool semanticOk = semanticAnalyzer.analyze(program.get());
+
+        // Semantic 에러 확인
+        if (!semanticOk || !semanticAnalyzer.errors().empty())
+        {
+            for (const auto& err : semanticAnalyzer.errors())
+            {
+                std::cerr << "Semantic Error: " << err.toString() << "\n";
+            }
+            return 1;
+        }
+
+        // 5. 환경 생성
         auto env = std::make_shared<kingsejong::evaluator::Environment>();
 
-        // 5. ModuleLoader 생성 및 설정
+        // 6. ModuleLoader 생성 및 설정
         auto moduleLoader = std::make_shared<kingsejong::module::ModuleLoader>(".");
 
-        // 6. Evaluator
+        // 7. Evaluator
         kingsejong::evaluator::Evaluator evaluator(env);
         evaluator.setModuleLoader(moduleLoader.get());
         evaluator.evalProgram(program.get());

@@ -14,6 +14,8 @@
 #include "evaluator/Environment.h"
 #include <vector>
 #include <memory>
+#include <chrono>
+#include <csignal>
 
 namespace kingsejong {
 namespace bytecode {
@@ -55,6 +57,13 @@ private:
     // 디버그
     bool traceExecution_;                       ///< 실행 추적 플래그
 
+    // 안전 장치
+    size_t instructionCount_;                   ///< 실행된 명령어 카운터
+    size_t maxInstructions_;                    ///< 최대 명령어 수 (기본: 10,000,000)
+    std::chrono::steady_clock::time_point startTime_;  ///< 실행 시작 시간
+    std::chrono::milliseconds maxExecutionTime_; ///< 최대 실행 시간 (기본: 5000ms)
+    size_t maxStackSize_;                       ///< 최대 스택 크기 (기본: 10000)
+
 public:
     /**
      * @brief VM 생성자
@@ -66,6 +75,24 @@ public:
      * @param trace true면 실행 추적
      */
     void setTraceExecution(bool trace) { traceExecution_ = trace; }
+
+    /**
+     * @brief 최대 명령어 수 설정
+     * @param max 최대 명령어 수
+     */
+    void setMaxInstructions(size_t max) { maxInstructions_ = max; }
+
+    /**
+     * @brief 최대 실행 시간 설정 (밀리초)
+     * @param ms 최대 실행 시간
+     */
+    void setMaxExecutionTime(size_t ms) { maxExecutionTime_ = std::chrono::milliseconds(ms); }
+
+    /**
+     * @brief 최대 스택 크기 설정
+     * @param max 최대 스택 크기
+     */
+    void setMaxStackSize(size_t max) { maxStackSize_ = max; }
 
     /**
      * @brief 청크 실행

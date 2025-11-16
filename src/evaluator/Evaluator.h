@@ -14,6 +14,7 @@
 #include "../ast/Statement.h"
 #include <memory>
 #include <stdexcept>
+#include <chrono>
 
 namespace kingsejong {
 
@@ -104,9 +105,27 @@ public:
      */
     void setModuleLoader(module::ModuleLoader* loader) { moduleLoader_ = loader; }
 
+    /**
+     * @brief 최대 평가 횟수 설정
+     * @param max 최대 평가 횟수
+     */
+    void setMaxEvaluations(size_t max) { maxEvaluations_ = max; }
+
+    /**
+     * @brief 최대 실행 시간 설정 (밀리초)
+     * @param ms 최대 실행 시간
+     */
+    void setMaxExecutionTime(size_t ms) { maxExecutionTime_ = std::chrono::milliseconds(ms); }
+
 private:
     std::shared_ptr<Environment> env_;  ///< 변수 저장 환경
     module::ModuleLoader* moduleLoader_ = nullptr;  ///< 모듈 로더
+
+    // 안전 장치
+    size_t evaluationCount_ = 0;  ///< 평가 카운터
+    size_t maxEvaluations_ = 10000000;  ///< 최대 평가 횟수 (기본: 10,000,000)
+    std::chrono::steady_clock::time_point startTime_;  ///< 실행 시작 시간
+    std::chrono::milliseconds maxExecutionTime_ = std::chrono::milliseconds(5000);  ///< 최대 실행 시간 (기본: 5000ms)
 
     // Expression 평가 함수들
 
@@ -303,6 +322,13 @@ private:
      * @return 논리 연산 결과 (불리언)
      */
     Value applyLogicalOperation(const Value& left, const std::string& op, const Value& right);
+
+    /**
+     * @brief 안전 장치 체크 (무한 루프 방지)
+     *
+     * 평가 횟수와 실행 시간을 체크하여 제한을 초과하면 예외를 던집니다.
+     */
+    void checkSafetyLimits();
 };
 
 } // namespace evaluator

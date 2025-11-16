@@ -22,6 +22,9 @@
 #include <functional>
 #include <cstdlib>
 
+// HTTP 클라이언트 라이브러리
+#include "third_party/httplib.h"
+
 #ifdef _WIN32
     #include <windows.h>
     #include <direct.h>
@@ -2028,6 +2031,298 @@ static Value builtin_랜덤_숫자(const std::vector<Value>& args)
 }
 
 // ============================================================================
+// HTTP 클라이언트 함수
+// ============================================================================
+
+/**
+ * @brief HTTP_GET(URL) - HTTP GET 요청
+ *
+ * @param args[0] URL (문자열)
+ * @return 맵 { "상태": 상태코드, "본문": 응답본문, "헤더": 헤더맵 }
+ */
+static Value builtin_HTTP_GET(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("HTTP_GET(URL): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("HTTP_GET(URL): 문자열 타입이어야 합니다");
+    }
+
+    std::string url = args[0].asString();
+
+    try {
+        // URL 파싱 (http://domain/path 형식)
+        std::string scheme, host, path;
+        size_t scheme_pos = url.find("://");
+        if (scheme_pos == std::string::npos) {
+            throw std::runtime_error("잘못된 URL 형식입니다. http:// 또는 https://로 시작해야 합니다");
+        }
+
+        scheme = url.substr(0, scheme_pos);
+        size_t path_pos = url.find('/', scheme_pos + 3);
+        if (path_pos == std::string::npos) {
+            host = url.substr(scheme_pos + 3);
+            path = "/";
+        } else {
+            host = url.substr(scheme_pos + 3, path_pos - (scheme_pos + 3));
+            path = url.substr(path_pos);
+        }
+
+        // HTTP 클라이언트 생성 (현재는 HTTP만 지원)
+        if (scheme != "http") {
+            throw std::runtime_error("현재는 HTTP만 지원합니다 (HTTPS는 향후 추가 예정)");
+        }
+        auto cli = std::make_unique<httplib::Client>(host);
+
+        cli->set_follow_location(true);
+        auto res = cli->Get(path);
+
+        if (!res) {
+            throw std::runtime_error("HTTP 요청 실패");
+        }
+
+        // 결과를 [["key", value], ...] 형태로 생성
+        std::vector<Value> result;
+
+        // 상태 코드
+        std::vector<Value> status_pair;
+        status_pair.push_back(Value::createString("상태"));
+        status_pair.push_back(Value::createInteger(res->status));
+        result.push_back(Value::createArray(status_pair));
+
+        // 본문
+        std::vector<Value> body_pair;
+        body_pair.push_back(Value::createString("본문"));
+        body_pair.push_back(Value::createString(res->body));
+        result.push_back(Value::createArray(body_pair));
+
+        // 헤더들을 배열로 변환
+        std::vector<Value> headers_array;
+        for (const auto& [key, val] : res->headers) {
+            std::vector<Value> header_pair;
+            header_pair.push_back(Value::createString(key));
+            header_pair.push_back(Value::createString(val));
+            headers_array.push_back(Value::createArray(header_pair));
+        }
+
+        std::vector<Value> headers_pair;
+        headers_pair.push_back(Value::createString("헤더"));
+        headers_pair.push_back(Value::createArray(headers_array));
+        result.push_back(Value::createArray(headers_pair));
+
+        return Value::createArray(result);
+    } catch (const std::exception& e) {
+        throw std::runtime_error("HTTP_GET 에러: " + std::string(e.what()));
+    }
+}
+
+/**
+ * @brief HTTP_POST(URL, 본문) - HTTP POST 요청
+ *
+ * @param args[0] URL (문자열)
+ * @param args[1] 본문 (문자열)
+ * @return 맵 { "상태": 상태코드, "본문": 응답본문, "헤더": 헤더맵 }
+ */
+static Value builtin_HTTP_POST(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("HTTP_POST(URL, 본문): 2개의 인자가 필요합니다");
+    }
+    if (!args[0].isString() || !args[1].isString()) {
+        throw std::runtime_error("HTTP_POST(URL, 본문): 문자열 타입이어야 합니다");
+    }
+
+    std::string url = args[0].asString();
+    std::string body = args[1].asString();
+
+    try {
+        // URL 파싱
+        std::string scheme, host, path;
+        size_t scheme_pos = url.find("://");
+        if (scheme_pos == std::string::npos) {
+            throw std::runtime_error("잘못된 URL 형식입니다");
+        }
+
+        scheme = url.substr(0, scheme_pos);
+        size_t path_pos = url.find('/', scheme_pos + 3);
+        if (path_pos == std::string::npos) {
+            host = url.substr(scheme_pos + 3);
+            path = "/";
+        } else {
+            host = url.substr(scheme_pos + 3, path_pos - (scheme_pos + 3));
+            path = url.substr(path_pos);
+        }
+
+        // HTTP 클라이언트 생성 (현재는 HTTP만 지원)
+        if (scheme != "http") {
+            throw std::runtime_error("현재는 HTTP만 지원합니다 (HTTPS는 향후 추가 예정)");
+        }
+        auto cli = std::make_unique<httplib::Client>(host);
+
+        cli->set_follow_location(true);
+        auto res = cli->Post(path, body, "application/json");
+
+        if (!res) {
+            throw std::runtime_error("HTTP 요청 실패");
+        }
+
+        // 결과를 [["key", value], ...] 형태로 생성
+        std::vector<Value> result;
+
+        // 상태 코드
+        std::vector<Value> status_pair;
+        status_pair.push_back(Value::createString("상태"));
+        status_pair.push_back(Value::createInteger(res->status));
+        result.push_back(Value::createArray(status_pair));
+
+        // 본문
+        std::vector<Value> body_pair;
+        body_pair.push_back(Value::createString("본문"));
+        body_pair.push_back(Value::createString(res->body));
+        result.push_back(Value::createArray(body_pair));
+
+        // 헤더들을 배열로 변환
+        std::vector<Value> headers_array;
+        for (const auto& [key, val] : res->headers) {
+            std::vector<Value> header_pair;
+            header_pair.push_back(Value::createString(key));
+            header_pair.push_back(Value::createString(val));
+            headers_array.push_back(Value::createArray(header_pair));
+        }
+
+        std::vector<Value> headers_pair;
+        headers_pair.push_back(Value::createString("헤더"));
+        headers_pair.push_back(Value::createArray(headers_array));
+        result.push_back(Value::createArray(headers_pair));
+
+        return Value::createArray(result);
+    } catch (const std::exception& e) {
+        throw std::runtime_error("HTTP_POST 에러: " + std::string(e.what()));
+    }
+}
+
+/**
+ * @brief HTTP_요청(메서드, URL, 헤더맵, 본문) - 일반 HTTP 요청
+ *
+ * @param args[0] 메서드 (문자열: "GET", "POST", "PUT", "DELETE" 등)
+ * @param args[1] URL (문자열)
+ * @param args[2] 헤더맵 (맵, 선택)
+ * @param args[3] 본문 (문자열, 선택)
+ * @return 맵 { "상태": 상태코드, "본문": 응답본문, "헤더": 헤더맵 }
+ */
+static Value builtin_HTTP_요청(const std::vector<Value>& args)
+{
+    if (args.size() < 2 || args.size() > 4) {
+        throw std::runtime_error("HTTP_요청(메서드, URL, [헤더], [본문]): 2-4개의 인자가 필요합니다");
+    }
+    if (!args[0].isString() || !args[1].isString()) {
+        throw std::runtime_error("HTTP_요청: 메서드와 URL은 문자열이어야 합니다");
+    }
+
+    std::string method = args[0].asString();
+    std::string url = args[1].asString();
+    std::string body = "";
+    httplib::Headers headers;
+
+    // 헤더 파싱 (선택) - [["key", "value"], ...] 형태의 배열
+    if (args.size() >= 3 && args[2].isArray()) {
+        auto header_array = args[2].asArray();
+        for (const auto& pair : header_array) {
+            if (pair.isArray() && pair.asArray().size() == 2) {
+                auto pair_arr = pair.asArray();
+                if (pair_arr[0].isString() && pair_arr[1].isString()) {
+                    headers.emplace(pair_arr[0].asString(), pair_arr[1].asString());
+                }
+            }
+        }
+    }
+
+    // 본문 파싱 (선택)
+    if (args.size() >= 4 && args[3].isString()) {
+        body = args[3].asString();
+    }
+
+    try {
+        // URL 파싱
+        std::string scheme, host, path;
+        size_t scheme_pos = url.find("://");
+        if (scheme_pos == std::string::npos) {
+            throw std::runtime_error("잘못된 URL 형식입니다");
+        }
+
+        scheme = url.substr(0, scheme_pos);
+        size_t path_pos = url.find('/', scheme_pos + 3);
+        if (path_pos == std::string::npos) {
+            host = url.substr(scheme_pos + 3);
+            path = "/";
+        } else {
+            host = url.substr(scheme_pos + 3, path_pos - (scheme_pos + 3));
+            path = url.substr(path_pos);
+        }
+
+        // HTTP 클라이언트 생성 (현재는 HTTP만 지원)
+        if (scheme != "http") {
+            throw std::runtime_error("현재는 HTTP만 지원합니다 (HTTPS는 향후 추가 예정)");
+        }
+        auto cli = std::make_unique<httplib::Client>(host);
+
+        cli->set_follow_location(true);
+
+        // 메서드에 따라 요청
+        httplib::Result res;
+        if (method == "GET") {
+            res = cli->Get(path, headers);
+        } else if (method == "POST") {
+            res = cli->Post(path, headers, body, "application/json");
+        } else if (method == "PUT") {
+            res = cli->Put(path, headers, body, "application/json");
+        } else if (method == "DELETE") {
+            res = cli->Delete(path, headers);
+        } else {
+            throw std::runtime_error("지원하지 않는 HTTP 메서드: " + method);
+        }
+
+        if (!res) {
+            throw std::runtime_error("HTTP 요청 실패");
+        }
+
+        // 결과를 [["key", value], ...] 형태로 생성
+        std::vector<Value> result;
+
+        // 상태 코드
+        std::vector<Value> status_pair;
+        status_pair.push_back(Value::createString("상태"));
+        status_pair.push_back(Value::createInteger(res->status));
+        result.push_back(Value::createArray(status_pair));
+
+        // 본문
+        std::vector<Value> body_pair;
+        body_pair.push_back(Value::createString("본문"));
+        body_pair.push_back(Value::createString(res->body));
+        result.push_back(Value::createArray(body_pair));
+
+        // 헤더들을 배열로 변환
+        std::vector<Value> headers_array;
+        for (const auto& [key, val] : res->headers) {
+            std::vector<Value> header_pair;
+            header_pair.push_back(Value::createString(key));
+            header_pair.push_back(Value::createString(val));
+            headers_array.push_back(Value::createArray(header_pair));
+        }
+
+        std::vector<Value> headers_pair;
+        headers_pair.push_back(Value::createString("헤더"));
+        headers_pair.push_back(Value::createArray(headers_array));
+        result.push_back(Value::createArray(headers_pair));
+
+        return Value::createArray(result);
+    } catch (const std::exception& e) {
+        throw std::runtime_error("HTTP_요청 에러: " + std::string(e.what()));
+    }
+}
+
+// ============================================================================
 // OS 및 파일 시스템 함수
 // ============================================================================
 
@@ -2616,6 +2911,11 @@ void Builtin::registerAllBuiltins()
     registerBuiltin("시저_복호화", builtin_시저_복호화);
     registerBuiltin("랜덤_문자열", builtin_랜덤_문자열);
     registerBuiltin("랜덤_숫자", builtin_랜덤_숫자);
+
+    // ========== HTTP ==========
+    registerBuiltin("HTTP_GET", builtin_HTTP_GET);
+    registerBuiltin("HTTP_POST", builtin_HTTP_POST);
+    registerBuiltin("HTTP_요청", builtin_HTTP_요청);
 }
 
 } // namespace evaluator

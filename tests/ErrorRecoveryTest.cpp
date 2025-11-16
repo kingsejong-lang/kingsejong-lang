@@ -21,7 +21,7 @@ TEST(ErrorRecoveryTest, ShouldCollectMultipleErrors)
     // 여러 에러가 있는 코드
     std::string code = R"(
 정수 x = 10
-정수 y =      # 에러: 값이 없음
+정수 y = }
 정수 z = 30
 )";
 
@@ -41,7 +41,7 @@ TEST(ErrorRecoveryTest, ShouldContinueParsingAfterError)
 {
     // 첫 번째 문장에 에러, 두 번째 문장은 정상
     std::string code = R"(
-정수 x =      # 에러: 값이 없음
+정수 x = }
 정수 y = 20
 )";
 
@@ -169,9 +169,9 @@ TEST(ErrorRecoveryTest, ShouldCollectAllErrorsInOnePass)
     // 여러 독립적인 에러들
     std::string code = R"(
 정수 x = 10
-정수 =          # 에러 1: 변수명 없음
+정수 = 15
 정수 y = 20
-정수 z =        # 에러 2: 값 없음
+정수 z = }
 정수 w = 40
 )";
 

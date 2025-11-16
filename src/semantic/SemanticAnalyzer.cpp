@@ -49,12 +49,98 @@ void SemanticAnalyzer::initBuiltinFunctions()
     // 파일 I/O
     builtins_.insert("파일_읽기");
     builtins_.insert("파일_쓰기");
+    builtins_.insert("파일_추가");
+    builtins_.insert("파일_존재");
+    builtins_.insert("줄별_읽기");
 
     // 배열 함수
     builtins_.insert("추가");
     builtins_.insert("삭제");
     builtins_.insert("정렬");
     builtins_.insert("뒤집기");
+
+    // 환경변수
+    builtins_.insert("환경변수_읽기");
+    builtins_.insert("환경변수_쓰기");
+    builtins_.insert("환경변수_존재하는가");
+    builtins_.insert("환경변수_삭제");
+
+    // 디렉토리
+    builtins_.insert("현재_디렉토리");
+    builtins_.insert("디렉토리_변경");
+    builtins_.insert("디렉토리_생성");
+    builtins_.insert("디렉토리_삭제");
+    builtins_.insert("디렉토리_목록");
+    builtins_.insert("디렉토리_나열");
+    builtins_.insert("디렉토리인가");
+    builtins_.insert("임시_디렉토리");
+
+    // 파일 시스템
+    builtins_.insert("파일_존재하는가");
+    builtins_.insert("파일_삭제");
+    builtins_.insert("파일_복사");
+    builtins_.insert("파일_이동");
+    builtins_.insert("파일_크기");
+    builtins_.insert("파일인가");
+
+    // 경로
+    builtins_.insert("경로_결합");
+    builtins_.insert("파일명_추출");
+    builtins_.insert("확장자_추출");
+    builtins_.insert("절대경로");
+    builtins_.insert("경로_존재하는가");
+
+    // 시스템 정보
+    builtins_.insert("OS_이름");
+    builtins_.insert("사용자_이름");
+    builtins_.insert("호스트_이름");
+    builtins_.insert("프로세스_종료");
+
+    // JSON 처리
+    builtins_.insert("JSON_파싱");
+    builtins_.insert("JSON_문자열화");
+    builtins_.insert("JSON_파일_읽기");
+    builtins_.insert("JSON_파일_쓰기");
+
+    // 시간/날짜
+    builtins_.insert("현재_시간");
+    builtins_.insert("현재_날짜");
+    builtins_.insert("시간_포맷");
+    builtins_.insert("타임스탬프");
+    builtins_.insert("슬립");
+    builtins_.insert("현재_시각");
+    builtins_.insert("현재_날짜시간");
+
+    // 정규표현식
+    builtins_.insert("정규표현식_일치");
+    builtins_.insert("정규표현식_검색");
+    builtins_.insert("정규표현식_모두_찾기");
+    builtins_.insert("정규표현식_치환");
+    builtins_.insert("정규표현식_분리");
+    builtins_.insert("이메일_검증");
+    builtins_.insert("URL_검증");
+    builtins_.insert("전화번호_검증");
+    builtins_.insert("정규표현식_추출");
+    builtins_.insert("정규표현식_개수");
+
+    // 암호화
+    builtins_.insert("Base64_인코딩");
+    builtins_.insert("Base64_디코딩");
+    builtins_.insert("문자열_해시");
+    builtins_.insert("파일_해시");
+    builtins_.insert("해시_비교");
+    builtins_.insert("체크섬");
+    builtins_.insert("XOR_암호화");
+    builtins_.insert("XOR_복호화");
+    builtins_.insert("시저_암호화");
+    builtins_.insert("시저_복호화");
+    builtins_.insert("랜덤_문자열");
+    builtins_.insert("랜덤_숫자");
+
+    // HTTP
+    builtins_.insert("HTTP_GET");
+    builtins_.insert("HTTP_POST");
+    builtins_.insert("HTTP_요청");
 }
 
 bool SemanticAnalyzer::isBuiltinFunction(const std::string& name) const
@@ -74,11 +160,11 @@ bool SemanticAnalyzer::analyze(Program* program)
         return false;
     }
 
-    // Phase 1: Symbol Table 구축
-    buildSymbolTable(program);
+    // 파일명 저장 (에러 메시지에 사용)
+    filename_ = program->location().filename;
 
-    // Phase 2: 이름 해석
-    resolveNames(program);
+    // Phase 1+2: Symbol Table 구축 및 이름 해석 (통합)
+    analyzeAndResolve(program);
 
     // Phase 3: 타입 검사
     checkTypes(program);
@@ -91,7 +177,266 @@ bool SemanticAnalyzer::analyze(Program* program)
 }
 
 // ============================================================================
-// Phase 1: Symbol Table 구축
+// Phase 1+2: Symbol Table 구축 및 이름 해석 (통합)
+// ============================================================================
+
+void SemanticAnalyzer::analyzeAndResolve(Program* program)
+{
+    if (!program) return;
+
+    // 프로그램의 각 문장을 순회하며 분석
+    for (auto& stmt : program->statements())
+    {
+        analyzeAndResolveStatement(stmt.get());
+    }
+}
+
+void SemanticAnalyzer::analyzeAndResolveStatement(const Statement* stmt)
+{
+    if (!stmt) return;
+
+    // 변수 선언: 현재 스코프에 등록
+    if (auto varDecl = dynamic_cast<const VarDeclaration*>(stmt))
+    {
+        // 변수를 현재 스코프에 등록
+        symbolTable_.define(varDecl->varName(), SymbolKind::VARIABLE, varDecl->varType());
+
+        // 초기화 표현식이 있으면 이름 해석
+        if (varDecl->initializer())
+        {
+            analyzeAndResolveExpression(varDecl->initializer());
+        }
+    }
+    // 할당문 (함수 선언도 포함)
+    else if (auto assignStmt = dynamic_cast<const AssignmentStatement*>(stmt))
+    {
+        // 함수 리터럴 할당인지 확인
+        if (auto funcLit = dynamic_cast<const FunctionLiteral*>(assignStmt->value()))
+        {
+            // 함수 이름을 현재 스코프에 등록
+            symbolTable_.define(assignStmt->varName(), SymbolKind::FUNCTION,
+                              nullptr);
+
+            // 함수 body를 새로운 스코프에서 분석
+            symbolTable_.enterScope();
+
+            // 매개변수를 함수 스코프에 등록
+            for (const auto& param : funcLit->parameters())
+            {
+                symbolTable_.define(param, SymbolKind::VARIABLE,
+                                  nullptr);  // 타입 추론 미지원
+            }
+
+            // 함수 body 분석
+            if (funcLit->body())
+            {
+                analyzeAndResolveStatement(funcLit->body());
+            }
+
+            symbolTable_.exitScope();
+        }
+        else
+        {
+            // 일반 할당문: 변수가 정의되어 있지 않으면 현재 스코프에 등록 (동적 타이핑)
+            if (!symbolTable_.lookup(assignStmt->varName()))
+            {
+                symbolTable_.define(assignStmt->varName(), SymbolKind::VARIABLE, nullptr);
+            }
+
+            // 할당 값 표현식 분석
+            if (assignStmt->value())
+            {
+                analyzeAndResolveExpression(assignStmt->value());
+            }
+        }
+    }
+    // 블록문: 새로운 스코프 생성
+    else if (auto blockStmt = dynamic_cast<const BlockStatement*>(stmt))
+    {
+        symbolTable_.enterScope();
+
+        for (const auto& s : blockStmt->statements())
+        {
+            analyzeAndResolveStatement(s.get());
+        }
+
+        symbolTable_.exitScope();
+    }
+    // if문: then/else 각각 새로운 스코프
+    else if (auto ifStmt = dynamic_cast<const IfStatement*>(stmt))
+    {
+        // 조건 표현식 분석
+        if (ifStmt->condition())
+        {
+            analyzeAndResolveExpression(ifStmt->condition());
+        }
+
+        // then 블록
+        if (ifStmt->thenBranch())
+        {
+            symbolTable_.enterScope();
+            analyzeAndResolveStatement(ifStmt->thenBranch());
+            symbolTable_.exitScope();
+        }
+
+        // else 블록
+        if (ifStmt->elseBranch())
+        {
+            symbolTable_.enterScope();
+            analyzeAndResolveStatement(ifStmt->elseBranch());
+            symbolTable_.exitScope();
+        }
+    }
+    // while문: body를 새로운 스코프에서 분석
+    else if (auto whileStmt = dynamic_cast<const WhileStatement*>(stmt))
+    {
+        // 조건 표현식 분석
+        if (whileStmt->condition())
+        {
+            analyzeAndResolveExpression(whileStmt->condition());
+        }
+
+        // body
+        if (whileStmt->body())
+        {
+            symbolTable_.enterScope();
+            analyzeAndResolveStatement(whileStmt->body());
+            symbolTable_.exitScope();
+        }
+    }
+    // 범위 for문: 루프 변수를 블록 스코프에 등록
+    else if (auto forStmt = dynamic_cast<const RangeForStatement*>(stmt))
+    {
+        symbolTable_.enterScope();
+
+        // 루프 변수 등록
+        symbolTable_.define(forStmt->varName(), SymbolKind::VARIABLE,
+                          types::Type::integerType());
+
+        // start, end 표현식 분석
+        if (forStmt->start())
+        {
+            analyzeAndResolveExpression(forStmt->start());
+        }
+        if (forStmt->end())
+        {
+            analyzeAndResolveExpression(forStmt->end());
+        }
+
+        // body 분석
+        if (forStmt->body())
+        {
+            analyzeAndResolveStatement(forStmt->body());
+        }
+
+        symbolTable_.exitScope();
+    }
+    // repeat문: body를 새로운 스코프에서 분석
+    else if (auto repeatStmt = dynamic_cast<const RepeatStatement*>(stmt))
+    {
+        // 반복 횟수 표현식 분석
+        if (repeatStmt->count())
+        {
+            analyzeAndResolveExpression(repeatStmt->count());
+        }
+
+        // body
+        if (repeatStmt->body())
+        {
+            symbolTable_.enterScope();
+            analyzeAndResolveStatement(repeatStmt->body());
+            symbolTable_.exitScope();
+        }
+    }
+    // return문
+    else if (auto returnStmt = dynamic_cast<const ReturnStatement*>(stmt))
+    {
+        if (returnStmt->returnValue())
+        {
+            analyzeAndResolveExpression(returnStmt->returnValue());
+        }
+    }
+    // 표현식문
+    else if (auto exprStmt = dynamic_cast<const ExpressionStatement*>(stmt))
+    {
+        if (exprStmt->expression())
+        {
+            analyzeAndResolveExpression(exprStmt->expression());
+        }
+    }
+    // import문 (스킵)
+    else if (dynamic_cast<const ImportStatement*>(stmt))
+    {
+        // TODO: 모듈 import 처리
+    }
+}
+
+void SemanticAnalyzer::analyzeAndResolveExpression(const Expression* expr)
+{
+    if (!expr) return;
+
+    // 식별자: 정의되어 있는지 확인
+    if (auto ident = dynamic_cast<const Identifier*>(expr))
+    {
+        if (!symbolTable_.lookup(ident->name()) &&
+            !isBuiltinFunction(ident->name()))
+        {
+            addError("정의되지 않은 식별자: " + ident->name(),
+                    expr->location().line, expr->location().column);
+        }
+    }
+    // 이항 표현식: 양쪽 피연산자 분석
+    else if (auto binary = dynamic_cast<const BinaryExpression*>(expr))
+    {
+        analyzeAndResolveExpression(binary->left());
+        analyzeAndResolveExpression(binary->right());
+    }
+    // 단항 표현식: 피연산자 분석
+    else if (auto unary = dynamic_cast<const UnaryExpression*>(expr))
+    {
+        analyzeAndResolveExpression(unary->operand());
+    }
+    // 함수 호출: 함수명과 인자들 분석
+    else if (auto call = dynamic_cast<const CallExpression*>(expr))
+    {
+        analyzeAndResolveExpression(call->function());
+
+        for (const auto& arg : call->arguments())
+        {
+            analyzeAndResolveExpression(arg.get());
+        }
+    }
+    // 조사 표현식: 객체 분석
+    else if (auto josa = dynamic_cast<const JosaExpression*>(expr))
+    {
+        analyzeAndResolveExpression(josa->object());
+    }
+    // 인덱스 표현식: 배열과 인덱스 분석
+    else if (auto index = dynamic_cast<const IndexExpression*>(expr))
+    {
+        analyzeAndResolveExpression(index->array());
+        analyzeAndResolveExpression(index->index());
+    }
+    // 배열 리터럴: 각 요소 분석
+    else if (auto arrayLit = dynamic_cast<const ArrayLiteral*>(expr))
+    {
+        for (const auto& elem : arrayLit->elements())
+        {
+            analyzeAndResolveExpression(elem.get());
+        }
+    }
+    // Range 표현식: start, end 분석
+    else if (auto range = dynamic_cast<const RangeExpression*>(expr))
+    {
+        analyzeAndResolveExpression(range->start());
+        analyzeAndResolveExpression(range->end());
+    }
+    // 리터럴 (정수, 실수, 문자열, 불린): 아무것도 안 함
+    // 함수 리터럴: 별도 처리 필요 없음 (AssignmentStatement에서 처리)
+}
+
+// ============================================================================
+// Phase 1: Symbol Table 구축 (레거시)
 // ============================================================================
 
 void SemanticAnalyzer::buildSymbolTable(Program* program)
@@ -120,7 +465,7 @@ void SemanticAnalyzer::registerSymbolFromStatement(const Statement* stmt)
             registerFunction(assignStmt->varName(), const_cast<FunctionLiteral*>(funcLit));
         }
     }
-    // BlockStatement: 블록 내 모든 문장 등록
+    // BlockStatement: 블록 내 모든 문장 등록 (Scope는 resolveNames에서 처리)
     else if (auto blockStmt = dynamic_cast<const BlockStatement*>(stmt))
     {
         for (const auto& s : blockStmt->statements())
@@ -128,7 +473,7 @@ void SemanticAnalyzer::registerSymbolFromStatement(const Statement* stmt)
             registerSymbolFromStatement(s.get());
         }
     }
-    // IfStatement: then과 else 블록 등록
+    // IfStatement: then과 else 블록 등록 (Scope는 resolveNames에서 처리)
     else if (auto ifStmt = dynamic_cast<const IfStatement*>(stmt))
     {
         if (ifStmt->thenBranch())
@@ -140,12 +485,28 @@ void SemanticAnalyzer::registerSymbolFromStatement(const Statement* stmt)
             registerSymbolFromStatement(ifStmt->elseBranch());
         }
     }
-    // WhileStatement: body 등록
+    // WhileStatement: body 등록 (Scope는 resolveNames에서 처리)
     else if (auto whileStmt = dynamic_cast<const WhileStatement*>(stmt))
     {
         if (whileStmt->body())
         {
             registerSymbolFromStatement(whileStmt->body());
+        }
+    }
+    // RangeForStatement: body 등록 (루프 변수와 Scope는 resolveNames에서 처리)
+    else if (auto forStmt = dynamic_cast<const RangeForStatement*>(stmt))
+    {
+        if (forStmt->body())
+        {
+            registerSymbolFromStatement(forStmt->body());
+        }
+    }
+    // RepeatStatement: 반복 본문 등록 (Scope는 resolveNames에서 처리)
+    else if (auto repeatStmt = dynamic_cast<const RepeatStatement*>(stmt))
+    {
+        if (repeatStmt->body())
+        {
+            registerSymbolFromStatement(repeatStmt->body());
         }
     }
 }
@@ -189,7 +550,7 @@ void SemanticAnalyzer::registerFunction(const std::string& name, FunctionLiteral
     // 현재는 반환 타입을 알 수 없으므로 nullptr
     symbolTable_.define(name, SymbolKind::FUNCTION, nullptr);
 
-    // 함수 매개변수와 본문은 Phase 2 (Name Resolution)에서 처리
+    // 함수 매개변수와 본문은 Phase 2 (resolveNames)에서 처리
     // 여기서는 함수 이름만 등록
 }
 
@@ -340,7 +701,8 @@ void SemanticAnalyzer::resolveNamesInExpression(const Expression* expr)
         // builtin 함수나 정의된 심볼이 아니면 에러
         if (!isBuiltinFunction(name) && !symbolTable_.isDefined(name))
         {
-            addError("정의되지 않은 식별자: " + name);
+            const auto& loc = ident->location();
+            addError("정의되지 않은 식별자: " + name, loc.line, loc.column);
         }
     }
 
@@ -792,7 +1154,7 @@ void SemanticAnalyzer::resolveAmbiguitiesInStatement(Statement* /* stmt */)
 
 void SemanticAnalyzer::addError(const std::string& message, int line, int column)
 {
-    errors_.emplace_back(message, line, column);
+    errors_.emplace_back(message, line, column, filename_);
 }
 
 } // namespace semantic

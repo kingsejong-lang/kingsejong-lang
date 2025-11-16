@@ -67,6 +67,8 @@ set(LIB_SOURCES
     src/linter/rules/ConstantConditionRule.cpp
     src/linter/rules/EmptyBlockRule.cpp
     src/formatter/Formatter.cpp
+    src/morphology/Dictionary.cpp
+    src/morphology/MorphologicalAnalyzer.cpp
 )
 
 # 라이브러리 생성 (kingsejong_lib)

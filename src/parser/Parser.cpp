@@ -7,15 +7,11 @@
 
 #include "Parser.h"
 #include "types/Type.h"
-#include "semantic/SymbolTable.h"
 #include <stdexcept>
 #include <iostream>
 
 namespace kingsejong {
 namespace parser {
-
-// 프로토타입: 전역 Symbol Table
-static semantic::SymbolTable globalSymbolTable;
 
 Parser::Parser(Lexer& lexer)
     : lexer_(lexer)
@@ -23,9 +19,12 @@ Parser::Parser(Lexer& lexer)
     // 파싱 함수 등록
     registerParseFunctions();
 
-    // 첫 두 토큰 읽기
-    nextToken();
-    nextToken();
+    // LL(4) lookahead: 첫 다섯 토큰 읽기
+    nextToken();  // curToken 초기화
+    nextToken();  // peekToken 초기화
+    nextToken();  // peekPeekToken 초기화
+    nextToken();  // peekPeekPeekToken 초기화
+    nextToken();  // peekPeekPeekPeekToken 초기화
 }
 
 void Parser::registerParseFunctions()
@@ -106,7 +105,10 @@ void Parser::registerInfixFn(TokenType type, InfixParseFn fn)
 void Parser::nextToken()
 {
     curToken_ = peekToken_;
-    peekToken_ = lexer_.nextToken();
+    peekToken_ = peekPeekToken_;
+    peekPeekToken_ = peekPeekPeekToken_;
+    peekPeekPeekToken_ = peekPeekPeekPeekToken_;
+    peekPeekPeekPeekToken_ = lexer_.nextToken();
 }
 
 bool Parser::curTokenIs(TokenType type) const
@@ -117,6 +119,21 @@ bool Parser::curTokenIs(TokenType type) const
 bool Parser::peekTokenIs(TokenType type) const
 {
     return peekToken_.type == type;
+}
+
+bool Parser::peek2TokenIs(TokenType type) const
+{
+    return peekPeekToken_.type == type;
+}
+
+bool Parser::peek3TokenIs(TokenType type) const
+{
+    return peekPeekPeekToken_.type == type;
+}
+
+bool Parser::peek4TokenIs(TokenType type) const
+{
+    return peekPeekPeekPeekToken_.type == type;
 }
 
 bool Parser::expectPeek(TokenType type)
@@ -280,6 +297,8 @@ Parser::Precedence Parser::peekPrecedence() const
 std::unique_ptr<Program> Parser::parseProgram()
 {
     auto program = std::make_unique<Program>();
+    // 프로그램 시작 위치 (첫 토큰의 위치 정보 사용, 파일명 포함)
+    program->setLocation(curToken_.location);
 
     while (!curTokenIs(TokenType::EOF_TOKEN))
     {
@@ -304,37 +323,45 @@ std::unique_ptr<Program> Parser::parseProgram()
 // 문장 파싱
 // ============================================================================
 
-// 범위 for문의 변수 이름일 가능성이 높은지 확인하는 헬퍼 함수
-static bool isLikelyLoopVariable(const std::string& str)
+/**
+ * @brief 범위 for문인지 확인하는 헬퍼 함수 (LL(4) lookahead 기반)
+ *
+ * 휴리스틱을 사용하지 않고 실제 토큰 패턴을 확인합니다.
+ *
+ * @return true if 범위 for문 패턴 감지
+ *
+ * @details
+ * 토큰 패턴:
+ *   IDENTIFIER / 가(이) / <simple-expr> / 부터(초과/이상) / ...
+ *   cur         peek     peek2          peek3
+ *
+ * <simple-expr>는 INTEGER, FLOAT, IDENTIFIER 등 단순 표현식만 허용
+ * 복잡한 표현식 (1+2)는 괄호로 시작하므로 peek2가 LPAREN
+ */
+bool Parser::isRangeForPattern() const
 {
-    // Symbol Table 체크 (우선순위)
-    // 이미 변수나 함수로 정의되어 있으면 루프 변수가 아님
-    if (globalSymbolTable.isVariable(str) || globalSymbolTable.isFunction(str))
-    {
+    // 패턴: IDENTIFIER + 가/이 + <expression> + <range-keyword>
+    // LL(4) lookahead를 사용하여 범위 반복문 패턴을 감지합니다.
+    //
+    // 예시:
+    //   i가 1부터 10까지      → 부터가 peek3에 위치 (1토큰 표현식)
+    //   i가 -2부터 10까지     → 부터가 peek4에 위치 (2토큰 표현식: MINUS + INTEGER)
+    //   i가 "문자열"부터 ... → 부터가 peek3에 위치 (STRING도 허용, 평가 시 에러)
+
+    // Step 1: 현재 토큰이 IDENTIFIER인지 확인
+    if (!curTokenIs(TokenType::IDENTIFIER))
         return false;
-    }
 
-    // Symbol Table에 없으면 휴리스틱 사용
-    // 일반적인 루프 변수 이름
-    if (str == "i" || str == "j" || str == "k" ||
-        str == "index" || str == "idx" || str == "n" || str == "m")
-    {
-        return true;
-    }
+    // Step 2: 다음 토큰이 조사 "가" 또는 "이"인지 확인
+    if (!peekTokenIs(TokenType::JOSA_GA) && !peekTokenIs(TokenType::JOSA_I))
+        return false;
 
-    // 1-2글자 ASCII 식별자 (x, y, z, id 등)
-    if (str.length() <= 2)
-    {
-        return true;
-    }
-
-    // 1글자 한글 (가, 나, 다 등)
-    if (str.length() == 3 && (static_cast<unsigned char>(str[0]) & 0xE0) == 0xE0)
-    {
-        return true;
-    }
-
-    return false;
+    // Step 3: peek3 또는 peek4에 범위 키워드가 있는지 확인
+    // peek2의 타입을 제한하지 않음 (모든 표현식 허용)
+    // - peek3에 범위 키워드: 1토큰 표현식 (숫자, 변수, 문자열 등)
+    // - peek4에 범위 키워드: 2토큰 표현식 (전위 연산자 + 피연산자)
+    return isRangeStartToken(peekPeekPeekToken_.type) ||
+           isRangeStartToken(peekPeekPeekPeekToken_.type);
 }
 
 std::unique_ptr<Statement> Parser::parseStatement()
@@ -343,6 +370,7 @@ std::unique_ptr<Statement> Parser::parseStatement()
     // 이것을 할당문으로 변환: 이름 = 함수(매개변수) { ... }
     if (curTokenIs(TokenType::HAMSU) && peekTokenIs(TokenType::IDENTIFIER))
     {
+        auto startLoc = curToken_.location;  // HAMSU 토큰 위치 저장
         nextToken();  // HAMSU를 건너뜀 → curToken = 함수 이름
         std::string functionName = curToken_.literal;
 
@@ -354,12 +382,11 @@ std::unique_ptr<Statement> Parser::parseStatement()
             return nullptr;
         }
 
-        // Symbol Table에 함수 등록 (프로토타입)
-        // 함수의 반환 타입은 추후 타입 추론으로 결정 (현재는 nullptr)
-        globalSymbolTable.define(functionName, semantic::SymbolKind::FUNCTION, nullptr);
-
         // 할당문으로 변환
-        return std::make_unique<AssignmentStatement>(functionName, std::move(functionLiteral));
+        // NOTE: Symbol Table 등록은 SemanticAnalyzer가 담당
+        auto stmt = std::make_unique<AssignmentStatement>(functionName, std::move(functionLiteral));
+        stmt->setLocation(startLoc);
+        return stmt;
     }
 
     // 타입 키워드로 시작하면 변수 선언
@@ -402,11 +429,9 @@ std::unique_ptr<Statement> Parser::parseStatement()
         return parseAssignmentStatement();
     }
 
-    // 범위 반복문: identifier + "가"/"이" (N번 반복보다 먼저 체크)
-    // 단, 일반적인 루프 변수 이름인 경우에만 (조사 표현식과 구분)
-    if (curTokenIs(TokenType::IDENTIFIER) &&
-        (peekTokenIs(TokenType::JOSA_GA) || peekTokenIs(TokenType::JOSA_I)) &&
-        isLikelyLoopVariable(curToken_.literal))
+    // 범위 반복문: LL(4) lookahead로 패턴 확인 (휴리스틱 완전 제거!)
+    // 패턴: IDENTIFIER + 가/이 + <simple-expr> + 부터/초과/이상
+    if (isRangeForPattern())
     {
         return parseRangeForStatement();
     }
@@ -419,6 +444,7 @@ std::unique_ptr<Statement> Parser::parseStatement()
 
     // 기본: 표현식 문장 또는 N번 반복문
     // 표현식을 먼저 파싱한 후 BEON 토큰을 확인
+    auto startLoc = curToken_.location;  // 표현식 시작 위치 저장
     auto expr = parseExpression(Precedence::LOWEST);
 
     // 표현식 파싱 후 다음 토큰이 BEON이면 RepeatStatement
@@ -441,7 +467,9 @@ std::unique_ptr<Statement> Parser::parseStatement()
         }
 
         auto body = parseBlockStatement();
-        return std::make_unique<RepeatStatement>(std::move(expr), std::move(body));
+        auto stmt = std::make_unique<RepeatStatement>(std::move(expr), std::move(body));
+        stmt->setLocation(startLoc);
+        return stmt;
     }
 
     // 일반 표현식 문장
@@ -450,11 +478,14 @@ std::unique_ptr<Statement> Parser::parseStatement()
         nextToken();
     }
 
-    return std::make_unique<ExpressionStatement>(std::move(expr));
+    auto stmt = std::make_unique<ExpressionStatement>(std::move(expr));
+    stmt->setLocation(startLoc);
+    return stmt;
 }
 
 std::unique_ptr<ExpressionStatement> Parser::parseExpressionStatement()
 {
+    auto startLoc = curToken_.location;  // 표현식 시작 위치 저장
     auto expr = parseExpression(Precedence::LOWEST);
 
     // 선택적 세미콜론 또는 ASI (Automatic Semicolon Insertion)
@@ -468,11 +499,14 @@ std::unique_ptr<ExpressionStatement> Parser::parseExpressionStatement()
         // 세미콜론 없어도 OK (줄이 바뀜)
     }
 
-    return std::make_unique<ExpressionStatement>(std::move(expr));
+    auto stmt = std::make_unique<ExpressionStatement>(std::move(expr));
+    stmt->setLocation(startLoc);
+    return stmt;
 }
 
 std::unique_ptr<VarDeclaration> Parser::parseVarDeclaration()
 {
+    auto startLoc = curToken_.location;  // 타입 키워드 위치 저장
     std::string typeName = curToken_.literal;
 
     // 타입 이름으로 Type 객체 조회
@@ -502,6 +536,13 @@ std::unique_ptr<VarDeclaration> Parser::parseVarDeclaration()
         nextToken(); // 표현식 시작
 
         initializer = parseExpression(Precedence::LOWEST);
+
+        // Error Recovery: ASSIGN 뒤에 표현식이 필수
+        if (!initializer)
+        {
+            // 에러는 이미 parseExpression()에서 기록됨
+            return nullptr;  // 파싱 실패
+        }
     }
 
     // 선택적 세미콜론 또는 ASI (Automatic Semicolon Insertion)
@@ -515,15 +556,16 @@ std::unique_ptr<VarDeclaration> Parser::parseVarDeclaration()
         // 세미콜론 없어도 OK (줄이 바뀜)
     }
 
-    // Symbol Table에 변수 등록 (프로토타입)
-    globalSymbolTable.define(varName, semantic::SymbolKind::VARIABLE, varType);
-
-    return std::make_unique<VarDeclaration>(typeName, varName, std::move(initializer), varType);
+    // NOTE: Symbol Table 등록은 SemanticAnalyzer가 담당
+    auto stmt = std::make_unique<VarDeclaration>(typeName, varName, std::move(initializer), varType);
+    stmt->setLocation(startLoc);
+    return stmt;
 }
 
 std::unique_ptr<AssignmentStatement> Parser::parseAssignmentStatement()
 {
     // 현재 토큰: 변수 이름 (IDENTIFIER)
+    auto startLoc = curToken_.location;  // 변수 이름 위치 저장
     std::string varName = curToken_.literal;
 
     // "=" 확인
@@ -536,6 +578,13 @@ std::unique_ptr<AssignmentStatement> Parser::parseAssignmentStatement()
 
     auto value = parseExpression(Precedence::LOWEST);
 
+    // Error Recovery: ASSIGN 뒤에 표현식이 필수
+    if (!value)
+    {
+        // 에러는 이미 parseExpression()에서 기록됨
+        return nullptr;  // 파싱 실패
+    }
+
     // 선택적 세미콜론 또는 ASI (Automatic Semicolon Insertion)
     if (peekTokenIs(TokenType::SEMICOLON))
     {
@@ -547,11 +596,14 @@ std::unique_ptr<AssignmentStatement> Parser::parseAssignmentStatement()
         // 세미콜론 없어도 OK (줄이 바뀜)
     }
 
-    return std::make_unique<AssignmentStatement>(varName, std::move(value));
+    auto stmt = std::make_unique<AssignmentStatement>(varName, std::move(value));
+    stmt->setLocation(startLoc);
+    return stmt;
 }
 
 std::unique_ptr<ReturnStatement> Parser::parseReturnStatement()
 {
+    auto startLoc = curToken_.location;  // "반환" 키워드 위치 저장
     nextToken(); // "반환" 건너뛰기
 
     std::unique_ptr<Expression> returnValue = nullptr;
@@ -572,11 +624,15 @@ std::unique_ptr<ReturnStatement> Parser::parseReturnStatement()
         // 세미콜론 없어도 OK (줄이 바뀜)
     }
 
-    return std::make_unique<ReturnStatement>(std::move(returnValue));
+    auto stmt = std::make_unique<ReturnStatement>(std::move(returnValue));
+    stmt->setLocation(startLoc);
+    return stmt;
 }
 
 std::unique_ptr<IfStatement> Parser::parseIfStatement()
 {
+    auto startLoc = curToken_.location;  // "만약" 키워드 위치 저장
+
     // 조건식 파싱: 괄호는 선택사항
     // "만약 (조건) {" 또는 "만약 조건 {" 모두 지원
     bool hasParentheses = peekTokenIs(TokenType::LPAREN);
@@ -621,15 +677,19 @@ std::unique_ptr<IfStatement> Parser::parseIfStatement()
         elseBranch = parseBlockStatement();
     }
 
-    return std::make_unique<IfStatement>(
+    auto stmt = std::make_unique<IfStatement>(
         std::move(condition),
         std::move(thenBranch),
         std::move(elseBranch)
     );
+    stmt->setLocation(startLoc);
+    return stmt;
 }
 
 std::unique_ptr<RepeatStatement> Parser::parseRepeatStatement()
 {
+    auto startLoc = curToken_.location;  // 반복 횟수 표현식 시작 위치 저장
+
     // 반복 횟수 파싱
     auto count = parseExpression(Precedence::LOWEST);
 
@@ -663,16 +723,20 @@ std::unique_ptr<RepeatStatement> Parser::parseRepeatStatement()
 
     auto body = parseBlockStatement();
 
-    return std::make_unique<RepeatStatement>(
+    auto stmt = std::make_unique<RepeatStatement>(
         std::move(count),
         std::move(body)
     );
+    stmt->setLocation(startLoc);
+    return stmt;
 }
 
 std::unique_ptr<RangeForStatement> Parser::parseRangeForStatement()
 {
     // 범위 for문: "i가 1부터 5까지 반복한다 { ... }"
     // ParseFeature::Range를 비활성화하여 start/end 표현식에서 RangeExpression이 생성되지 않도록 함
+
+    auto startLoc = curToken_.location;  // 루프 변수 위치 저장
 
     // 변수 이름 저장
     std::string varName = curToken_.literal;
@@ -755,27 +819,33 @@ std::unique_ptr<RangeForStatement> Parser::parseRangeForStatement()
 
     auto body = parseBlockStatement();
 
-    return std::make_unique<RangeForStatement>(
+    auto stmt = std::make_unique<RangeForStatement>(
         varName,
         std::move(start),
         std::move(end),
         std::move(body),
         endInclusive
     );
+    stmt->setLocation(startLoc);
+    return stmt;
 }
 
 std::unique_ptr<BlockStatement> Parser::parseBlockStatement()
 {
+    auto startLoc = curToken_.location;  // { 토큰 위치 저장
     nextToken(); // { 건너뛰기
 
     auto statements = parseStatements(TokenType::RBRACE);
 
-    return std::make_unique<BlockStatement>(std::move(statements));
+    auto stmt = std::make_unique<BlockStatement>(std::move(statements));
+    stmt->setLocation(startLoc);
+    return stmt;
 }
 
 std::unique_ptr<ImportStatement> Parser::parseImportStatement()
 {
     // 현재 토큰은 "가져오기"
+    auto startLoc = curToken_.location;  // "가져오기" 키워드 위치 저장
 
     // 다음 토큰은 문자열이어야 함
     if (!expectPeek(TokenType::STRING))
@@ -785,7 +855,9 @@ std::unique_ptr<ImportStatement> Parser::parseImportStatement()
 
     std::string modulePath = curToken_.literal;
 
-    return std::make_unique<ImportStatement>(modulePath);
+    auto stmt = std::make_unique<ImportStatement>(modulePath);
+    stmt->setLocation(startLoc);
+    return stmt;
 }
 
 std::vector<std::unique_ptr<Statement>> Parser::parseStatements(TokenType endToken)
@@ -802,11 +874,9 @@ std::vector<std::unique_ptr<Statement>> Parser::parseStatements(TokenType endTok
 
         // parseStatement()가 이미 세미콜론까지 소비했는지 확인
         // 세미콜론이 있었다면 curToken은 세미콜론, 없었다면 표현식 마지막
-        // 어느 경우든 peekToken이 endToken이 아니면 다음으로 이동
-        if (!peekTokenIs(endToken) && !peekTokenIs(TokenType::EOF_TOKEN))
-        {
-            nextToken();
-        }
+        // BUG FIX: 원래 조건은 peekToken이 endToken일 때 nextToken()을 호출하지 않아 무한 루프 발생
+        // 수정: 항상 nextToken() 호출하여 curToken을 진행시킴
+        nextToken();
     }
 
     return statements;
@@ -923,11 +993,14 @@ std::unique_ptr<Expression> Parser::parseBooleanLiteral()
 
 std::unique_ptr<Expression> Parser::parsePrefixExpression()
 {
+    auto startLoc = curToken_.location;  // 연산자 위치 저장
     std::string op = curToken_.literal;
     nextToken();
 
     auto right = parseExpression(Precedence::PREFIX);
-    return std::make_unique<UnaryExpression>(op, std::move(right));
+    auto expr = std::make_unique<UnaryExpression>(op, std::move(right));
+    expr->setLocation(startLoc);
+    return expr;
 }
 
 std::unique_ptr<Expression> Parser::parseGroupedExpression()
@@ -946,8 +1019,11 @@ std::unique_ptr<Expression> Parser::parseGroupedExpression()
 
 std::unique_ptr<Expression> Parser::parseArrayLiteral()
 {
+    auto startLoc = curToken_.location;  // [ 토큰 위치 저장
     auto elements = parseExpressionList(TokenType::RBRACKET);
-    return std::make_unique<ArrayLiteral>(std::move(elements));
+    auto expr = std::make_unique<ArrayLiteral>(std::move(elements));
+    expr->setLocation(startLoc);
+    return expr;
 }
 
 // ============================================================================
@@ -956,23 +1032,30 @@ std::unique_ptr<Expression> Parser::parseArrayLiteral()
 
 std::unique_ptr<Expression> Parser::parseBinaryExpression(std::unique_ptr<Expression> left)
 {
+    auto startLoc = left->location();  // 좌측 피연산자 위치 사용
     std::string op = curToken_.literal;
     Precedence precedence = curPrecedence();
 
     nextToken();
     auto right = parseExpression(precedence);
 
-    return std::make_unique<BinaryExpression>(std::move(left), op, std::move(right));
+    auto expr = std::make_unique<BinaryExpression>(std::move(left), op, std::move(right));
+    expr->setLocation(startLoc);
+    return expr;
 }
 
 std::unique_ptr<Expression> Parser::parseCallExpression(std::unique_ptr<Expression> function)
 {
+    auto startLoc = function->location();  // 함수 표현식 위치 사용
     auto arguments = parseExpressionList(TokenType::RPAREN);
-    return std::make_unique<CallExpression>(std::move(function), std::move(arguments));
+    auto expr = std::make_unique<CallExpression>(std::move(function), std::move(arguments));
+    expr->setLocation(startLoc);
+    return expr;
 }
 
 std::unique_ptr<Expression> Parser::parseIndexExpression(std::unique_ptr<Expression> left)
 {
+    auto startLoc = left->location();  // 좌측 표현식 위치 사용
     nextToken(); // [ 건너뛰기
 
     auto index = parseExpression(Precedence::LOWEST);
@@ -982,11 +1065,14 @@ std::unique_ptr<Expression> Parser::parseIndexExpression(std::unique_ptr<Express
         return nullptr;
     }
 
-    return std::make_unique<IndexExpression>(std::move(left), std::move(index));
+    auto expr = std::make_unique<IndexExpression>(std::move(left), std::move(index));
+    expr->setLocation(startLoc);
+    return expr;
 }
 
 std::unique_ptr<Expression> Parser::parseJosaExpression(std::unique_ptr<Expression> left)
 {
+    auto startLoc = left->location();  // 좌측 표현식 위치 사용
     // 현재 토큰은 조사 (EUL, REUL, I, GA 등)
     lexer::JosaRecognizer::JosaType josaType = tokenToJosaType(curToken_.type);
 
@@ -995,11 +1081,14 @@ std::unique_ptr<Expression> Parser::parseJosaExpression(std::unique_ptr<Expressi
     // 메서드/명사 파싱
     auto method = parseExpression(Precedence::LOWEST);
 
-    return std::make_unique<JosaExpression>(std::move(left), josaType, std::move(method));
+    auto expr = std::make_unique<JosaExpression>(std::move(left), josaType, std::move(method));
+    expr->setLocation(startLoc);
+    return expr;
 }
 
 std::unique_ptr<Expression> Parser::parseRangeExpression(std::unique_ptr<Expression> left)
 {
+    auto startLoc = left->location();  // 좌측 표현식 (시작값) 위치 사용
     // 복합 연산자: 부터 ... 까지를 한 번에 파싱
     // left는 시작 값, curToken은 범위 시작 키워드 (BUTEO, CHOGA, ISANG)
 
@@ -1060,8 +1149,10 @@ std::unique_ptr<Expression> Parser::parseRangeExpression(std::unique_ptr<Express
         endInclusive = true;
     }
 
-    return std::make_unique<RangeExpression>(std::move(left), std::move(end),
-                                             startInclusive, endInclusive);
+    auto expr = std::make_unique<RangeExpression>(std::move(left), std::move(end),
+                                                   startInclusive, endInclusive);
+    expr->setLocation(startLoc);
+    return expr;
 }
 
 // ============================================================================
@@ -1192,7 +1283,8 @@ bool Parser::isRangeEndToken(TokenType type) const
 
 std::unique_ptr<Expression> Parser::parseFunctionLiteral()
 {
-    // 현재 토큰은 HAMSU ("함수")
+    // 현재 토큰은 함수 이름 (IDENTIFIER) 또는 "함수" 키워드
+    auto startLoc = curToken_.location;  // 함수 정의 시작 위치 저장
 
     // 다음 토큰이 LPAREN "(" 인지 확인
     if (!expectPeek(TokenType::LPAREN))
@@ -1253,7 +1345,9 @@ std::unique_ptr<Expression> Parser::parseFunctionLiteral()
         return nullptr;
     }
 
-    return std::make_unique<FunctionLiteral>(std::move(parameters), std::move(body));
+    auto expr = std::make_unique<FunctionLiteral>(std::move(parameters), std::move(body));
+    expr->setLocation(startLoc);
+    return expr;
 }
 
 // ============================================================================
@@ -1262,6 +1356,7 @@ std::unique_ptr<Expression> Parser::parseFunctionLiteral()
 
 std::unique_ptr<Expression> Parser::parseMatchExpression(std::unique_ptr<Expression> left)
 {
+    auto startLoc = left->location();  // 좌측 표현식 위치 사용
     nextToken(); // '{' 로 이동
 
     if (!curTokenIs(TokenType::LBRACE))
@@ -1296,7 +1391,9 @@ std::unique_ptr<Expression> Parser::parseMatchExpression(std::unique_ptr<Express
     }
 
     // Don't advance past '}' - leave curToken at '}'
-    return std::make_unique<MatchExpression>(std::move(left), std::move(cases));
+    auto expr = std::make_unique<MatchExpression>(std::move(left), std::move(cases));
+    expr->setLocation(startLoc);
+    return expr;
 }
 
 MatchCase Parser::parseMatchCase()
@@ -1338,9 +1435,13 @@ MatchCase Parser::parseMatchCase()
 
 std::unique_ptr<Pattern> Parser::parsePattern()
 {
+    auto startLoc = curToken_.location;  // 패턴 시작 위치 저장
+
     if (curTokenIs(TokenType::UNDERSCORE))
     {
-        return std::make_unique<WildcardPattern>();
+        auto pattern = std::make_unique<WildcardPattern>();
+        pattern->setLocation(startLoc);
+        return pattern;
     }
 
     if (curTokenIs(TokenType::LBRACKET))
@@ -1353,13 +1454,17 @@ std::unique_ptr<Pattern> Parser::parsePattern()
         curTokenIs(TokenType::GEOJIT))
     {
         auto value = parseExpression(Precedence::LOWEST);
-        return std::make_unique<LiteralPattern>(std::move(value));
+        auto pattern = std::make_unique<LiteralPattern>(std::move(value));
+        pattern->setLocation(startLoc);
+        return pattern;
     }
 
     if (curTokenIs(TokenType::IDENTIFIER))
     {
         std::string name = curToken_.literal;
-        return std::make_unique<BindingPattern>(name);
+        auto pattern = std::make_unique<BindingPattern>(name);
+        pattern->setLocation(startLoc);
+        return pattern;
     }
 
     errors_.push_back("알 수 없는 패턴: " + tokenTypeToString(curToken_.type));
@@ -1368,6 +1473,7 @@ std::unique_ptr<Pattern> Parser::parsePattern()
 
 std::unique_ptr<Pattern> Parser::parseArrayPattern()
 {
+    auto startLoc = curToken_.location;  // [ 토큰 위치 저장
     std::vector<std::unique_ptr<Pattern>> elements;
     std::string rest;
 
@@ -1392,7 +1498,9 @@ std::unique_ptr<Pattern> Parser::parseArrayPattern()
         }
     }
 
-    return std::make_unique<ArrayPattern>(std::move(elements), rest);
+    auto pattern = std::make_unique<ArrayPattern>(std::move(elements), rest);
+    pattern->setLocation(startLoc);
+    return pattern;
 }
 
 } // namespace parser

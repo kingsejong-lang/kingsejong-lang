@@ -14,7 +14,10 @@ namespace kingsejong {
 namespace bytecode {
 
 VM::VM()
-    : chunk_(nullptr), ip_(0), traceExecution_(false) {
+    : chunk_(nullptr), ip_(0), traceExecution_(false),
+      instructionCount_(0), maxInstructions_(10000000),  // 1천만 명령어
+      maxExecutionTime_(5000),  // 5초
+      maxStackSize_(10000) {  // 1만 개
     globals_ = std::make_shared<evaluator::Environment>();
 }
 
@@ -22,9 +25,25 @@ VMResult VM::run(Chunk* chunk) {
     chunk_ = chunk;
     ip_ = 0;
     stack_.clear();
+    instructionCount_ = 0;
+    startTime_ = std::chrono::steady_clock::now();
 
     try {
         while (true) {
+            // 안전 장치 1: 명령어 수 제한
+            if (++instructionCount_ > maxInstructions_) {
+                runtimeError("최대 명령어 실행 횟수 초과 (" + std::to_string(maxInstructions_) + " 초과). 무한 루프 의심.");
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            // 안전 장치 2: 실행 시간 제한
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime_);
+            if (elapsed > maxExecutionTime_) {
+                runtimeError("최대 실행 시간 초과 (" + std::to_string(maxExecutionTime_.count()) + "ms 초과). 무한 루프 또는 긴 연산 의심.");
+                return VMResult::RUNTIME_ERROR;
+            }
+
             if (traceExecution_) {
                 printStack();
                 chunk_->disassembleInstruction(ip_);
@@ -71,6 +90,10 @@ std::string VM::readName() {
 }
 
 void VM::push(const evaluator::Value& value) {
+    // 안전 장치 3: 스택 크기 제한
+    if (stack_.size() >= maxStackSize_) {
+        throw std::runtime_error("최대 스택 크기 초과 (" + std::to_string(maxStackSize_) + " 초과). 재귀 호출 또는 메모리 폭주 의심.");
+    }
     stack_.push_back(value);
 }
 

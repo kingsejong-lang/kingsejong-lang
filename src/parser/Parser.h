@@ -121,6 +121,9 @@ private:
     Lexer& lexer_;
     Token curToken_;
     Token peekToken_;
+    Token peekPeekToken_;       ///< LL(2) lookahead: 2칸 앞 토큰
+    Token peekPeekPeekToken_;   ///< LL(3) lookahead: 3칸 앞 토큰
+    Token peekPeekPeekPeekToken_; ///< LL(4) lookahead: 4칸 앞 토큰
     std::vector<std::string> errors_;
 
     // Pratt Parsing 함수 맵
@@ -131,6 +134,9 @@ private:
     void nextToken();
     bool curTokenIs(TokenType type) const;
     bool peekTokenIs(TokenType type) const;
+    bool peek2TokenIs(TokenType type) const;  ///< LL(2): 2칸 앞 토큰 타입 확인
+    bool peek3TokenIs(TokenType type) const;  ///< LL(3): 3칸 앞 토큰 타입 확인
+    bool peek4TokenIs(TokenType type) const;  ///< LL(4): 4칸 앞 토큰 타입 확인
     bool expectPeek(TokenType type);
 
     // 에러 처리
@@ -199,6 +205,7 @@ private:
     // 범위 파싱 헬퍼
     bool isRangeStartToken(TokenType type) const;
     bool isRangeEndToken(TokenType type) const;
+    bool isRangeForPattern() const;  ///< LL(4): 범위 for문 패턴 확인 (휴리스틱 제거)
 
     // 파싱 함수 등록
     void registerPrefixFn(TokenType type, PrefixParseFn fn);

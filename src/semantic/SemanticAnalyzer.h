@@ -107,6 +107,7 @@ private:
     SymbolTable symbolTable_;                    ///< 심볼 테이블
     std::vector<SemanticError> errors_;          ///< 에러 목록
     std::unordered_set<std::string> builtins_;   ///< Builtin 함수 목록
+    std::string filename_;                        ///< 현재 분석 중인 파일 이름
 
     // ========================================================================
     // Builtin 함수 초기화
@@ -123,11 +124,42 @@ private:
     bool isBuiltinFunction(const std::string& name) const;
 
     // ========================================================================
-    // Phase 1: Symbol Table 구축
+    // Phase 1+2: Symbol Table 구축 및 이름 해석 (통합)
     // ========================================================================
 
     /**
-     * @brief Symbol Table 구축
+     * @brief Symbol Table 구축과 이름 해석을 동시에 수행
+     * @param program 프로그램 AST
+     *
+     * 기존 buildSymbolTable + resolveNames를 통합하여
+     * Scope를 일관되게 관리하고 변수 스코프 격리를 올바르게 구현
+     */
+    void analyzeAndResolve(ast::Program* program);
+
+    /**
+     * @brief Statement 분석: 심볼 등록 + 이름 해석
+     * @param stmt 분석할 문장
+     *
+     * 변수 선언: 현재 스코프에 등록
+     * 식별자 참조: 스코프 체인에서 검색
+     * 블록/함수: 새 스코프 생성 및 관리
+     */
+    void analyzeAndResolveStatement(const ast::Statement* stmt);
+
+    /**
+     * @brief Expression의 이름 해석
+     * @param expr 분석할 표현식
+     *
+     * 모든 식별자가 정의된 심볼인지 확인
+     */
+    void analyzeAndResolveExpression(const ast::Expression* expr);
+
+    // ========================================================================
+    // Phase 1: Symbol Table 구축 (레거시 - 참조용)
+    // ========================================================================
+
+    /**
+     * @brief Symbol Table 구축 (DEPRECATED - analyzeAndResolve 사용)
      * @param program 프로그램 AST
      */
     void buildSymbolTable(ast::Program* program);
@@ -148,11 +180,11 @@ private:
     void registerFunction(const std::string& name, ast::FunctionLiteral* funcLit);
 
     // ========================================================================
-    // Phase 2: 이름 해석 (Name Resolution)
+    // Phase 2: 이름 해석 (레거시 - 참조용)
     // ========================================================================
 
     /**
-     * @brief 이름 해석: 모든 식별자가 정의된 심볼인지 확인
+     * @brief 이름 해석 (DEPRECATED - analyzeAndResolve 사용)
      * @param program 프로그램 AST
      */
     void resolveNames(ast::Program* program);
@@ -198,12 +230,12 @@ private:
     // ========================================================================
 
     /**
-     * @brief 모호성 해결: 파서에서 휴리스틱으로 처리한 부분 검증
+     * @brief 모호성 해결: 파서에서 구문적으로 처리한 부분을 의미론적으로 검증
      * @param program 프로그램 AST
      *
      * 예: "i가 1부터 10까지" vs "데이터가 존재한다"
-     * Parser는 isLikelyLoopVariable()로 구분했지만,
-     * Semantic Analyzer는 Symbol Table로 정확히 판단
+     * Parser는 LL(4) lookahead로 구문적으로 구분하고,
+     * Semantic Analyzer는 Symbol Table로 의미론적으로 검증
      */
     void resolveAmbiguities(ast::Program* program);
 

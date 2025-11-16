@@ -13,7 +13,14 @@ namespace kingsejong {
 namespace lexer {
 
 Lexer::Lexer(const std::string& input)
-    : input(input), position(0), readPosition(0), ch('\0'), currentLine(1), currentColumn(1)
+    : input(input), filename(""), position(0), readPosition(0), ch('\0'), currentLine(1), currentColumn(1)
+{
+    // 첫 번째 문자 읽기
+    readChar();
+}
+
+Lexer::Lexer(const std::string& input, const std::string& filename)
+    : input(input), filename(filename), position(0), readPosition(0), ch('\0'), currentLine(1), currentColumn(1)
 {
     // 첫 번째 문자 읽기
     readChar();
@@ -161,6 +168,7 @@ std::string Lexer::readIdentifier()
 {
     std::string identifier;
 
+    // 1. 한글/영문/숫자로 구성된 identifier 읽기
     while (isLetter(ch) || isDigit(ch))
     {
         if (isKoreanStart(static_cast<unsigned char>(ch)))
@@ -177,124 +185,29 @@ std::string Lexer::readIdentifier()
         }
     }
 
-    // identifier 전체가 조사인 경우 분리하지 않음
-    // 예: "으로", "에서" 등이 단독으로 입력된 경우
-    if (isJosa(identifier))
+    // 2. 형태소 분석기로 조사 분리
+    auto morphemes = morphAnalyzer_.analyze(identifier);
+
+    // 3. 조사가 분리된 경우 처리
+    if (morphemes.size() > 1)
     {
-        return identifier;
-    }
+        // 조사가 분리됨 → 기본형만 반환하고 position 조정
+        std::string base = morphemes[0].base;
+        std::string josa = morphemes[1].base;
 
-    // 조사/키워드 접미사 분리 처리
-    // 한글은 3바이트이므로 마지막 3바이트 또는 6바이트 확인
-
-    // 먼저 2글자 조사/키워드 확인 (6바이트) - "에서", "으로", "하고" 등
-    if (identifier.length() >= 9)  // 최소 3글자 (남은 부분 1글자 + 접미사 2글자)
-    {
-        std::string lastTwoChars = identifier.substr(identifier.length() - 6);
-        TokenType suffixType = lookupKeyword(lastTwoChars);
-
-        // 조사이거나 분리 가능한 키워드인 경우
-        if (isJosa(lastTwoChars) ||
-            suffixType == TokenType::HAGO ||
-            suffixType == TokenType::HARA ||
-            suffixType == TokenType::KKAJI ||
-            suffixType == TokenType::BUTEO ||
-            suffixType == TokenType::BANBOKK)
+        // position을 조사 길이만큼 되돌림 (조사는 다음에 다시 읽힘)
+        size_t josaBytes = josa.length();
+        position -= josaBytes;
+        readPosition = position + 1;
+        if (position < input.length())
         {
-            // 접미사를 분리
-            identifier = identifier.substr(0, identifier.length() - 6);
-            position -= 6;
-            readPosition = position + 1;
-            if (position < input.length())
-            {
-                ch = input[position];
-            }
-            return identifier;
+            ch = input[position];
         }
+
+        return base;
     }
 
-    // 1글자 조사/키워드 확인 (3바이트)
-    if (identifier.length() >= 4)  // 최소 1글자 + 접미사
-    {
-        std::string lastChar = identifier.substr(identifier.length() - 3);
-        TokenType suffixType = lookupKeyword(lastChar);
-
-        if (isJosa(lastChar) || suffixType == TokenType::BEON)
-        {
-            std::string base = identifier.substr(0, identifier.length() - 3);
-
-            // 조사 분리 전 base의 마지막 문자 확인
-            // 조사 바로 앞에 언더스코어나 숫자가 있으면 조사가 아님
-            // 예: "원의_넓이"에서 "_넓"이 있으면 "이"는 조사가 아님
-            // base에서 역순으로 스캔하여 언더스코어나 숫자를 찾음
-            if (base.length() >= 4)  // 최소한 "_X이" 형태
-            {
-                // base를 역순으로 스캔
-                size_t pos = base.length();
-                while (pos > 0)
-                {
-                    unsigned char byte = static_cast<unsigned char>(base[pos - 1]);
-                    if (byte < 0x80)  // ASCII 문자 발견
-                    {
-                        // 언더스코어나 숫자 뒤에 한글이 바로 오는 경우
-                        // 예: "_넓이"에서 "_" 뒤의 "넓이"는 조사 분리하지 않음
-                        if (byte == '_' || (byte >= '0' && byte <= '9'))
-                        {
-                            return identifier;  // 조사 분리하지 않음
-                        }
-                        break;  // ASCII 문자 발견 시 중단
-                    }
-                    pos--;
-                }
-            }
-
-            // 특수 케이스: "나이" 같은 일반 명사는 분리하지 않음
-            // 2글자 한글 단어 중 마지막 글자가 "이"인 경우는 대부분 명사
-            if (base.length() == 3 && lastChar == "이" && suffixType != TokenType::BEON)
-            {
-                // "나이", "거리", "자리" 등은 분리하지 않음
-                // 추후 사전 기반 형태소 분석으로 개선 필요
-                return identifier;
-            }
-
-            // Builtin 함수/변수명 보호: "경로", "절대경로" 등
-            if (lastChar == "로")
-            {
-                // "경로", "절대경로" 등 builtin 관련 명사
-                if (identifier == "경로" || identifier == "절대경로")
-                {
-                    return identifier;
-                }
-            }
-
-            // Builtin 함수명 보호: "디렉토리인가", "파일인가", "존재하는가" 등
-            if (lastChar == "가")
-            {
-                // "~인가" 패턴 (boolean 질문형 함수)
-                // "인" = 3바이트
-                if (base.length() >= 3 && base.substr(base.length() - 3) == "인")
-                {
-                    return identifier;
-                }
-                // "~존재하는가" 패턴
-                // "존재하는" = 4글자 × 3바이트 = 12바이트
-                if (base.length() >= 12 && base.substr(base.length() - 12) == "존재하는")
-                {
-                    return identifier;
-                }
-            }
-
-            // 조사 또는 키워드를 분리
-            identifier = base;
-            position -= 3;
-            readPosition = position + 1;
-            if (position < input.length())
-            {
-                ch = input[position];
-            }
-        }
-    }
-
+    // 4. 조사가 분리되지 않은 경우 - 원본 그대로 반환
     return identifier;
 }
 
@@ -614,8 +527,8 @@ Token Lexer::nextToken()
             break;
     }
 
-    // 토큰에 위치 정보 설정
-    token.location.update(tokenLine, tokenColumn);
+    // 토큰에 위치 정보 설정 (파일명 포함)
+    token.location.update(filename, tokenLine, tokenColumn);
 
     return token;
 }

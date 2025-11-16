@@ -328,6 +328,96 @@ NativeFunction* JITCompilerT1::compileRange_x64(void* codePtr, bytecode::Chunk* 
                 break;
             }
 
+            case bytecode::OpCode::EQ:
+            {
+                // pop b, pop a, push (a == b)
+                a.dec(r12);
+                a.mov(rbx, ptr(rdi, r12, 3));  // b
+                a.dec(r12);
+                a.mov(rax, ptr(rdi, r12, 3));  // a
+                a.cmp(rax, rbx);  // compare a with b
+                a.sete(al);  // al = (a == b) ? 1 : 0
+                a.movzx(rax, al);  // zero-extend al to rax
+                a.mov(ptr(rdi, r12, 3), rax);
+                a.inc(r12);
+                break;
+            }
+
+            case bytecode::OpCode::NE:
+            {
+                // pop b, pop a, push (a != b)
+                a.dec(r12);
+                a.mov(rbx, ptr(rdi, r12, 3));  // b
+                a.dec(r12);
+                a.mov(rax, ptr(rdi, r12, 3));  // a
+                a.cmp(rax, rbx);
+                a.setne(al);  // al = (a != b) ? 1 : 0
+                a.movzx(rax, al);
+                a.mov(ptr(rdi, r12, 3), rax);
+                a.inc(r12);
+                break;
+            }
+
+            case bytecode::OpCode::LT:
+            {
+                // pop b, pop a, push (a < b)
+                a.dec(r12);
+                a.mov(rbx, ptr(rdi, r12, 3));  // b
+                a.dec(r12);
+                a.mov(rax, ptr(rdi, r12, 3));  // a
+                a.cmp(rax, rbx);
+                a.setl(al);  // al = (a < b) ? 1 : 0 (signed)
+                a.movzx(rax, al);
+                a.mov(ptr(rdi, r12, 3), rax);
+                a.inc(r12);
+                break;
+            }
+
+            case bytecode::OpCode::GT:
+            {
+                // pop b, pop a, push (a > b)
+                a.dec(r12);
+                a.mov(rbx, ptr(rdi, r12, 3));  // b
+                a.dec(r12);
+                a.mov(rax, ptr(rdi, r12, 3));  // a
+                a.cmp(rax, rbx);
+                a.setg(al);  // al = (a > b) ? 1 : 0 (signed)
+                a.movzx(rax, al);
+                a.mov(ptr(rdi, r12, 3), rax);
+                a.inc(r12);
+                break;
+            }
+
+            case bytecode::OpCode::LE:
+            {
+                // pop b, pop a, push (a <= b)
+                a.dec(r12);
+                a.mov(rbx, ptr(rdi, r12, 3));  // b
+                a.dec(r12);
+                a.mov(rax, ptr(rdi, r12, 3));  // a
+                a.cmp(rax, rbx);
+                a.setle(al);  // al = (a <= b) ? 1 : 0 (signed)
+                a.movzx(rax, al);
+                a.mov(ptr(rdi, r12, 3), rax);
+                a.inc(r12);
+                break;
+            }
+
+            case bytecode::OpCode::GE:
+            {
+                // pop b, pop a, push (a >= b)
+                a.dec(r12);
+                a.mov(rbx, ptr(rdi, r12, 3));  // b
+                a.dec(r12);
+                a.mov(rax, ptr(rdi, r12, 3));  // a
+                a.cmp(rax, rbx);
+                a.setge(al);  // al = (a >= b) ? 1 : 0 (signed)
+                a.movzx(rax, al);
+                a.mov(ptr(rdi, r12, 3), rax);
+                a.inc(r12);
+                break;
+            }
+
             case bytecode::OpCode::LOAD_VAR:
             {
                 // Load from stack slot to virtual stack: push(stack[slot])
@@ -652,6 +742,108 @@ NativeFunction* JITCompilerT1::compileRange_ARM64(void* codePtr, bytecode::Chunk
                 a.lsl(a64::x12, a64::x9, 3);  // x12 = x9 << 3
                 a.str(a64::x10, a64::ptr(a64::x0, a64::x12));  // stack[x9] = x10
                 a.add(a64::x9, a64::x9, 1);  // x9++
+                break;
+            }
+
+            case bytecode::OpCode::EQ:
+            {
+                // pop b, pop a, push (a == b)
+                a.sub(a64::x9, a64::x9, 1);  // x9--
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x11, a64::ptr(a64::x0, a64::x12));  // x11 = b
+                a.sub(a64::x9, a64::x9, 1);  // x9--
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));  // x10 = a
+                a.cmp(a64::x10, a64::x11);  // compare a with b
+                a.cset(a64::x10, asmjit::a64::CondCode::kEQ);  // x10 = (a == b) ? 1 : 0
+                a.lsl(a64::x12, a64::x9, 3);
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x12));
+                a.add(a64::x9, a64::x9, 1);  // x9++
+                break;
+            }
+
+            case bytecode::OpCode::NE:
+            {
+                // pop b, pop a, push (a != b)
+                a.sub(a64::x9, a64::x9, 1);
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x11, a64::ptr(a64::x0, a64::x12));  // x11 = b
+                a.sub(a64::x9, a64::x9, 1);
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));  // x10 = a
+                a.cmp(a64::x10, a64::x11);
+                a.cset(a64::x10, asmjit::a64::CondCode::kNE);  // x10 = (a != b) ? 1 : 0
+                a.lsl(a64::x12, a64::x9, 3);
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x12));
+                a.add(a64::x9, a64::x9, 1);
+                break;
+            }
+
+            case bytecode::OpCode::LT:
+            {
+                // pop b, pop a, push (a < b)
+                a.sub(a64::x9, a64::x9, 1);
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x11, a64::ptr(a64::x0, a64::x12));  // x11 = b
+                a.sub(a64::x9, a64::x9, 1);
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));  // x10 = a
+                a.cmp(a64::x10, a64::x11);
+                a.cset(a64::x10, asmjit::a64::CondCode::kLT);  // x10 = (a < b) ? 1 : 0
+                a.lsl(a64::x12, a64::x9, 3);
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x12));
+                a.add(a64::x9, a64::x9, 1);
+                break;
+            }
+
+            case bytecode::OpCode::GT:
+            {
+                // pop b, pop a, push (a > b)
+                a.sub(a64::x9, a64::x9, 1);
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x11, a64::ptr(a64::x0, a64::x12));  // x11 = b
+                a.sub(a64::x9, a64::x9, 1);
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));  // x10 = a
+                a.cmp(a64::x10, a64::x11);
+                a.cset(a64::x10, asmjit::a64::CondCode::kGT);  // x10 = (a > b) ? 1 : 0
+                a.lsl(a64::x12, a64::x9, 3);
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x12));
+                a.add(a64::x9, a64::x9, 1);
+                break;
+            }
+
+            case bytecode::OpCode::LE:
+            {
+                // pop b, pop a, push (a <= b)
+                a.sub(a64::x9, a64::x9, 1);
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x11, a64::ptr(a64::x0, a64::x12));  // x11 = b
+                a.sub(a64::x9, a64::x9, 1);
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));  // x10 = a
+                a.cmp(a64::x10, a64::x11);
+                a.cset(a64::x10, asmjit::a64::CondCode::kLE);  // x10 = (a <= b) ? 1 : 0
+                a.lsl(a64::x12, a64::x9, 3);
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x12));
+                a.add(a64::x9, a64::x9, 1);
+                break;
+            }
+
+            case bytecode::OpCode::GE:
+            {
+                // pop b, pop a, push (a >= b)
+                a.sub(a64::x9, a64::x9, 1);
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x11, a64::ptr(a64::x0, a64::x12));  // x11 = b
+                a.sub(a64::x9, a64::x9, 1);
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));  // x10 = a
+                a.cmp(a64::x10, a64::x11);
+                a.cset(a64::x10, asmjit::a64::CondCode::kGE);  // x10 = (a >= b) ? 1 : 0
+                a.lsl(a64::x12, a64::x9, 3);
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x12));
+                a.add(a64::x9, a64::x9, 1);
                 break;
             }
 

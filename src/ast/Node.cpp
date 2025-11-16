@@ -41,6 +41,10 @@ std::string nodeTypeToString(NodeType type)
             return "BLOCK_STATEMENT";
         case NodeType::IMPORT_STATEMENT:
             return "IMPORT_STATEMENT";
+        case NodeType::TRY_STATEMENT:
+            return "TRY_STATEMENT";
+        case NodeType::THROW_STATEMENT:
+            return "THROW_STATEMENT";
 
         // 표현식
         case NodeType::IDENTIFIER:

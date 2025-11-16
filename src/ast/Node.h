@@ -35,6 +35,8 @@ enum class NodeType
     RANGE_FOR_STATEMENT,        ///< 범위 반복문 (i가 1부터 10까지)
     BLOCK_STATEMENT,            ///< 블록 문장 { ... }
     IMPORT_STATEMENT,           ///< 모듈 가져오기 (가져오기 "모듈명")
+    TRY_STATEMENT,              ///< 예외 처리 (시도 { } 오류 (e) { })
+    THROW_STATEMENT,            ///< 예외 던지기 (던지다 에러)
 
     // 표현식 (Expressions)
     IDENTIFIER,                 ///< 식별자 (변수명, 함수명)

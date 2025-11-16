@@ -492,5 +492,127 @@ public:
     const std::string& modulePath() const { return modulePath_; }
 };
 
+/**
+ * @class CatchClause
+ * @brief Catch 절 (예외 처리의 일부)
+ *
+ * Try-catch 문의 catch 절을 나타냅니다.
+ * 에러를 받아서 처리하는 블록입니다.
+ */
+class CatchClause
+{
+private:
+    std::string errorVarName_;           ///< 에러를 저장할 변수명 (예: e)
+    std::unique_ptr<BlockStatement> body_;  ///< catch 블록 본문
+
+public:
+    /**
+     * @brief CatchClause 생성자
+     * @param errorVarName 에러를 저장할 변수명
+     * @param body catch 블록 본문
+     */
+    CatchClause(const std::string& errorVarName, std::unique_ptr<BlockStatement> body)
+        : errorVarName_(errorVarName)
+        , body_(std::move(body))
+    {}
+
+    const std::string& errorVarName() const { return errorVarName_; }
+    const BlockStatement* body() const { return body_.get(); }
+};
+
+/**
+ * @class TryStatement
+ * @brief 예외 처리 문장
+ *
+ * @example
+ * 시도 {
+ *     결과 = 10 / 0
+ * } 오류 (e) {
+ *     출력("에러:", e)
+ * } 마지막 {
+ *     출력("정리")
+ * }
+ */
+class TryStatement : public Statement
+{
+private:
+    std::unique_ptr<BlockStatement> tryBlock_;              ///< 시도 블록
+    std::vector<std::unique_ptr<CatchClause>> catchClauses_;  ///< 오류 절 (여러 개 가능)
+    std::unique_ptr<BlockStatement> finallyBlock_;          ///< 마지막 블록 (optional)
+
+public:
+    /**
+     * @brief TryStatement 생성자
+     * @param tryBlock 시도 블록
+     * @param catchClauses 오류 절 리스트
+     * @param finallyBlock 마지막 블록 (nullptr 가능)
+     */
+    TryStatement(
+        std::unique_ptr<BlockStatement> tryBlock,
+        std::vector<std::unique_ptr<CatchClause>> catchClauses,
+        std::unique_ptr<BlockStatement> finallyBlock = nullptr
+    )
+        : tryBlock_(std::move(tryBlock))
+        , catchClauses_(std::move(catchClauses))
+        , finallyBlock_(std::move(finallyBlock))
+    {}
+
+    NodeType type() const override { return NodeType::TRY_STATEMENT; }
+
+    std::string toString() const override
+    {
+        std::string result = "시도 " + tryBlock_->toString();
+
+        for (const auto& catchClause : catchClauses_)
+        {
+            result += " 오류 (" + catchClause->errorVarName() + ") " +
+                     catchClause->body()->toString();
+        }
+
+        if (finallyBlock_)
+        {
+            result += " 마지막 " + finallyBlock_->toString();
+        }
+
+        return result;
+    }
+
+    const BlockStatement* tryBlock() const { return tryBlock_.get(); }
+    const std::vector<std::unique_ptr<CatchClause>>& catchClauses() const { return catchClauses_; }
+    const BlockStatement* finallyBlock() const { return finallyBlock_.get(); }
+};
+
+/**
+ * @class ThrowStatement
+ * @brief 예외 던지기 문장
+ *
+ * @example
+ * 던지다 Value::createError("Division by zero")
+ * 던지다 에러메시지
+ */
+class ThrowStatement : public Statement
+{
+private:
+    std::unique_ptr<Expression> value_;  ///< 던질 값 (Expression)
+
+public:
+    /**
+     * @brief ThrowStatement 생성자
+     * @param value 던질 값
+     */
+    explicit ThrowStatement(std::unique_ptr<Expression> value)
+        : value_(std::move(value))
+    {}
+
+    NodeType type() const override { return NodeType::THROW_STATEMENT; }
+
+    std::string toString() const override
+    {
+        return "던지다 " + (value_ ? value_->toString() : "null");
+    }
+
+    const Expression* value() const { return value_.get(); }
+};
+
 } // namespace ast
 } // namespace kingsejong

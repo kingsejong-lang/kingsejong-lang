@@ -56,6 +56,20 @@ public:
     void set(const std::string& name, const Value& value);
 
     /**
+     * @brief 변수 설정 (스코프 체인 탐색)
+     * @param name 변수 이름
+     * @param value 저장할 값
+     *
+     * 스코프 체인을 따라 변수를 찾아 업데이트합니다.
+     * 1. 현재 스코프에 변수가 있으면 현재 스코프에서 업데이트
+     * 2. 외부 스코프에 변수가 있으면 외부 스코프에서 업데이트 (재귀)
+     * 3. 어디에도 없으면 현재 스코프에 새로 생성
+     *
+     * JavaScript/Python 스타일의 변수 할당 동작을 구현합니다.
+     */
+    void setWithLookup(const std::string& name, const Value& value);
+
+    /**
      * @brief 변수 조회
      * @param name 변수 이름
      * @return 저장된 값

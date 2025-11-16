@@ -430,3 +430,102 @@ TEST(EnvironmentTest, IndependentEnvironmentsShouldNotInterfere)
     EXPECT_EQ(env2->size(), 1);
     EXPECT_EQ(env2->get("x").asInteger(), 200);
 }
+
+/**
+ * @test setWithLookup() - 현재 스코프에 변수가 있으면 현재 스코프에서 업데이트
+ */
+TEST(EnvironmentTest, SetWithLookupShouldUpdateCurrentScope)
+{
+    auto env = std::make_shared<Environment>();
+
+    env->set("x", Value::createInteger(10));
+    env->setWithLookup("x", Value::createInteger(20));
+
+    EXPECT_EQ(env->get("x").asInteger(), 20);
+}
+
+/**
+ * @test setWithLookup() - 외부 스코프에 변수가 있으면 외부 스코프에서 업데이트
+ */
+TEST(EnvironmentTest, SetWithLookupShouldUpdateOuterScope)
+{
+    auto outer = std::make_shared<Environment>();
+    outer->set("x", Value::createInteger(10));
+
+    auto inner = outer->createEnclosed();
+
+    // 내부 스코프에서 setWithLookup() 호출
+    inner->setWithLookup("x", Value::createInteger(20));
+
+    // 외부 스코프의 x가 업데이트되어야 함
+    EXPECT_EQ(outer->get("x").asInteger(), 20);
+    // 내부 스코프에는 x가 없어야 함
+    EXPECT_FALSE(inner->exists("x"));
+}
+
+/**
+ * @test setWithLookup() - 어디에도 없으면 현재 스코프에 새로 생성
+ */
+TEST(EnvironmentTest, SetWithLookupShouldCreateInCurrentScope)
+{
+    auto outer = std::make_shared<Environment>();
+    outer->set("y", Value::createInteger(100));
+
+    auto inner = outer->createEnclosed();
+
+    // 외부에도 내부에도 없는 변수
+    inner->setWithLookup("x", Value::createInteger(42));
+
+    // 내부 스코프에 새로 생성되어야 함
+    EXPECT_TRUE(inner->exists("x"));
+    EXPECT_EQ(inner->get("x").asInteger(), 42);
+    // 외부 스코프에는 없어야 함
+    EXPECT_FALSE(outer->exists("x"));
+}
+
+/**
+ * @test setWithLookup() - 중첩된 스코프에서 올바른 스코프 업데이트
+ */
+TEST(EnvironmentTest, SetWithLookupShouldUpdateCorrectScope)
+{
+    auto level1 = std::make_shared<Environment>();
+    level1->set("x", Value::createInteger(1));
+    level1->set("y", Value::createInteger(10));
+
+    auto level2 = level1->createEnclosed();
+    level2->set("y", Value::createInteger(20));  // y는 level2에도 있음
+
+    auto level3 = level2->createEnclosed();
+
+    // level3에서 x 업데이트 → level1의 x가 업데이트되어야 함
+    level3->setWithLookup("x", Value::createInteger(100));
+    EXPECT_EQ(level1->get("x").asInteger(), 100);
+    EXPECT_FALSE(level2->exists("x"));
+    EXPECT_FALSE(level3->exists("x"));
+
+    // level3에서 y 업데이트 → level2의 y가 업데이트되어야 함 (가장 가까운 스코프)
+    level3->setWithLookup("y", Value::createInteger(200));
+    EXPECT_EQ(level2->get("y").asInteger(), 200);
+    EXPECT_EQ(level1->get("y").asInteger(), 10);  // level1의 y는 그대로
+    EXPECT_FALSE(level3->exists("y"));
+}
+
+/**
+ * @test setWithLookup() - 섀도잉된 변수는 가장 가까운 스코프 업데이트
+ */
+TEST(EnvironmentTest, SetWithLookupShouldRespectShadowing)
+{
+    auto outer = std::make_shared<Environment>();
+    outer->set("x", Value::createInteger(10));
+
+    auto inner = outer->createEnclosed();
+    inner->set("x", Value::createInteger(20));  // 섀도잉
+
+    // inner에서 setWithLookup() 호출
+    inner->setWithLookup("x", Value::createInteger(30));
+
+    // inner의 x가 업데이트되어야 함
+    EXPECT_EQ(inner->get("x").asInteger(), 30);
+    // outer의 x는 그대로
+    EXPECT_EQ(outer->get("x").asInteger(), 10);
+}

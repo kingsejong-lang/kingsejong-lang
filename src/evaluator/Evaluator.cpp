@@ -402,9 +402,11 @@ Value Evaluator::evalAssignmentStatement(ast::AssignmentStatement* stmt)
     // 값 평가
     Value value = eval(const_cast<ast::Expression*>(stmt->value()));
 
-    // 환경에 값 설정 (변수가 없으면 생성, 있으면 갱신)
+    // 환경에 값 설정 (스코프 체인 탐색)
+    // 1. 상위 스코프에 변수가 있으면 → 상위 스코프에서 업데이트
+    // 2. 없으면 → 현재 스코프에 새로 생성
     // 이것이 타입 추론 기능: `x = 10`처럼 타입 없이 변수를 선언할 수 있음
-    env_->set(stmt->varName(), value);
+    env_->setWithLookup(stmt->varName(), value);
 
     return value;
 }

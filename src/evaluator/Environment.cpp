@@ -34,6 +34,27 @@ void Environment::set(const std::string& name, const Value& value)
     store_[name] = value;
 }
 
+void Environment::setWithLookup(const std::string& name, const Value& value)
+{
+    // 1. 현재 스코프에 변수가 있으면 현재 스코프에서 업데이트
+    if (exists(name))
+    {
+        store_[name] = value;
+        return;
+    }
+
+    // 2. 외부 스코프에 변수가 있는지 확인
+    if (outer_ != nullptr && outer_->existsInChain(name))
+    {
+        // 외부 스코프에서 재귀적으로 업데이트
+        outer_->setWithLookup(name, value);
+        return;
+    }
+
+    // 3. 어디에도 없으면 현재 스코프에 새로 생성
+    store_[name] = value;
+}
+
 Value Environment::get(const std::string& name) const
 {
     // 현재 스코프에서 찾기

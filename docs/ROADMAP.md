@@ -14,8 +14,8 @@
 ### 통계
 
 ```
-코드: 24,200+ 줄
-테스트: 1,347개 (100% 통과) ✅
+코드: 24,500+ 줄
+테스트: 1,353개 (100% 통과) ✅
 stdlib: 255개 함수 ✅
 문서: 4,800+ 줄
 예제: 27개
@@ -103,10 +103,10 @@ stdlib: 255개 함수 ✅
   - NetworkSecurityManager (SSRF 방지, Rate limiting, 22개 테스트)
   - Production Readiness: 4.5/10 → 7.8/10 달성! 🎉
 
-#### 6.4: JIT Compiler (Tier 1) - P0 ⏳ **진행 중 (55% 완료)**
+#### 6.4: JIT Compiler (Tier 1) - P0 ⏳ **진행 중 (70% 완료)**
 
 **목표**: 10-20배 성능 향상
-**현재 상태**: 산술 연산 + 변수 접근 완료 ✅ (16개 테스트)
+**현재 상태**: 산술 연산 + 변수 접근 + 제어 흐름 완료 ✅ (22개 테스트)
 
 **완료 항목**:
 
@@ -116,15 +116,16 @@ stdlib: 255개 함수 ✅
    - ✅ 크로스 플랫폼 지원 (x64 + ARM64)
    - ✅ Fallback 메커니즘 (JIT 실패 시 nullptr 반환)
 
-2. **기본 JIT 구현** (55% 완료)
+2. **기본 JIT 구현** (70% 완료)
    - ✅ 산술 연산 JIT 컴파일 (ADD, SUB, MUL, DIV, MOD, NEG)
    - ✅ ARM64 네이티브 코드 생성 (Apple Silicon 지원)
    - ✅ x64 네이티브 코드 생성 (Intel/AMD 지원)
    - ✅ 아키텍처 자동 감지 및 디스패치
    - ✅ 스택 기반 코드 생성
    - ✅ 변수 접근 구현 (LOAD_VAR, STORE_VAR)
-   - ✅ 상수 로드 (LOAD_CONST, RETURN)
-   - [ ] 제어 흐름 (JUMP, JUMP_IF_FALSE, JUMP_IF_TRUE)
+   - ✅ 상수 로드 (LOAD_CONST, LOAD_TRUE, LOAD_FALSE, RETURN)
+   - ✅ 제어 흐름 (JUMP, JUMP_IF_FALSE, JUMP_IF_TRUE)
+   - ✅ 레이블 맵 인프라 (점프 타겟 관리)
    - [ ] 비교 연산 (EQ, NE, LT, GT, LE, GE)
    - [ ] 함수 호출 최적화
 
@@ -147,15 +148,17 @@ stdlib: 255개 함수 ✅
 - ✅ ARM64 + x64 크로스 플랫폼 지원
 - ✅ 산술 연산 7개 OpCode 구현 (ADD, SUB, MUL, DIV, MOD, NEG, RETURN)
 - ✅ 변수 접근 2개 OpCode 구현 (LOAD_VAR, STORE_VAR)
-- ✅ 16개 JIT 테스트 통과 (100%)
-- ✅ 전체 1,347개 테스트 통과 (100%)
+- ✅ 제어 흐름 5개 OpCode 구현 (JUMP, JUMP_IF_FALSE, JUMP_IF_TRUE, LOAD_TRUE, LOAD_FALSE)
+- ✅ 레이블 맵 인프라 (std::unordered_map<size_t, Label>)
+- ✅ 22개 JIT 테스트 통과 (100%)
+- ✅ 전체 1,353개 테스트 통과 (100%)
 - ✅ 컴파일 속도: < 1ms per function
 
 **다음 단계** (우선순위):
-1. 제어 흐름 구현 (JUMP, JUMP_IF_FALSE, JUMP_IF_TRUE, LOAD_TRUE/FALSE)
-2. 비교 연산 구현 (EQ, NE, LT, GT, LE, GE)
-3. VM 통합 (Hot Path Detection 연결)
-4. 성능 벤치마크 및 측정
+1. 비교 연산 구현 (EQ, NE, LT, GT, LE, GE)
+2. VM 통합 (Hot Path Detection 연결)
+3. 성능 벤치마크 및 측정
+4. 논리 연산 구현 (AND, OR, NOT)
 
 ---
 

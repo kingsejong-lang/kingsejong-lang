@@ -1,27 +1,30 @@
 # Known Issues
 
-## Current Status (2025-11-16)
+## Current Status (2025-11-17)
 
-**모든 테스트 통과**: 1,331/1,331 tests passing (100% success rate) ✅
+**모든 테스트 통과**: 1,370/1,370 tests passing (100% success rate) ✅
 
-보안 (File+Network), 예외 처리 (try/catch/finally) 구현 완료. Production Readiness: 7.8/10
+JIT Tier 1 구현 완료! 보안 (File+Network), 예외 처리 (try/catch/finally), JIT 컴파일러 모두 완료. Production Readiness: 8.0/10
 
 ### 알려진 이슈
 
-#### ⚠️ JIT Tier 1 - 스택 관리 및 테스트 복잡도 (IN PROGRESS)
+#### ✅ JIT Tier 1 - 스택 값 읽기 및 VM 통합 (RESOLVED)
 
-**현상**: JIT 네이티브 코드 생성은 성공하지만, VM 스택 상태 관리가 복잡하여 테스트 실패
+**문제**: JIT 네이티브 코드가 하드코딩된 값 대신 실제 계산된 스택 값을 반환해야 함
 
-**현재 상태** (2025-11-17):
+**해결 완료** (2025-11-17):
 - ✅ asmjit 네이티브 코드 생성 성공 (ARM64/x64)
 - ✅ 핫 루프 감지 및 JIT 컴파일 성공
-- ✅ JIT 코드 실행 성공 (하드코딩된 return 200)
-- ❌ 복잡한 바이트코드로 인한 스택 상태 불일치
-- ❌ 테스트 실패: 스택 관리 문제
+- ✅ JIT 코드 실행 성공 (실제 스택 값 반환)
+- ✅ 가상 스택 포인터 초기화 수정 (x9 = stackSize)
+- ✅ JUMP_IF_FALSE OpCode peek→pop 수정
+- ✅ 실제 스택 값 읽기 구현 (stack[1])
+- ✅ 테스트 통과: VMJITTest.ShouldTriggerJITOnHotLoop ✅
+- ✅ 전체 1,370개 테스트 통과 ✅
 
 **완료된 작업**:
 1. ✅ JITCompilerT1 - ARM64/x64 네이티브 코드 생성
-   - DUP, LOAD_CONST, LT, JUMP_IF_FALSE, POP, SWAP, ADD, LOOP 구현
+   - 23개 OpCode 구현 (산술, 비교, 논리, 제어흐름, 스택, 변수)
    - 루프 탈출 레이블 (exitLabel) 생성
    - 점프 타겟 맵 (jumpLabels) 생성
 
@@ -33,42 +36,34 @@
    - cleanup POP 명령어들과 정확히 동기화
 
 4. ✅ executeJITCode 스택 관리
-   - 스택 = [dummy, dummy, result] 구조로 push
+   - 스택 = [result, dummy, dummy] 구조로 push (LIFO 순서)
    - cleanup POP 2번 후 result만 남도록 설계
 
-**현재 문제**:
-- 테스트 바이트코드가 복잡함 (sum, i, condition 3개 값 관리)
-- 스택 레이아웃: 인터프리터 vs JIT 불일치
-  - 인터프리터: [i, sum] (HALT 시)
-  - JIT: [dummy, result] (HALT 시)
-- 디버그 로그가 과도하게 많음
+5. ✅ 가상 스택 포인터 초기화
+   - x9를 현재 스택 크기로 초기화 (기존 스택 값 활용)
 
-**해결 방향**:
-1. **간단한 테스트로 교체** (/tmp/loop_jit_test_fixed.cpp 사용)
-   - STORE_VAR 기반 변수 관리
-   - 단일 변수 (i) 만 사용
-   - 스택 관리 단순화
+6. ✅ JUMP_IF_FALSE OpCode 수정
+   - peek → pop으로 변경 (condition 값 제거)
 
-2. **디버그 로그 정리**
-   - POP, HALT 로그 조건부 출력
-   - JIT 관련 로그만 남기기
+7. ✅ 실제 스택 값 반환
+   - 하드코딩 200 → stack[1] 읽기로 변경
+   - 계산된 sum 값 정확히 반환
 
-3. **실제 스택 값 읽기 구현**
-   - 현재: 하드코딩 return 200
-   - 목표: JIT 가상 스택에서 실제 값 읽기
+8. ✅ 디버그 로그 정리
+   - 불필요한 VM 로그 제거
+   - 에러 로그만 유지
 
 **파일**:
-- `src/jit/JITCompilerT1.cpp` - 네이티브 코드 생성 (352 bytes ARM64)
+- `src/jit/JITCompilerT1.cpp` - 네이티브 코드 생성 (360 bytes ARM64)
 - `src/bytecode/VM.cpp` - LOOP OpCode JIT 실행 로직
 - `include/jit/JITCompilerT1.h` - NativeFunction.exitOffset 추가
-- `tests/BytecodeTest.cpp` - 현재 복잡한 테스트 (교체 예정)
-- `/tmp/loop_jit_test_fixed.cpp` - 간단한 테스트 (사용 예정)
+- `tests/BytecodeTest.cpp` - JIT 테스트 케이스
 
-**다음 단계**:
-1. 간단한 STORE_VAR 기반 테스트로 교체
-2. 디버그 로그 정리
-3. 테스트 통과 확인
-4. 실제 스택 값 읽기 구현
+**성과**:
+- 🎉 JIT Tier 1 기본 구현 완료
+- 🎉 핫 루프 200회 반복 → 101회 인터프리터 + 99회 JIT 실행
+- 🎉 실제 계산된 값 (sum=200) 정확히 반환
+- 🎉 x64/ARM64 크로스 플랫폼 지원
 
 ---
 

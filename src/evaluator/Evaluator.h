@@ -285,6 +285,20 @@ private:
      */
     Value evalImportStatement(ast::ImportStatement* stmt);
 
+    /**
+     * @brief 예외 던지기 실행
+     * @param stmt 예외 던지기 노드
+     * @return 에러 Value
+     */
+    Value evalThrowStatement(ast::ThrowStatement* stmt);
+
+    /**
+     * @brief 예외 처리 블록 실행
+     * @param stmt 예외 처리 블록 노드
+     * @return 블록 실행 결과
+     */
+    Value evalTryStatement(ast::TryStatement* stmt);
+
     // 헬퍼 함수들
 
     /**

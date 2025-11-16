@@ -384,3 +384,161 @@ TEST(EvaluatorTest, ShouldEvaluateTruthiness)
     EXPECT_TRUE(result3.isBoolean());
     EXPECT_TRUE(result3.asBoolean());  // 빈 문자열은 거짓
 }
+
+// ============================================================================
+// 예외 처리 테스트 (Exception Handling)
+// ============================================================================
+
+/**
+ * @brief 던지다 문장 테스트 - 에러 값 생성
+ */
+TEST(EvaluatorTest, ShouldThrowError)
+{
+    auto result = evalInput(R"(
+        던지다 "에러 발생"
+    )");
+
+    EXPECT_TRUE(result.isError());
+    auto err = result.asError();
+    EXPECT_EQ(err->message(), "에러 발생");
+    EXPECT_EQ(err->type(), "Error");
+}
+
+/**
+ * @brief 시도-오류 블록 테스트 - 에러 잡기
+ */
+TEST(EvaluatorTest, ShouldCatchError)
+{
+    auto result = evalInput(R"(
+        정수 결과 = 0
+        시도 {
+            던지다 "문제 발생"
+        } 오류 (e) {
+            결과 = 42
+        }
+        결과
+    )");
+
+    EXPECT_TRUE(result.isInteger());
+    EXPECT_EQ(result.asInteger(), 42);
+}
+
+/**
+ * @brief 시도-오류 블록 테스트 - 에러 변수 접근
+ */
+TEST(EvaluatorTest, ShouldAccessErrorVariable)
+{
+    auto result = evalInput(R"(
+        문자열 메시지 = ""
+        시도 {
+            던지다 "에러 메시지"
+        } 오류 (e) {
+            메시지 = e
+        }
+        메시지
+    )");
+
+    EXPECT_TRUE(result.isString());
+    EXPECT_EQ(result.asString(), "Error: 에러 메시지");
+}
+
+/**
+ * @brief 시도-마지막 블록 테스트 - finally 실행 보장
+ */
+TEST(EvaluatorTest, ShouldExecuteFinallyBlock)
+{
+    auto result = evalInput(R"(
+        정수 카운트 = 0
+        시도 {
+            카운트 = 1
+        } 마지막 {
+            카운트 = 카운트 + 10
+        }
+        카운트
+    )");
+
+    EXPECT_TRUE(result.isInteger());
+    EXPECT_EQ(result.asInteger(), 11);
+}
+
+/**
+ * @brief 시도-오류-마지막 블록 테스트 - 에러 발생 시 finally 실행
+ */
+TEST(EvaluatorTest, ShouldExecuteFinallyAfterError)
+{
+    auto result = evalInput(R"(
+        정수 카운트 = 0
+        시도 {
+            카운트 = 1
+            던지다 "에러"
+        } 오류 (e) {
+            카운트 = 5
+        } 마지막 {
+            카운트 = 카운트 + 10
+        }
+        카운트
+    )");
+
+    EXPECT_TRUE(result.isInteger());
+    EXPECT_EQ(result.asInteger(), 15);  // 1 → 5 (catch) → 15 (finally)
+}
+
+/**
+ * @brief 중첩된 시도 블록 테스트
+ */
+TEST(EvaluatorTest, ShouldHandleNestedTryBlocks)
+{
+    auto result = evalInput(R"(
+        정수 결과 = 0
+        시도 {
+            시도 {
+                던지다 "내부 에러"
+            } 오류 (e) {
+                결과 = 10
+            }
+        } 마지막 {
+            결과 = 결과 + 5
+        }
+        결과
+    )");
+
+    EXPECT_TRUE(result.isInteger());
+    EXPECT_EQ(result.asInteger(), 15);
+}
+
+/**
+ * @brief 에러 없이 정상 실행되는 시도 블록
+ */
+TEST(EvaluatorTest, ShouldExecuteTryBlockWithoutError)
+{
+    auto result = evalInput(R"(
+        정수 값 = 0
+        시도 {
+            값 = 42
+        } 오류 (e) {
+            값 = -1
+        }
+        값
+    )");
+
+    EXPECT_TRUE(result.isInteger());
+    EXPECT_EQ(result.asInteger(), 42);  // catch 블록은 실행되지 않음
+}
+
+/**
+ * @brief 에러를 잡지 못한 경우 전파
+ */
+TEST(EvaluatorTest, ShouldPropagateUncaughtError)
+{
+    auto result = evalInput(R"(
+        시도 {
+            던지다 "잡히지 않은 에러"
+        } 마지막 {
+            정수 x = 1
+        }
+    )");
+
+    EXPECT_TRUE(result.isError());
+    auto err = result.asError();
+    EXPECT_EQ(err->message(), "잡히지 않은 에러");
+}

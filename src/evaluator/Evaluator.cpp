@@ -118,6 +118,12 @@ Value Evaluator::eval(ast::Node* node)
         case ast::NodeType::IMPORT_STATEMENT:
             return evalImportStatement(static_cast<ast::ImportStatement*>(node));
 
+        case ast::NodeType::THROW_STATEMENT:
+            return evalThrowStatement(static_cast<ast::ThrowStatement*>(node));
+
+        case ast::NodeType::TRY_STATEMENT:
+            return evalTryStatement(static_cast<ast::TryStatement*>(node));
+
         default:
         {
             std::string msg = "평가되지 않은 노드 타입: " + ast::nodeTypeToString(node->type());
@@ -781,6 +787,134 @@ Value Evaluator::evalImportStatement(ast::ImportStatement* stmt)
     }
 
     return Value::createNull();
+}
+
+/**
+ * @brief 던지다 문장 실행
+ *
+ * 표현식을 평가하여 에러 Value를 생성하고 반환합니다.
+ *
+ * @example
+ * 던지다 "에러 메시지"  → Error Value 반환
+ * 던지다 에러_생성()    → 함수 결과를 에러로 변환
+ */
+Value Evaluator::evalThrowStatement(ast::ThrowStatement* stmt)
+{
+    // 던질 값 평가
+    Value value = eval(const_cast<ast::Expression*>(stmt->value()));
+
+    // 이미 에러 타입이면 그대로 반환
+    if (value.isError())
+    {
+        return value;
+    }
+
+    // 문자열인 경우 에러 메시지로 변환
+    if (value.isString())
+    {
+        return Value::createError(value.asString());
+    }
+
+    // 그 외의 타입은 toString()으로 변환하여 에러 생성
+    return Value::createError(value.toString());
+}
+
+/**
+ * @brief 시도-오류-마지막 블록 실행
+ *
+ * 예외 처리 메커니즘:
+ * 1. try 블록 실행
+ * 2. 에러 발생 시 catch 블록 실행 (에러 변수 바인딩)
+ * 3. finally 블록은 항상 실행 (에러 유무 관계없이)
+ * 4. catch되지 않은 에러는 전파
+ *
+ * @example
+ * 시도 {
+ *     던지다 "에러"
+ * } 오류 (e) {
+ *     출력(e)
+ * } 마지막 {
+ *     정리()
+ * }
+ */
+Value Evaluator::evalTryStatement(ast::TryStatement* stmt)
+{
+    Value result = Value::createNull();
+    Value caughtError = Value::createNull();
+    bool errorCaught = false;
+
+    // 1. Try 블록 실행
+    try
+    {
+        result = eval(const_cast<ast::BlockStatement*>(stmt->tryBlock()));
+
+        // 에러 Value가 반환된 경우 catch 블록으로 전달
+        if (result.isError())
+        {
+            caughtError = result;
+            errorCaught = false;  // catch 블록에서 처리 필요
+        }
+        else
+        {
+            errorCaught = true;  // 에러 없음
+        }
+    }
+    catch (const ReturnValue& ret)
+    {
+        // return 문은 try-catch를 통과시킴
+        // finally 블록 실행 후 다시 던짐
+        if (stmt->finallyBlock())
+        {
+            eval(const_cast<ast::BlockStatement*>(stmt->finallyBlock()));
+        }
+        throw;  // return 예외 재전파
+    }
+    catch (...)
+    {
+        // C++ 예외는 런타임 에러로 변환
+        caughtError = Value::createError("예기치 않은 내부 에러 발생", "RuntimeError");
+        errorCaught = false;
+    }
+
+    // 2. Catch 블록 실행 (에러가 있고 catch절이 있는 경우)
+    if (!errorCaught && !stmt->catchClauses().empty())
+    {
+        // 첫 번째 catch 절 실행 (현재는 단일 catch만 지원)
+        const auto& catchClause = stmt->catchClauses()[0];
+
+        // 새로운 스코프 생성 (에러 변수 바인딩용)
+        auto catchEnv = std::make_shared<Environment>(env_);
+        auto prevEnv = env_;
+        env_ = catchEnv;
+
+        // 에러 변수 바인딩
+        // 에러 Value를 문자열로 변환하여 바인딩
+        env_->set(catchClause->errorVarName(),
+                 Value::createString(caughtError.toString()));
+
+        // Catch 블록 실행
+        result = eval(const_cast<ast::BlockStatement*>(catchClause->body()));
+
+        // 환경 복원
+        env_ = prevEnv;
+
+        errorCaught = true;  // 에러가 처리됨
+    }
+
+    // 3. Finally 블록 실행 (항상)
+    if (stmt->finallyBlock())
+    {
+        eval(const_cast<ast::BlockStatement*>(stmt->finallyBlock()));
+    }
+
+    // 4. 에러 전파
+    if (!errorCaught)
+    {
+        // catch되지 않은 에러는 호출자에게 전파
+        return caughtError;
+    }
+
+    return result;
 }
 
 Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)

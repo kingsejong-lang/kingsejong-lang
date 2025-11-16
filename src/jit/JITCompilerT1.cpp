@@ -418,6 +418,64 @@ NativeFunction* JITCompilerT1::compileRange_x64(void* codePtr, bytecode::Chunk* 
                 break;
             }
 
+            case bytecode::OpCode::AND:
+            {
+                // pop b, pop a, push (a && b)
+                // Result: 1 if both non-zero, 0 otherwise
+                a.dec(r12);
+                a.mov(rbx, ptr(rdi, r12, 3));  // b
+                a.dec(r12);
+                a.mov(rax, ptr(rdi, r12, 3));  // a
+
+                // Check if both are non-zero
+                a.test(rax, rax);  // test a
+                a.setnz(al);       // al = (a != 0) ? 1 : 0
+                a.test(rbx, rbx);  // test b
+                a.setnz(bl);       // bl = (b != 0) ? 1 : 0
+                a.and_(al, bl);    // al = al && bl
+                a.movzx(rax, al);  // zero-extend to rax
+
+                a.mov(ptr(rdi, r12, 3), rax);
+                a.inc(r12);
+                break;
+            }
+
+            case bytecode::OpCode::OR:
+            {
+                // pop b, pop a, push (a || b)
+                // Result: 1 if either non-zero, 0 otherwise
+                a.dec(r12);
+                a.mov(rbx, ptr(rdi, r12, 3));  // b
+                a.dec(r12);
+                a.mov(rax, ptr(rdi, r12, 3));  // a
+
+                // Check if either is non-zero
+                a.or_(rax, rbx);   // rax = a | b (bitwise OR)
+                a.test(rax, rax);  // test result
+                a.setnz(al);       // al = (result != 0) ? 1 : 0
+                a.movzx(rax, al);  // zero-extend to rax
+
+                a.mov(ptr(rdi, r12, 3), rax);
+                a.inc(r12);
+                break;
+            }
+
+            case bytecode::OpCode::NOT:
+            {
+                // pop a, push (!a)
+                // Result: 1 if a is zero, 0 otherwise
+                a.dec(r12);
+                a.mov(rax, ptr(rdi, r12, 3));  // a
+
+                a.test(rax, rax);  // test a
+                a.setz(al);        // al = (a == 0) ? 1 : 0
+                a.movzx(rax, al);  // zero-extend to rax
+
+                a.mov(ptr(rdi, r12, 3), rax);
+                a.inc(r12);
+                break;
+            }
+
             case bytecode::OpCode::LOAD_VAR:
             {
                 // Load from stack slot to virtual stack: push(stack[slot])
@@ -841,6 +899,69 @@ NativeFunction* JITCompilerT1::compileRange_ARM64(void* codePtr, bytecode::Chunk
                 a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));  // x10 = a
                 a.cmp(a64::x10, a64::x11);
                 a.cset(a64::x10, asmjit::a64::CondCode::kGE);  // x10 = (a >= b) ? 1 : 0
+                a.lsl(a64::x12, a64::x9, 3);
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x12));
+                a.add(a64::x9, a64::x9, 1);
+                break;
+            }
+
+            case bytecode::OpCode::AND:
+            {
+                // pop b, pop a, push (a && b)
+                // Result: 1 if both non-zero, 0 otherwise
+                a.sub(a64::x9, a64::x9, 1);
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x11, a64::ptr(a64::x0, a64::x12));  // x11 = b
+                a.sub(a64::x9, a64::x9, 1);
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));  // x10 = a
+
+                // Check if both are non-zero
+                a.cmp(a64::x10, 0);  // compare a with 0
+                a.cset(a64::x10, asmjit::a64::CondCode::kNE);  // x10 = (a != 0) ? 1 : 0
+                a.cmp(a64::x11, 0);  // compare b with 0
+                a.cset(a64::x11, asmjit::a64::CondCode::kNE);  // x11 = (b != 0) ? 1 : 0
+                a.and_(a64::x10, a64::x10, a64::x11);  // x10 = x10 && x11
+
+                a.lsl(a64::x12, a64::x9, 3);
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x12));
+                a.add(a64::x9, a64::x9, 1);
+                break;
+            }
+
+            case bytecode::OpCode::OR:
+            {
+                // pop b, pop a, push (a || b)
+                // Result: 1 if either non-zero, 0 otherwise
+                a.sub(a64::x9, a64::x9, 1);
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x11, a64::ptr(a64::x0, a64::x12));  // x11 = b
+                a.sub(a64::x9, a64::x9, 1);
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));  // x10 = a
+
+                // Check if either is non-zero
+                a.orr(a64::x10, a64::x10, a64::x11);  // x10 = a | b (bitwise OR)
+                a.cmp(a64::x10, 0);  // compare result with 0
+                a.cset(a64::x10, asmjit::a64::CondCode::kNE);  // x10 = (result != 0) ? 1 : 0
+
+                a.lsl(a64::x12, a64::x9, 3);
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x12));
+                a.add(a64::x9, a64::x9, 1);
+                break;
+            }
+
+            case bytecode::OpCode::NOT:
+            {
+                // pop a, push (!a)
+                // Result: 1 if a is zero, 0 otherwise
+                a.sub(a64::x9, a64::x9, 1);
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));  // x10 = a
+
+                a.cmp(a64::x10, 0);  // compare a with 0
+                a.cset(a64::x10, asmjit::a64::CondCode::kEQ);  // x10 = (a == 0) ? 1 : 0
+
                 a.lsl(a64::x12, a64::x9, 3);
                 a.str(a64::x10, a64::ptr(a64::x0, a64::x12));
                 a.add(a64::x9, a64::x9, 1);

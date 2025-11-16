@@ -869,3 +869,178 @@ TEST_F(JITCompilerT1Test, ShouldCompileComparisonWithConditional)
 
     compiler_.freeFunction(nativeFunc);
 }
+
+// ============================================================================
+// 논리 연산 테스트
+// ============================================================================
+
+TEST_F(JITCompilerT1Test, ShouldCompileAndTrue)
+{
+    // 바이트코드: 1 && 1 -> true (1)
+    // LOAD_TRUE
+    // LOAD_TRUE
+    // AND
+    // RETURN
+
+    chunk_.writeOpCode(OpCode::LOAD_TRUE, 1);
+    chunk_.writeOpCode(OpCode::LOAD_TRUE, 2);
+    chunk_.writeOpCode(OpCode::AND, 3);
+    chunk_.writeOpCode(OpCode::RETURN, 4);
+
+    auto* nativeFunc = compiler_.compileFunction(&chunk_, 0, chunk_.size());
+    ASSERT_NE(nativeFunc, nullptr);
+
+    EXPECT_NE(nativeFunc->code, nullptr);
+    EXPECT_GT(nativeFunc->codeSize, 0);
+
+    compiler_.freeFunction(nativeFunc);
+}
+
+TEST_F(JITCompilerT1Test, ShouldCompileAndFalse)
+{
+    // 바이트코드: 1 && 0 -> false (0)
+
+    chunk_.writeOpCode(OpCode::LOAD_TRUE, 1);
+    chunk_.writeOpCode(OpCode::LOAD_FALSE, 2);
+    chunk_.writeOpCode(OpCode::AND, 3);
+    chunk_.writeOpCode(OpCode::RETURN, 4);
+
+    auto* nativeFunc = compiler_.compileFunction(&chunk_, 0, chunk_.size());
+    ASSERT_NE(nativeFunc, nullptr);
+
+    compiler_.freeFunction(nativeFunc);
+}
+
+TEST_F(JITCompilerT1Test, ShouldCompileOrTrue)
+{
+    // 바이트코드: 0 || 1 -> true (1)
+
+    chunk_.writeOpCode(OpCode::LOAD_FALSE, 1);
+    chunk_.writeOpCode(OpCode::LOAD_TRUE, 2);
+    chunk_.writeOpCode(OpCode::OR, 3);
+    chunk_.writeOpCode(OpCode::RETURN, 4);
+
+    auto* nativeFunc = compiler_.compileFunction(&chunk_, 0, chunk_.size());
+    ASSERT_NE(nativeFunc, nullptr);
+
+    compiler_.freeFunction(nativeFunc);
+}
+
+TEST_F(JITCompilerT1Test, ShouldCompileOrFalse)
+{
+    // 바이트코드: 0 || 0 -> false (0)
+
+    chunk_.writeOpCode(OpCode::LOAD_FALSE, 1);
+    chunk_.writeOpCode(OpCode::LOAD_FALSE, 2);
+    chunk_.writeOpCode(OpCode::OR, 3);
+    chunk_.writeOpCode(OpCode::RETURN, 4);
+
+    auto* nativeFunc = compiler_.compileFunction(&chunk_, 0, chunk_.size());
+    ASSERT_NE(nativeFunc, nullptr);
+
+    compiler_.freeFunction(nativeFunc);
+}
+
+TEST_F(JITCompilerT1Test, ShouldCompileNotTrue)
+{
+    // 바이트코드: !0 -> true (1)
+
+    chunk_.writeOpCode(OpCode::LOAD_FALSE, 1);
+    chunk_.writeOpCode(OpCode::NOT, 2);
+    chunk_.writeOpCode(OpCode::RETURN, 3);
+
+    auto* nativeFunc = compiler_.compileFunction(&chunk_, 0, chunk_.size());
+    ASSERT_NE(nativeFunc, nullptr);
+
+    compiler_.freeFunction(nativeFunc);
+}
+
+TEST_F(JITCompilerT1Test, ShouldCompileNotFalse)
+{
+    // 바이트코드: !1 -> false (0)
+
+    chunk_.writeOpCode(OpCode::LOAD_TRUE, 1);
+    chunk_.writeOpCode(OpCode::NOT, 2);
+    chunk_.writeOpCode(OpCode::RETURN, 3);
+
+    auto* nativeFunc = compiler_.compileFunction(&chunk_, 0, chunk_.size());
+    ASSERT_NE(nativeFunc, nullptr);
+
+    compiler_.freeFunction(nativeFunc);
+}
+
+TEST_F(JITCompilerT1Test, ShouldCompileLogicalWithNumbers)
+{
+    // 바이트코드: (5 > 3) && (2 < 4) -> true
+    // LOAD_CONST 0 (5)
+    // LOAD_CONST 1 (3)
+    // GT
+    // LOAD_CONST 2 (2)
+    // LOAD_CONST 3 (4)
+    // LT
+    // AND
+    // RETURN
+
+    chunk_.addConstant(Value::createInteger(5));
+    chunk_.addConstant(Value::createInteger(3));
+    chunk_.addConstant(Value::createInteger(2));
+    chunk_.addConstant(Value::createInteger(4));
+
+    chunk_.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk_.write(0, 1);
+
+    chunk_.writeOpCode(OpCode::LOAD_CONST, 2);
+    chunk_.write(1, 2);
+
+    chunk_.writeOpCode(OpCode::GT, 3);
+
+    chunk_.writeOpCode(OpCode::LOAD_CONST, 4);
+    chunk_.write(2, 4);
+
+    chunk_.writeOpCode(OpCode::LOAD_CONST, 5);
+    chunk_.write(3, 5);
+
+    chunk_.writeOpCode(OpCode::LT, 6);
+
+    chunk_.writeOpCode(OpCode::AND, 7);
+    chunk_.writeOpCode(OpCode::RETURN, 8);
+
+    auto* nativeFunc = compiler_.compileFunction(&chunk_, 0, chunk_.size());
+    ASSERT_NE(nativeFunc, nullptr);
+
+    EXPECT_NE(nativeFunc->code, nullptr);
+    EXPECT_GT(nativeFunc->codeSize, 0);
+
+    compiler_.freeFunction(nativeFunc);
+}
+
+TEST_F(JITCompilerT1Test, ShouldCompileComplexLogical)
+{
+    // 바이트코드: !(5 < 3) -> true
+    // LOAD_CONST 0 (5)
+    // LOAD_CONST 1 (3)
+    // LT
+    // NOT
+    // RETURN
+
+    chunk_.addConstant(Value::createInteger(5));
+    chunk_.addConstant(Value::createInteger(3));
+
+    chunk_.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk_.write(0, 1);
+
+    chunk_.writeOpCode(OpCode::LOAD_CONST, 2);
+    chunk_.write(1, 2);
+
+    chunk_.writeOpCode(OpCode::LT, 3);
+    chunk_.writeOpCode(OpCode::NOT, 4);
+    chunk_.writeOpCode(OpCode::RETURN, 5);
+
+    auto* nativeFunc = compiler_.compileFunction(&chunk_, 0, chunk_.size());
+    ASSERT_NE(nativeFunc, nullptr);
+
+    EXPECT_NE(nativeFunc->code, nullptr);
+    EXPECT_GT(nativeFunc->codeSize, 0);
+
+    compiler_.freeFunction(nativeFunc);
+}

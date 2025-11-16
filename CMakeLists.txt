@@ -44,6 +44,7 @@ set(LIB_SOURCES
     src/bytecode/Compiler.cpp
     src/bytecode/VM.cpp
     src/jit/HotPathDetector.cpp
+    src/jit/JITCompilerT1.cpp
     src/security/SecurityManager.cpp
     src/security/NetworkSecurityManager.cpp
     src/error/ErrorReporter.cpp
@@ -84,7 +85,7 @@ target_include_directories(kingsejong_lib PUBLIC
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/include
 )
-target_link_libraries(kingsejong_lib PUBLIC nlohmann_json::nlohmann_json sqlite3)
+target_link_libraries(kingsejong_lib PUBLIC nlohmann_json::nlohmann_json sqlite3 asmjit::asmjit)
 
 # 실행 파일 소스
 set(SOURCES
@@ -136,6 +137,21 @@ FetchContent_Declare(
     GIT_TAG v3.11.3
 )
 FetchContent_MakeAvailable(json)
+
+# asmjit 설정 (JIT 컴파일러용)
+FetchContent_Declare(
+    asmjit
+    GIT_REPOSITORY https://github.com/asmjit/asmjit.git
+    GIT_TAG master
+)
+set(ASMJIT_STATIC TRUE CACHE BOOL "" FORCE)
+set(ASMJIT_NO_CUSTOM_FLAGS TRUE CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(asmjit)
+
+# asmjit의 엄격한 경고 비활성화
+if(TARGET asmjit)
+    target_compile_options(asmjit PRIVATE -Wno-error -Wno-gnu-anonymous-struct -Wno-nested-anon-types)
+endif()
 
 # 테스트 파일 수집
 file(GLOB_RECURSE TEST_SOURCES "tests/*.cpp")

@@ -6,6 +6,7 @@
  */
 
 #include "Builtin.h"
+#include "security/SecurityManager.h"
 #include <iostream>
 #include <stdexcept>
 #include <cmath>
@@ -822,6 +823,12 @@ static Value builtin_파일_읽기(const std::vector<Value>& args)
     }
 
     std::string filepath = args[0].asString();
+
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(filepath, security::FileOperation::READ)) {
+        throw std::runtime_error("파일 읽기 권한이 거부되었습니다: " + filepath);
+    }
+
     std::ifstream file(filepath);
 
     if (!file.is_open()) {
@@ -859,6 +866,11 @@ static Value builtin_파일_쓰기(const std::vector<Value>& args)
     std::string filepath = args[0].asString();
     std::string content = args[1].asString();
 
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(filepath, security::FileOperation::WRITE)) {
+        throw std::runtime_error("파일 쓰기 권한이 거부되었습니다: " + filepath);
+    }
+
     std::ofstream file(filepath);
     if (!file.is_open()) {
         throw std::runtime_error("파일을 열 수 없습니다: " + filepath);
@@ -894,6 +906,11 @@ static Value builtin_파일_추가(const std::vector<Value>& args)
     std::string filepath = args[0].asString();
     std::string content = args[1].asString();
 
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(filepath, security::FileOperation::WRITE)) {
+        throw std::runtime_error("파일 쓰기 권한이 거부되었습니다: " + filepath);
+    }
+
     std::ofstream file(filepath, std::ios::app);
     if (!file.is_open()) {
         throw std::runtime_error("파일을 열 수 없습니다: " + filepath);
@@ -922,6 +939,12 @@ static Value builtin_파일_존재(const std::vector<Value>& args)
     }
 
     std::string filepath = args[0].asString();
+
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(filepath, security::FileOperation::READ)) {
+        throw std::runtime_error("파일 읽기 권한이 거부되었습니다: " + filepath);
+    }
+
     bool exists = std::filesystem::exists(filepath);
 
     return Value::createBoolean(exists);
@@ -979,6 +1002,11 @@ static Value builtin_파일_삭제(const std::vector<Value>& args)
     }
 
     std::string filepath = args[0].asString();
+
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(filepath, security::FileOperation::DELETE)) {
+        throw std::runtime_error("파일 삭제 권한이 거부되었습니다: " + filepath);
+    }
 
     if (!std::filesystem::exists(filepath)) {
         throw std::runtime_error("파일이 존재하지 않습니다: " + filepath);
@@ -1258,6 +1286,11 @@ static Value builtin_JSON_파일_읽기(const std::vector<Value>& args)
 
     std::string filepath = args[0].asString();
 
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(filepath, security::FileOperation::READ)) {
+        throw std::runtime_error("파일 읽기 권한이 거부되었습니다: " + filepath);
+    }
+
     std::ifstream file(filepath);
     if (!file.is_open()) {
         throw std::runtime_error("JSON 파일을 열 수 없습니다: " + filepath);
@@ -1287,6 +1320,12 @@ static Value builtin_JSON_파일_쓰기(const std::vector<Value>& args)
     }
 
     std::string filepath = args[0].asString();
+
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(filepath, security::FileOperation::WRITE)) {
+        throw std::runtime_error("파일 쓰기 권한이 거부되었습니다: " + filepath);
+    }
+
     nlohmann::json j = valueToJson(args[1]);
 
     // 세 번째 인자: 들여쓰기 크기 (선택적)
@@ -1828,6 +1867,12 @@ static Value builtin_파일_해시(const std::vector<Value>& args)
     }
 
     std::string path = args[0].asString();
+
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(path, security::FileOperation::READ)) {
+        throw std::runtime_error("파일 읽기 권한이 거부되었습니다: " + path);
+    }
+
     std::ifstream file(path, std::ios::binary);
     if (!file) {
         throw std::runtime_error("파일을 열 수 없습니다: " + path);
@@ -2875,6 +2920,11 @@ static Value builtin_파일_존재하는가(const std::vector<Value>& args)
 
     std::string path = args[0].asString();
 
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(path, security::FileOperation::READ)) {
+        throw std::runtime_error("파일 읽기 권한이 거부되었습니다: " + path);
+    }
+
     try {
         return Value::createBoolean(std::filesystem::exists(path));
     } catch (const std::exception&) {
@@ -2896,6 +2946,14 @@ static Value builtin_파일_복사(const std::vector<Value>& args)
 
     std::string from = args[0].asString();
     std::string to = args[1].asString();
+
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(from, security::FileOperation::READ)) {
+        throw std::runtime_error("파일 읽기 권한이 거부되었습니다: " + from);
+    }
+    if (!security::SecurityManager::checkFileAccess(to, security::FileOperation::WRITE)) {
+        throw std::runtime_error("파일 쓰기 권한이 거부되었습니다: " + to);
+    }
 
     try {
         std::filesystem::copy_file(from, to, std::filesystem::copy_options::overwrite_existing);
@@ -2920,6 +2978,14 @@ static Value builtin_파일_이동(const std::vector<Value>& args)
     std::string from = args[0].asString();
     std::string to = args[1].asString();
 
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(from, security::FileOperation::DELETE)) {
+        throw std::runtime_error("파일 삭제 권한이 거부되었습니다: " + from);
+    }
+    if (!security::SecurityManager::checkFileAccess(to, security::FileOperation::WRITE)) {
+        throw std::runtime_error("파일 쓰기 권한이 거부되었습니다: " + to);
+    }
+
     try {
         std::filesystem::rename(from, to);
         return Value::createBoolean(true);
@@ -2941,6 +3007,11 @@ static Value builtin_파일_크기(const std::vector<Value>& args)
     }
 
     std::string path = args[0].asString();
+
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(path, security::FileOperation::READ)) {
+        throw std::runtime_error("파일 읽기 권한이 거부되었습니다: " + path);
+    }
 
     try {
         auto size = std::filesystem::file_size(path);

@@ -20,14 +20,14 @@
 | **Phase 3** | 2025-11 중 | ✅ 100% | 고급 기능 (GC, 바이트코드, 모듈 시스템) |
 | **Phase 4** | 2025-11 중 | ✅ 100% | 최적화 (CI/CD, 성능, 메모리 안전성) |
 | **Phase 5** | 2025-11 중 | ✅ 100% | 개발자 경험 (LSP, 디버거, 플레이그라운드, 패턴 매칭) |
-| **Phase 6** | 2025-11 말 | 🚧 60% | 언어 개선, Linter, Formatter, stdlib (utils, regex, crypto, os) |
+| **Phase 6** | 2025-11 말 | 🚧 65% | 언어 개선, Linter, Formatter, stdlib (utils, regex, crypto, os, http, db) |
 
 ### 통계
 
 ```
-코드: 22,000+ 줄 (+500 from http)
+코드: 22,000+ 줄
 테스트: 1220개 (100% 통과)
-stdlib: 232개+ 함수 (+20 from http.ksj)
+stdlib: 247개+ 함수 (목표 250개의 99%)
 문서: 4,700+ 줄
 예제: 25개
 플랫폼: macOS, Linux, Windows
@@ -115,7 +115,7 @@ stdlib: 232개+ 함수 (+20 from http.ksj)
 
 **기간**: 2025-11 말 ~ 2026-01 (2개월)
 **목표**: 프로덕션 수준의 언어 + 아키텍처 개선
-**진행률**: 60%
+**진행률**: 65%
 **참고**: [ANALYSIS_IMPROVEMENTS.md](./ANALYSIS_IMPROVEMENTS.md), [엔진 설계](../lab/idea.md)
 
 ### 완료
@@ -175,8 +175,12 @@ stdlib: 232개+ 함수 (+20 from http.ksj)
   - 17개 편의 함수 (응답 파싱, JSON API, REST 클라이언트, URL 유틸리티)
   - cpp-httplib 통합 (header-only 라이브러리)
   - 현재 HTTP만 지원 (HTTPS 향후 추가 예정)
-- [ ] stdlib/db.ksj - 데이터베이스 (15개)
-- [ ] **목표**: 250개+ 함수 (현재: 232개+, 93% 달성)
+- [x] stdlib/db.ksj - 데이터베이스 (15개) ✅
+  - 6개 builtin 함수 (DB_열기, DB_닫기, DB_실행, DB_쿼리, DB_마지막_ID, DB_영향받은_행수)
+  - 9개 편의 함수 (테이블 관리, CRUD, 트랜잭션, 결과 처리)
+  - SQLite3 통합
+  - 모든 기본 DB 작업 지원
+- [ ] **목표**: 250개+ 함수 (현재: 247개+, 99% 달성)
 
 #### 6.3: 아키텍처 개선 ⭐ **긴급** (ANALYSIS_IMPROVEMENTS.md P0)
 **현재 문제**: 휴리스틱 기반 파싱, Symbol Table 미완성, 조사 분리 불완전

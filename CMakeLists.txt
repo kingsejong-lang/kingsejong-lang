@@ -77,7 +77,7 @@ target_include_directories(kingsejong_lib PUBLIC
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/include
 )
-target_link_libraries(kingsejong_lib PUBLIC nlohmann_json::nlohmann_json)
+target_link_libraries(kingsejong_lib PUBLIC nlohmann_json::nlohmann_json sqlite3)
 
 # 실행 파일 소스
 set(SOURCES

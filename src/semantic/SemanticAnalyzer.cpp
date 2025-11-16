@@ -141,6 +141,14 @@ void SemanticAnalyzer::initBuiltinFunctions()
     builtins_.insert("HTTP_GET");
     builtins_.insert("HTTP_POST");
     builtins_.insert("HTTP_요청");
+
+    // SQLite 데이터베이스
+    builtins_.insert("DB_열기");
+    builtins_.insert("DB_닫기");
+    builtins_.insert("DB_실행");
+    builtins_.insert("DB_쿼리");
+    builtins_.insert("DB_마지막_ID");
+    builtins_.insert("DB_영향받은_행수");
 }
 
 bool SemanticAnalyzer::isBuiltinFunction(const std::string& name) const

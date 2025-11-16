@@ -25,6 +25,10 @@
 // HTTP 클라이언트 라이브러리
 #include "third_party/httplib.h"
 
+// SQLite 데이터베이스
+#include <sqlite3.h>
+#include <unordered_map>
+
 #ifdef _WIN32
     #include <windows.h>
     #include <direct.h>
@@ -2323,6 +2327,222 @@ static Value builtin_HTTP_요청(const std::vector<Value>& args)
 }
 
 // ============================================================================
+// SQLite 데이터베이스 함수
+// ============================================================================
+
+// DB 연결 관리
+static std::unordered_map<int64_t, sqlite3*> db_connections;
+static int64_t next_db_id = 1;
+
+/**
+ * @brief DB_열기(경로) - SQLite 데이터베이스 열기
+ *
+ * @param args[0] 파일 경로 (문자열)
+ * @return DB 연결 ID (정수)
+ */
+static Value builtin_DB_열기(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("DB_열기(경로): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("DB_열기(경로): 문자열 타입이어야 합니다");
+    }
+
+    std::string path = args[0].asString();
+    sqlite3* db = nullptr;
+
+    int rc = sqlite3_open(path.c_str(), &db);
+    if (rc != SQLITE_OK) {
+        std::string error = "데이터베이스를 열 수 없습니다: " + std::string(sqlite3_errmsg(db));
+        sqlite3_close(db);
+        throw std::runtime_error(error);
+    }
+
+    int64_t db_id = next_db_id++;
+    db_connections[db_id] = db;
+
+    return Value::createInteger(db_id);
+}
+
+/**
+ * @brief DB_닫기(연결ID) - 데이터베이스 연결 닫기
+ *
+ * @param args[0] DB 연결 ID (정수)
+ * @return null
+ */
+static Value builtin_DB_닫기(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("DB_닫기(연결ID): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isInteger()) {
+        throw std::runtime_error("DB_닫기(연결ID): 정수 타입이어야 합니다");
+    }
+
+    int64_t db_id = args[0].asInteger();
+    auto it = db_connections.find(db_id);
+    if (it == db_connections.end()) {
+        throw std::runtime_error("유효하지 않은 DB 연결 ID입니다");
+    }
+
+    sqlite3_close(it->second);
+    db_connections.erase(it);
+
+    return Value::createNull();
+}
+
+/**
+ * @brief DB_실행(연결ID, SQL) - SQL 실행 (INSERT, UPDATE, DELETE 등)
+ *
+ * @param args[0] DB 연결 ID (정수)
+ * @param args[1] SQL 문장 (문자열)
+ * @return null
+ */
+static Value builtin_DB_실행(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("DB_실행(연결ID, SQL): 2개의 인자가 필요합니다");
+    }
+    if (!args[0].isInteger() || !args[1].isString()) {
+        throw std::runtime_error("DB_실행: 첫 번째는 정수, 두 번째는 문자열이어야 합니다");
+    }
+
+    int64_t db_id = args[0].asInteger();
+    std::string sql = args[1].asString();
+
+    auto it = db_connections.find(db_id);
+    if (it == db_connections.end()) {
+        throw std::runtime_error("유효하지 않은 DB 연결 ID입니다");
+    }
+
+    char* error_msg = nullptr;
+    int rc = sqlite3_exec(it->second, sql.c_str(), nullptr, nullptr, &error_msg);
+
+    if (rc != SQLITE_OK) {
+        std::string error = "SQL 실행 오류: " + std::string(error_msg);
+        sqlite3_free(error_msg);
+        throw std::runtime_error(error);
+    }
+
+    return Value::createNull();
+}
+
+/**
+ * @brief DB_쿼리(연결ID, SQL) - SQL 쿼리 실행 및 결과 반환
+ *
+ * @param args[0] DB 연결 ID (정수)
+ * @param args[1] SQL SELECT 문장 (문자열)
+ * @return 결과 배열 [["col1", "col2", ...], [val1, val2, ...], ...]
+ */
+static int query_callback(void* data, int argc, char** argv, char** col_names)
+{
+    auto* results = static_cast<std::vector<Value>*>(data);
+
+    // 첫 번째 행이면 컬럼 이름 추가
+    if (results->empty()) {
+        std::vector<Value> columns;
+        for (int i = 0; i < argc; i++) {
+            columns.push_back(Value::createString(col_names[i]));
+        }
+        results->push_back(Value::createArray(columns));
+    }
+
+    // 데이터 행 추가
+    std::vector<Value> row;
+    for (int i = 0; i < argc; i++) {
+        if (argv[i]) {
+            row.push_back(Value::createString(argv[i]));
+        } else {
+            row.push_back(Value::createNull());
+        }
+    }
+    results->push_back(Value::createArray(row));
+
+    return 0;
+}
+
+static Value builtin_DB_쿼리(const std::vector<Value>& args)
+{
+    if (args.size() != 2) {
+        throw std::runtime_error("DB_쿼리(연결ID, SQL): 2개의 인자가 필요합니다");
+    }
+    if (!args[0].isInteger() || !args[1].isString()) {
+        throw std::runtime_error("DB_쿼리: 첫 번째는 정수, 두 번째는 문자열이어야 합니다");
+    }
+
+    int64_t db_id = args[0].asInteger();
+    std::string sql = args[1].asString();
+
+    auto it = db_connections.find(db_id);
+    if (it == db_connections.end()) {
+        throw std::runtime_error("유효하지 않은 DB 연결 ID입니다");
+    }
+
+    std::vector<Value> results;
+    char* error_msg = nullptr;
+    int rc = sqlite3_exec(it->second, sql.c_str(), query_callback, &results, &error_msg);
+
+    if (rc != SQLITE_OK) {
+        std::string error = "SQL 쿼리 오류: " + std::string(error_msg);
+        sqlite3_free(error_msg);
+        throw std::runtime_error(error);
+    }
+
+    return Value::createArray(results);
+}
+
+/**
+ * @brief DB_마지막_ID(연결ID) - 마지막 INSERT의 ROWID 반환
+ *
+ * @param args[0] DB 연결 ID (정수)
+ * @return 마지막 삽입 ID (정수)
+ */
+static Value builtin_DB_마지막_ID(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("DB_마지막_ID(연결ID): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isInteger()) {
+        throw std::runtime_error("DB_마지막_ID(연결ID): 정수 타입이어야 합니다");
+    }
+
+    int64_t db_id = args[0].asInteger();
+    auto it = db_connections.find(db_id);
+    if (it == db_connections.end()) {
+        throw std::runtime_error("유효하지 않은 DB 연결 ID입니다");
+    }
+
+    int64_t last_id = sqlite3_last_insert_rowid(it->second);
+    return Value::createInteger(last_id);
+}
+
+/**
+ * @brief DB_영향받은_행수(연결ID) - 마지막 쿼리로 영향받은 행 수
+ *
+ * @param args[0] DB 연결 ID (정수)
+ * @return 영향받은 행 수 (정수)
+ */
+static Value builtin_DB_영향받은_행수(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("DB_영향받은_행수(연결ID): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isInteger()) {
+        throw std::runtime_error("DB_영향받은_행수(연결ID): 정수 타입이어야 합니다");
+    }
+
+    int64_t db_id = args[0].asInteger();
+    auto it = db_connections.find(db_id);
+    if (it == db_connections.end()) {
+        throw std::runtime_error("유효하지 않은 DB 연결 ID입니다");
+    }
+
+    int changes = sqlite3_changes(it->second);
+    return Value::createInteger(changes);
+}
+
+// ============================================================================
 // OS 및 파일 시스템 함수
 // ============================================================================
 
@@ -2916,6 +3136,14 @@ void Builtin::registerAllBuiltins()
     registerBuiltin("HTTP_GET", builtin_HTTP_GET);
     registerBuiltin("HTTP_POST", builtin_HTTP_POST);
     registerBuiltin("HTTP_요청", builtin_HTTP_요청);
+
+    // ========== SQLite 데이터베이스 ==========
+    registerBuiltin("DB_열기", builtin_DB_열기);
+    registerBuiltin("DB_닫기", builtin_DB_닫기);
+    registerBuiltin("DB_실행", builtin_DB_실행);
+    registerBuiltin("DB_쿼리", builtin_DB_쿼리);
+    registerBuiltin("DB_마지막_ID", builtin_DB_마지막_ID);
+    registerBuiltin("DB_영향받은_행수", builtin_DB_영향받은_행수);
 }
 
 } // namespace evaluator

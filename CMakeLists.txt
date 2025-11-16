@@ -70,6 +70,7 @@ set(LIB_SOURCES
     src/linter/rules/NoShadowingRule.cpp
     src/linter/rules/NoMagicNumberRule.cpp
     src/formatter/Formatter.cpp
+    src/profiler/Profiler.cpp
     src/morphology/Dictionary.cpp
     src/morphology/MorphologicalAnalyzer.cpp
 )

@@ -162,7 +162,13 @@ stdlib: 255개 함수 ✅ (목표 초과 달성!)
   - 5개 builtin assert 함수 (assert, assert_같음, assert_다름, assert_참, assert_거짓)
   - stdlib/test.ksj 문서 및 예제
   - examples/stdlib_test.ksj 데모
-- [ ] 프로파일러 (ksjprof)
+- [x] **프로파일러 (ksjprof)** ✅
+  - Profiler 클래스 (함수 실행 시간 측정)
+  - FunctionStats (호출 횟수, 총/평균/최소/최대 시간)
+  - ScopedProfiler (RAII 기반 자동 프로파일링)
+  - 중첩 함수 호출 지원 (call stack)
+  - 텍스트/JSON 보고서 생성
+  - 8개 테스트 (100% 통과)
 
 #### 6.2: 표준 라이브러리 대폭 확장
 - [x] stdlib/utils.ksj - 유틸리티 함수 (30개) ✅

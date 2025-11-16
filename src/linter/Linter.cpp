@@ -6,6 +6,7 @@
  */
 
 #include "linter/Linter.h"
+#include "config/ConfigLoader.h"
 
 namespace kingsejong {
 namespace linter {
@@ -24,9 +25,15 @@ bool Linter::analyze(ast::Program* program, const std::string& filename)
     filename_ = filename;
     issues_.clear();
 
-    // 각 규칙 실행
+    // 각 규칙 실행 (설정에서 활성화된 규칙만)
     for (auto& rule : rules_)
     {
+        // 규칙이 설정에서 비활성화되어 있으면 건너뜀
+        if (!isRuleEnabled(rule->ruleId()))
+        {
+            continue;
+        }
+
         rule->setLinter(this);
         rule->analyze(program);
     }
@@ -74,6 +81,49 @@ void Linter::clear()
 void Linter::addIssue(const LinterIssue& issue)
 {
     issues_.push_back(issue);
+}
+
+bool Linter::loadConfig(const std::string& filepath)
+{
+    json configJson;
+    if (!config::ConfigLoader::loadFromFile(filepath, configJson))
+    {
+        return false;
+    }
+
+    return config_.loadFromJson(configJson);
+}
+
+bool Linter::loadConfigFromString(const std::string& jsonString)
+{
+    json configJson;
+    if (!config::ConfigLoader::loadFromString(jsonString, configJson))
+    {
+        return false;
+    }
+
+    return config_.loadFromJson(configJson);
+}
+
+bool Linter::loadConfigFromCurrentDir()
+{
+    std::string configPath = config::ConfigLoader::findConfigFile(".ksjlint.json");
+    if (configPath.empty())
+    {
+        return false;  // 설정 파일을 찾지 못함
+    }
+
+    return loadConfig(configPath);
+}
+
+bool Linter::isRuleEnabled(const std::string& ruleId) const
+{
+    return config_.isRuleEnabled(ruleId);
+}
+
+std::optional<IssueSeverity> Linter::getRuleSeverity(const std::string& ruleId) const
+{
+    return config_.getRuleSeverity(ruleId);
 }
 
 } // namespace linter

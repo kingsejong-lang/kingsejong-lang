@@ -11,24 +11,15 @@
 #include "ast/Statement.h"
 #include "ast/Expression.h"
 #include "linter/Rule.h"
+#include "linter/IssueSeverity.h"
+#include "linter/LinterConfig.h"
 #include <string>
 #include <vector>
 #include <memory>
+#include <optional>
 
 namespace kingsejong {
 namespace linter {
-
-/**
- * @enum IssueSeverity
- * @brief 이슈 심각도
- */
-enum class IssueSeverity
-{
-    ERROR,      ///< 에러 (반드시 수정)
-    WARNING,    ///< 경고 (수정 권장)
-    INFO,       ///< 정보 (참고)
-    HINT        ///< 힌트 (제안)
-};
 
 /**
  * @struct LinterIssue
@@ -139,10 +130,46 @@ public:
      */
     void clear();
 
+    /**
+     * @brief 설정 파일 로드
+     * @param filepath 설정 파일 경로 (.ksjlint.json)
+     * @return 로드 성공 시 true
+     */
+    bool loadConfig(const std::string& filepath);
+
+    /**
+     * @brief JSON 문자열에서 설정 로드
+     * @param jsonString JSON 설정 문자열
+     * @return 파싱 성공 시 true
+     */
+    bool loadConfigFromString(const std::string& jsonString);
+
+    /**
+     * @brief 현재 디렉토리에서 설정 파일 자동 검색 및 로드
+     * @return 로드 성공 시 true
+     */
+    bool loadConfigFromCurrentDir();
+
+    /**
+     * @brief 설정 가져오기
+     */
+    const LinterConfig& getConfig() const { return config_; }
+
+    /**
+     * @brief 규칙이 활성화되어 있는지 확인
+     */
+    bool isRuleEnabled(const std::string& ruleId) const;
+
+    /**
+     * @brief 규칙의 설정된 심각도 가져오기 (설정되지 않았으면 std::nullopt)
+     */
+    std::optional<IssueSeverity> getRuleSeverity(const std::string& ruleId) const;
+
 private:
     std::vector<std::unique_ptr<Rule>> rules_;   ///< 검사 규칙 목록
     std::vector<LinterIssue> issues_;            ///< 발견된 이슈 목록
     std::string filename_;                        ///< 현재 분석 중인 파일
+    LinterConfig config_;                         ///< Linter 설정
 
     /**
      * @brief 이슈 추가

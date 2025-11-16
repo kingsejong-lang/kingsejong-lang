@@ -6,10 +6,14 @@
  */
 
 #include "formatter/Formatter.h"
+#include "formatter/FormatterConfig.h"
+#include "config/ConfigLoader.h"
 #include <sstream>
 
 namespace kingsejong {
 namespace formatter {
+
+using json = nlohmann::json;
 
 using namespace ast;
 
@@ -508,6 +512,39 @@ std::string Formatter::getIndentString() const
     {
         return std::string(currentIndent_, '\t');
     }
+}
+
+bool Formatter::loadConfig(const std::string& filepath)
+{
+    json configJson;
+    if (!config::ConfigLoader::loadFromFile(filepath, configJson))
+    {
+        return false;
+    }
+
+    return FormatterConfig::loadFromJson(configJson, options_);
+}
+
+bool Formatter::loadConfigFromString(const std::string& jsonString)
+{
+    json configJson;
+    if (!config::ConfigLoader::loadFromString(jsonString, configJson))
+    {
+        return false;
+    }
+
+    return FormatterConfig::loadFromJson(configJson, options_);
+}
+
+bool Formatter::loadConfigFromCurrentDir()
+{
+    std::string configPath = config::ConfigLoader::findConfigFile(".ksjfmt.json");
+    if (configPath.empty())
+    {
+        return false;  // 설정 파일을 찾지 못함
+    }
+
+    return loadConfig(configPath);
 }
 
 } // namespace formatter

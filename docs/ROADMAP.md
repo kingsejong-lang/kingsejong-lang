@@ -156,7 +156,15 @@ stdlib: 255개 함수 ✅ (목표 초과 달성!)
   - NoMagicNumberRule - 매직 넘버 감지
   - 총 8개 규칙 (기존 5개 + 신규 3개)
   - 31개 테스트 (100% 통과)
-- [ ] Linter/Formatter 설정 파일 지원
+- [x] **Linter/Formatter 설정 파일 지원** ✅
+  - ConfigLoader 클래스 (JSON 설정 파일 로드)
+  - LinterConfig (.ksjlint.json)
+    - 규칙별 활성화/비활성화
+    - 규칙별 심각도 설정 (error/warning/info/hint/off)
+  - FormatterConfig (.ksjfmt.json)
+    - 들여쓰기, 공백, 줄바꿈 옵션
+  - 자동 설정 파일 검색 (현재 디렉토리부터 상위로)
+  - 8개 테스트 (100% 통과)
 - [ ] VS Code 통합
 - [x] **테스트 프레임워크 (ksjtest)** ✅
   - 5개 builtin assert 함수 (assert, assert_같음, assert_다름, assert_참, assert_거짓)

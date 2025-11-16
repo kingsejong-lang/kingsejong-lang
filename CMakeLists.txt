@@ -71,6 +71,7 @@ set(LIB_SOURCES
     src/linter/rules/NoMagicNumberRule.cpp
     src/formatter/Formatter.cpp
     src/profiler/Profiler.cpp
+    src/config/ConfigLoader.cpp
     src/morphology/Dictionary.cpp
     src/morphology/MorphologicalAnalyzer.cpp
 )

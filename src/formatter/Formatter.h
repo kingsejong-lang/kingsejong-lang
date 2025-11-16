@@ -12,6 +12,7 @@
 #include "ast/Expression.h"
 #include <string>
 #include <sstream>
+#include <nlohmann/json.hpp>
 
 namespace kingsejong {
 namespace formatter {
@@ -47,6 +48,36 @@ public:
      * @brief 프로그램 전체를 포맷팅
      */
     std::string format(const ast::Program* program);
+
+    /**
+     * @brief 설정 파일 로드
+     * @param filepath 설정 파일 경로 (.ksjfmt.json)
+     * @return 로드 성공 시 true
+     */
+    bool loadConfig(const std::string& filepath);
+
+    /**
+     * @brief JSON 문자열에서 설정 로드
+     * @param jsonString JSON 설정 문자열
+     * @return 파싱 성공 시 true
+     */
+    bool loadConfigFromString(const std::string& jsonString);
+
+    /**
+     * @brief 현재 디렉토리에서 설정 파일 자동 검색 및 로드
+     * @return 로드 성공 시 true
+     */
+    bool loadConfigFromCurrentDir();
+
+    /**
+     * @brief 현재 옵션 가져오기
+     */
+    const FormatterOptions& getOptions() const { return options_; }
+
+    /**
+     * @brief 옵션 설정
+     */
+    void setOptions(const FormatterOptions& options) { options_ = options; }
 
 private:
     // 문장 포맷팅

@@ -1,0 +1,12 @@
+{
+  "rules": {
+    "unused-variable": "error",
+    "dead-code": "warning",
+    "no-self-comparison": "error",
+    "constant-condition": "warning",
+    "empty-block": "warning",
+    "no-unused-parameter": "warning",
+    "no-shadowing": "warning",
+    "no-magic-number": "hint"
+  }
+}

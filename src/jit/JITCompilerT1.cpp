@@ -9,11 +9,13 @@
 #include "bytecode/OpCode.h"
 #include "types/Type.h"
 
-// asmjit includes (x86 specific)
+// asmjit includes
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wgnu-anonymous-struct"
 #pragma GCC diagnostic ignored "-Wnested-anon-types"
+#include <asmjit/core.h>
 #include <asmjit/x86.h>
+#include <asmjit/a64.h>
 #pragma GCC diagnostic pop
 
 #include <iostream>
@@ -122,29 +124,70 @@ void JITCompilerT1::printStatistics() const
 NativeFunction* JITCompilerT1::compileRange(bytecode::Chunk* chunk, size_t startOffset, size_t endOffset)
 {
     using namespace asmjit;
+
+    std::cerr << "[JIT] Compiling range [" << startOffset << ", " << endOffset << ")\n";
+
+    // CodeHolder 생성 및 초기화
+    CodeHolder code;
+    Error initErr = code.init(runtime_->runtime.environment());
+    if (initErr != kErrorOk)
+    {
+        std::cerr << "CodeHolder init failed: " << DebugUtils::error_as_string(initErr) << "\n";
+        return nullptr;
+    }
+    std::cerr << "[JIT] CodeHolder initialized\n";
+
+    // 현재 아키텍처 확인
+    Arch arch = runtime_->runtime.environment().arch();
+    std::cerr << "[JIT] Architecture: " << static_cast<int>(arch) << "\n";
+
+    // ARM64 JIT 컴파일
+    if (arch == Arch::kAArch64)
+    {
+        return compileRange_ARM64(&code, chunk, startOffset, endOffset);
+    }
+    // x64 JIT 컴파일
+    else if (arch == Arch::kX64 || arch == Arch::kX86)
+    {
+        return compileRange_x64(&code, chunk, startOffset, endOffset);
+    }
+    else
+    {
+        std::cerr << "[JIT] Unsupported architecture\n";
+        return nullptr;
+    }
+}
+
+NativeFunction* JITCompilerT1::compileRange_x64(void* codePtr, bytecode::Chunk* chunk, size_t startOffset, size_t endOffset)
+{
+    using namespace asmjit;
     using namespace asmjit::x86;
 
-    // CodeHolder 생성
-    CodeHolder code;
-    code.init(runtime_->runtime.environment());
+    CodeHolder& code = *static_cast<CodeHolder*>(codePtr);
 
     // Assembler 생성
-    Assembler a(&code);
+    Assembler a;
+    code.attach(&a);
+    std::cerr << "[JIT] x64 Assembler attached\n";
 
     // 함수 프롤로그
     // rdi: stack pointer (int64_t*)
     // rsi: stack size (size_t)
+    std::cerr << "[JIT] Emitting prologue\n";
+
     a.push(rbp);
     a.mov(rbp, rsp);
+    a.xor_(r12, r12);  // 가상 스택 포인터 초기화
 
-    // 가상 스택 포인터 (r12 = stack top index)
-    a.xor_(r12, r12);  // stack top = 0
+    std::cerr << "[JIT] Prologue emitted\n";
 
     // 바이트코드 실행
     size_t ip = startOffset;
+    std::cerr << "[JIT] Starting bytecode loop, ip=" << ip << ", endOffset=" << endOffset << "\n";
     while (ip < endOffset)
     {
         auto opCode = static_cast<bytecode::OpCode>(chunk->getCode()[ip]);
+        std::cerr << "[JIT] ip=" << ip << ", opcode=" << static_cast<int>(opCode) << "\n";
         ip++;
 
         switch (opCode)
@@ -153,6 +196,7 @@ NativeFunction* JITCompilerT1::compileRange(bytecode::Chunk* chunk, size_t start
             {
                 // 상수 인덱스 읽기
                 uint8_t constIndex = chunk->getCode()[ip++];
+                std::cerr << "[JIT] LOAD_CONST index=" << static_cast<int>(constIndex) << "\n";
 
                 // 상수 값 가져오기
                 auto constValue = chunk->getConstant(constIndex);
@@ -162,6 +206,7 @@ NativeFunction* JITCompilerT1::compileRange(bytecode::Chunk* chunk, size_t start
                 if (constValue.getType() == types::TypeKind::INTEGER)
                 {
                     int64_t value = constValue.asInteger();
+                    std::cerr << "[JIT] Loading integer constant: " << value << "\n";
 
                     // 스택에 푸시: stack[r12] = value
                     a.mov(rax, value);
@@ -253,31 +298,46 @@ NativeFunction* JITCompilerT1::compileRange(bytecode::Chunk* chunk, size_t start
             case bytecode::OpCode::RETURN:
             {
                 // 스택 최상위 값을 반환
-                if (r12.id() != 0)  // 스택에 값이 있으면
-                {
-                    a.dec(r12);
-                    a.mov(rax, ptr(rdi, r12, 3));  // return stack[top]
-                }
-                else
-                {
-                    a.xor_(rax, rax);  // return 0
-                }
-                break;
+                // 스택에 값이 있으면 pop해서 반환, 없으면 0 반환
+                Label hasValue = a.new_label();
+                Label done = a.new_label();
+
+                a.test(r12, r12);  // r12 == 0 인지 확인
+                a.jnz(hasValue);   // 0이 아니면 hasValue로 점프
+
+                // 스택이 비어있음 - 0 반환
+                a.xor_(rax, rax);
+                a.jmp(done);
+
+                // 스택에 값이 있음
+                a.bind(hasValue);
+                a.dec(r12);
+                a.mov(rax, ptr(rdi, r12, 3));  // return stack[top]
+
+                a.bind(done);
+                // RETURN을 만났으므로 루프 종료
+                goto epilogue;
             }
 
-            default:
-                // 지원하지 않는 opcode
-                std::cerr << "JIT Tier 1: Unsupported opcode: "
-                          << static_cast<int>(opCode) << "\n";
-                return nullptr;
+        default:
+            // 지원하지 않는 opcode
+            std::cerr << "JIT Tier 1: Unsupported opcode: "
+                      << static_cast<int>(opCode) << "\n";
+            return nullptr;
         }
     }
 
+epilogue:
     // 함수 에필로그
+    std::cerr << "[JIT] Emitting epilogue\n";
     a.pop(rbp);
     a.ret();
 
-    // 코드 최종화
+    std::cerr << "[JIT] Epilogue emitted\n";
+    std::cerr << "[JIT] CodeHolder code_size: " << code.code_size() << "\n";
+
+    // 코드 최종화 - 직접 JitRuntime에 추가
+    std::cerr << "[JIT] Adding code to runtime\n";
     NativeFunction::FunctionPtr funcPtr;
     Error err = runtime_->runtime.add(&funcPtr, &code);
 
@@ -293,6 +353,218 @@ NativeFunction* JITCompilerT1::compileRange(bytecode::Chunk* chunk, size_t start
     nativeFunc->codeSize = code.code_size();
     nativeFunc->bytecodeOffset = startOffset;
 
+    return nativeFunc;
+}
+
+NativeFunction* JITCompilerT1::compileRange_ARM64(void* codePtr, bytecode::Chunk* chunk, size_t startOffset, size_t endOffset)
+{
+    using namespace asmjit;
+    using namespace asmjit::a64;
+
+    CodeHolder& code = *static_cast<CodeHolder*>(codePtr);
+
+    // Assembler 생성
+    Assembler a;
+    code.attach(&a);
+    std::cerr << "[JIT] ARM64 Assembler attached\n";
+
+    // 함수 프롤로그
+    // x0: stack pointer (int64_t*)
+    // x1: stack size (size_t)
+    std::cerr << "[JIT] Emitting ARM64 prologue\n";
+
+    // 프레임 설정 - 간단히 스택 공간만 확보
+    a.sub(a64::sp, a64::sp, 16);  // 스택 공간 확보
+
+    // x9를 가상 스택 포인터로 사용
+    a.mov(a64::x9, 0);  // 가상 스택 포인터 초기화
+
+    std::cerr << "[JIT] ARM64 Prologue emitted\n";
+
+    // 바이트코드 실행
+    size_t ip = startOffset;
+    std::cerr << "[JIT] Starting bytecode loop\n";
+
+    while (ip < endOffset)
+    {
+        auto opCode = static_cast<bytecode::OpCode>(chunk->getCode()[ip]);
+        std::cerr << "[JIT] ip=" << ip << ", opcode=" << static_cast<int>(opCode) << "\n";
+        ip++;
+
+        switch (opCode)
+        {
+            case bytecode::OpCode::LOAD_CONST:
+            {
+                uint8_t constIndex = chunk->getCode()[ip++];
+                auto constValue = chunk->getConstant(constIndex);
+
+                if (constValue.getType() == types::TypeKind::INTEGER)
+                {
+                    int64_t value = constValue.asInteger();
+                    std::cerr << "[JIT] ARM64 LOAD_CONST: " << value << "\n";
+
+                    // 스택에 푸시: stack[x9] = value
+                    a.mov(a64::x10, value);  // x10 = value
+                    // x11 = x9 << 3 (인덱스 * 8)
+                    a.lsl(a64::x11, a64::x9, 3);
+                    // stack[x0 + x11] = x10
+                    a.str(a64::x10, a64::ptr(a64::x0, a64::x11));
+                    a.add(a64::x9, a64::x9, 1);  // x9++
+                }
+                break;
+            }
+
+            case bytecode::OpCode::ADD:
+            {
+                // pop b, pop a, push (a + b)
+                a.sub(a64::x9, a64::x9, 1);  // x9--
+                a.lsl(a64::x12, a64::x9, 3);  // x12 = x9 << 3
+                a.ldr(a64::x11, a64::ptr(a64::x0, a64::x12));  // x11 = stack[x9] (b)
+                a.sub(a64::x9, a64::x9, 1);  // x9--
+                a.lsl(a64::x12, a64::x9, 3);  // x12 = x9 << 3
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));  // x10 = stack[x9] (a)
+                a.add(a64::x10, a64::x10, a64::x11);  // x10 = a + b
+                a.lsl(a64::x12, a64::x9, 3);  // x12 = x9 << 3
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x12));  // stack[x9] = x10
+                a.add(a64::x9, a64::x9, 1);  // x9++
+                break;
+            }
+
+            case bytecode::OpCode::SUB:
+            {
+                // pop b, pop a, push (a - b)
+                a.sub(a64::x9, a64::x9, 1);  // x9--
+                a.lsl(a64::x12, a64::x9, 3);  // x12 = x9 << 3
+                a.ldr(a64::x11, a64::ptr(a64::x0, a64::x12));  // x11 = stack[x9] (b)
+                a.sub(a64::x9, a64::x9, 1);  // x9--
+                a.lsl(a64::x12, a64::x9, 3);  // x12 = x9 << 3
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));  // x10 = stack[x9] (a)
+                a.sub(a64::x10, a64::x10, a64::x11);  // x10 = a - b
+                a.lsl(a64::x12, a64::x9, 3);  // x12 = x9 << 3
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x12));  // stack[x9] = x10
+                a.add(a64::x9, a64::x9, 1);  // x9++
+                break;
+            }
+
+            case bytecode::OpCode::MUL:
+            {
+                // pop b, pop a, push (a * b)
+                a.sub(a64::x9, a64::x9, 1);  // x9--
+                a.lsl(a64::x12, a64::x9, 3);  // x12 = x9 << 3
+                a.ldr(a64::x11, a64::ptr(a64::x0, a64::x12));  // x11 = stack[x9] (b)
+                a.sub(a64::x9, a64::x9, 1);  // x9--
+                a.lsl(a64::x12, a64::x9, 3);  // x12 = x9 << 3
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));  // x10 = stack[x9] (a)
+                a.mul(a64::x10, a64::x10, a64::x11);  // x10 = a * b
+                a.lsl(a64::x12, a64::x9, 3);  // x12 = x9 << 3
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x12));  // stack[x9] = x10
+                a.add(a64::x9, a64::x9, 1);  // x9++
+                break;
+            }
+
+            case bytecode::OpCode::DIV:
+            {
+                // pop b, pop a, push (a / b)
+                a.sub(a64::x9, a64::x9, 1);  // x9--
+                a.lsl(a64::x12, a64::x9, 3);  // x12 = x9 << 3
+                a.ldr(a64::x11, a64::ptr(a64::x0, a64::x12));  // x11 = stack[x9] (b)
+                a.sub(a64::x9, a64::x9, 1);  // x9--
+                a.lsl(a64::x12, a64::x9, 3);  // x12 = x9 << 3
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));  // x10 = stack[x9] (a)
+                a.sdiv(a64::x10, a64::x10, a64::x11);  // x10 = a / b (signed division)
+                a.lsl(a64::x12, a64::x9, 3);  // x12 = x9 << 3
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x12));  // stack[x9] = x10
+                a.add(a64::x9, a64::x9, 1);  // x9++
+                break;
+            }
+
+            case bytecode::OpCode::MOD:
+            {
+                // pop b, pop a, push (a % b)
+                // ARM64 doesn't have modulo, so: a % b = a - (a / b) * b
+                a.sub(a64::x9, a64::x9, 1);  // x9--
+                a.lsl(a64::x12, a64::x9, 3);  // x12 = x9 << 3
+                a.ldr(a64::x11, a64::ptr(a64::x0, a64::x12));  // x11 = stack[x9] (b)
+                a.sub(a64::x9, a64::x9, 1);  // x9--
+                a.lsl(a64::x12, a64::x9, 3);  // x12 = x9 << 3
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));  // x10 = stack[x9] (a)
+                a.sdiv(a64::x13, a64::x10, a64::x11);  // x13 = a / b
+                a.msub(a64::x10, a64::x13, a64::x11, a64::x10);  // x10 = a - (a/b) * b
+                a.lsl(a64::x12, a64::x9, 3);  // x12 = x9 << 3
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x12));  // stack[x9] = x10
+                a.add(a64::x9, a64::x9, 1);  // x9++
+                break;
+            }
+
+            case bytecode::OpCode::NEG:
+            {
+                // pop a, push (-a)
+                a.sub(a64::x9, a64::x9, 1);  // x9--
+                a.lsl(a64::x12, a64::x9, 3);  // x12 = x9 << 3
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));  // x10 = stack[x9] (a)
+                a.neg(a64::x10, a64::x10);  // x10 = -a
+                a.lsl(a64::x12, a64::x9, 3);  // x12 = x9 << 3
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x12));  // stack[x9] = x10
+                a.add(a64::x9, a64::x9, 1);  // x9++
+                break;
+            }
+
+            case bytecode::OpCode::RETURN:
+            {
+                // 스택 최상위 값을 반환
+                Label hasValue = a.new_label();
+                Label done = a.new_label();
+
+                a.cbnz(a64::x9, hasValue);  // if (x9 != 0) goto hasValue
+
+                // 스택이 비어있음 - 0 반환
+                a.mov(a64::x0, 0);
+                a.b(done);
+
+                // 스택에 값이 있음
+                a.bind(hasValue);
+                a.sub(a64::x9, a64::x9, 1);
+                a.lsl(a64::x11, a64::x9, 3);  // x11 = x9 << 3
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x11));  // x10 = stack[top]
+                a.mov(a64::x0, a64::x10);  // return value in x0
+
+                a.bind(done);
+                goto epilogue;
+            }
+
+            default:
+                std::cerr << "[JIT] ARM64: Unsupported opcode: " << static_cast<int>(opCode) << "\n";
+                return nullptr;
+        }
+    }
+
+epilogue:
+    // 함수 에필로그
+    std::cerr << "[JIT] Emitting ARM64 epilogue\n";
+    a.add(a64::sp, a64::sp, 16);  // 스택 복원
+    a.ret(a64::x30);
+
+    std::cerr << "[JIT] ARM64 Epilogue emitted\n";
+    std::cerr << "[JIT] CodeHolder code_size: " << code.code_size() << "\n";
+
+    // 코드 최종화
+    std::cerr << "[JIT] Adding ARM64 code to runtime\n";
+    NativeFunction::FunctionPtr funcPtr;
+    Error err = runtime_->runtime.add(&funcPtr, &code);
+
+    if (err != kErrorOk)
+    {
+        std::cerr << "[JIT] ARM64 compilation failed: " << DebugUtils::error_as_string(err) << "\n";
+        return nullptr;
+    }
+
+    // NativeFunction 생성
+    NativeFunction* nativeFunc = new NativeFunction();
+    nativeFunc->code = (void*)funcPtr;
+    nativeFunc->codeSize = code.code_size();
+    nativeFunc->bytecodeOffset = startOffset;
+
+    std::cerr << "[JIT] ARM64 JIT compilation successful!\n";
     return nativeFunc;
 }
 

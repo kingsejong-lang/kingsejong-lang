@@ -131,6 +131,16 @@ private:
     NativeFunction* compileRange(bytecode::Chunk* chunk, size_t startOffset, size_t endOffset);
 
     /**
+     * @brief x64 아키텍처용 컴파일
+     */
+    NativeFunction* compileRange_x64(void* code, bytecode::Chunk* chunk, size_t startOffset, size_t endOffset);
+
+    /**
+     * @brief ARM64 아키텍처용 컴파일
+     */
+    NativeFunction* compileRange_ARM64(void* code, bytecode::Chunk* chunk, size_t startOffset, size_t endOffset);
+
+    /**
      * @brief 캐시 키 생성
      * @param chunk 청크 포인터
      * @param startOffset 시작 오프셋

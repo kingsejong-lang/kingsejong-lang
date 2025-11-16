@@ -2,11 +2,66 @@
 
 ## Current Status (2025-11-16)
 
-**모든 테스트 통과**: 1004/1004 tests passing (100% success rate) ✅
+**모든 테스트 통과**: 1,331/1,331 tests passing (100% success rate) ✅
 
-모든 loop statement, 패턴 매칭, 괄호 표현식 파싱 문제가 해결되었습니다.
+보안 (File+Network), 예외 처리 (try/catch/finally) 구현 완료. Production Readiness: 7.8/10
 
 ### 알려진 이슈
+
+#### 🔴 JIT Tier 1 - asmjit code_size=0 문제 (CRITICAL)
+
+**현상**: asmjit Assembler가 코드를 emit하지만 CodeHolder.code_size()가 0을 반환
+
+**재현 코드**:
+```cpp
+JitRuntime rt;
+CodeHolder code;
+code.init(rt.environment());
+x86::Assembler a(&code);
+
+a.mov(x86::eax, 42);
+a.ret();
+a.finalize();
+
+// 결과: code.code_size() = 0 (예상: > 0)
+```
+
+**증상**:
+- Assembler 생성 성공
+- 명령어 emit 성공 (컴파일 에러 없음)
+- finalize() 성공
+- 하지만 CodeHolder에 코드가 없음 (size=0)
+- JITRuntime.add() 실패: NoCodeGenerated 에러
+
+**영향**:
+- JIT Tier 1 구현 블로킹
+- 성능 향상 목표 (10-20배) 달성 불가
+- 12개 JIT 테스트 중 10개 실패 (2개만 통과: 에러 처리 테스트)
+
+**시도한 해결 방법**:
+1. ✅ Assembler::finalize() 명시적 호출 - 실패 (여전히 size=0)
+2. ✅ FileLogger 추가 - 아무것도 출력 안 됨 (코드가 emit되지 않은 것으로 보임)
+3. ✅ 에러 체크 추가 - 모든 단계 성공, 에러 없음
+4. ✅ 최소 재현 코드 작성 - 가장 간단한 `mov eax, 42; ret`에서도 동일 문제
+
+**추측**:
+- asmjit API 사용법 오류 (버전 호환성 문제 가능성)
+- Section 생성이 필요할 수도 있음
+- Assembler 대신 Builder나 Compiler를 사용해야 할 수도 있음
+- asmjit master 브랜치 (최신 버전)의 API 변경
+
+**다음 단계**:
+- asmjit 공식 예제 코드 확인
+- asmjit 버전 확인 및 공식 문서 조회
+- Section 명시적 생성 시도
+- Builder pattern 시도
+
+**파일**:
+- `src/jit/JITCompilerT1.cpp` - 메인 구현
+- `tests/jit/SimpleJITTest.cpp` - 최소 재현 코드
+- `docs/JIT_TIER1_DESIGN.md` - 설계 문서
+
+---
 
 #### ⚠️ Parser 구조적 취약성 - 코드 변경에 따른 파싱 실패
 

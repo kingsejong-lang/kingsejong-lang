@@ -155,8 +155,9 @@ endif()
 
 # 테스트 파일 수집
 file(GLOB_RECURSE TEST_SOURCES "tests/*.cpp")
-# manual_lexer_test.cpp는 main 함수가 있으므로 제외
+# manual_lexer_test.cpp, SimpleJITTest.cpp는 main 함수가 있으므로 제외
 list(FILTER TEST_SOURCES EXCLUDE REGEX "manual_lexer_test\\.cpp$")
+list(FILTER TEST_SOURCES EXCLUDE REGEX "SimpleJITTest\\.cpp$")
 
 if(TEST_SOURCES)
     # 테스트 실행 파일 생성

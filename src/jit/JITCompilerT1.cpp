@@ -476,6 +476,45 @@ NativeFunction* JITCompilerT1::compileRange_x64(void* codePtr, bytecode::Chunk* 
                 break;
             }
 
+            // ========================================
+            // 스택 조작
+            // ========================================
+            case bytecode::OpCode::POP:
+            {
+                std::cerr << "[JIT] x64 POP\n";
+                // pop (스택 포인터만 감소)
+                a.dec(r12);
+                break;
+            }
+
+            case bytecode::OpCode::DUP:
+            {
+                std::cerr << "[JIT] x64 DUP\n";
+                // pop a, push a, push a (스택 최상위 복제)
+                a.dec(r12);
+                a.mov(rax, ptr(rdi, r12, 3));  // rax = top
+                a.mov(ptr(rdi, r12, 3), rax);  // stack[r12] = top
+                a.inc(r12);
+                a.mov(ptr(rdi, r12, 3), rax);  // stack[r12+1] = top
+                a.inc(r12);
+                break;
+            }
+
+            case bytecode::OpCode::SWAP:
+            {
+                std::cerr << "[JIT] x64 SWAP\n";
+                // pop a, pop b, push a, push b (최상위 두 값 교환)
+                a.dec(r12);
+                a.mov(rax, ptr(rdi, r12, 3));  // rax = top
+                a.dec(r12);
+                a.mov(rbx, ptr(rdi, r12, 3));  // rbx = second
+                a.mov(ptr(rdi, r12, 3), rax);  // stack[r12] = top
+                a.inc(r12);
+                a.mov(ptr(rdi, r12, 3), rbx);  // stack[r12+1] = second
+                a.inc(r12);
+                break;
+            }
+
             case bytecode::OpCode::LOAD_VAR:
             {
                 // Load from stack slot to virtual stack: push(stack[slot])
@@ -554,6 +593,17 @@ NativeFunction* JITCompilerT1::compileRange_x64(void* codePtr, bytecode::Chunk* 
                 a.test(rax, rax);
                 a.jnz(jumpLabels[target]);
                 break;
+            }
+
+            case bytecode::OpCode::LOOP:
+            {
+                [[maybe_unused]] uint8_t offset = chunk->getCode()[ip++];
+                std::cerr << "[JIT] x64 LOOP (loop end, compile complete)\n";
+                // LOOP은 루프 백엣지이므로 여기서 컴파일 종료
+                // 스택 최상위 값을 반환
+                a.dec(r12);
+                a.mov(rax, ptr(rdi, r12, 3));  // return stack[top]
+                goto epilogue;
             }
 
             case bytecode::OpCode::RETURN:
@@ -968,6 +1018,61 @@ NativeFunction* JITCompilerT1::compileRange_ARM64(void* codePtr, bytecode::Chunk
                 break;
             }
 
+            // ========================================
+            // 스택 조작
+            // ========================================
+            case bytecode::OpCode::POP:
+            {
+                std::cerr << "[JIT] ARM64 POP\n";
+                // pop (스택 포인터만 감소)
+                a.sub(a64::x9, a64::x9, 1);
+                break;
+            }
+
+            case bytecode::OpCode::DUP:
+            {
+                std::cerr << "[JIT] ARM64 DUP\n";
+                // pop a, push a, push a (스택 최상위 복제)
+                a.sub(a64::x9, a64::x9, 1);
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));  // x10 = top
+
+                // Push first copy
+                a.lsl(a64::x12, a64::x9, 3);
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x12));
+                a.add(a64::x9, a64::x9, 1);
+
+                // Push second copy
+                a.lsl(a64::x12, a64::x9, 3);
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x12));
+                a.add(a64::x9, a64::x9, 1);
+                break;
+            }
+
+            case bytecode::OpCode::SWAP:
+            {
+                std::cerr << "[JIT] ARM64 SWAP\n";
+                // pop a, pop b, push a, push b (최상위 두 값 교환)
+                a.sub(a64::x9, a64::x9, 1);
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));  // x10 = top
+
+                a.sub(a64::x9, a64::x9, 1);
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x11, a64::ptr(a64::x0, a64::x12));  // x11 = second
+
+                // Push top to second position
+                a.lsl(a64::x12, a64::x9, 3);
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x12));
+                a.add(a64::x9, a64::x9, 1);
+
+                // Push second to top position
+                a.lsl(a64::x12, a64::x9, 3);
+                a.str(a64::x11, a64::ptr(a64::x0, a64::x12));
+                a.add(a64::x9, a64::x9, 1);
+                break;
+            }
+
             case bytecode::OpCode::LOAD_VAR:
             {
                 // Load from stack slot to virtual stack: push(stack[slot])
@@ -1054,6 +1159,18 @@ NativeFunction* JITCompilerT1::compileRange_ARM64(void* codePtr, bytecode::Chunk
                 // if (x10 != 0) jump
                 a.cbnz(a64::x10, jumpLabels[target]);
                 break;
+            }
+
+            case bytecode::OpCode::LOOP:
+            {
+                [[maybe_unused]] uint8_t offset = chunk->getCode()[ip++];
+                std::cerr << "[JIT] ARM64 LOOP (loop end, compile complete)\n";
+                // LOOP은 루프 백엣지이므로 여기서 컴파일 종료
+                // 스택 최상위 값을 반환
+                a.sub(a64::x9, a64::x9, 1);
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x0, a64::ptr(a64::x0, a64::x12));  // return stack[top]
+                goto epilogue;
             }
 
             case bytecode::OpCode::RETURN:

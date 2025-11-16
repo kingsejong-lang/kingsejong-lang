@@ -69,11 +69,11 @@ stdlib: 255개 함수 ✅
 
 ---
 
-## 🚧 Phase 6: 완성도 향상 (v0.5.0) - 92% 완료
+## 🚧 Phase 6: 완성도 향상 (v0.5.0) - 95% 완료
 
 **기간**: 2025-11 말 ~ 2026-01 (2개월)
 **목표**: 프로덕션 수준의 언어 + 아키텍처 개선
-**진행률**: 92%
+**진행률**: 95%
 
 ### ✅ 완료 항목
 
@@ -103,10 +103,10 @@ stdlib: 255개 함수 ✅
   - NetworkSecurityManager (SSRF 방지, Rate limiting, 22개 테스트)
   - Production Readiness: 4.5/10 → 7.8/10 달성! 🎉
 
-#### 6.4: JIT Compiler (Tier 1) - P0 ⏳ **진행 중 (90% 완료)**
+#### 6.4: JIT Compiler (Tier 1) - P0 ⏳ **진행 중 (95% 완료)**
 
 **목표**: 10-20배 성능 향상
-**현재 상태**: 산술 + 변수 + 제어흐름 + 비교 + 논리 연산 완료 ✅ (38개 테스트)
+**현재 상태**: 산술 + 변수 + 제어흐름 + 비교 + 논리 연산 + VM 통합 완료 ✅ (38개 테스트)
 
 **완료 항목**:
 
@@ -130,15 +130,23 @@ stdlib: 255개 함수 ✅
    - ✅ 논리 연산 (AND, OR, NOT)
    - [ ] 함수 호출 최적화 (CALL, RETURN_VALUE)
 
+3. **VM 통합** ✅
+   - ✅ VM에 JIT 트리거 로직 추가
+   - ✅ Hot Path Detection 통합 (루프 임계값: 100회)
+   - ✅ JIT 캐시 관리 (중복 컴파일 방지)
+   - ✅ JIT 활성화/비활성화 플래그
+   - ✅ unique_ptr 기반 메모리 관리
+   - ✅ JIT 통계 출력 기능
+
 ### ⏳ 남은 작업
 
-3. **VM 통합** (1-2주)
-   - [ ] VM에 JIT 트리거 로직 추가
-   - [ ] Hot Path Detection 통합
-   - [ ] JIT 캐시 관리
+4. **성능 최적화 및 검증** (1주)
+   - [ ] JIT 실행 타이밍 최적화 (루프 진입 시점)
    - [ ] 성능 벤치마크 (fibonacci, prime, sorting)
+   - [ ] JIT vs 인터프리터 성능 측정
+   - [ ] OSR (On-Stack Replacement) 검토
 
-4. **고급 최적화** (Tier 2로 이동 예정)
+5. **고급 최적화** (Tier 2로 이동 예정)
    - [ ] 인라인 캐싱 (Inline Caching)
    - [ ] 타입 특화 (Type Specialization)
    - [ ] 레지스터 할당 최적화
@@ -153,16 +161,18 @@ stdlib: 255개 함수 ✅
 - ✅ 비교 연산 6개 OpCode 구현 (EQ, NE, LT, GT, LE, GE)
 - ✅ 논리 연산 3개 OpCode 구현 (AND, OR, NOT)
 - ✅ 레이블 맵 인프라 (std::unordered_map<size_t, Label>)
+- ✅ **VM 통합 완료** (JIT 트리거, Hot Path Detection, 캐시 관리)
 - ✅ 38개 JIT 테스트 통과 (100%)
 - ✅ 전체 1,369개 테스트 통과 (100%)
 - ✅ 컴파일 속도: < 1ms per function
 - ✅ **총 23개 OpCode 구현 완료**
 
 **다음 단계** (우선순위):
-1. VM 통합 (Hot Path Detection 연결)
-2. 성능 벤치마크 및 측정 (fibonacci, prime sieve)
-3. 함수 호출 최적화 (CALL, RETURN_VALUE)
-4. 배열 연산 지원 (INDEX_GET, INDEX_SET)
+1. ~~VM 통합 (Hot Path Detection 연결)~~ ✅ 완료
+2. JIT 실행 로직 최적화 (루프 진입 시점 vs 백엣지)
+3. 성능 벤치마크 및 측정 (fibonacci, prime sieve)
+4. 함수 호출 최적화 (CALL, RETURN_VALUE)
+5. 배열 연산 지원 (INDEX_GET, INDEX_SET)
 
 ---
 

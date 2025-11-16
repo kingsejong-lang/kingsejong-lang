@@ -6,6 +6,8 @@
  */
 
 #include "VM.h"
+#include "jit/JITCompilerT1.h"
+#include "jit/HotPathDetector.h"
 #include <iostream>
 #include <iomanip>
 #include <algorithm>
@@ -17,8 +19,22 @@ VM::VM()
     : chunk_(nullptr), ip_(0), traceExecution_(false),
       instructionCount_(0), maxInstructions_(10000000),  // 1천만 명령어
       maxExecutionTime_(5000),  // 5초
-      maxStackSize_(10000) {  // 1만 개
+      maxStackSize_(10000),  // 1만 개
+      jitEnabled_(true) {  // JIT 기본 활성화
     globals_ = std::make_shared<evaluator::Environment>();
+
+    // JIT 컴파일러 초기화
+    jitCompiler_ = std::make_unique<jit::JITCompilerT1>();
+
+    // Hot Path Detector 초기화
+    hotPathDetector_ = std::make_unique<jit::HotPathDetector>();
+    hotPathDetector_->setLoopThreshold(100);  // 100번 반복 후 JIT 컴파일
+}
+
+VM::~VM() {
+    // JIT 캐시 정리 (NativeFunction은 JITCompiler가 관리)
+    jitCache_.clear();
+    // unique_ptr이 자동으로 JIT 컴파일러와 Hot Path Detector를 정리합니다
 }
 
 VMResult VM::run(Chunk* chunk) {
@@ -318,6 +334,36 @@ VMResult VM::executeInstruction() {
 
         case OpCode::LOOP: {
             uint8_t offset = readByte();
+            size_t loopStart = ip_ - offset;
+
+            // JIT 컴파일 시도
+            if (jitEnabled_) {
+                // 루프 백엣지 추적
+                hotPathDetector_->trackLoopBackedge(loopStart);
+
+                // 핫 루프인지 확인
+                if (hotPathDetector_->isHot(loopStart, jit::HotPathType::LOOP)) {
+                    // JIT 캐시 확인
+                    auto it = jitCache_.find(loopStart);
+                    if (it == jitCache_.end()) {
+                        // JIT 컴파일 시도
+                        tryJITCompileLoop(loopStart);
+                        it = jitCache_.find(loopStart);
+                    }
+
+                    // JIT 코드 실행
+                    if (it != jitCache_.end() && it->second != nullptr) {
+                        VMResult jitResult = executeJITCode(it->second);
+                        if (jitResult != VMResult::OK) {
+                            return jitResult;
+                        }
+                        // JIT 실행 성공 - 루프 종료, 계속 진행
+                        break;
+                    }
+                }
+            }
+
+            // JIT 미사용 또는 컴파일 실패 - 인터프리터로 실행
             ip_ -= offset;
             break;
         }
@@ -575,6 +621,91 @@ VMResult VM::binaryOp(OpCode op) {
     }
 
     return VMResult::OK;
+}
+
+void VM::tryJITCompileLoop(size_t loopStart) {
+    std::cerr << "[VM] JIT 컴파일 시도: 루프 시작 = " << loopStart << "\n";
+
+    // 루프 끝 찾기 (현재 IP가 루프 끝)
+    size_t loopEnd = ip_;
+
+    // 루프 범위 검증
+    if (loopStart >= loopEnd || loopEnd > chunk_->size()) {
+        std::cerr << "[VM] JIT 컴파일 실패: 잘못된 루프 범위\n";
+        return;
+    }
+
+    // JIT 컴파일
+    jit::NativeFunction* nativeFunc = jitCompiler_->compileLoop(chunk_, loopStart, loopEnd);
+
+    if (nativeFunc) {
+        std::cerr << "[VM] JIT 컴파일 성공: 루프 [" << loopStart << ", " << loopEnd << ")\n";
+        jitCache_[loopStart] = nativeFunc;
+        hotPathDetector_->markJITCompiled(loopStart, jit::HotPathType::LOOP, jit::JITTier::TIER_1);
+    } else {
+        std::cerr << "[VM] JIT 컴파일 실패\n";
+    }
+}
+
+VMResult VM::executeJITCode(jit::NativeFunction* nativeFunc) {
+    if (!nativeFunc || !nativeFunc->code) {
+        return VMResult::RUNTIME_ERROR;
+    }
+
+    std::cerr << "[VM] JIT 코드 실행 시작\n";
+
+    try {
+        // 스택을 int64_t 배열로 변환
+        std::vector<int64_t> jitStack(stack_.size());
+        for (size_t i = 0; i < stack_.size(); i++) {
+            if (stack_[i].isInteger()) {
+                jitStack[i] = stack_[i].asInteger();
+            } else if (stack_[i].isFloat()) {
+                jitStack[i] = static_cast<int64_t>(stack_[i].asFloat());
+            } else if (stack_[i].isBoolean()) {
+                jitStack[i] = stack_[i].asBoolean() ? 1 : 0;
+            } else {
+                jitStack[i] = 0;
+            }
+        }
+
+        // JIT 코드 실행
+        auto funcPtr = nativeFunc->getFunction();
+        int64_t result = funcPtr(jitStack.data(), jitStack.size());
+
+        // 결과를 스택에 다시 변환
+        stack_.clear();
+        for (size_t i = 0; i < jitStack.size(); i++) {
+            stack_.push_back(evaluator::Value::createInteger(jitStack[i]));
+        }
+
+        // 결과 푸시
+        stack_.push_back(evaluator::Value::createInteger(result));
+
+        std::cerr << "[VM] JIT 코드 실행 완료, 결과 = " << result << "\n";
+
+        nativeFunc->executionCount++;
+        return VMResult::OK;
+    } catch (const std::exception& e) {
+        std::cerr << "[VM] JIT 코드 실행 중 예외: " << e.what() << "\n";
+        return VMResult::RUNTIME_ERROR;
+    }
+}
+
+void VM::printJITStatistics() const {
+    std::cout << "\n=== VM JIT Statistics ===\n";
+    std::cout << "JIT Enabled: " << (jitEnabled_ ? "Yes" : "No") << "\n";
+    std::cout << "JIT Cache Size: " << jitCache_.size() << "\n";
+
+    if (jitCompiler_) {
+        jitCompiler_->printStatistics();
+    }
+
+    if (hotPathDetector_) {
+        hotPathDetector_->printStatistics();
+    }
+
+    std::cout << "=========================\n\n";
 }
 
 } // namespace bytecode

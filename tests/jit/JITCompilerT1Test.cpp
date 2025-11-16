@@ -478,3 +478,181 @@ TEST_F(JITCompilerT1Test, ShouldCompileVarWithArithmetic)
 
     compiler_.freeFunction(nativeFunc);
 }
+
+// ============================================================================
+// 제어 흐름 테스트
+// ============================================================================
+
+TEST_F(JITCompilerT1Test, ShouldCompileLoadTrue)
+{
+    // 바이트코드: LOAD_TRUE, RETURN
+
+    chunk_.writeOpCode(OpCode::LOAD_TRUE, 1);
+    chunk_.writeOpCode(OpCode::RETURN, 2);
+
+    auto* nativeFunc = compiler_.compileFunction(&chunk_, 0, chunk_.size());
+    ASSERT_NE(nativeFunc, nullptr);
+
+    EXPECT_NE(nativeFunc->code, nullptr);
+    EXPECT_GT(nativeFunc->codeSize, 0);
+
+    compiler_.freeFunction(nativeFunc);
+}
+
+TEST_F(JITCompilerT1Test, ShouldCompileLoadFalse)
+{
+    // 바이트코드: LOAD_FALSE, RETURN
+
+    chunk_.writeOpCode(OpCode::LOAD_FALSE, 1);
+    chunk_.writeOpCode(OpCode::RETURN, 2);
+
+    auto* nativeFunc = compiler_.compileFunction(&chunk_, 0, chunk_.size());
+    ASSERT_NE(nativeFunc, nullptr);
+
+    EXPECT_NE(nativeFunc->code, nullptr);
+    EXPECT_GT(nativeFunc->codeSize, 0);
+
+    compiler_.freeFunction(nativeFunc);
+}
+
+TEST_F(JITCompilerT1Test, ShouldCompileJump)
+{
+    // 바이트코드:
+    // LOAD_CONST 0 (10)    ; offset 0
+    // JUMP 3               ; offset 2, jump to offset 5
+    // LOAD_CONST 1 (99)    ; offset 4 (skipped)
+    // LOAD_CONST 2 (20)    ; offset 6
+    // RETURN               ; offset 8
+
+    chunk_.addConstant(Value::createInteger(10));
+    chunk_.addConstant(Value::createInteger(99));
+    chunk_.addConstant(Value::createInteger(20));
+
+    chunk_.writeOpCode(OpCode::LOAD_CONST, 1);  // offset 0
+    chunk_.write(0, 1);                          // offset 1
+
+    chunk_.writeOpCode(OpCode::JUMP, 2);        // offset 2
+    chunk_.write(3, 2);                          // offset 3: jump +3 to offset 6
+
+    chunk_.writeOpCode(OpCode::LOAD_CONST, 4);  // offset 4 (should be skipped)
+    chunk_.write(1, 4);                          // offset 5
+
+    chunk_.writeOpCode(OpCode::LOAD_CONST, 6);  // offset 6
+    chunk_.write(2, 6);                          // offset 7
+
+    chunk_.writeOpCode(OpCode::RETURN, 8);      // offset 8
+
+    auto* nativeFunc = compiler_.compileFunction(&chunk_, 0, chunk_.size());
+    ASSERT_NE(nativeFunc, nullptr);
+
+    EXPECT_NE(nativeFunc->code, nullptr);
+    EXPECT_GT(nativeFunc->codeSize, 0);
+
+    compiler_.freeFunction(nativeFunc);
+}
+
+TEST_F(JITCompilerT1Test, ShouldCompileJumpIfFalse)
+{
+    // 바이트코드:
+    // LOAD_FALSE           ; offset 0
+    // JUMP_IF_FALSE 3      ; offset 1, jump to offset 5
+    // LOAD_CONST 0 (99)    ; offset 3 (skipped)
+    // LOAD_CONST 1 (20)    ; offset 5
+    // RETURN               ; offset 7
+
+    chunk_.addConstant(Value::createInteger(99));
+    chunk_.addConstant(Value::createInteger(20));
+
+    chunk_.writeOpCode(OpCode::LOAD_FALSE, 1);       // offset 0
+    chunk_.writeOpCode(OpCode::JUMP_IF_FALSE, 2);   // offset 1
+    chunk_.write(3, 2);                               // offset 2: jump +3 to offset 5
+
+    chunk_.writeOpCode(OpCode::LOAD_CONST, 3);       // offset 3 (should be skipped)
+    chunk_.write(0, 3);                               // offset 4
+
+    chunk_.writeOpCode(OpCode::LOAD_CONST, 5);       // offset 5
+    chunk_.write(1, 5);                               // offset 6
+
+    chunk_.writeOpCode(OpCode::RETURN, 7);           // offset 7
+
+    auto* nativeFunc = compiler_.compileFunction(&chunk_, 0, chunk_.size());
+    ASSERT_NE(nativeFunc, nullptr);
+
+    EXPECT_NE(nativeFunc->code, nullptr);
+    EXPECT_GT(nativeFunc->codeSize, 0);
+
+    compiler_.freeFunction(nativeFunc);
+}
+
+TEST_F(JITCompilerT1Test, ShouldCompileJumpIfTrue)
+{
+    // 바이트코드:
+    // LOAD_TRUE            ; offset 0
+    // JUMP_IF_TRUE 3       ; offset 1, jump to offset 5
+    // LOAD_CONST 0 (99)    ; offset 3 (skipped)
+    // LOAD_CONST 1 (20)    ; offset 5
+    // RETURN               ; offset 7
+
+    chunk_.addConstant(Value::createInteger(99));
+    chunk_.addConstant(Value::createInteger(20));
+
+    chunk_.writeOpCode(OpCode::LOAD_TRUE, 1);        // offset 0
+    chunk_.writeOpCode(OpCode::JUMP_IF_TRUE, 2);    // offset 1
+    chunk_.write(3, 2);                               // offset 2: jump +3 to offset 5
+
+    chunk_.writeOpCode(OpCode::LOAD_CONST, 3);       // offset 3 (should be skipped)
+    chunk_.write(0, 3);                               // offset 4
+
+    chunk_.writeOpCode(OpCode::LOAD_CONST, 5);       // offset 5
+    chunk_.write(1, 5);                               // offset 6
+
+    chunk_.writeOpCode(OpCode::RETURN, 7);           // offset 7
+
+    auto* nativeFunc = compiler_.compileFunction(&chunk_, 0, chunk_.size());
+    ASSERT_NE(nativeFunc, nullptr);
+
+    EXPECT_NE(nativeFunc->code, nullptr);
+    EXPECT_GT(nativeFunc->codeSize, 0);
+
+    compiler_.freeFunction(nativeFunc);
+}
+
+TEST_F(JITCompilerT1Test, ShouldCompileConditionalBranch)
+{
+    // 바이트코드: if-else 패턴
+    // LOAD_CONST 0 (1)         ; offset 0: condition = true
+    // JUMP_IF_FALSE 4          ; offset 2: if false, jump to else
+    // LOAD_CONST 1 (10)        ; offset 4: then branch
+    // JUMP 3                   ; offset 6: skip else
+    // LOAD_CONST 2 (20)        ; offset 8: else branch
+    // RETURN                   ; offset 10
+
+    chunk_.addConstant(Value::createInteger(1));   // true
+    chunk_.addConstant(Value::createInteger(10));  // then value
+    chunk_.addConstant(Value::createInteger(20));  // else value
+
+    chunk_.writeOpCode(OpCode::LOAD_CONST, 1);      // offset 0
+    chunk_.write(0, 1);                              // offset 1
+
+    chunk_.writeOpCode(OpCode::JUMP_IF_FALSE, 2);   // offset 2
+    chunk_.write(4, 2);                              // offset 3: jump +4 to offset 7
+
+    chunk_.writeOpCode(OpCode::LOAD_CONST, 4);      // offset 4: then
+    chunk_.write(1, 4);                              // offset 5
+
+    chunk_.writeOpCode(OpCode::JUMP, 6);            // offset 6
+    chunk_.write(3, 6);                              // offset 7: jump +3 to offset 10
+
+    chunk_.writeOpCode(OpCode::LOAD_CONST, 8);      // offset 8: else
+    chunk_.write(2, 8);                              // offset 9
+
+    chunk_.writeOpCode(OpCode::RETURN, 10);         // offset 10
+
+    auto* nativeFunc = compiler_.compileFunction(&chunk_, 0, chunk_.size());
+    ASSERT_NE(nativeFunc, nullptr);
+
+    EXPECT_NE(nativeFunc->code, nullptr);
+    EXPECT_GT(nativeFunc->codeSize, 0);
+
+    compiler_.freeFunction(nativeFunc);
+}

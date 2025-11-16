@@ -20,6 +20,7 @@
 
 #include <iostream>
 #include <cstring>
+#include <unordered_map>
 
 namespace kingsejong {
 namespace jit {
@@ -184,10 +185,20 @@ NativeFunction* JITCompilerT1::compileRange_x64(void* codePtr, bytecode::Chunk* 
     // 바이트코드 실행
     size_t ip = startOffset;
     std::cerr << "[JIT] Starting bytecode loop, ip=" << ip << ", endOffset=" << endOffset << "\n";
+
+    // 점프 타겟을 위한 레이블 맵 생성
+    std::unordered_map<size_t, Label> jumpLabels;
+    for (size_t i = startOffset; i < endOffset; i++) {
+        jumpLabels[i] = a.new_label();
+    }
+
     while (ip < endOffset)
     {
         auto opCode = static_cast<bytecode::OpCode>(chunk->getCode()[ip]);
         std::cerr << "[JIT] ip=" << ip << ", opcode=" << static_cast<int>(opCode) << "\n";
+
+        // 현재 위치에 레이블 바인딩
+        a.bind(jumpLabels[ip]);
         ip++;
 
         switch (opCode)
@@ -213,6 +224,28 @@ NativeFunction* JITCompilerT1::compileRange_x64(void* codePtr, bytecode::Chunk* 
                     a.mov(ptr(rdi, r12, 3), rax);  // stack[r12] = rax (8 bytes)
                     a.inc(r12);  // r12++
                 }
+                break;
+            }
+
+            case bytecode::OpCode::LOAD_TRUE:
+            {
+                std::cerr << "[JIT] x64 LOAD_TRUE\n";
+
+                // Push true (1) to stack
+                a.mov(rax, 1);
+                a.mov(ptr(rdi, r12, 3), rax);
+                a.inc(r12);
+                break;
+            }
+
+            case bytecode::OpCode::LOAD_FALSE:
+            {
+                std::cerr << "[JIT] x64 LOAD_FALSE\n";
+
+                // Push false (0) to stack
+                a.xor_(rax, rax);
+                a.mov(ptr(rdi, r12, 3), rax);
+                a.inc(r12);
                 break;
             }
 
@@ -330,6 +363,51 @@ NativeFunction* JITCompilerT1::compileRange_x64(void* codePtr, bytecode::Chunk* 
                 break;
             }
 
+            case bytecode::OpCode::JUMP:
+            {
+                uint8_t offset = chunk->getCode()[ip++];
+                size_t target = ip + offset;
+                std::cerr << "[JIT] x64 JUMP to " << target << "\n";
+
+                // 무조건 점프
+                a.jmp(jumpLabels[target]);
+                break;
+            }
+
+            case bytecode::OpCode::JUMP_IF_FALSE:
+            {
+                uint8_t offset = chunk->getCode()[ip++];
+                size_t target = ip + offset;
+                std::cerr << "[JIT] x64 JUMP_IF_FALSE to " << target << "\n";
+
+                // Peek stack top (don't pop)
+                a.dec(r12);
+                a.mov(rax, ptr(rdi, r12, 3));
+                a.inc(r12);  // restore
+
+                // if (rax == 0) jump
+                a.test(rax, rax);
+                a.jz(jumpLabels[target]);
+                break;
+            }
+
+            case bytecode::OpCode::JUMP_IF_TRUE:
+            {
+                uint8_t offset = chunk->getCode()[ip++];
+                size_t target = ip + offset;
+                std::cerr << "[JIT] x64 JUMP_IF_TRUE to " << target << "\n";
+
+                // Peek stack top (don't pop)
+                a.dec(r12);
+                a.mov(rax, ptr(rdi, r12, 3));
+                a.inc(r12);  // restore
+
+                // if (rax != 0) jump
+                a.test(rax, rax);
+                a.jnz(jumpLabels[target]);
+                break;
+            }
+
             case bytecode::OpCode::RETURN:
             {
                 // 스택 최상위 값을 반환
@@ -420,10 +498,19 @@ NativeFunction* JITCompilerT1::compileRange_ARM64(void* codePtr, bytecode::Chunk
     size_t ip = startOffset;
     std::cerr << "[JIT] Starting bytecode loop\n";
 
+    // 점프 타겟을 위한 레이블 맵 생성
+    std::unordered_map<size_t, Label> jumpLabels;
+    for (size_t i = startOffset; i < endOffset; i++) {
+        jumpLabels[i] = a.new_label();
+    }
+
     while (ip < endOffset)
     {
         auto opCode = static_cast<bytecode::OpCode>(chunk->getCode()[ip]);
         std::cerr << "[JIT] ip=" << ip << ", opcode=" << static_cast<int>(opCode) << "\n";
+
+        // 현재 위치에 레이블 바인딩
+        a.bind(jumpLabels[ip]);
         ip++;
 
         switch (opCode)
@@ -446,6 +533,30 @@ NativeFunction* JITCompilerT1::compileRange_ARM64(void* codePtr, bytecode::Chunk
                     a.str(a64::x10, a64::ptr(a64::x0, a64::x11));
                     a.add(a64::x9, a64::x9, 1);  // x9++
                 }
+                break;
+            }
+
+            case bytecode::OpCode::LOAD_TRUE:
+            {
+                std::cerr << "[JIT] ARM64 LOAD_TRUE\n";
+
+                // Push true (1) to stack
+                a.mov(a64::x10, 1);
+                a.lsl(a64::x11, a64::x9, 3);
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x11));
+                a.add(a64::x9, a64::x9, 1);  // x9++
+                break;
+            }
+
+            case bytecode::OpCode::LOAD_FALSE:
+            {
+                std::cerr << "[JIT] ARM64 LOAD_FALSE\n";
+
+                // Push false (0) to stack
+                a.mov(a64::x10, 0);
+                a.lsl(a64::x11, a64::x9, 3);
+                a.str(a64::x10, a64::ptr(a64::x0, a64::x11));
+                a.add(a64::x9, a64::x9, 1);  // x9++
                 break;
             }
 
@@ -584,6 +695,51 @@ NativeFunction* JITCompilerT1::compileRange_ARM64(void* codePtr, bytecode::Chunk
 
                 // Push back (VM keeps value on stack after STORE_VAR)
                 a.add(a64::x9, a64::x9, 1);  // x9++
+                break;
+            }
+
+            case bytecode::OpCode::JUMP:
+            {
+                uint8_t offset = chunk->getCode()[ip++];
+                size_t target = ip + offset;
+                std::cerr << "[JIT] ARM64 JUMP to " << target << "\n";
+
+                // 무조건 점프
+                a.b(jumpLabels[target]);
+                break;
+            }
+
+            case bytecode::OpCode::JUMP_IF_FALSE:
+            {
+                uint8_t offset = chunk->getCode()[ip++];
+                size_t target = ip + offset;
+                std::cerr << "[JIT] ARM64 JUMP_IF_FALSE to " << target << "\n";
+
+                // Peek stack top (don't pop)
+                a.sub(a64::x9, a64::x9, 1);  // x9--
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));
+                a.add(a64::x9, a64::x9, 1);  // restore
+
+                // if (x10 == 0) jump
+                a.cbz(a64::x10, jumpLabels[target]);
+                break;
+            }
+
+            case bytecode::OpCode::JUMP_IF_TRUE:
+            {
+                uint8_t offset = chunk->getCode()[ip++];
+                size_t target = ip + offset;
+                std::cerr << "[JIT] ARM64 JUMP_IF_TRUE to " << target << "\n";
+
+                // Peek stack top (don't pop)
+                a.sub(a64::x9, a64::x9, 1);  // x9--
+                a.lsl(a64::x12, a64::x9, 3);
+                a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));
+                a.add(a64::x9, a64::x9, 1);  // restore
+
+                // if (x10 != 0) jump
+                a.cbnz(a64::x10, jumpLabels[target]);
                 break;
             }
 

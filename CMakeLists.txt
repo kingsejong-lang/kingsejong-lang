@@ -45,6 +45,7 @@ set(LIB_SOURCES
     src/bytecode/VM.cpp
     src/jit/HotPathDetector.cpp
     src/security/SecurityManager.cpp
+    src/security/NetworkSecurityManager.cpp
     src/error/ErrorReporter.cpp
     src/debugger/BreakpointManager.cpp
     src/debugger/CallStack.cpp

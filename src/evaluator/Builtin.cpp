@@ -7,6 +7,7 @@
 
 #include "Builtin.h"
 #include "security/SecurityManager.h"
+#include "security/NetworkSecurityManager.h"
 #include <iostream>
 #include <stdexcept>
 #include <cmath>
@@ -2100,6 +2101,11 @@ static Value builtin_HTTP_GET(const std::vector<Value>& args)
 
     std::string url = args[0].asString();
 
+    // 보안 검사
+    if (!security::NetworkSecurityManager::checkHttpAccess(url)) {
+        throw std::runtime_error("HTTP_GET: 접근이 차단된 URL입니다: " + url);
+    }
+
     try {
         // URL 파싱 (http://domain/path 형식)
         std::string scheme, host, path;
@@ -2184,6 +2190,11 @@ static Value builtin_HTTP_POST(const std::vector<Value>& args)
 
     std::string url = args[0].asString();
     std::string body = args[1].asString();
+
+    // 보안 검사
+    if (!security::NetworkSecurityManager::checkHttpAccess(url)) {
+        throw std::runtime_error("HTTP_POST: 접근이 차단된 URL입니다: " + url);
+    }
 
     try {
         // URL 파싱
@@ -2272,6 +2283,12 @@ static Value builtin_HTTP_요청(const std::vector<Value>& args)
     std::string method = args[0].asString();
     std::string url = args[1].asString();
     std::string body = "";
+
+    // 보안 검사
+    if (!security::NetworkSecurityManager::checkHttpAccess(url)) {
+        throw std::runtime_error("HTTP_요청: 접근이 차단된 URL입니다: " + url);
+    }
+
     httplib::Headers headers;
 
     // 헤더 파싱 (선택) - [["key", "value"], ...] 형태의 배열

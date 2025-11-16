@@ -66,6 +66,9 @@ set(LIB_SOURCES
     src/linter/rules/NoSelfComparisonRule.cpp
     src/linter/rules/ConstantConditionRule.cpp
     src/linter/rules/EmptyBlockRule.cpp
+    src/linter/rules/NoUnusedParameterRule.cpp
+    src/linter/rules/NoShadowingRule.cpp
+    src/linter/rules/NoMagicNumberRule.cpp
     src/formatter/Formatter.cpp
     src/morphology/Dictionary.cpp
     src/morphology/MorphologicalAnalyzer.cpp

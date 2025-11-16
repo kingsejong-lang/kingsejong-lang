@@ -150,7 +150,12 @@ stdlib: 255개 함수 ✅ (목표 초과 달성!)
 ### 계획
 
 #### 6.1: 코드 품질 도구 (추가 개선)
-- [ ] Linter 추가 규칙 구현
+- [x] **Linter 추가 규칙 구현** ✅
+  - NoUnusedParameterRule - 미사용 함수 매개변수 감지
+  - NoShadowingRule - 변수 섀도잉 감지
+  - NoMagicNumberRule - 매직 넘버 감지
+  - 총 8개 규칙 (기존 5개 + 신규 3개)
+  - 31개 테스트 (100% 통과)
 - [ ] Linter/Formatter 설정 파일 지원
 - [ ] VS Code 통합
 - [x] **테스트 프레임워크 (ksjtest)** ✅

@@ -14,6 +14,9 @@
 #include "linter/rules/NoSelfComparisonRule.h"
 #include "linter/rules/ConstantConditionRule.h"
 #include "linter/rules/EmptyBlockRule.h"
+#include "linter/rules/NoUnusedParameterRule.h"
+#include "linter/rules/NoShadowingRule.h"
+#include "linter/rules/NoMagicNumberRule.h"
 
 using namespace kingsejong;
 using namespace kingsejong::lexer;
@@ -607,5 +610,246 @@ TEST(LinterTest, ShouldNotDetectNonEmptyBlock)
     linter.addRule(std::make_unique<EmptyBlockRule>());
     linter.analyze(program.get(), "test.ksj");
 
+    EXPECT_EQ(linter.issues().size(), 0);
+}
+// ============================================================================
+// NoUnusedParameterRule 테스트
+// ============================================================================
+
+/**
+ * @test 미사용 매개변수 감지
+ */
+TEST(LinterTest, ShouldDetectUnusedParameter)
+{
+    std::string code = R"(
+함수 계산(x, y, z) {
+    반환 x + y
+}
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(parser.errors().size(), 0);
+
+    Linter linter;
+    linter.addRule(std::make_unique<NoUnusedParameterRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    // z가 미사용 매개변수로 감지되어야 함
+    EXPECT_EQ(linter.errorCount(), 0);
+    EXPECT_GE(linter.warningCount(), 1);
+
+    const auto& issues = linter.issues();
+    bool found = false;
+    for (const auto& issue : issues) {
+        if (issue.message.find("z") != std::string::npos) {
+            found = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found);
+}
+
+/**
+ * @test 사용된 매개변수는 감지하지 않음
+ */
+TEST(LinterTest, ShouldNotReportUsedParameter)
+{
+    std::string code = R"(
+함수 계산(x, y) {
+    반환 x + y
+}
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<NoUnusedParameterRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    EXPECT_EQ(linter.issues().size(), 0);
+}
+
+/**
+ * @test 언더스코어 매개변수는 무시
+ */
+TEST(LinterTest, ShouldIgnoreUnderscorePrefixedParameter)
+{
+    std::string code = R"(
+함수 계산(x, _unused) {
+    반환 x
+}
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<NoUnusedParameterRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    EXPECT_EQ(linter.issues().size(), 0);
+}
+
+// ============================================================================
+// NoShadowingRule 테스트
+// ============================================================================
+
+/**
+ * @test 변수 섀도잉 감지
+ */
+TEST(LinterTest, ShouldDetectVariableShadowing)
+{
+    std::string code = R"(
+정수 x = 10
+함수 테스트() {
+    정수 x = 20
+    반환 x
+}
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(parser.errors().size(), 0);
+
+    Linter linter;
+    linter.addRule(std::make_unique<NoShadowingRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    // 내부 x가 외부 x를 가림
+    EXPECT_GE(linter.warningCount(), 1);
+}
+
+/**
+ * @test 블록 스코프 섀도잉 감지
+ */
+TEST(LinterTest, ShouldDetectBlockScopeShadowing)
+{
+    std::string code = R"(
+정수 x = 10
+만약 (참) {
+    정수 x = 20
+    출력(x)
+}
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<NoShadowingRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    EXPECT_GE(linter.warningCount(), 1);
+}
+
+/**
+ * @test 반복문 변수 섀도잉 감지
+ */
+TEST(LinterTest, ShouldDetectLoopVariableShadowing)
+{
+    std::string code = R"(
+정수 i = 0
+i가 1부터 10까지 {
+    출력(i)
+}
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<NoShadowingRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    EXPECT_GE(linter.warningCount(), 1);
+}
+
+// ============================================================================
+// NoMagicNumberRule 테스트
+// ============================================================================
+
+/**
+ * @test 매직 넘버 감지
+ */
+TEST(LinterTest, ShouldDetectMagicNumber)
+{
+    std::string code = R"(
+정수 x = 10
+y = x + 42
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(parser.errors().size(), 0);
+
+    Linter linter;
+    linter.addRule(std::make_unique<NoMagicNumberRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    // 42가 매직 넘버로 감지되어야 함 (10은 변수 초기화라 허용)
+    EXPECT_GE(linter.issues().size(), 1);
+}
+
+/**
+ * @test 허용된 숫자는 감지하지 않음
+ */
+TEST(LinterTest, ShouldNotReportAllowedNumbers)
+{
+    std::string code = R"(
+정수 x = 5
+y = x + 0
+z = y * 1
+w = z + 2
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<NoMagicNumberRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    // 0, 1, 2는 허용된 숫자
+    EXPECT_EQ(linter.issues().size(), 0);
+}
+
+/**
+ * @test 변수 초기화 숫자는 허용
+ */
+TEST(LinterTest, ShouldAllowNumbersInVariableInitialization)
+{
+    std::string code = R"(
+정수 x = 999
+정수 y = 12345
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<NoMagicNumberRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    // 변수 초기화의 숫자는 허용
     EXPECT_EQ(linter.issues().size(), 0);
 }

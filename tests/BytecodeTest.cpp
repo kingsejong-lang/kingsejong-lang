@@ -659,3 +659,77 @@ TEST(OptimizationTest, ShouldFoldNestedConstantExpression) {
 // ============================================================================
 // 실행
 // ============================================================================
+
+// ============================================================================
+// JIT 테스트
+// ============================================================================
+
+TEST(VMJITTest, ShouldTriggerJITOnHotLoop) {
+    // 간단한 덧셈을 200번 반복하는 루프
+    // sum = 0
+    // for 200 times:
+    //     sum = sum + 1
+    Chunk chunk;
+    
+    // sum = 0 (스택에 직접 푸시)
+    chunk.addConstant(Value::createInteger(0));
+    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk.write(0, 1);
+    
+    // 루프 카운터: i = 0
+    chunk.addConstant(Value::createInteger(0));
+    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk.write(1, 1);
+    
+    // 루프 시작
+    size_t loopStart = chunk.size();
+    
+    // 루프 종료 조건 확인: i < 200?
+    chunk.writeOpCode(OpCode::DUP, 1);  // i 복사
+    chunk.addConstant(Value::createInteger(200));
+    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk.write(2, 1);
+    chunk.writeOpCode(OpCode::LT, 1);  // i < 200
+    
+    // 조건이 false면 종료 (12 바이트 점프)
+    chunk.writeOpCode(OpCode::JUMP_IF_FALSE, 1);
+    chunk.write(12, 1);
+    chunk.writeOpCode(OpCode::POP, 1);  // 조건 값 제거
+    
+    // sum = sum + 1 (스택: [sum, i])
+    chunk.writeOpCode(OpCode::SWAP, 1);  // [i, sum]
+    chunk.addConstant(Value::createInteger(1));
+    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk.write(3, 1);
+    chunk.writeOpCode(OpCode::ADD, 1);  // [i, sum+1]
+    chunk.writeOpCode(OpCode::SWAP, 1);  // [sum+1, i]
+    
+    // i = i + 1
+    chunk.addConstant(Value::createInteger(1));
+    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk.write(3, 1);
+    chunk.writeOpCode(OpCode::ADD, 1);  // [sum+1, i+1]
+    
+    // 루프 백점프
+    size_t offset = chunk.size() - loopStart + 2;
+    chunk.writeOpCode(OpCode::LOOP, 1);
+    chunk.write(static_cast<uint8_t>(offset), 1);
+    
+    // 루프 종료 (스택: [sum, i, condition])
+    chunk.writeOpCode(OpCode::POP, 1);  // 조건 제거
+    chunk.writeOpCode(OpCode::POP, 1);  // i 제거
+    // 스택에 sum만 남음
+    
+    chunk.writeOpCode(OpCode::HALT, 1);
+    
+    // VM 실행
+    VM vm;
+    VMResult result = vm.run(&chunk);
+    
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.top().asInteger(), 200);  // sum should be 200
+    
+    // JIT 통계 출력
+    std::cerr << "\n========== JIT Test Statistics ==========\n";
+    vm.printJITStatistics();
+}

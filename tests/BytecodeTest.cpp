@@ -716,16 +716,21 @@ TEST(VMJITTest, ShouldTriggerJITOnHotLoop) {
     chunk.write(static_cast<uint8_t>(offset), 1);
     
     // 루프 종료 (스택: [sum, i, condition])
+    std::cerr << "[TEST] POP 1 위치: " << chunk.size() << "\n";
     chunk.writeOpCode(OpCode::POP, 1);  // 조건 제거
+    std::cerr << "[TEST] POP 2 위치: " << chunk.size() << "\n";
     chunk.writeOpCode(OpCode::POP, 1);  // i 제거
     // 스택에 sum만 남음
-    
+    std::cerr << "[TEST] HALT 위치: " << chunk.size() << "\n";
     chunk.writeOpCode(OpCode::HALT, 1);
     
-    // VM 실행
+    // VM 실행 (JIT 활성화 - 200회 반복)
     VM vm;
+    std::cerr << "[TEST] VM 실행 (200회 반복, JIT 활성화)\n";
     VMResult result = vm.run(&chunk);
-    
+
+    std::cerr << "[TEST] VM 종료\n";
+    std::cerr << "[TEST] VM top() 타입 확인 전\n";
     EXPECT_EQ(result, VMResult::OK);
     EXPECT_EQ(vm.top().asInteger(), 200);  // sum should be 200
     

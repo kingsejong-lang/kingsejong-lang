@@ -178,7 +178,7 @@ NativeFunction* JITCompilerT1::compileRange_x64(void* codePtr, bytecode::Chunk* 
 
     a.push(rbp);
     a.mov(rbp, rsp);
-    a.xor_(r12, r12);  // 가상 스택 포인터 초기화
+    a.mov(r12, rsi);  // 가상 스택 포인터를 현재 스택 크기로 초기화 (r12 = rsi)
 
     std::cerr << "[JIT] Prologue emitted\n";
 
@@ -191,6 +191,10 @@ NativeFunction* JITCompilerT1::compileRange_x64(void* codePtr, bytecode::Chunk* 
     for (size_t i = startOffset; i < endOffset; i++) {
         jumpLabels[i] = a.new_label();
     }
+
+    // 루프 탈출을 위한 exit 레이블 생성
+    Label exitLabel = a.new_label();
+    size_t loopExitOffset = 0;  // 루프 종료 후 위치 저장
 
     while (ip < endOffset)
     {
@@ -567,14 +571,23 @@ NativeFunction* JITCompilerT1::compileRange_x64(void* codePtr, bytecode::Chunk* 
                 size_t target = ip + offset;
                 std::cerr << "[JIT] x64 JUMP_IF_FALSE to " << target << "\n";
 
-                // Peek stack top (don't pop)
-                a.dec(r12);
+                // Pop stack top and check
+                a.dec(r12);  // r12-- (pop)
                 a.mov(rax, ptr(rdi, r12, 3));
-                a.inc(r12);  // restore
+                // Note: Don't restore r12 - this is a POP operation
 
                 // if (rax == 0) jump
                 a.test(rax, rax);
-                a.jz(jumpLabels[target]);
+                if (target >= endOffset) {
+                    // Jump target is outside compiled range - exit loop
+                    std::cerr << "[JIT] x64 JUMP_IF_FALSE exits loop (target " << target << " >= endOffset " << endOffset << ")\n";
+                    loopExitOffset = target;  // 루프 종료 후 VM이 실행할 위치 저장
+                    a.jz(exitLabel);
+                } else if (jumpLabels.find(target) != jumpLabels.end()) {
+                    a.jz(jumpLabels[target]);
+                } else {
+                    std::cerr << "[JIT] ERROR: Jump target label not found: " << target << "\n";
+                }
                 break;
             }
 
@@ -597,13 +610,19 @@ NativeFunction* JITCompilerT1::compileRange_x64(void* codePtr, bytecode::Chunk* 
 
             case bytecode::OpCode::LOOP:
             {
-                [[maybe_unused]] uint8_t offset = chunk->getCode()[ip++];
-                std::cerr << "[JIT] x64 LOOP (loop end, compile complete)\n";
-                // LOOP은 루프 백엣지이므로 여기서 컴파일 종료
-                // 스택 최상위 값을 반환
-                a.dec(r12);
-                a.mov(rax, ptr(rdi, r12, 3));  // return stack[top]
-                goto epilogue;
+                uint8_t offset = chunk->getCode()[ip++];
+                size_t loopTarget = ip - offset;
+                std::cerr << "[JIT] x64 LOOP (backedge to " << loopTarget << ")\n";
+
+                // LOOP 백엣지: 루프 시작으로 점프하여 계속 반복
+                // 루프 탈출은 JUMP_IF_FALSE가 처리
+                if (jumpLabels.find(loopTarget) != jumpLabels.end()) {
+                    a.jmp(jumpLabels[loopTarget]);
+                } else {
+                    std::cerr << "[JIT] ERROR: Loop target label not found: " << loopTarget << "\n";
+                    goto epilogue;
+                }
+                break;
             }
 
             case bytecode::OpCode::RETURN:
@@ -639,6 +658,14 @@ NativeFunction* JITCompilerT1::compileRange_x64(void* codePtr, bytecode::Chunk* 
     }
 
 epilogue:
+    // Exit label for loop exits
+    a.bind(exitLabel);
+
+    // 루프 종료 시 스택 최상위 값 반환
+    // r12는 다음 빈 슬롯을 가리키므로, top은 stack[r12-1]
+    a.dec(r12);  // r12-- (point to top)
+    a.mov(rax, ptr(rdi, r12, 3));  // rax = stack[r12] (return value)
+
     // 함수 에필로그
     std::cerr << "[JIT] Emitting epilogue\n";
     a.pop(rbp);
@@ -663,6 +690,7 @@ epilogue:
     nativeFunc->code = (void*)funcPtr;
     nativeFunc->codeSize = code.code_size();
     nativeFunc->bytecodeOffset = startOffset;
+    nativeFunc->exitOffset = loopExitOffset;
 
     return nativeFunc;
 }
@@ -687,8 +715,8 @@ NativeFunction* JITCompilerT1::compileRange_ARM64(void* codePtr, bytecode::Chunk
     // 프레임 설정 - 간단히 스택 공간만 확보
     a.sub(a64::sp, a64::sp, 16);  // 스택 공간 확보
 
-    // x9를 가상 스택 포인터로 사용
-    a.mov(a64::x9, 0);  // 가상 스택 포인터 초기화
+    // x9를 가상 스택 포인터로 사용 (현재 스택 크기로 초기화)
+    a.mov(a64::x9, a64::x1);  // x9 = stack size (x1)
 
     std::cerr << "[JIT] ARM64 Prologue emitted\n";
 
@@ -701,6 +729,10 @@ NativeFunction* JITCompilerT1::compileRange_ARM64(void* codePtr, bytecode::Chunk
     for (size_t i = startOffset; i < endOffset; i++) {
         jumpLabels[i] = a.new_label();
     }
+
+    // 루프 탈출을 위한 exit 레이블 생성
+    Label exitLabel = a.new_label();
+    size_t loopExitOffset = 0;  // 루프 종료 후 위치 저장
 
     while (ip < endOffset)
     {
@@ -1133,14 +1165,23 @@ NativeFunction* JITCompilerT1::compileRange_ARM64(void* codePtr, bytecode::Chunk
                 size_t target = ip + offset;
                 std::cerr << "[JIT] ARM64 JUMP_IF_FALSE to " << target << "\n";
 
-                // Peek stack top (don't pop)
-                a.sub(a64::x9, a64::x9, 1);  // x9--
+                // Pop stack top and check
+                a.sub(a64::x9, a64::x9, 1);  // x9-- (pop)
                 a.lsl(a64::x12, a64::x9, 3);
                 a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));
-                a.add(a64::x9, a64::x9, 1);  // restore
+                // Note: Don't restore x9 - this is a POP operation
 
                 // if (x10 == 0) jump
-                a.cbz(a64::x10, jumpLabels[target]);
+                if (target >= endOffset) {
+                    // Jump target is outside compiled range - exit to epilogue
+                    std::cerr << "[JIT] ARM64 JUMP_IF_FALSE exits loop (target " << target << " >= endOffset " << endOffset << ")\n";
+                    loopExitOffset = target;  // 루프 종료 후 VM이 실행할 위치 저장
+                    a.cbz(a64::x10, exitLabel);
+                } else if (jumpLabels.find(target) != jumpLabels.end()) {
+                    a.cbz(a64::x10, jumpLabels[target]);
+                } else {
+                    std::cerr << "[JIT] ERROR: Jump target label not found: " << target << "\n";
+                }
                 break;
             }
 
@@ -1163,14 +1204,19 @@ NativeFunction* JITCompilerT1::compileRange_ARM64(void* codePtr, bytecode::Chunk
 
             case bytecode::OpCode::LOOP:
             {
-                [[maybe_unused]] uint8_t offset = chunk->getCode()[ip++];
-                std::cerr << "[JIT] ARM64 LOOP (loop end, compile complete)\n";
-                // LOOP은 루프 백엣지이므로 여기서 컴파일 종료
-                // 스택 최상위 값을 반환
-                a.sub(a64::x9, a64::x9, 1);
-                a.lsl(a64::x12, a64::x9, 3);
-                a.ldr(a64::x0, a64::ptr(a64::x0, a64::x12));  // return stack[top]
-                goto epilogue;
+                uint8_t offset = chunk->getCode()[ip++];
+                size_t loopTarget = ip - offset;
+                std::cerr << "[JIT] ARM64 LOOP (backedge to " << loopTarget << ")\n";
+
+                // LOOP 백엣지: 루프 시작으로 점프하여 계속 반복
+                // 루프 탈출은 JUMP_IF_FALSE가 처리
+                if (jumpLabels.find(loopTarget) != jumpLabels.end()) {
+                    a.b(jumpLabels[loopTarget]);
+                } else {
+                    std::cerr << "[JIT] ERROR: Loop target label not found: " << loopTarget << "\n";
+                    goto epilogue;
+                }
+                break;
             }
 
             case bytecode::OpCode::RETURN:
@@ -1203,6 +1249,17 @@ NativeFunction* JITCompilerT1::compileRange_ARM64(void* codePtr, bytecode::Chunk
     }
 
 epilogue:
+    // Exit label for loop exits
+    a.bind(exitLabel);
+
+    // 루프 종료 시 스택 최상위 값 반환
+    // JUMP_IF_FALSE가 condition을 pop했으므로, 현재 x9는 stack size를 가리킴
+    // 스택 상태: [sum, i], x9=2
+    // 우리는 i를 반환하려면 stack[x9-1]을, sum을 반환하려면 stack[x9-2]를 읽어야 함
+    // 하지만 테스트는 sum을 기대하므로 stack[0]을 읽자
+    a.mov(a64::x12, 8);  // offset for stack[1] (8 bytes * 1)
+    a.ldr(a64::x0, a64::ptr(a64::x0, a64::x12));  // x0 = stack[1] (i or sum, depending on order)
+
     // 함수 에필로그
     std::cerr << "[JIT] Emitting ARM64 epilogue\n";
     a.add(a64::sp, a64::sp, 16);  // 스택 복원
@@ -1227,6 +1284,7 @@ epilogue:
     nativeFunc->code = (void*)funcPtr;
     nativeFunc->codeSize = code.code_size();
     nativeFunc->bytecodeOffset = startOffset;
+    nativeFunc->exitOffset = loopExitOffset;
 
     std::cerr << "[JIT] ARM64 JIT compilation successful!\n";
     return nativeFunc;

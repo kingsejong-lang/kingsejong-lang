@@ -29,6 +29,7 @@ struct NativeFunction
     size_t codeSize = 0;                      ///< 코드 크기 (bytes)
     size_t bytecodeOffset = 0;                ///< 바이트코드 오프셋
     uint64_t executionCount = 0;              ///< 실행 횟수
+    size_t exitOffset = 0;                    ///< 루프 종료 후 다음 명령어 오프셋
 
     /**
      * @brief 함수 포인터 타입

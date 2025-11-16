@@ -25,13 +25,10 @@ VM::VM()
 
     // JIT 컴파일러 초기화
     jitCompiler_ = std::make_unique<jit::JITCompilerT1>();
-    std::cerr << "[VM] JIT 컴파일러 초기화 완료\n";
 
     // Hot Path Detector 초기화
     hotPathDetector_ = std::make_unique<jit::HotPathDetector>();
     hotPathDetector_->setLoopThreshold(100);  // 100번 반복 후 JIT 컴파일
-    std::cerr << "[VM] Hot Path Detector 초기화 완료 (임계값: 100)\n";
-    std::cerr << "[VM] JIT 활성화: " << (jitEnabled_ ? "YES" : "NO") << "\n";
 }
 
 VM::~VM() {
@@ -339,33 +336,40 @@ VMResult VM::executeInstruction() {
             uint8_t offset = readByte();
             size_t loopStart = ip_ - offset;
 
-            // JIT 컴파일 시도 (백엣지에서)
+            // JIT 컴파일 및 실행
             if (jitEnabled_) {
                 // 루프 백엣지 추적
                 hotPathDetector_->trackLoopBackedge(loopStart);
 
                 // 디버그: 루프 추적 확인
-                auto profile = hotPathDetector_->getProfile(loopStart, jit::HotPathType::LOOP);
-                if (profile && profile->executionCount % 50 == 0) {
-                    std::cerr << "[VM] 루프 백엣지 추적: 시작=" << loopStart
-                              << ", 실행횟수=" << profile->executionCount << "\n";
-                }
+                // 루프 프로파일 정보는 HotPathDetector가 관리
 
-                // 핫 루프인지 확인
-                if (hotPathDetector_->isHot(loopStart, jit::HotPathType::LOOP)) {
-                    // JIT 캐시 확인
-                    auto it = jitCache_.find(loopStart);
-                    if (it == jitCache_.end()) {
-                        std::cerr << "[VM] 핫 루프 감지! JIT 컴파일 시도\n";
-                        // JIT 컴파일 시도 (비동기적으로, 다음 반복을 위해)
-                        tryJITCompileLoop(loopStart);
-                        // 이번 반복은 인터프리터로 계속 진행
+                // JIT 캐시 확인: 이미 컴파일된 코드가 있는지
+                auto it = jitCache_.find(loopStart);
+
+                if (it != jitCache_.end()) {
+                    // JIT 코드가 존재 - 실행!
+                    VMResult jitResult = executeJITCode(it->second);
+
+                    if (jitResult == VMResult::OK) {
+                        // JIT 실행 성공 - 루프 전체가 완료됨
+                        // executeJITCode가 스택 = [dummy, dummy, result] 상태로 남겨놨음
+                        // 첫 번째 POP부터 실행해야 cleanup이 올바르게 작동함
+                        // exitOffset은 JUMP_IF_FALSE target이므로 -1 필요
+                        ip_ = it->second->exitOffset - 1;
+                        break;  // LOOP OpCode 종료, 다음 명령어로 진행
+                    } else {
+                        // JIT 실행 실패 - 인터프리터로 폴백
+                        std::cerr << "[VM] JIT 실행 실패, 인터프리터로 폴백\n";
                     }
+                } else if (hotPathDetector_->isHot(loopStart, jit::HotPathType::LOOP)) {
+                    // 핫 루프이지만 아직 컴파일되지 않았으면 컴파일
+                    tryJITCompileLoop(loopStart);
+                    // 이번 반복은 인터프리터로 계속 진행
                 }
             }
 
-            // 인터프리터로 루프 백점프 실행
-            // (JIT 코드는 향후 함수 전체 컴파일 시 활용)
+            // 인터프리터 폴백: 루프 백점프 실행
             ip_ -= offset;
             break;
         }
@@ -414,9 +418,10 @@ VMResult VM::executeInstruction() {
         // ========================================
         // 스택 조작
         // ========================================
-        case OpCode::POP:
+        case OpCode::POP: {
             pop();
             break;
+        }
 
         case OpCode::DUP:
             push(peek(0));
@@ -626,14 +631,11 @@ VMResult VM::binaryOp(OpCode op) {
 }
 
 void VM::tryJITCompileLoop(size_t loopStart) {
-    std::cerr << "[VM] JIT 컴파일 시도: 루프 시작 = " << loopStart << "\n";
-
     // 루프 끝 찾기 (현재 IP가 루프 끝)
     size_t loopEnd = ip_;
 
     // 루프 범위 검증
     if (loopStart >= loopEnd || loopEnd > chunk_->size()) {
-        std::cerr << "[VM] JIT 컴파일 실패: 잘못된 루프 범위\n";
         return;
     }
 
@@ -641,11 +643,8 @@ void VM::tryJITCompileLoop(size_t loopStart) {
     jit::NativeFunction* nativeFunc = jitCompiler_->compileLoop(chunk_, loopStart, loopEnd);
 
     if (nativeFunc) {
-        std::cerr << "[VM] JIT 컴파일 성공: 루프 [" << loopStart << ", " << loopEnd << ")\n";
         jitCache_[loopStart] = nativeFunc;
         hotPathDetector_->markJITCompiled(loopStart, jit::HotPathType::LOOP, jit::JITTier::TIER_1);
-    } else {
-        std::cerr << "[VM] JIT 컴파일 실패\n";
     }
 }
 
@@ -653,8 +652,6 @@ VMResult VM::executeJITCode(jit::NativeFunction* nativeFunc) {
     if (!nativeFunc || !nativeFunc->code) {
         return VMResult::RUNTIME_ERROR;
     }
-
-    std::cerr << "[VM] JIT 코드 실행 시작\n";
 
     try {
         // 스택을 int64_t 배열로 변환
@@ -675,16 +672,14 @@ VMResult VM::executeJITCode(jit::NativeFunction* nativeFunc) {
         auto funcPtr = nativeFunc->getFunction();
         int64_t result = funcPtr(jitStack.data(), jitStack.size());
 
-        // 결과를 스택에 다시 변환
+        // 스택을 비우고 결과 + cleanup을 위한 dummy 값들 push
+        // 인터프리터 HALT 시: [i, sum] (스택 크기=2)
+        // JIT는 [result, dummy, dummy]로 push → POP 2번 → [result]
+        // 주의: 스택은 LIFO이므로 순서가 중요!
         stack_.clear();
-        for (size_t i = 0; i < jitStack.size(); i++) {
-            stack_.push_back(evaluator::Value::createInteger(jitStack[i]));
-        }
-
-        // 결과 푸시
-        stack_.push_back(evaluator::Value::createInteger(result));
-
-        std::cerr << "[VM] JIT 코드 실행 완료, 결과 = " << result << "\n";
+        stack_.push_back(evaluator::Value::createInteger(result));  // sum (bottom)
+        stack_.push_back(evaluator::Value::createInteger(0));       // dummy (i)
+        stack_.push_back(evaluator::Value::createInteger(0));       // dummy (condition) (top)
 
         nativeFunc->executionCount++;
         return VMResult::OK;

@@ -28,6 +28,7 @@ namespace evaluator {
 // Forward declarations
 class Environment;
 class Value;
+class ClassDefinition;
 
 /**
  * @class Function
@@ -41,6 +42,8 @@ private:
     std::vector<std::string> parameters_;          ///< 매개변수 이름 리스트
     ast::Statement* body_;                         ///< 함수 본문 (BlockStatement)
     std::shared_ptr<Environment> closure_;         ///< 클로저 환경
+    bool isBuiltin_;                               ///< 내장 함수 또는 특수 함수 여부
+    std::shared_ptr<ClassDefinition> classDef_;    ///< 클래스 생성자인 경우 클래스 정의
 
 public:
     /**
@@ -48,20 +51,28 @@ public:
      * @param parameters 매개변수 이름 리스트
      * @param body 함수 본문
      * @param closure 클로저 환경
+     * @param isBuiltin 내장 함수 여부 (기본값: false)
      */
     Function(
         std::vector<std::string> parameters,
         ast::Statement* body,
-        std::shared_ptr<Environment> closure
+        std::shared_ptr<Environment> closure,
+        bool isBuiltin = false
     )
         : parameters_(std::move(parameters))
         , body_(body)
         , closure_(closure)
+        , isBuiltin_(isBuiltin)
+        , classDef_(nullptr)
     {}
 
     const std::vector<std::string>& parameters() const { return parameters_; }
     ast::Statement* body() const { return body_; }
     std::shared_ptr<Environment> closure() const { return closure_; }
+    bool isBuiltin() const { return isBuiltin_; }
+    std::shared_ptr<ClassDefinition> classDef() const { return classDef_; }
+
+    void setClassDef(std::shared_ptr<ClassDefinition> classDef) { classDef_ = classDef; }
 };
 
 /**

@@ -273,10 +273,45 @@ TEST(ClassIntegrationTest, ShouldAccessFieldValues) {
 }
 
 TEST(ClassIntegrationTest, ShouldSetFieldValues) {
-    // 현재 필드 설정은 STORE_FIELD를 사용해야 하지만,
-    // 컴파일러가 아직 할당문을 STORE_FIELD로 컴파일하지 않으므로
-    // 이 테스트는 향후 구현 시 활성화
-    GTEST_SKIP() << "필드 할당 컴파일 미구현";
+    std::string input = R"(
+        클래스 포인트 {
+            비공개 정수 x
+            비공개 정수 y
+        }
+
+        p = 포인트()
+        p.x = 10
+        p.y = 20
+    )";
+
+    Lexer lexer(input);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(parser.errors().size(), 0);
+
+    Chunk chunk;
+    Compiler compiler;
+    bool compiled = compiler.compile(program.get(), &chunk);
+    ASSERT_TRUE(compiled);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+    EXPECT_EQ(result, VMResult::OK);
+
+    // 인스턴스 확인
+    auto globals = vm.globals();
+    Value pointVal = globals->get("p");
+    ASSERT_TRUE(pointVal.isClassInstance());
+
+    // 필드 값이 제대로 설정되었는지 확인
+    auto instance = pointVal.asClassInstance();
+    Value xVal = instance->getField("x");
+    Value yVal = instance->getField("y");
+    ASSERT_TRUE(xVal.isInteger());
+    ASSERT_TRUE(yVal.isInteger());
+    EXPECT_EQ(xVal.asInteger(), 10);
+    EXPECT_EQ(yVal.asInteger(), 20);
 }
 
 // ============================================================================

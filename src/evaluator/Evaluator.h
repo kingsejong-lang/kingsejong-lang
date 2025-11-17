@@ -228,6 +228,20 @@ private:
      */
     Value evalMatchExpression(ast::MatchExpression* expr);
 
+    /**
+     * @brief 멤버 접근 표현식 평가
+     * @param expr 멤버 접근 표현식 노드
+     * @return 필드 값 Value
+     */
+    Value evalMemberAccessExpression(ast::MemberAccessExpression* expr);
+
+    /**
+     * @brief this(자신) 표현식 평가
+     * @param expr this 표현식 노드
+     * @return 현재 인스턴스 Value
+     */
+    Value evalThisExpression(ast::ThisExpression* expr);
+
     // Statement 실행 함수들
 
     /**
@@ -306,6 +320,13 @@ private:
      * @return 블록 실행 결과
      */
     Value evalTryStatement(ast::TryStatement* stmt);
+
+    /**
+     * @brief 클래스 정의 실행
+     * @param stmt 클래스 정의 노드
+     * @return null Value
+     */
+    Value evalClassStatement(ast::ClassStatement* stmt);
 
     // 헬퍼 함수들
 

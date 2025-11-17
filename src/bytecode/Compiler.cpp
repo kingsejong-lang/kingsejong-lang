@@ -384,6 +384,55 @@ void Compiler::compileIdentifier(ast::Identifier* ident) {
 }
 
 void Compiler::compileBinaryExpression(ast::BinaryExpression* expr) {
+    // Phase 7.1: 할당 연산자 특별 처리
+    if (expr->op() == "=") {
+        // 좌변이 MemberAccessExpression이면 필드 할당
+        if (auto* memberAccess = dynamic_cast<ast::MemberAccessExpression*>(const_cast<ast::Expression*>(expr->left()))) {
+            // 객체 표현식 컴파일 (스택에 객체 푸시)
+            compileExpression(const_cast<ast::Expression*>(memberAccess->object()));
+
+            // 우변 컴파일 (스택에 값 푸시)
+            compileExpression(const_cast<ast::Expression*>(expr->right()));
+
+            // 필드 이름을 상수 풀에 추가
+            size_t fieldNameIdx = chunk_->addConstant(evaluator::Value::createString(memberAccess->memberName()));
+
+            // STORE_FIELD [field_name_index]
+            emit(OpCode::STORE_FIELD, static_cast<uint8_t>(fieldNameIdx));
+
+            // 할당 표현식은 할당된 값을 반환 (스택에 다시 푸시)
+            compileExpression(const_cast<ast::Expression*>(expr->right()));
+            return;
+        }
+        // 좌변이 Identifier이면 변수 할당
+        else if (auto* ident = dynamic_cast<ast::Identifier*>(const_cast<ast::Expression*>(expr->left()))) {
+            // 우변 컴파일 (스택에 값 푸시)
+            compileExpression(const_cast<ast::Expression*>(expr->right()));
+
+            // 변수에 저장
+            if (scopeDepth_ == 0) {
+                // 전역 변수
+                size_t nameIdx = chunk_->addName(ident->name());
+                emit(OpCode::STORE_GLOBAL, static_cast<uint8_t>(nameIdx));
+            } else {
+                // 로컬 변수: 기존 변수 찾기
+                int local = resolveLocal(ident->name());
+                if (local == -1) {
+                    // 새 로컬 변수 생성 (타입 추론)
+                    addLocal(ident->name());
+                }
+                // 로컬 변수는 자동으로 스택에서 관리됨
+            }
+
+            // 할당 표현식은 할당된 값을 반환 (이미 스택에 있음)
+            return;
+        }
+        else {
+            error("Invalid left-hand side of assignment");
+            return;
+        }
+    }
+
     // 최적화: 상수 폴딩
     if (tryConstantFoldBinary(expr)) {
         return;

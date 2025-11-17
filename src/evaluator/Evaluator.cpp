@@ -88,6 +88,12 @@ Value Evaluator::eval(ast::Node* node)
         case ast::NodeType::JOSA_EXPRESSION:
             return evalJosaExpression(static_cast<ast::JosaExpression*>(node));
 
+        case ast::NodeType::MEMBER_ACCESS_EXPRESSION:
+            return evalMemberAccessExpression(static_cast<ast::MemberAccessExpression*>(node));
+
+        case ast::NodeType::THIS_EXPRESSION:
+            return evalThisExpression(static_cast<ast::ThisExpression*>(node));
+
         // Statements
         case ast::NodeType::PROGRAM:
             return evalProgram(static_cast<ast::Program*>(node));
@@ -124,6 +130,9 @@ Value Evaluator::eval(ast::Node* node)
 
         case ast::NodeType::TRY_STATEMENT:
             return evalTryStatement(static_cast<ast::TryStatement*>(node));
+
+        case ast::NodeType::CLASS_STATEMENT:
+            return evalClassStatement(static_cast<ast::ClassStatement*>(node));
 
         default:
         {
@@ -208,9 +217,43 @@ Value Evaluator::evalIdentifier(ast::Identifier* ident)
 
 Value Evaluator::evalBinaryExpression(ast::BinaryExpression* expr)
 {
+    const std::string& op = expr->op();
+
+    // Phase 7.1: 할당 연산자 특별 처리
+    if (op == "=")
+    {
+        // 우변 평가
+        Value value = eval(const_cast<ast::Expression*>(expr->right()));
+
+        // 좌변이 MemberAccessExpression이면 필드 할당
+        if (auto* memberAccess = dynamic_cast<ast::MemberAccessExpression*>(const_cast<ast::Expression*>(expr->left())))
+        {
+            // 객체 평가
+            Value obj = eval(const_cast<ast::Expression*>(memberAccess->object()));
+
+            if (!obj.isClassInstance())
+            {
+                throw error::RuntimeError("필드 접근은 클래스 인스턴스에만 가능합니다");
+            }
+
+            // 필드 설정
+            obj.asClassInstance()->setField(memberAccess->memberName(), value);
+            return value;
+        }
+        // 좌변이 Identifier이면 변수 할당
+        else if (auto* ident = dynamic_cast<ast::Identifier*>(const_cast<ast::Expression*>(expr->left())))
+        {
+            env_->set(ident->name(), value);
+            return value;
+        }
+        else
+        {
+            throw error::RuntimeError("Invalid left-hand side of assignment");
+        }
+    }
+
     Value left = eval(const_cast<ast::Expression*>(expr->left()));
     Value right = eval(const_cast<ast::Expression*>(expr->right()));
-    const std::string& op = expr->op();
 
     // 비교 연산자
     if (op == "==" || op == "!=" || op == "<" || op == ">" || op == "<=" || op == ">=")
@@ -309,6 +352,80 @@ Value Evaluator::evalFunctionLiteral(ast::FunctionLiteral* lit)
  */
 Value Evaluator::evalCallExpression(ast::CallExpression* expr)
 {
+    // Phase 7.1.3: 메서드 호출 처리
+    // 함수 표현식이 MemberAccessExpression이면 메서드 호출
+    if (auto* memberAccess = dynamic_cast<ast::MemberAccessExpression*>(const_cast<ast::Expression*>(expr->function())))
+    {
+        // 객체 평가
+        Value obj = eval(const_cast<ast::Expression*>(memberAccess->object()));
+
+        if (!obj.isClassInstance())
+        {
+            throw error::RuntimeError("메서드 호출은 클래스 인스턴스에만 가능합니다");
+        }
+
+        auto instance = obj.asClassInstance();
+        auto classDef = instance->classDef();
+
+        // 메서드 찾기
+        auto method = classDef->getMethod(memberAccess->memberName());
+        if (!method)
+        {
+            throw error::RuntimeError("메서드를 찾을 수 없습니다: " + memberAccess->memberName());
+        }
+
+        // 인자 평가
+        std::vector<Value> args;
+        for (const auto& argExpr : expr->arguments())
+        {
+            Value argValue = eval(const_cast<ast::Expression*>(argExpr.get()));
+            args.push_back(argValue);
+        }
+
+        // 매개변수 개수 확인
+        if (args.size() != method->parameters().size())
+        {
+            throw error::ArgumentError(
+                "메서드 인자 개수가 일치하지 않습니다: 필요 " + std::to_string(method->parameters().size()) + "개, " +
+                "전달 " + std::to_string(args.size()) + "개"
+            );
+        }
+
+        // 새로운 환경 생성 (메서드의 클로저 기반)
+        auto methodEnv = std::make_shared<Environment>(method->closure());
+
+        // 매개변수 바인딩
+        for (size_t i = 0; i < method->parameters().size(); ++i)
+        {
+            methodEnv->set(method->parameters()[i], args[i]);
+        }
+
+        // '자신' 키워드를 인스턴스에 바인딩
+        methodEnv->set("자신", obj);
+
+        // 기존 환경 저장
+        auto previousEnv = env_;
+
+        // 메서드 환경으로 전환
+        env_ = methodEnv;
+
+        // 메서드 본문 실행
+        Value result = Value::createNull();
+        try
+        {
+            result = eval(method->body());
+        }
+        catch (const ReturnValue& returnVal)
+        {
+            result = returnVal.getValue();
+        }
+
+        // 환경 복원
+        env_ = previousEnv;
+
+        return result;
+    }
+
     // 1. 함수 평가
     Value funcValue = eval(const_cast<ast::Expression*>(expr->function()));
 
@@ -337,6 +454,61 @@ Value Evaluator::evalCallExpression(ast::CallExpression* expr)
     }
 
     auto func = funcValue.asFunction();
+
+    // Phase 7.1: 클래스 생성자 호출
+    if (func->classDef())
+    {
+        auto classDef = func->classDef();
+        auto instance = std::make_shared<ClassInstance>(classDef);
+
+        // 생성자가 있으면 실행
+        if (classDef->constructor())
+        {
+            auto ctor = classDef->constructor();
+
+            // 매개변수 개수 확인
+            if (args.size() != ctor->parameters().size())
+            {
+                throw error::ArgumentError(
+                    "생성자 인자 개수가 일치하지 않습니다: 필요 " + std::to_string(ctor->parameters().size()) + "개, " +
+                    "전달 " + std::to_string(args.size()) + "개"
+                );
+            }
+
+            // 새로운 환경 생성 (생성자의 클로저 기반)
+            auto ctorEnv = std::make_shared<Environment>(ctor->closure());
+
+            // 매개변수 바인딩
+            for (size_t i = 0; i < ctor->parameters().size(); ++i)
+            {
+                ctorEnv->set(ctor->parameters()[i], args[i]);
+            }
+
+            // '자신' 키워드를 인스턴스에 바인딩
+            ctorEnv->set("자신", Value::createClassInstance(instance));
+
+            // 기존 환경 저장
+            auto previousEnv = env_;
+
+            // 생성자 환경으로 전환
+            env_ = ctorEnv;
+
+            // 생성자 본문 실행
+            try
+            {
+                eval(ctor->body());
+            }
+            catch (const ReturnValue&)
+            {
+                // 생성자에서 return은 무시
+            }
+
+            // 환경 복원
+            env_ = previousEnv;
+        }
+
+        return Value::createClassInstance(instance);
+    }
 
     // 5. 매개변수 개수 확인
     if (args.size() != func->parameters().size())
@@ -1407,6 +1579,99 @@ Value Evaluator::evalMatchExpression(ast::MatchExpression* node)
     }
 
     throw error::RuntimeError("매칭되는 패턴이 없습니다");
+}
+
+// ============================================================================
+// Phase 7.1: 클래스 시스템
+// ============================================================================
+
+Value Evaluator::evalMemberAccessExpression(ast::MemberAccessExpression* expr)
+{
+    // 객체 평가
+    Value obj = eval(const_cast<ast::Expression*>(expr->object()));
+
+    if (!obj.isClassInstance())
+    {
+        throw error::RuntimeError("필드 접근은 클래스 인스턴스에만 가능합니다");
+    }
+
+    // 필드 값 반환
+    return obj.asClassInstance()->getField(expr->memberName());
+}
+
+Value Evaluator::evalThisExpression(ast::ThisExpression* /* expr */)
+{
+    // 환경에서 "자신" 변수 조회
+    return env_->get("자신");
+}
+
+Value Evaluator::evalClassStatement(ast::ClassStatement* stmt)
+{
+    // 필드 이름 추출
+    std::vector<std::string> fieldNames;
+    for (const auto& field : stmt->fields())
+    {
+        fieldNames.push_back(field->fieldName());
+    }
+
+    // 메서드 추출
+    std::unordered_map<std::string, std::shared_ptr<Function>> methods;
+    for (const auto& method : stmt->methods())
+    {
+        std::vector<std::string> params;
+        for (const auto& param : method->parameters())
+        {
+            params.push_back(param.name);
+        }
+
+        auto methodFunc = std::make_shared<Function>(
+            params,
+            const_cast<ast::BlockStatement*>(method->body()),
+            env_
+        );
+
+        methods[method->methodName()] = methodFunc;
+    }
+
+    // 생성자 추출
+    std::shared_ptr<Function> constructor = nullptr;
+    if (stmt->constructor())
+    {
+        std::vector<std::string> params;
+        for (const auto& param : stmt->constructor()->parameters())
+        {
+            params.push_back(param.name);
+        }
+
+        constructor = std::make_shared<Function>(
+            params,
+            const_cast<ast::BlockStatement*>(stmt->constructor()->body()),
+            env_
+        );
+    }
+
+    // ClassDefinition 생성
+    auto classDef = std::make_shared<ClassDefinition>(
+        stmt->className(),
+        fieldNames,
+        methods,
+        constructor,
+        stmt->superClass()
+    );
+
+    // 환경에 클래스 등록 (클래스 이름을 함수처럼 등록)
+    // 클래스 생성자 함수 생성
+    auto constructorFunc = std::make_shared<Function>(
+        std::vector<std::string>{},  // 매개변수 없음 (향후 확장)
+        nullptr,  // body는 null
+        env_,
+        true   // isBuiltin = true (특수 처리)
+    );
+    constructorFunc->setClassDef(classDef);
+
+    env_->set(stmt->className(), Value::createFunction(constructorFunc));
+
+    return Value::createNull();
 }
 
 // ============================================================================

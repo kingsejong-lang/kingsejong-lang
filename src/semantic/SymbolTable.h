@@ -26,7 +26,8 @@ enum class SymbolKind
     VARIABLE,   ///< 변수
     FUNCTION,   ///< 함수
     TYPE,       ///< 타입 (향후 사용자 정의 타입)
-    MODULE      ///< 모듈 (향후 모듈 시스템)
+    MODULE,     ///< 모듈 (향후 모듈 시스템)
+    CLASS       ///< 클래스 (Phase 7.1)
 };
 
 /**
@@ -257,6 +258,17 @@ public:
     {
         Symbol* symbol = lookup(name);
         return symbol && symbol->kind == SymbolKind::FUNCTION;
+    }
+
+    /**
+     * @brief 심볼이 클래스인지 확인 (Phase 7.1)
+     * @param name 심볼 이름
+     * @return 클래스이면 true
+     */
+    bool isClass(const std::string& name)
+    {
+        Symbol* symbol = lookup(name);
+        return symbol && symbol->kind == SymbolKind::CLASS;
     }
 
     /**

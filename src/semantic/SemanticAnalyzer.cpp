@@ -384,6 +384,75 @@ void SemanticAnalyzer::analyzeAndResolveStatement(const Statement* stmt)
     {
         // TODO: 모듈 import 처리
     }
+    // Phase 7.1: 클래스 정의문
+    else if (auto classStmt = dynamic_cast<const ClassStatement*>(stmt))
+    {
+        // 클래스 이름을 현재 스코프에 등록
+        symbolTable_.define(classStmt->className(), SymbolKind::CLASS, nullptr);
+
+        // 필드 검증 (중복 필드 이름 확인)
+        std::unordered_set<std::string> fieldNames;
+        for (const auto& field : classStmt->fields())
+        {
+            if (fieldNames.count(field->fieldName()))
+            {
+                addError("중복된 필드 이름: " + field->fieldName(),
+                        stmt->location().line, stmt->location().column);
+            }
+            fieldNames.insert(field->fieldName());
+        }
+
+        // 메서드 검증 (중복 메서드 이름 확인)
+        std::unordered_set<std::string> methodNames;
+        for (const auto& method : classStmt->methods())
+        {
+            if (methodNames.count(method->methodName()))
+            {
+                addError("중복된 메서드 이름: " + method->methodName(),
+                        stmt->location().line, stmt->location().column);
+            }
+            methodNames.insert(method->methodName());
+
+            // 메서드 본문 분석 (새 스코프에서)
+            symbolTable_.enterScope();
+
+            // 매개변수 등록
+            for (const auto& param : method->parameters())
+            {
+                symbolTable_.define(param.name, SymbolKind::VARIABLE, nullptr);
+            }
+
+            // 메서드 본문 분석
+            if (method->body())
+            {
+                analyzeAndResolveStatement(method->body());
+            }
+
+            symbolTable_.exitScope();
+        }
+
+        // 생성자 분석 (있으면)
+        if (classStmt->constructor())
+        {
+            auto ctor = classStmt->constructor();
+
+            symbolTable_.enterScope();
+
+            // 생성자 매개변수 등록
+            for (const auto& param : ctor->parameters())
+            {
+                symbolTable_.define(param.name, SymbolKind::VARIABLE, nullptr);
+            }
+
+            // 생성자 본문 분석
+            if (ctor->body())
+            {
+                analyzeAndResolveStatement(ctor->body());
+            }
+
+            symbolTable_.exitScope();
+        }
+    }
 }
 
 void SemanticAnalyzer::analyzeAndResolveExpression(const Expression* expr)
@@ -445,6 +514,35 @@ void SemanticAnalyzer::analyzeAndResolveExpression(const Expression* expr)
     {
         analyzeAndResolveExpression(range->start());
         analyzeAndResolveExpression(range->end());
+    }
+    // Phase 7.1: 객체 생성 표현식
+    else if (auto newExpr = dynamic_cast<const NewExpression*>(expr))
+    {
+        // 클래스 이름이 정의되어 있는지 확인
+        if (!symbolTable_.lookup(newExpr->className()))
+        {
+            addError("정의되지 않은 클래스: " + newExpr->className(),
+                    expr->location().line, expr->location().column);
+        }
+
+        // 생성자 인자들 분석
+        for (const auto& arg : newExpr->arguments())
+        {
+            analyzeAndResolveExpression(arg.get());
+        }
+    }
+    // Phase 7.1: 멤버 접근 표현식
+    else if (auto memberAccess = dynamic_cast<const MemberAccessExpression*>(expr))
+    {
+        // 객체 표현식 분석
+        analyzeAndResolveExpression(memberAccess->object());
+        // 멤버 이름은 런타임에 검증 (클래스 정의를 알아야 함)
+    }
+    // Phase 7.1: this 표현식
+    else if (dynamic_cast<const ThisExpression*>(expr))
+    {
+        // this는 메서드나 생성자 내부에서만 사용 가능
+        // 현재는 스코프 체크 없이 허용 (TODO: 향후 메서드/생성자 스코프 추적 추가)
     }
     // 리터럴 (정수, 실수, 문자열, 불린): 아무것도 안 함
     // 함수 리터럴: 별도 처리 필요 없음 (AssignmentStatement에서 처리)

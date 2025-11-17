@@ -719,5 +719,112 @@ public:
     const std::vector<MatchCase>& cases() const { return cases_; }
 };
 
+/**
+ * @class MemberAccessExpression
+ * @brief 멤버 접근 표현식
+ *
+ * Phase 7.1 클래스 시스템의 멤버 접근입니다.
+ * 객체의 필드나 메서드에 접근할 때 사용됩니다.
+ *
+ * @example
+ * 홍길동.이름
+ * 홍길동.나이
+ * 홍길동.인사하기()
+ */
+class MemberAccessExpression : public Expression
+{
+private:
+    std::unique_ptr<Expression> object_;
+    std::string memberName_;
+
+public:
+    MemberAccessExpression(
+        std::unique_ptr<Expression> object,
+        const std::string& memberName
+    )
+        : object_(std::move(object))
+        , memberName_(memberName)
+    {}
+
+    NodeType type() const override { return NodeType::MEMBER_ACCESS_EXPRESSION; }
+
+    std::string toString() const override
+    {
+        return object_->toString() + "." + memberName_;
+    }
+
+    const Expression* object() const { return object_.get(); }
+    const std::string& memberName() const { return memberName_; }
+};
+
+/**
+ * @class ThisExpression
+ * @brief this 표현식
+ *
+ * Phase 7.1 클래스 시스템의 this 키워드입니다.
+ * 메서드나 생성자 내에서 현재 인스턴스를 참조할 때 사용됩니다.
+ *
+ * @example
+ * 자신.이름 = 이름
+ * 자신.나이 = 나이
+ */
+class ThisExpression : public Expression
+{
+public:
+    ThisExpression() = default;
+
+    NodeType type() const override { return NodeType::THIS_EXPRESSION; }
+
+    std::string toString() const override
+    {
+        return "자신";
+    }
+};
+
+/**
+ * @class NewExpression
+ * @brief 객체 생성 표현식
+ *
+ * Phase 7.1 클래스 시스템의 객체 생성입니다.
+ * 클래스 이름과 생성자 인자를 받아 새 인스턴스를 생성합니다.
+ *
+ * @example
+ * 사람("홍길동", 30)
+ * 계좌(10000)
+ * 사각형(5.0, 3.0)
+ */
+class NewExpression : public Expression
+{
+private:
+    std::string className_;
+    std::vector<std::unique_ptr<Expression>> arguments_;
+
+public:
+    NewExpression(
+        const std::string& className,
+        std::vector<std::unique_ptr<Expression>> arguments
+    )
+        : className_(className)
+        , arguments_(std::move(arguments))
+    {}
+
+    NodeType type() const override { return NodeType::NEW_EXPRESSION; }
+
+    std::string toString() const override
+    {
+        std::string result = className_ + "(";
+        for (size_t i = 0; i < arguments_.size(); ++i)
+        {
+            if (i > 0) result += ", ";
+            result += arguments_[i]->toString();
+        }
+        result += ")";
+        return result;
+    }
+
+    const std::string& className() const { return className_; }
+    const std::vector<std::unique_ptr<Expression>>& arguments() const { return arguments_; }
+};
+
 } // namespace ast
 } // namespace kingsejong

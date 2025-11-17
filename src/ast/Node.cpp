@@ -96,6 +96,22 @@ std::string nodeTypeToString(NodeType type)
         case NodeType::ARRAY_PATTERN:
             return "ARRAY_PATTERN";
 
+        // 클래스 관련 (Phase 7.1)
+        case NodeType::CLASS_STATEMENT:
+            return "CLASS_STATEMENT";
+        case NodeType::FIELD_DECLARATION:
+            return "FIELD_DECLARATION";
+        case NodeType::METHOD_DECLARATION:
+            return "METHOD_DECLARATION";
+        case NodeType::CONSTRUCTOR_DECLARATION:
+            return "CONSTRUCTOR_DECLARATION";
+        case NodeType::MEMBER_ACCESS_EXPRESSION:
+            return "MEMBER_ACCESS_EXPRESSION";
+        case NodeType::THIS_EXPRESSION:
+            return "THIS_EXPRESSION";
+        case NodeType::NEW_EXPRESSION:
+            return "NEW_EXPRESSION";
+
         default:
             return "UNKNOWN";
     }

@@ -67,7 +67,16 @@ enum class NodeType
     LITERAL_PATTERN,            ///< 리터럴 패턴 (1, "hello", 참)
     WILDCARD_PATTERN,           ///< 와일드카드 패턴 (_)
     BINDING_PATTERN,            ///< 바인딩 패턴 (변수명)
-    ARRAY_PATTERN               ///< 배열 패턴 ([a, b, ...rest])
+    ARRAY_PATTERN,              ///< 배열 패턴 ([a, b, ...rest])
+
+    // 클래스 관련 (Phase 7.1)
+    CLASS_STATEMENT,            ///< 클래스 정의 (클래스 사람 { ... })
+    FIELD_DECLARATION,          ///< 필드 선언 (비공개 문자열 이름)
+    METHOD_DECLARATION,         ///< 메서드 선언 (공개 함수 인사하기() { ... })
+    CONSTRUCTOR_DECLARATION,    ///< 생성자 선언 (생성자(이름) { ... })
+    MEMBER_ACCESS_EXPRESSION,   ///< 멤버 접근 (객체.필드, 객체.메서드())
+    THIS_EXPRESSION,            ///< this 표현식 (자신)
+    NEW_EXPRESSION              ///< 객체 생성 (사람("홍길동", 30))
 };
 
 /**

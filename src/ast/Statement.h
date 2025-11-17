@@ -614,5 +614,272 @@ public:
     const Expression* value() const { return value_.get(); }
 };
 
+/**
+ * @enum AccessModifier
+ * @brief 클래스 멤버의 접근 제어자
+ *
+ * Phase 7.1에서 추가된 클래스 시스템의 접근 제어자입니다.
+ */
+enum class AccessModifier
+{
+    PUBLIC,     ///< 공개 (공개)
+    PRIVATE     ///< 비공개 (비공개)
+};
+
+/**
+ * @struct Parameter
+ * @brief 함수 및 메서드 파라미터 정보
+ */
+struct Parameter
+{
+    std::string typeName;   ///< 타입 이름 (정수, 문자열 등)
+    std::string name;       ///< 파라미터 이름
+
+    Parameter(const std::string& t, const std::string& n)
+        : typeName(t), name(n)
+    {}
+};
+
+/**
+ * @class FieldDeclaration
+ * @brief 클래스 필드 선언
+ *
+ * Phase 7.1 클래스 시스템의 필드 선언입니다.
+ *
+ * @example
+ * 비공개 문자열 이름
+ * 공개 정수 나이
+ */
+class FieldDeclaration : public Node
+{
+private:
+    AccessModifier access_;
+    std::string typeName_;
+    std::string fieldName_;
+    std::unique_ptr<Expression> initializer_;
+
+public:
+    FieldDeclaration(
+        AccessModifier access,
+        const std::string& typeName,
+        const std::string& fieldName,
+        std::unique_ptr<Expression> initializer = nullptr
+    )
+        : access_(access)
+        , typeName_(typeName)
+        , fieldName_(fieldName)
+        , initializer_(std::move(initializer))
+    {}
+
+    NodeType type() const override { return NodeType::FIELD_DECLARATION; }
+
+    std::string toString() const override
+    {
+        std::string result = (access_ == AccessModifier::PUBLIC ? "공개 " : "비공개 ");
+        result += typeName_ + " " + fieldName_;
+        if (initializer_)
+        {
+            result += " = " + initializer_->toString();
+        }
+        return result;
+    }
+
+    AccessModifier access() const { return access_; }
+    const std::string& typeName() const { return typeName_; }
+    const std::string& fieldName() const { return fieldName_; }
+    const Expression* initializer() const { return initializer_.get(); }
+};
+
+/**
+ * @class ConstructorDeclaration
+ * @brief 생성자 선언
+ *
+ * Phase 7.1 클래스 시스템의 생성자 선언입니다.
+ *
+ * @example
+ * 생성자(이름, 나이) {
+ *     자신.이름 = 이름
+ *     자신.나이 = 나이
+ * }
+ */
+class ConstructorDeclaration : public Node
+{
+private:
+    std::vector<Parameter> parameters_;
+    std::unique_ptr<BlockStatement> body_;
+
+public:
+    ConstructorDeclaration(
+        std::vector<Parameter> parameters,
+        std::unique_ptr<BlockStatement> body
+    )
+        : parameters_(std::move(parameters))
+        , body_(std::move(body))
+    {}
+
+    NodeType type() const override { return NodeType::CONSTRUCTOR_DECLARATION; }
+
+    std::string toString() const override
+    {
+        std::string result = "생성자(";
+        for (size_t i = 0; i < parameters_.size(); ++i)
+        {
+            if (i > 0) result += ", ";
+            result += parameters_[i].name;
+        }
+        result += ") { ... }";
+        return result;
+    }
+
+    const std::vector<Parameter>& parameters() const { return parameters_; }
+    const BlockStatement* body() const { return body_.get(); }
+};
+
+/**
+ * @class MethodDeclaration
+ * @brief 메서드 선언
+ *
+ * Phase 7.1 클래스 시스템의 메서드 선언입니다.
+ *
+ * @example
+ * 공개 함수 인사하기() {
+ *     출력("안녕하세요")
+ * }
+ *
+ * 비공개 함수 내부함수(x, y) {
+ *     반환 x + y
+ * }
+ */
+class MethodDeclaration : public Node
+{
+private:
+    AccessModifier access_;
+    std::string returnType_;
+    std::string methodName_;
+    std::vector<Parameter> parameters_;
+    std::unique_ptr<BlockStatement> body_;
+
+public:
+    MethodDeclaration(
+        AccessModifier access,
+        const std::string& returnType,
+        const std::string& methodName,
+        std::vector<Parameter> parameters,
+        std::unique_ptr<BlockStatement> body
+    )
+        : access_(access)
+        , returnType_(returnType)
+        , methodName_(methodName)
+        , parameters_(std::move(parameters))
+        , body_(std::move(body))
+    {}
+
+    NodeType type() const override { return NodeType::METHOD_DECLARATION; }
+
+    std::string toString() const override
+    {
+        std::string result = (access_ == AccessModifier::PUBLIC ? "공개 " : "비공개 ");
+        result += "함수 " + methodName_ + "(";
+        for (size_t i = 0; i < parameters_.size(); ++i)
+        {
+            if (i > 0) result += ", ";
+            result += parameters_[i].name;
+        }
+        result += ") { ... }";
+        return result;
+    }
+
+    AccessModifier access() const { return access_; }
+    const std::string& returnType() const { return returnType_; }
+    const std::string& methodName() const { return methodName_; }
+    const std::vector<Parameter>& parameters() const { return parameters_; }
+    const BlockStatement* body() const { return body_.get(); }
+};
+
+/**
+ * @class ClassStatement
+ * @brief 클래스 정의 문장
+ *
+ * Phase 7.1 클래스 시스템의 클래스 정의입니다.
+ *
+ * @example
+ * 클래스 사람 {
+ *     비공개 문자열 이름
+ *     비공개 정수 나이
+ *
+ *     생성자(이름, 나이) {
+ *         자신.이름 = 이름
+ *         자신.나이 = 나이
+ *     }
+ *
+ *     공개 함수 인사하기() {
+ *         출력("안녕하세요, 저는 " + 자신.이름 + "입니다")
+ *     }
+ * }
+ */
+class ClassStatement : public Statement
+{
+private:
+    std::string className_;
+    std::vector<std::unique_ptr<FieldDeclaration>> fields_;
+    std::unique_ptr<ConstructorDeclaration> constructor_;
+    std::vector<std::unique_ptr<MethodDeclaration>> methods_;
+    std::string superClass_;  ///< 상속받을 부모 클래스 (Phase 7.2)
+
+public:
+    ClassStatement(
+        const std::string& className,
+        std::vector<std::unique_ptr<FieldDeclaration>> fields,
+        std::unique_ptr<ConstructorDeclaration> constructor,
+        std::vector<std::unique_ptr<MethodDeclaration>> methods,
+        const std::string& superClass = ""
+    )
+        : className_(className)
+        , fields_(std::move(fields))
+        , constructor_(std::move(constructor))
+        , methods_(std::move(methods))
+        , superClass_(superClass)
+    {}
+
+    NodeType type() const override { return NodeType::CLASS_STATEMENT; }
+
+    std::string toString() const override
+    {
+        std::string result = "클래스 " + className_;
+        if (!superClass_.empty())
+        {
+            result += " 상속 " + superClass_;
+        }
+        result += " {\n";
+
+        // 필드
+        for (const auto& field : fields_)
+        {
+            result += "  " + field->toString() + "\n";
+        }
+
+        // 생성자
+        if (constructor_)
+        {
+            result += "  " + constructor_->toString() + "\n";
+        }
+
+        // 메서드
+        for (const auto& method : methods_)
+        {
+            result += "  " + method->toString() + "\n";
+        }
+
+        result += "}";
+        return result;
+    }
+
+    const std::string& className() const { return className_; }
+    const std::vector<std::unique_ptr<FieldDeclaration>>& fields() const { return fields_; }
+    const ConstructorDeclaration* constructor() const { return constructor_.get(); }
+    const std::vector<std::unique_ptr<MethodDeclaration>>& methods() const { return methods_; }
+    const std::string& superClass() const { return superClass_; }
+};
+
 } // namespace ast
 } // namespace kingsejong

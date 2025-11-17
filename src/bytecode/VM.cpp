@@ -557,6 +557,180 @@ VMResult VM::executeInstruction() {
             break;
         }
 
+        // ========================================
+        // Phase 7.1: 클래스 시스템
+        // ========================================
+        case OpCode::CLASS_DEF: {
+            // CLASS_DEF [class_name_index] [field_count] [method_count]
+            uint8_t classNameIdx = readByte();
+            uint8_t fieldCount = readByte();
+            uint8_t methodCount = readByte();
+
+            // 클래스 이름 읽기
+            evaluator::Value classNameVal = chunk_->getConstant(classNameIdx);
+            std::string className = classNameVal.asString();
+
+            // 필드 이름들 읽기
+            std::vector<std::string> fieldNames;
+            for (uint8_t i = 0; i < fieldCount; ++i) {
+                uint8_t fieldNameIdx = readByte();
+                evaluator::Value fieldNameVal = chunk_->getConstant(fieldNameIdx);
+                fieldNames.push_back(fieldNameVal.asString());
+            }
+
+            // 메서드 이름들 읽기 (현재는 스킵)
+            std::unordered_map<std::string, std::shared_ptr<evaluator::Function>> methods;
+            for (uint8_t i = 0; i < methodCount; ++i) {
+                readByte();  // methodNameIdx - TODO: 메서드 구현 추가
+            }
+
+            // ClassDefinition 생성
+            auto classDef = std::make_shared<evaluator::ClassDefinition>(
+                className,
+                fieldNames,
+                methods,
+                nullptr,  // constructor (TODO)
+                ""        // superClass
+            );
+
+            // 클래스 정의 저장
+            classes_[className] = classDef;
+
+            // 클래스 정의를 스택에 푸시 (STORE_GLOBAL에서 사용)
+            push(evaluator::Value::createString(className));
+            break;
+        }
+
+        case OpCode::NEW_INSTANCE: {
+            // NEW_INSTANCE [class_name_index] [arg_count]
+            uint8_t classNameIdx = readByte();
+            uint8_t argCount = readByte();
+
+            // 클래스 이름 읽기
+            evaluator::Value classNameVal = chunk_->getConstant(classNameIdx);
+            std::string className = classNameVal.asString();
+
+            // 클래스 정의 찾기
+            auto it = classes_.find(className);
+            if (it == classes_.end()) {
+                runtimeError("정의되지 않은 클래스: " + className);
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            // 인자들 팝 (현재는 사용하지 않음, 나중에 생성자 구현 시 사용)
+            std::vector<evaluator::Value> args;
+            for (uint8_t i = 0; i < argCount; ++i) {
+                args.insert(args.begin(), pop());
+            }
+
+            // ClassInstance 생성
+            auto instance = std::make_shared<evaluator::ClassInstance>(it->second);
+
+            // 인스턴스를 스택에 푸시
+            push(evaluator::Value::createClassInstance(instance));
+            break;
+        }
+
+        case OpCode::LOAD_FIELD: {
+            // LOAD_FIELD [field_name_index]
+            uint8_t fieldNameIdx = readByte();
+            evaluator::Value fieldNameVal = chunk_->getConstant(fieldNameIdx);
+            std::string fieldName = fieldNameVal.asString();
+
+            // 스택에서 객체 팝
+            evaluator::Value objVal = pop();
+            if (!objVal.isClassInstance()) {
+                runtimeError("필드 접근: 클래스 인스턴스가 아닙니다");
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            auto instance = objVal.asClassInstance();
+            try {
+                evaluator::Value fieldValue = instance->getField(fieldName);
+                push(fieldValue);
+            } catch (const std::exception& e) {
+                runtimeError(std::string("필드 접근 오류: ") + e.what());
+                return VMResult::RUNTIME_ERROR;
+            }
+            break;
+        }
+
+        case OpCode::STORE_FIELD: {
+            // STORE_FIELD [field_name_index]
+            uint8_t fieldNameIdx = readByte();
+            evaluator::Value fieldNameVal = chunk_->getConstant(fieldNameIdx);
+            std::string fieldName = fieldNameVal.asString();
+
+            // 스택에서 값과 객체 팝
+            evaluator::Value value = pop();
+            evaluator::Value objVal = pop();
+
+            if (!objVal.isClassInstance()) {
+                runtimeError("필드 설정: 클래스 인스턴스가 아닙니다");
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            auto instance = objVal.asClassInstance();
+            try {
+                instance->setField(fieldName, value);
+                push(value);  // 대입 결과를 스택에 푸시
+            } catch (const std::exception& e) {
+                runtimeError(std::string("필드 설정 오류: ") + e.what());
+                return VMResult::RUNTIME_ERROR;
+            }
+            break;
+        }
+
+        case OpCode::CALL_METHOD: {
+            // CALL_METHOD [method_name_index] [arg_count]
+            uint8_t methodNameIdx = readByte();
+            uint8_t argCount = readByte();
+
+            // 메서드 이름 읽기
+            evaluator::Value methodNameVal = chunk_->getConstant(methodNameIdx);
+            std::string methodName = methodNameVal.asString();
+
+            // 인자들 팝
+            std::vector<evaluator::Value> args;
+            for (uint8_t i = 0; i < argCount; ++i) {
+                args.insert(args.begin(), pop());
+            }
+
+            // 객체 팝
+            evaluator::Value objVal = pop();
+            if (!objVal.isClassInstance()) {
+                runtimeError("메서드 호출: 클래스 인스턴스가 아닙니다");
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            auto instance = objVal.asClassInstance();
+            auto classDef = instance->classDef();
+
+            // 메서드 찾기
+            auto method = classDef->getMethod(methodName);
+            if (!method) {
+                runtimeError("정의되지 않은 메서드: " + methodName);
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            // TODO: 메서드 호출 구현 (함수 호출과 유사)
+            // 현재는 null 반환
+            push(evaluator::Value::createNull());
+            break;
+        }
+
+        case OpCode::LOAD_THIS: {
+            // this 스택에서 현재 인스턴스 가져오기
+            if (thisStack_.empty()) {
+                runtimeError("메서드 또는 생성자 외부에서 'this'를 사용할 수 없습니다");
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            auto instance = thisStack_.back();
+            push(evaluator::Value::createClassInstance(instance));
+            break;
+        }
+
         case OpCode::INDEX_SET:
         case OpCode::ARRAY_APPEND:
         case OpCode::BUILD_RANGE:

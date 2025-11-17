@@ -79,6 +79,10 @@ private:
     bool jitEnabled_;                           ///< JIT 활성화 여부 (기본: true)
     std::unordered_map<size_t, jit::NativeFunction*> jitCache_;  ///< JIT 캐시 (ip -> NativeFunction)
 
+    // Phase 7.1: 클래스 시스템
+    std::unordered_map<std::string, std::shared_ptr<evaluator::ClassDefinition>> classes_;  ///< 클래스 정의 맵
+    std::vector<std::shared_ptr<evaluator::ClassInstance>> thisStack_;  ///< this 스택 (메서드 호출 시)
+
 public:
     /**
      * @brief VM 생성자

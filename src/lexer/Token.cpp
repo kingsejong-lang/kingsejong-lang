@@ -184,6 +184,7 @@ std::string tokenTypeToString(TokenType type)
         case TokenType::COMMA:        return "COMMA";
         case TokenType::SEMICOLON:    return "SEMICOLON";
         case TokenType::COLON:        return "COLON";
+        case TokenType::DOT:          return "DOT";
 
         case TokenType::HAGO:         return "HAGO";
         case TokenType::HARA:         return "HARA";

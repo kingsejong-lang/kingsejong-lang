@@ -163,6 +163,13 @@ private:
     std::unique_ptr<ThrowStatement> parseThrowStatement();
     std::unique_ptr<TryStatement> parseTryStatement();
 
+    // 클래스 파싱 (Phase 7.1)
+    std::unique_ptr<ClassStatement> parseClassStatement();
+    std::unique_ptr<FieldDeclaration> parseFieldDeclaration(AccessModifier access);
+    std::unique_ptr<MethodDeclaration> parseMethodDeclaration(AccessModifier access);
+    std::unique_ptr<ConstructorDeclaration> parseConstructorDeclaration();
+    std::vector<Parameter> parseParameterList();
+
     // 표현식 파싱 (Pratt Parsing 핵심)
     std::unique_ptr<Expression> parseExpression(
         Precedence precedence,
@@ -179,6 +186,8 @@ private:
     std::unique_ptr<Expression> parseGroupedExpression();
     std::unique_ptr<Expression> parseArrayLiteral();
     std::unique_ptr<Expression> parseFunctionLiteral();
+    std::unique_ptr<Expression> parseThisExpression();     // Phase 7.1: 자신
+    std::unique_ptr<Expression> parseNewExpression();      // Phase 7.1: 객체 생성
 
     // Infix 파싱 함수들
     std::unique_ptr<Expression> parseBinaryExpression(std::unique_ptr<Expression> left);

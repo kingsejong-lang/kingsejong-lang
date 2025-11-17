@@ -1106,3 +1106,435 @@ TEST_F(ParserTest, ShouldParseThrowStatementWithExpression)
     ASSERT_NE(function, nullptr);
     EXPECT_EQ(function->name(), "에러_생성");
 }
+
+// ============================================================================
+// 클래스 시스템 파싱 테스트 (Phase 7.1)
+// ============================================================================
+
+/**
+ * @brief 간단한 클래스 정의 파싱 테스트
+ */
+TEST_F(ParserTest, ShouldParseSimpleClassDefinition)
+{
+    // Arrange
+    std::string input = R"(
+        클래스 사람 {
+        }
+    )";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto classStmt = dynamic_cast<ClassStatement*>(program->statements()[0].get());
+    ASSERT_NE(classStmt, nullptr);
+    EXPECT_EQ(classStmt->className(), "사람");
+    EXPECT_EQ(classStmt->superClass(), "");
+    EXPECT_EQ(classStmt->fields().size(), 0);
+    EXPECT_EQ(classStmt->constructor(), nullptr);
+    EXPECT_EQ(classStmt->methods().size(), 0);
+}
+
+/**
+ * @brief 필드가 있는 클래스 파싱 테스트
+ */
+TEST_F(ParserTest, ShouldParseClassWithFields)
+{
+    // Arrange
+    std::string input = R"(
+        클래스 사람 {
+            비공개 문자열 이름
+            공개 정수 나이
+        }
+    )";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto classStmt = dynamic_cast<ClassStatement*>(program->statements()[0].get());
+    ASSERT_NE(classStmt, nullptr);
+    EXPECT_EQ(classStmt->className(), "사람");
+    EXPECT_EQ(classStmt->fields().size(), 2);
+
+    // 첫 번째 필드: 비공개 문자열 이름
+    auto& field1 = classStmt->fields()[0];
+    EXPECT_EQ(field1->access(), AccessModifier::PRIVATE);
+    EXPECT_EQ(field1->typeName(), "문자열");
+    EXPECT_EQ(field1->fieldName(), "이름");
+    EXPECT_EQ(field1->initializer(), nullptr);
+
+    // 두 번째 필드: 공개 정수 나이
+    auto& field2 = classStmt->fields()[1];
+    EXPECT_EQ(field2->access(), AccessModifier::PUBLIC);
+    EXPECT_EQ(field2->typeName(), "정수");
+    EXPECT_EQ(field2->fieldName(), "나이");
+}
+
+/**
+ * @brief 초기값이 있는 필드 파싱 테스트
+ */
+TEST_F(ParserTest, ShouldParseFieldWithInitializer)
+{
+    // Arrange
+    std::string input = R"(
+        클래스 카운터 {
+            비공개 정수 값 = 0
+        }
+    )";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto classStmt = dynamic_cast<ClassStatement*>(program->statements()[0].get());
+    ASSERT_NE(classStmt, nullptr);
+    EXPECT_EQ(classStmt->fields().size(), 1);
+
+    auto& field = classStmt->fields()[0];
+    EXPECT_EQ(field->fieldName(), "값");
+    ASSERT_NE(field->initializer(), nullptr);
+
+    auto intLit = dynamic_cast<const IntegerLiteral*>(field->initializer());
+    ASSERT_NE(intLit, nullptr);
+    EXPECT_EQ(intLit->value(), 0);
+}
+
+/**
+ * @brief 생성자가 있는 클래스 파싱 테스트
+ */
+TEST_F(ParserTest, ShouldParseClassWithConstructor)
+{
+    // Arrange
+    std::string input = R"(
+        클래스 사람 {
+            비공개 문자열 이름
+
+            생성자(이름) {
+                자신.이름 = 이름
+            }
+        }
+    )";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto classStmt = dynamic_cast<ClassStatement*>(program->statements()[0].get());
+    ASSERT_NE(classStmt, nullptr);
+    ASSERT_NE(classStmt->constructor(), nullptr);
+
+    const auto* constructor = classStmt->constructor();
+    EXPECT_EQ(constructor->parameters().size(), 1);
+    EXPECT_EQ(constructor->parameters()[0].name, "이름");
+    ASSERT_NE(constructor->body(), nullptr);
+}
+
+/**
+ * @brief 메서드가 있는 클래스 파싱 테스트
+ */
+TEST_F(ParserTest, ShouldParseClassWithMethods)
+{
+    // Arrange
+    std::string input = R"(
+        클래스 사람 {
+            공개 함수 인사하기() {
+                출력("안녕하세요")
+            }
+
+            비공개 함수 내부_함수() {
+                반환 42
+            }
+        }
+    )";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto classStmt = dynamic_cast<ClassStatement*>(program->statements()[0].get());
+    ASSERT_NE(classStmt, nullptr);
+    EXPECT_EQ(classStmt->methods().size(), 2);
+
+    // 첫 번째 메서드: 공개 함수 인사하기
+    auto& method1 = classStmt->methods()[0];
+    EXPECT_EQ(method1->access(), AccessModifier::PUBLIC);
+    EXPECT_EQ(method1->methodName(), "인사하기");
+    EXPECT_EQ(method1->parameters().size(), 0);
+    ASSERT_NE(method1->body(), nullptr);
+
+    // 두 번째 메서드: 비공개 함수 내부_함수
+    auto& method2 = classStmt->methods()[1];
+    EXPECT_EQ(method2->access(), AccessModifier::PRIVATE);
+    EXPECT_EQ(method2->methodName(), "내부_함수");
+}
+
+/**
+ * @brief 매개변수가 있는 메서드 파싱 테스트
+ */
+TEST_F(ParserTest, ShouldParseMethodWithParameters)
+{
+    // Arrange
+    std::string input = R"(
+        클래스 계산기 {
+            공개 함수 더하기(a, b) {
+                반환 a + b
+            }
+        }
+    )";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto classStmt = dynamic_cast<ClassStatement*>(program->statements()[0].get());
+    ASSERT_NE(classStmt, nullptr);
+    EXPECT_EQ(classStmt->methods().size(), 1);
+
+    auto& method = classStmt->methods()[0];
+    EXPECT_EQ(method->methodName(), "더하기");
+    EXPECT_EQ(method->parameters().size(), 2);
+    EXPECT_EQ(method->parameters()[0].name, "a");
+    EXPECT_EQ(method->parameters()[1].name, "b");
+}
+
+/**
+ * @brief 상속이 있는 클래스 파싱 테스트
+ */
+TEST_F(ParserTest, ShouldParseClassWithInheritance)
+{
+    // Arrange
+    std::string input = R"(
+        클래스 학생 상속 사람 {
+            비공개 문자열 학생ID
+        }
+    )";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto classStmt = dynamic_cast<ClassStatement*>(program->statements()[0].get());
+    ASSERT_NE(classStmt, nullptr);
+    EXPECT_EQ(classStmt->className(), "학생");
+    EXPECT_EQ(classStmt->superClass(), "사람");
+    EXPECT_EQ(classStmt->fields().size(), 1);
+}
+
+/**
+ * @brief this 표현식 (자신) 파싱 테스트
+ */
+TEST_F(ParserTest, ShouldParseThisExpression)
+{
+    // Arrange
+    std::string input = "자신;";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto exprStmt = dynamic_cast<ExpressionStatement*>(program->statements()[0].get());
+    ASSERT_NE(exprStmt, nullptr);
+
+    auto thisExpr = dynamic_cast<const ThisExpression*>(exprStmt->expression());
+    ASSERT_NE(thisExpr, nullptr);
+    EXPECT_EQ(thisExpr->toString(), "자신");
+}
+
+/**
+ * @brief 멤버 접근 표현식 파싱 테스트
+ */
+TEST_F(ParserTest, ShouldParseMemberAccessExpression)
+{
+    // Arrange
+    std::string input = "자신.이름;";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto exprStmt = dynamic_cast<ExpressionStatement*>(program->statements()[0].get());
+    ASSERT_NE(exprStmt, nullptr);
+
+    auto memberAccess = dynamic_cast<const MemberAccessExpression*>(exprStmt->expression());
+    ASSERT_NE(memberAccess, nullptr);
+    EXPECT_EQ(memberAccess->memberName(), "이름");
+
+    auto thisExpr = dynamic_cast<const ThisExpression*>(memberAccess->object());
+    ASSERT_NE(thisExpr, nullptr);
+}
+
+/**
+ * @brief 멤버 접근 할당 파싱 테스트
+ */
+TEST_F(ParserTest, ShouldParseMemberAccessAssignment)
+{
+    // Arrange
+    std::string input = "자신.이름 = \"홍길동\";";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    // Note: 현재 Parser는 멤버 할당을 AssignmentStatement로 처리하지 않고
+    // ExpressionStatement로 처리할 수 있음
+    // 이는 나중에 SemanticAnalyzer에서 처리
+}
+
+/**
+ * @brief 체이닝된 멤버 접근 파싱 테스트
+ */
+TEST_F(ParserTest, ShouldParseChainedMemberAccess)
+{
+    // Arrange
+    std::string input = "객체.필드.하위필드;";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto exprStmt = dynamic_cast<ExpressionStatement*>(program->statements()[0].get());
+    ASSERT_NE(exprStmt, nullptr);
+
+    auto outerMember = dynamic_cast<const MemberAccessExpression*>(exprStmt->expression());
+    ASSERT_NE(outerMember, nullptr);
+    EXPECT_EQ(outerMember->memberName(), "하위필드");
+
+    auto innerMember = dynamic_cast<const MemberAccessExpression*>(outerMember->object());
+    ASSERT_NE(innerMember, nullptr);
+    EXPECT_EQ(innerMember->memberName(), "필드");
+}
+
+/**
+ * @brief 완전한 클래스 예제 파싱 테스트
+ */
+TEST_F(ParserTest, ShouldParseCompleteClassExample)
+{
+    // Arrange
+    std::string input = R"(
+        클래스 사람 {
+            비공개 문자열 이름
+            공개 정수 나이
+
+            생성자(이름, 나이) {
+                자신.이름 = 이름
+                자신.나이 = 나이
+            }
+
+            공개 함수 인사하기() {
+                출력("안녕하세요, " + 자신.이름 + "입니다")
+                출력("나이는 " + 자신.나이 + "살입니다")
+            }
+
+            공개 함수 나이_증가() {
+                자신.나이 = 자신.나이 + 1
+            }
+
+            비공개 함수 내부_검증() {
+                반환 자신.나이 > 0
+            }
+        }
+    )";
+    Lexer lexer(input);
+    Parser parser(lexer);
+
+    // Act
+    auto program = parser.parseProgram();
+
+    // Assert
+    checkParserErrors(parser);
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(program->statements().size(), 1);
+
+    auto classStmt = dynamic_cast<ClassStatement*>(program->statements()[0].get());
+    ASSERT_NE(classStmt, nullptr);
+
+    // 클래스 이름 확인
+    EXPECT_EQ(classStmt->className(), "사람");
+
+    // 필드 확인
+    EXPECT_EQ(classStmt->fields().size(), 2);
+    EXPECT_EQ(classStmt->fields()[0]->fieldName(), "이름");
+    EXPECT_EQ(classStmt->fields()[1]->fieldName(), "나이");
+
+    // 생성자 확인
+    ASSERT_NE(classStmt->constructor(), nullptr);
+    EXPECT_EQ(classStmt->constructor()->parameters().size(), 2);
+    EXPECT_EQ(classStmt->constructor()->parameters()[0].name, "이름");
+    EXPECT_EQ(classStmt->constructor()->parameters()[1].name, "나이");
+
+    // 메서드 확인
+    EXPECT_EQ(classStmt->methods().size(), 3);
+    EXPECT_EQ(classStmt->methods()[0]->methodName(), "인사하기");
+    EXPECT_EQ(classStmt->methods()[0]->access(), AccessModifier::PUBLIC);
+    EXPECT_EQ(classStmt->methods()[1]->methodName(), "나이_증가");
+    EXPECT_EQ(classStmt->methods()[1]->access(), AccessModifier::PUBLIC);
+    EXPECT_EQ(classStmt->methods()[2]->methodName(), "내부_검증");
+    EXPECT_EQ(classStmt->methods()[2]->access(), AccessModifier::PRIVATE);
+}

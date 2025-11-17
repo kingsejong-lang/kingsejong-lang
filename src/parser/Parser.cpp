@@ -50,6 +50,7 @@ void Parser::registerParseFunctions()
     registerPrefixFn(TokenType::BAEYEOL, [this]() { return parseIdentifier(); });
 
     // Infix 파싱 함수 등록
+    registerInfixFn(TokenType::ASSIGN, [this](auto left) { return parseBinaryExpression(std::move(left)); });
     registerInfixFn(TokenType::PLUS, [this](auto left) { return parseBinaryExpression(std::move(left)); });
     registerInfixFn(TokenType::MINUS, [this](auto left) { return parseBinaryExpression(std::move(left)); });
     registerInfixFn(TokenType::ASTERISK, [this](auto left) { return parseBinaryExpression(std::move(left)); });
@@ -86,6 +87,25 @@ void Parser::registerParseFunctions()
     registerInfixFn(TokenType::BUTEO, [this](auto left) { return parseRangeExpression(std::move(left)); });
     registerInfixFn(TokenType::CHOGA, [this](auto left) { return parseRangeExpression(std::move(left)); });
     registerInfixFn(TokenType::ISANG, [this](auto left) { return parseRangeExpression(std::move(left)); });
+
+    // 클래스 관련 파싱 함수 등록 (Phase 7.1)
+    registerPrefixFn(TokenType::JASIN, [this]() { return parseThisExpression(); });
+    registerInfixFn(TokenType::DOT, [this](auto left) {
+        // 멤버 접근: object.member
+        auto startLoc = left->location();
+        nextToken(); // DOT 다음으로 이동 (멤버 이름)
+
+        if (!curTokenIs(TokenType::IDENTIFIER))
+        {
+            peekError(TokenType::IDENTIFIER);
+            return std::unique_ptr<Expression>(nullptr);
+        }
+
+        std::string memberName = curToken_.literal;
+        auto expr = std::make_unique<MemberAccessExpression>(std::move(left), memberName);
+        expr->setLocation(startLoc);
+        return std::unique_ptr<Expression>(std::move(expr));
+    });
 }
 
 void Parser::registerPrefixFn(TokenType type, PrefixParseFn fn)
@@ -256,6 +276,8 @@ Parser::Precedence Parser::tokenPrecedence(TokenType type) const
             return Precedence::CALL;
         case TokenType::LBRACKET:
             return Precedence::INDEX;
+        case TokenType::DOT:
+            return Precedence::INDEX;  // 멤버 접근은 INDEX와 같은 높은 우선순위
         // 조사 토큰들 - CALL과 같은 우선순위
         case TokenType::JOSA_EUL:
         case TokenType::JOSA_REUL:
@@ -433,6 +455,12 @@ std::unique_ptr<Statement> Parser::parseStatement()
     if (curTokenIs(TokenType::DEONJIDA))
     {
         return parseThrowStatement();
+    }
+
+    // 클래스 정의 문장 (Phase 7.1)
+    if (curTokenIs(TokenType::KEULLAESU))
+    {
+        return parseClassStatement();
     }
 
     // 할당 문장: identifier + "=" (범위 반복문보다 먼저 체크)
@@ -1656,6 +1684,392 @@ std::unique_ptr<Pattern> Parser::parseArrayPattern()
     auto pattern = std::make_unique<ArrayPattern>(std::move(elements), rest);
     pattern->setLocation(startLoc);
     return pattern;
+}
+
+// ============================================================================
+// 클래스 파싱 (Phase 7.1)
+// ============================================================================
+
+/**
+ * @brief 클래스 정의 파싱
+ *
+ * 문법: 클래스 <이름> [상속 <부모클래스>] { ... }
+ *
+ * @example
+ * 클래스 사람 {
+ *     비공개 문자열 이름
+ *     공개 정수 나이
+ *
+ *     생성자(이름, 나이) {
+ *         자신.이름 = 이름
+ *         자신.나이 = 나이
+ *     }
+ *
+ *     공개 함수 인사하기() {
+ *         출력("안녕하세요, " + 자신.이름 + "입니다")
+ *     }
+ * }
+ */
+std::unique_ptr<ClassStatement> Parser::parseClassStatement()
+{
+    auto startLoc = curToken_.location;  // "클래스" 키워드 위치 저장
+
+    // 클래스 이름
+    if (!expectPeek(TokenType::IDENTIFIER))
+    {
+        return nullptr;
+    }
+
+    std::string className = curToken_.literal;
+
+    // 상속 처리 (선택적)
+    std::string superClass;
+    if (peekTokenIs(TokenType::SANGSOK))
+    {
+        nextToken();  // "상속"으로 이동
+
+        if (!expectPeek(TokenType::IDENTIFIER))
+        {
+            return nullptr;
+        }
+
+        superClass = curToken_.literal;
+    }
+
+    // 클래스 본문 시작 "{"
+    if (!expectPeek(TokenType::LBRACE))
+    {
+        return nullptr;
+    }
+
+    nextToken();  // "{" 다음으로 이동
+
+    // 클래스 멤버 파싱
+    std::vector<std::unique_ptr<FieldDeclaration>> fields;
+    std::unique_ptr<ConstructorDeclaration> constructor;
+    std::vector<std::unique_ptr<MethodDeclaration>> methods;
+
+    while (!curTokenIs(TokenType::RBRACE) && !curTokenIs(TokenType::EOF_TOKEN))
+    {
+        // 접근 제한자 확인
+        AccessModifier access = AccessModifier::PUBLIC;  // 기본값: 공개
+
+        if (curTokenIs(TokenType::GONGGAE))
+        {
+            access = AccessModifier::PUBLIC;
+            nextToken();  // 접근 제한자 건너뛰기
+        }
+        else if (curTokenIs(TokenType::BIGONGGAE))
+        {
+            access = AccessModifier::PRIVATE;
+            nextToken();  // 접근 제한자 건너뛰기
+        }
+
+        // 생성자인지 확인
+        if (curTokenIs(TokenType::SAENGSEONGJA))
+        {
+            if (constructor)
+            {
+                errors_.push_back("클래스에는 하나의 생성자만 허용됩니다.");
+                return nullptr;
+            }
+
+            constructor = parseConstructorDeclaration();
+            if (!constructor)
+            {
+                return nullptr;
+            }
+        }
+        // 메서드인지 확인 (함수 키워드)
+        else if (curTokenIs(TokenType::HAMSU))
+        {
+            auto method = parseMethodDeclaration(access);
+            if (!method)
+            {
+                return nullptr;
+            }
+            methods.push_back(std::move(method));
+        }
+        // 필드 선언 (타입 키워드로 시작)
+        else if (curTokenIs(TokenType::JEONGSU) || curTokenIs(TokenType::SILSU) ||
+                 curTokenIs(TokenType::MUNJAYEOL) || curTokenIs(TokenType::NONLI) ||
+                 curTokenIs(TokenType::BAEYEOL))
+        {
+            auto field = parseFieldDeclaration(access);
+            if (!field)
+            {
+                return nullptr;
+            }
+            fields.push_back(std::move(field));
+        }
+        else
+        {
+            errors_.push_back("클래스 멤버로 예상하지 못한 토큰: " + tokenTypeToString(curToken_.type));
+            return nullptr;
+        }
+
+        nextToken();  // 다음 멤버로 이동
+    }
+
+    if (!curTokenIs(TokenType::RBRACE))
+    {
+        peekError(TokenType::RBRACE);
+        return nullptr;
+    }
+
+    auto stmt = std::make_unique<ClassStatement>(
+        className,
+        std::move(fields),
+        std::move(constructor),
+        std::move(methods),
+        superClass
+    );
+    stmt->setLocation(startLoc);
+    return stmt;
+}
+
+/**
+ * @brief 필드 선언 파싱
+ *
+ * 문법: [공개|비공개] <타입> <이름> [= <초기값>]
+ *
+ * @example
+ * 비공개 문자열 이름 = "홍길동"
+ * 공개 정수 나이
+ */
+std::unique_ptr<FieldDeclaration> Parser::parseFieldDeclaration(AccessModifier access)
+{
+    auto startLoc = curToken_.location;  // 타입 키워드 위치 저장
+
+    // 타입 이름
+    std::string typeName = curToken_.literal;
+
+    // 필드 이름
+    if (!expectPeek(TokenType::IDENTIFIER))
+    {
+        return nullptr;
+    }
+
+    std::string fieldName = curToken_.literal;
+
+    // 초기화 표현식 (선택적)
+    std::unique_ptr<Expression> initializer = nullptr;
+
+    if (peekTokenIs(TokenType::ASSIGN))
+    {
+        nextToken();  // "=" 로 이동
+        nextToken();  // 초기값 표현식으로 이동
+
+        initializer = parseExpression(Precedence::LOWEST);
+
+        if (!initializer)
+        {
+            return nullptr;
+        }
+    }
+
+    auto field = std::make_unique<FieldDeclaration>(access, typeName, fieldName, std::move(initializer));
+    field->setLocation(startLoc);
+    return field;
+}
+
+/**
+ * @brief 메서드 선언 파싱
+ *
+ * 문법: [공개|비공개] 함수 <이름>(<매개변수>) { ... }
+ *
+ * @example
+ * 공개 함수 인사하기() {
+ *     출력("안녕하세요")
+ * }
+ */
+std::unique_ptr<MethodDeclaration> Parser::parseMethodDeclaration(AccessModifier access)
+{
+    auto startLoc = curToken_.location;  // "함수" 키워드 위치 저장
+
+    // 메서드 이름
+    if (!expectPeek(TokenType::IDENTIFIER))
+    {
+        return nullptr;
+    }
+
+    std::string methodName = curToken_.literal;
+
+    // 매개변수 리스트 파싱
+    if (!expectPeek(TokenType::LPAREN))
+    {
+        return nullptr;
+    }
+
+    auto parameters = parseParameterList();
+
+    // 메서드 본문
+    if (!expectPeek(TokenType::LBRACE))
+    {
+        return nullptr;
+    }
+
+    auto body = parseBlockStatement();
+
+    if (!body)
+    {
+        return nullptr;
+    }
+
+    // 반환 타입은 빈 문자열 (나중에 타입 추론으로 결정)
+    std::string returnType = "";
+
+    auto method = std::make_unique<MethodDeclaration>(
+        access,
+        returnType,
+        methodName,
+        std::move(parameters),
+        std::move(body)
+    );
+    method->setLocation(startLoc);
+    return method;
+}
+
+/**
+ * @brief 생성자 선언 파싱
+ *
+ * 문법: 생성자(<매개변수>) { ... }
+ *
+ * @example
+ * 생성자(이름, 나이) {
+ *     자신.이름 = 이름
+ *     자신.나이 = 나이
+ * }
+ */
+std::unique_ptr<ConstructorDeclaration> Parser::parseConstructorDeclaration()
+{
+    auto startLoc = curToken_.location;  // "생성자" 키워드 위치 저장
+
+    // 매개변수 리스트
+    if (!expectPeek(TokenType::LPAREN))
+    {
+        return nullptr;
+    }
+
+    auto parameters = parseParameterList();
+
+    // 생성자 본문
+    if (!expectPeek(TokenType::LBRACE))
+    {
+        return nullptr;
+    }
+
+    auto body = parseBlockStatement();
+
+    if (!body)
+    {
+        return nullptr;
+    }
+
+    auto constructor = std::make_unique<ConstructorDeclaration>(std::move(parameters), std::move(body));
+    constructor->setLocation(startLoc);
+    return constructor;
+}
+
+/**
+ * @brief 매개변수 리스트 파싱
+ *
+ * 문법: ( [매개변수1, 매개변수2, ...] )
+ *
+ * 현재 구현: 타입 없이 이름만 사용 (나중에 타입 추론)
+ * 향후 구현: 타입 명시 지원 (정수 x, 문자열 이름)
+ */
+std::vector<Parameter> Parser::parseParameterList()
+{
+    std::vector<Parameter> parameters;
+
+    // 현재 토큰은 LPAREN
+    nextToken();  // 첫 매개변수 또는 RPAREN으로 이동
+
+    // 빈 매개변수 리스트
+    if (curTokenIs(TokenType::RPAREN))
+    {
+        return parameters;
+    }
+
+    // 첫 번째 매개변수
+    if (!curTokenIs(TokenType::IDENTIFIER))
+    {
+        peekError(TokenType::IDENTIFIER);
+        return parameters;
+    }
+
+    // 현재는 타입 없이 이름만 사용
+    parameters.emplace_back("", curToken_.literal);
+
+    // 나머지 매개변수들
+    while (peekTokenIs(TokenType::COMMA))
+    {
+        nextToken();  // COMMA로 이동
+        nextToken();  // 다음 매개변수로 이동
+
+        if (!curTokenIs(TokenType::IDENTIFIER))
+        {
+            peekError(TokenType::IDENTIFIER);
+            return parameters;
+        }
+
+        parameters.emplace_back("", curToken_.literal);
+    }
+
+    // RPAREN 확인
+    if (!expectPeek(TokenType::RPAREN))
+    {
+        return parameters;
+    }
+
+    return parameters;
+}
+
+/**
+ * @brief this 표현식 파싱 (자신 키워드)
+ *
+ * 문법: 자신
+ *
+ * @example
+ * 자신.이름
+ * 자신.나이 = 20
+ */
+std::unique_ptr<Expression> Parser::parseThisExpression()
+{
+    auto expr = std::make_unique<ThisExpression>();
+    expr->setLocation(curToken_.location);
+    return expr;
+}
+
+/**
+ * @brief 객체 생성 표현식 파싱
+ *
+ * 문법: <클래스이름>(<인자...>)
+ *
+ * Note: new 키워드 없이 클래스 이름으로 직접 생성
+ *
+ * @example
+ * 사람 p = 사람("홍길동", 30)
+ */
+std::unique_ptr<Expression> Parser::parseNewExpression()
+{
+    auto startLoc = curToken_.location;  // 클래스 이름 위치 저장
+
+    // 클래스 이름
+    std::string className = curToken_.literal;
+
+    // 생성자 인자 파싱
+    if (!expectPeek(TokenType::LPAREN))
+    {
+        return nullptr;
+    }
+
+    auto arguments = parseExpressionList(TokenType::RPAREN);
+
+    auto expr = std::make_unique<NewExpression>(className, std::move(arguments));
+    expr->setLocation(startLoc);
+    return expr;
 }
 
 } // namespace parser

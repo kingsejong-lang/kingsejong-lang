@@ -489,6 +489,11 @@ Token Lexer::nextToken()
             readChar();
             break;
 
+        case '.':
+            token = Token(TokenType::DOT, std::string(1, ch));
+            readChar();
+            break;
+
         case '_':
             token = Token(TokenType::UNDERSCORE, std::string(1, ch));
             readChar();

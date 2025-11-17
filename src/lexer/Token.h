@@ -128,6 +128,7 @@ enum class TokenType
     COMMA,        ///< ,
     SEMICOLON,    ///< ;
     COLON,        ///< :
+    DOT,          ///< . (Phase 7.1: 멤버 접근)
 
     // 메서드 체이닝 연산자
     HAGO,         ///< 하고 (method chaining)

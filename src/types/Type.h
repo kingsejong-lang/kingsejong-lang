@@ -29,7 +29,8 @@ enum class TypeKind
     FUNCTION,         ///< 함수
     BUILTIN_FUNCTION, ///< 내장 함수
     RANGE,            ///< 범위 (1부터 10까지)
-    ERROR             ///< 에러 (예외 처리용)
+    ERROR,            ///< 에러 (예외 처리용)
+    CLASS             ///< 클래스 인스턴스 (Phase 7.1)
 };
 
 /**

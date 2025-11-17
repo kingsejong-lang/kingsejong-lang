@@ -85,6 +85,7 @@ private:
     void compileRepeatStatement(ast::RepeatStatement* stmt);
     void compileRangeForStatement(ast::RangeForStatement* stmt);
     void compileImportStatement(ast::ImportStatement* stmt);
+    void compileClassStatement(ast::ClassStatement* stmt);  // Phase 7.1
 
     // 표현식 컴파일
     void compileIntegerLiteral(ast::IntegerLiteral* lit);
@@ -100,6 +101,9 @@ private:
     void compileFunctionLiteral(ast::FunctionLiteral* lit);
     void compileJosaExpression(ast::JosaExpression* expr);
     void compileRangeExpression(ast::RangeExpression* expr);
+    void compileNewExpression(ast::NewExpression* expr);          // Phase 7.1
+    void compileMemberAccessExpression(ast::MemberAccessExpression* expr);  // Phase 7.1
+    void compileThisExpression(ast::ThisExpression* expr);        // Phase 7.1
 
     // 스코프 관리
     void beginScope();

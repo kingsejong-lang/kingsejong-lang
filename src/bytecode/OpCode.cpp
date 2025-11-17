@@ -81,6 +81,14 @@ std::string opCodeToString(OpCode op) {
         // 모듈
         case OpCode::IMPORT:            return "IMPORT";
 
+        // 클래스 (Phase 7.1)
+        case OpCode::CLASS_DEF:         return "CLASS_DEF";
+        case OpCode::NEW_INSTANCE:      return "NEW_INSTANCE";
+        case OpCode::LOAD_FIELD:        return "LOAD_FIELD";
+        case OpCode::STORE_FIELD:       return "STORE_FIELD";
+        case OpCode::CALL_METHOD:       return "CALL_METHOD";
+        case OpCode::LOAD_THIS:         return "LOAD_THIS";
+
         default:
             return "UNKNOWN";
     }
@@ -116,6 +124,7 @@ int opCodeOperandCount(OpCode op) {
         case OpCode::SWAP:
         case OpCode::PRINT:
         case OpCode::HALT:
+        case OpCode::LOAD_THIS:           // 클래스: this 로드
             return 0;
 
         // 피연산자 1개
@@ -131,13 +140,21 @@ int opCodeOperandCount(OpCode op) {
         case OpCode::CALL:
         case OpCode::BUILD_ARRAY:
         case OpCode::IMPORT:
+        case OpCode::LOAD_FIELD:          // 클래스: 필드 읽기 [field_name_index]
+        case OpCode::STORE_FIELD:         // 클래스: 필드 쓰기 [field_name_index]
             return 1;
 
         // 피연산자 2개
         case OpCode::BUILD_FUNCTION:
         case OpCode::JOSA_CALL:
         case OpCode::BUILD_RANGE:
+        case OpCode::NEW_INSTANCE:        // 클래스: 객체 생성 [class_name_index] [arg_count]
+        case OpCode::CALL_METHOD:         // 클래스: 메서드 호출 [method_name_index] [arg_count]
             return 2;
+
+        // 피연산자 3개
+        case OpCode::CLASS_DEF:           // 클래스: 클래스 정의 [class_name_index] [field_count] [method_count]
+            return 3;
 
         default:
             return 0;

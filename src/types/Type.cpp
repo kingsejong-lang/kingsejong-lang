@@ -158,6 +158,8 @@ std::string Type::typeKindToString(TypeKind kind)
             return "RANGE";
         case TypeKind::ERROR:
             return "ERROR";
+        case TypeKind::CLASS:
+            return "CLASS";
         default:
             return "UNKNOWN";
     }

@@ -14,6 +14,7 @@
 #include <vector>
 #include <stdexcept>
 #include <functional>
+#include <unordered_map>
 
 namespace kingsejong {
 
@@ -24,8 +25,9 @@ namespace ast {
 
 namespace evaluator {
 
-// Forward declaration
+// Forward declarations
 class Environment;
+class Value;
 
 /**
  * @class Function
@@ -90,6 +92,112 @@ public:
 };
 
 /**
+ * @class ClassDefinition
+ * @brief 클래스 정의 (메타데이터)
+ *
+ * 클래스의 필드, 메서드 정의를 저장합니다.
+ * Phase 7.1: 기본 클래스 시스템
+ */
+class ClassDefinition
+{
+private:
+    std::string className_;                          ///< 클래스 이름
+    std::vector<std::string> fieldNames_;            ///< 필드 이름 리스트
+    std::unordered_map<std::string, std::shared_ptr<Function>> methods_;  ///< 메서드 맵
+    std::shared_ptr<Function> constructor_;          ///< 생성자
+    std::string superClass_;                         ///< 부모 클래스 이름 (상속)
+
+public:
+    /**
+     * @brief ClassDefinition 생성자
+     * @param className 클래스 이름
+     * @param fieldNames 필드 이름 리스트
+     * @param methods 메서드 맵
+     * @param constructor 생성자
+     * @param superClass 부모 클래스 이름
+     */
+    ClassDefinition(
+        std::string className,
+        std::vector<std::string> fieldNames,
+        std::unordered_map<std::string, std::shared_ptr<Function>> methods,
+        std::shared_ptr<Function> constructor = nullptr,
+        std::string superClass = ""
+    )
+        : className_(std::move(className))
+        , fieldNames_(std::move(fieldNames))
+        , methods_(std::move(methods))
+        , constructor_(constructor)
+        , superClass_(std::move(superClass))
+    {}
+
+    const std::string& className() const { return className_; }
+    const std::vector<std::string>& fieldNames() const { return fieldNames_; }
+    const std::unordered_map<std::string, std::shared_ptr<Function>>& methods() const { return methods_; }
+    std::shared_ptr<Function> constructor() const { return constructor_; }
+    const std::string& superClass() const { return superClass_; }
+
+    /**
+     * @brief 메서드 조회
+     * @param methodName 메서드 이름
+     * @return 메서드 함수 (없으면 nullptr)
+     */
+    std::shared_ptr<Function> getMethod(const std::string& methodName) const
+    {
+        auto it = methods_.find(methodName);
+        if (it != methods_.end())
+        {
+            return it->second;
+        }
+        return nullptr;
+    }
+};
+
+/**
+ * @class ClassInstance
+ * @brief 클래스 인스턴스
+ *
+ * 클래스의 인스턴스를 표현합니다. 필드 값을 저장합니다.
+ * Phase 7.1: 기본 클래스 시스템
+ */
+class ClassInstance
+{
+private:
+    std::shared_ptr<ClassDefinition> classDef_;      ///< 클래스 정의
+    std::unordered_map<std::string, Value> fields_;  ///< 필드 값 맵 (필드이름 -> 값)
+
+public:
+    /**
+     * @brief ClassInstance 생성자
+     * @param classDef 클래스 정의
+     */
+    explicit ClassInstance(std::shared_ptr<ClassDefinition> classDef);
+
+    const std::shared_ptr<ClassDefinition>& classDef() const { return classDef_; }
+
+    /**
+     * @brief 필드 값 가져오기
+     * @param fieldName 필드 이름
+     * @return 필드 값
+     * @throws std::runtime_error 필드가 없는 경우
+     */
+    Value getField(const std::string& fieldName) const;
+
+    /**
+     * @brief 필드 값 설정
+     * @param fieldName 필드 이름
+     * @param value 설정할 값
+     * @throws std::runtime_error 필드가 없는 경우
+     */
+    void setField(const std::string& fieldName, const Value& value);
+
+    /**
+     * @brief 모든 필드 반환
+     * @return 필드 맵
+     */
+    const std::unordered_map<std::string, Value>& fields() const;
+};
+
+/**
  * @class Value
  * @brief 런타임 값을 표현하는 클래스
  *
@@ -121,7 +229,8 @@ public:
         std::shared_ptr<Function>,              // FUNCTION
         BuiltinFn,                              // BUILTIN_FUNCTION
         std::shared_ptr<std::vector<Value>>,    // ARRAY
-        std::shared_ptr<ErrorObject>            // ERROR
+        std::shared_ptr<ErrorObject>,           // ERROR
+        std::shared_ptr<ClassInstance>          // CLASS (Phase 7.1)
     >;
 
 private:
@@ -200,6 +309,13 @@ public:
     static Value createError(const std::string& message, const std::string& type = "Error");
 
     /**
+     * @brief 클래스 인스턴스 값 생성 (Phase 7.1)
+     * @param instance 클래스 인스턴스
+     * @return Value 객체
+     */
+    static Value createClassInstance(std::shared_ptr<ClassInstance> instance);
+
+    /**
      * @brief 값의 타입 반환
      * @return TypeKind
      */
@@ -260,6 +376,12 @@ public:
     bool isError() const { return type_ == types::TypeKind::ERROR; }
 
     /**
+     * @brief 클래스 인스턴스 값인지 확인 (Phase 7.1)
+     * @return 클래스 인스턴스이면 true
+     */
+    bool isClassInstance() const { return type_ == types::TypeKind::CLASS; }
+
+    /**
      * @brief 정수 값 반환
      * @return int64_t 값
      * @throws std::runtime_error 정수가 아닌 경우
@@ -315,6 +437,13 @@ public:
      * @throws std::runtime_error 에러가 아닌 경우
      */
     std::shared_ptr<ErrorObject> asError() const;
+
+    /**
+     * @brief 클래스 인스턴스 값 반환 (Phase 7.1)
+     * @return shared_ptr<ClassInstance>
+     * @throws std::runtime_error 클래스 인스턴스가 아닌 경우
+     */
+    std::shared_ptr<ClassInstance> asClassInstance() const;
 
     /**
      * @brief 값을 문자열로 변환

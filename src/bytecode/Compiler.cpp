@@ -82,6 +82,9 @@ void Compiler::compileStatement(ast::Statement* stmt) {
         case ast::NodeType::IMPORT_STATEMENT:
             compileImportStatement(static_cast<ast::ImportStatement*>(stmt));
             break;
+        case ast::NodeType::CLASS_STATEMENT:  // Phase 7.1
+            compileClassStatement(static_cast<ast::ClassStatement*>(stmt));
+            break;
         default:
             error("Unknown statement type");
     }
@@ -132,6 +135,15 @@ void Compiler::compileExpression(ast::Expression* expr) {
             break;
         case ast::NodeType::RANGE_EXPRESSION:
             compileRangeExpression(static_cast<ast::RangeExpression*>(expr));
+            break;
+        case ast::NodeType::NEW_EXPRESSION:  // Phase 7.1
+            compileNewExpression(static_cast<ast::NewExpression*>(expr));
+            break;
+        case ast::NodeType::MEMBER_ACCESS_EXPRESSION:  // Phase 7.1
+            compileMemberAccessExpression(static_cast<ast::MemberAccessExpression*>(expr));
+            break;
+        case ast::NodeType::THIS_EXPRESSION:  // Phase 7.1
+            compileThisExpression(static_cast<ast::ThisExpression*>(expr));
             break;
         default:
             error("Unknown expression type");
@@ -769,6 +781,86 @@ bool Compiler::isConstantCondition(ast::Expression* expr, bool& result) {
     }
 
     return false;
+}
+
+// ============================================================================
+// Phase 7.1: 클래스 시스템 컴파일
+// ============================================================================
+
+void Compiler::compileClassStatement(ast::ClassStatement* stmt) {
+    // 클래스 이름을 상수 풀에 추가
+    size_t classNameIdx = chunk_->addConstant(evaluator::Value::createString(stmt->className()));
+
+    // 필드 개수와 메서드 개수
+    uint8_t fieldCount = static_cast<uint8_t>(stmt->fields().size());
+    uint8_t methodCount = static_cast<uint8_t>(stmt->methods().size());
+
+    // CLASS_DEF [class_name_index] [field_count] [method_count]
+    emit(OpCode::CLASS_DEF, static_cast<uint8_t>(classNameIdx), fieldCount);
+    chunk_->write(methodCount, currentLine());
+
+    // 필드 이름들을 상수 풀에 추가
+    for (const auto& field : stmt->fields()) {
+        size_t fieldNameIdx = chunk_->addConstant(evaluator::Value::createString(field->fieldName()));
+        chunk_->write(static_cast<uint8_t>(fieldNameIdx), currentLine());
+    }
+
+    // 생성자 컴파일 (있으면)
+    if (stmt->constructor()) {
+        auto* ctor = stmt->constructor();
+        // 생성자를 함수로 컴파일
+        std::vector<std::string> params;
+        for (const auto& param : ctor->parameters()) {
+            params.push_back(param.name);
+        }
+
+        // 생성자 본문 컴파일 (나중에 VM에서 처리)
+        // TODO: 생성자 바이트코드 생성
+    }
+
+    // 메서드 컴파일
+    for (const auto& method : stmt->methods()) {
+        // 메서드 이름을 상수 풀에 추가
+        size_t methodNameIdx = chunk_->addConstant(evaluator::Value::createString(method->methodName()));
+        chunk_->write(static_cast<uint8_t>(methodNameIdx), currentLine());
+
+        // 메서드를 함수로 컴파일
+        // TODO: 메서드 바이트코드 생성
+    }
+
+    // 클래스 정의를 전역 변수에 저장
+    size_t globalIdx = chunk_->addConstant(evaluator::Value::createString(stmt->className()));
+    emit(OpCode::STORE_GLOBAL, static_cast<uint8_t>(globalIdx));
+}
+
+void Compiler::compileNewExpression(ast::NewExpression* expr) {
+    // 클래스 이름을 상수 풀에 추가
+    size_t classNameIdx = chunk_->addConstant(evaluator::Value::createString(expr->className()));
+
+    // 인자들을 컴파일 (스택에 푸시)
+    for (const auto& arg : expr->arguments()) {
+        compileExpression(const_cast<ast::Expression*>(arg.get()));
+    }
+
+    // NEW_INSTANCE [class_name_index] [arg_count]
+    uint8_t argCount = static_cast<uint8_t>(expr->arguments().size());
+    emit(OpCode::NEW_INSTANCE, static_cast<uint8_t>(classNameIdx), argCount);
+}
+
+void Compiler::compileMemberAccessExpression(ast::MemberAccessExpression* expr) {
+    // 객체 표현식 컴파일 (스택에 객체 푸시)
+    compileExpression(const_cast<ast::Expression*>(expr->object()));
+
+    // 필드 이름을 상수 풀에 추가
+    size_t fieldNameIdx = chunk_->addConstant(evaluator::Value::createString(expr->memberName()));
+
+    // LOAD_FIELD [field_name_index]
+    emit(OpCode::LOAD_FIELD, static_cast<uint8_t>(fieldNameIdx));
+}
+
+void Compiler::compileThisExpression(ast::ThisExpression* /* expr */) {
+    // LOAD_THIS
+    emit(OpCode::LOAD_THIS);
 }
 
 void Compiler::optimizePeephole() {

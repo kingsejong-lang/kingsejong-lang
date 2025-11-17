@@ -115,6 +115,16 @@ enum class OpCode : uint8_t {
     // 모듈
     // ========================================
     IMPORT,             ///< 모듈 가져오기: IMPORT [module_name_index]
+
+    // ========================================
+    // 클래스 (Phase 7.1)
+    // ========================================
+    CLASS_DEF,          ///< 클래스 정의: CLASS_DEF [class_name_index] [field_count] [method_count]
+    NEW_INSTANCE,       ///< 객체 생성: NEW_INSTANCE [class_name_index] [arg_count]
+    LOAD_FIELD,         ///< 필드 읽기: pop object, push object.field
+    STORE_FIELD,        ///< 필드 쓰기: pop value, pop object, object.field = value
+    CALL_METHOD,        ///< 메서드 호출: CALL_METHOD [method_name_index] [arg_count]
+    LOAD_THIS,          ///< this (자신) 로드: push this
 };
 
 /**

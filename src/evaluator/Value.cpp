@@ -24,6 +24,43 @@ Value::Value()
 {
 }
 
+ClassInstance::ClassInstance(std::shared_ptr<ClassDefinition> classDef)
+    : classDef_(std::move(classDef))
+{
+    // 필드 초기화 (모두 null로)
+    for (const auto& fieldName : classDef_->fieldNames())
+    {
+        fields_[fieldName] = Value::createNull();
+    }
+}
+
+Value ClassInstance::getField(const std::string& fieldName) const
+{
+    auto it = fields_.find(fieldName);
+    if (it != fields_.end())
+    {
+        return it->second;
+    }
+    throw std::runtime_error("필드 '" + fieldName + "'이(가) 존재하지 않습니다.");
+}
+
+void ClassInstance::setField(const std::string& fieldName, const Value& value)
+{
+    if (fields_.find(fieldName) != fields_.end())
+    {
+        fields_[fieldName] = value;
+    }
+    else
+    {
+        throw std::runtime_error("필드 '" + fieldName + "'이(가) 존재하지 않습니다.");
+    }
+}
+
+const std::unordered_map<std::string, Value>& ClassInstance::fields() const
+{
+    return fields_;
+}
+
 // ============================================================================
 // 정적 생성 함수
 // ============================================================================
@@ -97,6 +134,14 @@ Value Value::createError(const std::string& message, const std::string& type)
     Value v;
     v.type_ = types::TypeKind::ERROR;
     v.data_ = std::make_shared<ErrorObject>(message, type);
+    return v;
+}
+
+Value Value::createClassInstance(std::shared_ptr<ClassInstance> instance)
+{
+    Value v;
+    v.type_ = types::TypeKind::CLASS;
+    v.data_ = instance;
     return v;
 }
 
@@ -185,6 +230,15 @@ std::shared_ptr<ErrorObject> Value::asError() const
     return std::get<std::shared_ptr<ErrorObject>>(data_);
 }
 
+std::shared_ptr<ClassInstance> Value::asClassInstance() const
+{
+    if (!isClassInstance())
+    {
+        throw error::TypeError("값이 클래스 인스턴스 타입이 아닙니다. 실제 타입: " + types::Type::typeKindToString(type_));
+    }
+    return std::get<std::shared_ptr<ClassInstance>>(data_);
+}
+
 // ============================================================================
 // 문자열 변환
 // ============================================================================
@@ -238,6 +292,12 @@ std::string Value::toString() const
         {
             auto err = std::get<std::shared_ptr<ErrorObject>>(data_);
             return err->type() + ": " + err->message();
+        }
+
+        case types::TypeKind::CLASS:
+        {
+            auto instance = std::get<std::shared_ptr<ClassInstance>>(data_);
+            return instance->classDef()->className() + " 인스턴스";
         }
 
         default:

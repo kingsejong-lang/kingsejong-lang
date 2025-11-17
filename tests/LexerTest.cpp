@@ -730,3 +730,96 @@ TEST(LexerTest, MultiplyVsMultilineComment)
 
     EXPECT_EQ(lexer.nextToken().type, TokenType::EOF_TOKEN);
 }
+
+/**
+ * @test 클래스 관련 키워드 토큰화 테스트 (Phase 7.1)
+ */
+TEST(LexerTest, TokenizeClassKeywords)
+{
+    std::string input = "클래스 생성자 공개 비공개 자신 상속 상위";
+    Lexer lexer(input);
+
+    Token tok1 = lexer.nextToken();
+    EXPECT_EQ(tok1.type, TokenType::KEULLAESU);
+    EXPECT_EQ(tok1.literal, "클래스");
+
+    Token tok2 = lexer.nextToken();
+    EXPECT_EQ(tok2.type, TokenType::SAENGSEONGJA);
+    EXPECT_EQ(tok2.literal, "생성자");
+
+    Token tok3 = lexer.nextToken();
+    EXPECT_EQ(tok3.type, TokenType::GONGGAE);
+    EXPECT_EQ(tok3.literal, "공개");
+
+    Token tok4 = lexer.nextToken();
+    EXPECT_EQ(tok4.type, TokenType::BIGONGGAE);
+    EXPECT_EQ(tok4.literal, "비공개");
+
+    Token tok5 = lexer.nextToken();
+    EXPECT_EQ(tok5.type, TokenType::JASIN);
+    EXPECT_EQ(tok5.literal, "자신");
+
+    Token tok6 = lexer.nextToken();
+    EXPECT_EQ(tok6.type, TokenType::SANGSOK);
+    EXPECT_EQ(tok6.literal, "상속");
+
+    Token tok7 = lexer.nextToken();
+    EXPECT_EQ(tok7.type, TokenType::SANGWI);
+    EXPECT_EQ(tok7.literal, "상위");
+
+    Token tokEOF = lexer.nextToken();
+    EXPECT_EQ(tokEOF.type, TokenType::EOF_TOKEN);
+}
+
+/**
+ * @test 클래스 정의 문법 토큰화 테스트 (Phase 7.1)
+ */
+TEST(LexerTest, TokenizeClassDefinitionSyntax)
+{
+    std::string input = R"(
+        클래스 사람 {
+            비공개 문자열 이름
+            생성자(이름) {
+                자신.이름 = 이름
+            }
+        }
+    )";
+    Lexer lexer(input);
+
+    // 클래스
+    EXPECT_EQ(lexer.nextToken().type, TokenType::KEULLAESU);
+    // 사람
+    Token className = lexer.nextToken();
+    EXPECT_EQ(className.type, TokenType::IDENTIFIER);
+    EXPECT_EQ(className.literal, "사람");
+    // {
+    EXPECT_EQ(lexer.nextToken().type, TokenType::LBRACE);
+
+    // 비공개
+    EXPECT_EQ(lexer.nextToken().type, TokenType::BIGONGGAE);
+    // 문자열
+    EXPECT_EQ(lexer.nextToken().type, TokenType::MUNJAYEOL);
+    // 이름
+    Token fieldName = lexer.nextToken();
+    EXPECT_EQ(fieldName.type, TokenType::IDENTIFIER);
+    EXPECT_EQ(fieldName.literal, "이름");
+
+    // 생성자
+    EXPECT_EQ(lexer.nextToken().type, TokenType::SAENGSEONGJA);
+    // (
+    EXPECT_EQ(lexer.nextToken().type, TokenType::LPAREN);
+    // 이름
+    Token paramName = lexer.nextToken();
+    EXPECT_EQ(paramName.type, TokenType::IDENTIFIER);
+    EXPECT_EQ(paramName.literal, "이름");
+    // )
+    EXPECT_EQ(lexer.nextToken().type, TokenType::RPAREN);
+    // {
+    EXPECT_EQ(lexer.nextToken().type, TokenType::LBRACE);
+
+    // 자신
+    EXPECT_EQ(lexer.nextToken().type, TokenType::JASIN);
+    // .이름은 아직 파서에서 처리할 예정이므로 IDENTIFIER로 보임
+    // (DOT token이 필요할 수도 있음)
+    // }
+}

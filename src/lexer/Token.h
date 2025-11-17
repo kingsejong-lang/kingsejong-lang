@@ -143,7 +143,16 @@ enum class TokenType
     SIDO,         ///< 시도 (try)
     ORYU,         ///< 오류 (catch)
     MAJIMAK,      ///< 마지막 (finally)
-    DEONJIDA      ///< 던지다 (throw)
+    DEONJIDA,     ///< 던지다 (throw)
+
+    // 클래스 관련 키워드 (Phase 7.1)
+    KEULLAESU,    ///< 클래스 (class)
+    SAENGSEONGJA, ///< 생성자 (constructor)
+    GONGGAE,      ///< 공개 (public)
+    BIGONGGAE,    ///< 비공개 (private)
+    JASIN,        ///< 자신 (this)
+    SANGSOK,      ///< 상속 (extends)
+    SANGWI        ///< 상위 (super)
 };
 
 /**

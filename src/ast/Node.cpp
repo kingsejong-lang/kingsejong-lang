@@ -84,6 +84,10 @@ std::string nodeTypeToString(NodeType type)
         case NodeType::INDEX_EXPRESSION:
             return "INDEX_EXPRESSION";
 
+        // 딕셔너리 관련 (Phase 7.2)
+        case NodeType::DICTIONARY_LITERAL:
+            return "DICTIONARY_LITERAL";
+
         // 패턴 매칭
         case NodeType::MATCH_EXPRESSION:
             return "MATCH_EXPRESSION";

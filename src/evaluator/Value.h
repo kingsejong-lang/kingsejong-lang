@@ -231,17 +231,18 @@ public:
      * std::variant로 다양한 타입을 안전하게 저장합니다.
      */
     using ValueData = std::variant<
-        std::monostate,                         // 초기화되지 않은 상태
-        int64_t,                                // INTEGER
-        double,                                 // FLOAT
-        std::string,                            // STRING
-        bool,                                   // BOOLEAN
-        std::nullptr_t,                         // NULL_TYPE
-        std::shared_ptr<Function>,              // FUNCTION
-        BuiltinFn,                              // BUILTIN_FUNCTION
-        std::shared_ptr<std::vector<Value>>,    // ARRAY
-        std::shared_ptr<ErrorObject>,           // ERROR
-        std::shared_ptr<ClassInstance>          // CLASS (Phase 7.1)
+        std::monostate,                                        // 초기화되지 않은 상태
+        int64_t,                                               // INTEGER
+        double,                                                // FLOAT
+        std::string,                                           // STRING
+        bool,                                                  // BOOLEAN
+        std::nullptr_t,                                        // NULL_TYPE
+        std::shared_ptr<Function>,                             // FUNCTION
+        BuiltinFn,                                             // BUILTIN_FUNCTION
+        std::shared_ptr<std::vector<Value>>,                   // ARRAY
+        std::shared_ptr<std::unordered_map<std::string, Value>>,  // DICTIONARY (Phase 7.2)
+        std::shared_ptr<ErrorObject>,                          // ERROR
+        std::shared_ptr<ClassInstance>                         // CLASS (Phase 7.1)
     >;
 
 private:
@@ -310,6 +311,13 @@ public:
      * @return Value 객체
      */
     static Value createArray(const std::vector<Value>& elements);
+
+    /**
+     * @brief 딕셔너리 값 생성 (Phase 7.2)
+     * @param dict 딕셔너리 맵
+     * @return Value 객체
+     */
+    static Value createDictionary(const std::unordered_map<std::string, Value>& dict);
 
     /**
      * @brief 에러 값 생성
@@ -381,6 +389,12 @@ public:
     bool isArray() const { return type_ == types::TypeKind::ARRAY; }
 
     /**
+     * @brief 딕셔너리 값인지 확인 (Phase 7.2)
+     * @return 딕셔너리이면 true
+     */
+    bool isDictionary() const { return type_ == types::TypeKind::DICTIONARY; }
+
+    /**
      * @brief 에러 값인지 확인
      * @return 에러이면 true
      */
@@ -441,6 +455,14 @@ public:
      */
     std::vector<Value>& asArray();
     const std::vector<Value>& asArray() const;
+
+    /**
+     * @brief 딕셔너리 값 반환 (Phase 7.2)
+     * @return std::unordered_map<std::string, Value> 참조
+     * @throws std::runtime_error 딕셔너리가 아닌 경우
+     */
+    std::unordered_map<std::string, Value>& asDictionary();
+    const std::unordered_map<std::string, Value>& asDictionary() const;
 
     /**
      * @brief 에러 값 반환

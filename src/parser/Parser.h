@@ -185,6 +185,7 @@ private:
     std::unique_ptr<Expression> parsePrefixExpression();
     std::unique_ptr<Expression> parseGroupedExpression();
     std::unique_ptr<Expression> parseArrayLiteral();
+    std::unique_ptr<Expression> parseDictionaryLiteral();  // Phase 7.2: 딕셔너리
     std::unique_ptr<Expression> parseFunctionLiteral();
     std::unique_ptr<Expression> parseThisExpression();     // Phase 7.1: 자신
     std::unique_ptr<Expression> parseNewExpression();      // Phase 7.1: 객체 생성

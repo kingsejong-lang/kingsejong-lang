@@ -488,6 +488,50 @@ public:
 };
 
 // ============================================================================
+// 딕셔너리 관련 표현식 (Phase 7.2)
+// ============================================================================
+
+/**
+ * @class DictionaryLiteral
+ * @brief 딕셔너리 리터럴 표현식
+ *
+ * @example {"이름": "홍길동", "나이": 30}
+ */
+class DictionaryLiteral : public Expression
+{
+private:
+    std::vector<std::pair<std::unique_ptr<Expression>, std::unique_ptr<Expression>>> pairs_;
+
+public:
+    explicit DictionaryLiteral(
+        std::vector<std::pair<std::unique_ptr<Expression>, std::unique_ptr<Expression>>> pairs
+    )
+        : pairs_(std::move(pairs))
+    {}
+
+    NodeType type() const override { return NodeType::DICTIONARY_LITERAL; }
+
+    std::string toString() const override
+    {
+        std::string result = "{";
+
+        for (size_t i = 0; i < pairs_.size(); ++i)
+        {
+            if (i > 0) result += ", ";
+            result += pairs_[i].first->toString() + ": " + pairs_[i].second->toString();
+        }
+
+        result += "}";
+        return result;
+    }
+
+    const std::vector<std::pair<std::unique_ptr<Expression>, std::unique_ptr<Expression>>>& pairs() const
+    {
+        return pairs_;
+    }
+};
+
+// ============================================================================
 // 패턴 매칭 (F5.5)
 // ============================================================================
 

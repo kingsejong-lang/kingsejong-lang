@@ -129,6 +129,14 @@ Value Value::createArray(const std::vector<Value>& elements)
     return v;
 }
 
+Value Value::createDictionary(const std::unordered_map<std::string, Value>& dict)
+{
+    Value v;
+    v.type_ = types::TypeKind::DICTIONARY;
+    v.data_ = std::make_shared<std::unordered_map<std::string, Value>>(dict);
+    return v;
+}
+
 Value Value::createError(const std::string& message, const std::string& type)
 {
     Value v;
@@ -221,6 +229,24 @@ const std::vector<Value>& Value::asArray() const
     return *std::get<std::shared_ptr<std::vector<Value>>>(data_);
 }
 
+std::unordered_map<std::string, Value>& Value::asDictionary()
+{
+    if (!isDictionary())
+    {
+        throw error::TypeError("값이 딕셔너리 타입이 아닙니다. 실제 타입: " + types::Type::typeKindToString(type_));
+    }
+    return *std::get<std::shared_ptr<std::unordered_map<std::string, Value>>>(data_);
+}
+
+const std::unordered_map<std::string, Value>& Value::asDictionary() const
+{
+    if (!isDictionary())
+    {
+        throw error::TypeError("값이 딕셔너리 타입이 아닙니다. 실제 타입: " + types::Type::typeKindToString(type_));
+    }
+    return *std::get<std::shared_ptr<std::unordered_map<std::string, Value>>>(data_);
+}
+
 std::shared_ptr<ErrorObject> Value::asError() const
 {
     if (!isError())
@@ -288,6 +314,21 @@ std::string Value::toString() const
             return result;
         }
 
+        case types::TypeKind::DICTIONARY:
+        {
+            auto dict = std::get<std::shared_ptr<std::unordered_map<std::string, Value>>>(data_);
+            std::string result = "{";
+            bool first = true;
+            for (const auto& [key, value] : *dict)
+            {
+                if (!first) result += ", ";
+                first = false;
+                result += "\"" + key + "\": " + value.toString();
+            }
+            result += "}";
+            return result;
+        }
+
         case types::TypeKind::ERROR:
         {
             auto err = std::get<std::shared_ptr<ErrorObject>>(data_);
@@ -332,6 +373,12 @@ bool Value::isTruthy() const
         {
             auto arr = std::get<std::shared_ptr<std::vector<Value>>>(data_);
             return !arr->empty();
+        }
+
+        case types::TypeKind::DICTIONARY:
+        {
+            auto dict = std::get<std::shared_ptr<std::unordered_map<std::string, Value>>>(data_);
+            return !dict->empty();
         }
 
         case types::TypeKind::ERROR:

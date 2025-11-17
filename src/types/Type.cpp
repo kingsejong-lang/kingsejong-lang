@@ -80,6 +80,7 @@ void Type::initBuiltinTypes()
     builtinTypes_["없음"] = nullType_;
     builtinTypes_["범위"] = rangeType_;
     builtinTypes_["배열"] = new Type(TypeKind::ARRAY, "배열");  // 배열 타입
+    builtinTypes_["딕셔너리"] = new Type(TypeKind::DICTIONARY, "딕셔너리");  // 딕셔너리 타입 (Phase 7.2)
 }
 
 Type* Type::getBuiltin(const std::string& koreanName)
@@ -150,6 +151,8 @@ std::string Type::typeKindToString(TypeKind kind)
             return "NULL";
         case TypeKind::ARRAY:
             return "ARRAY";
+        case TypeKind::DICTIONARY:
+            return "DICTIONARY";
         case TypeKind::FUNCTION:
             return "FUNCTION";
         case TypeKind::BUILTIN_FUNCTION:

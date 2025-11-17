@@ -82,6 +82,9 @@ Value Evaluator::eval(ast::Node* node)
         case ast::NodeType::ARRAY_LITERAL:
             return evalArrayLiteral(static_cast<ast::ArrayLiteral*>(node));
 
+        case ast::NodeType::DICTIONARY_LITERAL:
+            return evalDictionaryLiteral(static_cast<ast::DictionaryLiteral*>(node));
+
         case ast::NodeType::INDEX_EXPRESSION:
             return evalIndexExpression(static_cast<ast::IndexExpression*>(node));
 
@@ -870,20 +873,67 @@ Value Evaluator::evalArrayLiteral(ast::ArrayLiteral* lit)
     return Value::createArray(elements);
 }
 
+Value Evaluator::evalDictionaryLiteral(ast::DictionaryLiteral* lit)
+{
+    std::unordered_map<std::string, Value> dict;
+
+    for (const auto& [keyExpr, valueExpr] : lit->pairs())
+    {
+        // key 평가
+        Value key = eval(const_cast<ast::Expression*>(keyExpr.get()));
+
+        // key는 문자열이어야 함
+        if (!key.isString())
+        {
+            throw error::TypeError("딕셔너리 키는 문자열이어야 합니다. 실제 타입: " + types::Type::typeKindToString(key.getType()));
+        }
+
+        // value 평가
+        Value value = eval(const_cast<ast::Expression*>(valueExpr.get()));
+
+        dict[key.asString()] = value;
+    }
+
+    return Value::createDictionary(dict);
+}
+
 Value Evaluator::evalIndexExpression(ast::IndexExpression* expr)
 {
-    Value array = eval(const_cast<ast::Expression*>(expr->array()));
+    Value left = eval(const_cast<ast::Expression*>(expr->array()));
+
+    // 딕셔너리 인덱스 접근 (Phase 7.2)
+    if (left.isDictionary())
+    {
+        Value index = eval(const_cast<ast::Expression*>(expr->index()));
+
+        // 딕셔너리 키는 문자열이어야 함
+        if (!index.isString())
+        {
+            throw error::TypeError("딕셔너리 키는 문자열이어야 합니다. 실제 타입: " + types::Type::typeKindToString(index.getType()));
+        }
+
+        auto& dict = left.asDictionary();
+        std::string key = index.asString();
+
+        auto it = dict.find(key);
+        if (it == dict.end())
+        {
+            throw error::RuntimeError("딕셔너리에 키가 존재하지 않습니다: \"" + key + "\"");
+        }
+
+        return it->second;
+    }
 
     // 배열인지 확인
-    if (!array.isArray())
+    if (!left.isArray())
     {
         throw error::TypeError(
-            "배열이 아닌 값에 인덱스 접근을 시도했습니다: " + array.toString() + "\n" +
-            "해결 방법: 인덱스 접근([])은 배열 타입에만 사용할 수 있습니다."
+            "배열 또는 딕셔너리가 아닌 값에 인덱스 접근을 시도했습니다: " + left.toString() + "\n" +
+            "해결 방법: 인덱스 접근([])은 배열 또는 딕셔너리 타입에만 사용할 수 있습니다."
         );
     }
 
-    std::vector<Value>& arr = array.asArray();
+    std::vector<Value>& arr = left.asArray();
 
     // 인덱스 표현식이 RangeExpression인지 확인
     const ast::Expression* indexExpr = expr->index();

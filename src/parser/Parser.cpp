@@ -40,6 +40,7 @@ void Parser::registerParseFunctions()
     registerPrefixFn(TokenType::NOT, [this]() { return parsePrefixExpression(); });
     registerPrefixFn(TokenType::LPAREN, [this]() { return parseGroupedExpression(); });
     registerPrefixFn(TokenType::LBRACKET, [this]() { return parseArrayLiteral(); });
+    registerPrefixFn(TokenType::LBRACE, [this]() { return parseDictionaryLiteral(); });  // Phase 7.2
     registerPrefixFn(TokenType::HAMSU, [this]() { return parseFunctionLiteral(); });
 
     // 타입 키워드도 식별자로 사용 가능 (builtin 함수 이름으로 사용)
@@ -1205,6 +1206,64 @@ std::unique_ptr<Expression> Parser::parseArrayLiteral()
     auto startLoc = curToken_.location;  // [ 토큰 위치 저장
     auto elements = parseExpressionList(TokenType::RBRACKET);
     auto expr = std::make_unique<ArrayLiteral>(std::move(elements));
+    expr->setLocation(startLoc);
+    return expr;
+}
+
+std::unique_ptr<Expression> Parser::parseDictionaryLiteral()
+{
+    auto startLoc = curToken_.location;  // { 토큰 위치 저장
+
+    std::vector<std::pair<std::unique_ptr<Expression>, std::unique_ptr<Expression>>> pairs;
+
+    // 빈 딕셔너리 체크
+    if (peekTokenIs(TokenType::RBRACE))
+    {
+        nextToken(); // } 건너뛰기
+        auto expr = std::make_unique<DictionaryLiteral>(std::move(pairs));
+        expr->setLocation(startLoc);
+        return expr;
+    }
+
+    // 첫 번째 key:value 쌍 파싱
+    nextToken(); // 첫 key 시작
+    auto key = parseExpression(Precedence::LOWEST);
+
+    if (!expectPeek(TokenType::COLON))
+    {
+        return nullptr;
+    }
+
+    nextToken(); // value 시작
+    auto value = parseExpression(Precedence::LOWEST);
+
+    pairs.push_back(std::make_pair(std::move(key), std::move(value)));
+
+    // 나머지 key:value 쌍 파싱
+    while (peekTokenIs(TokenType::COMMA))
+    {
+        nextToken(); // ,
+        nextToken(); // 다음 key
+
+        key = parseExpression(Precedence::LOWEST);
+
+        if (!expectPeek(TokenType::COLON))
+        {
+            return nullptr;
+        }
+
+        nextToken(); // value 시작
+        value = parseExpression(Precedence::LOWEST);
+
+        pairs.push_back(std::make_pair(std::move(key), std::move(value)));
+    }
+
+    if (!expectPeek(TokenType::RBRACE))
+    {
+        return nullptr;
+    }
+
+    auto expr = std::make_unique<DictionaryLiteral>(std::move(pairs));
     expr->setLocation(startLoc);
     return expr;
 }

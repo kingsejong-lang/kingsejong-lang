@@ -509,6 +509,15 @@ void SemanticAnalyzer::analyzeAndResolveExpression(const Expression* expr)
             analyzeAndResolveExpression(elem.get());
         }
     }
+    // 딕셔너리 리터럴: 각 key-value 쌍 분석 (Phase 7.2)
+    else if (auto dictLit = dynamic_cast<const DictionaryLiteral*>(expr))
+    {
+        for (const auto& [keyExpr, valueExpr] : dictLit->pairs())
+        {
+            analyzeAndResolveExpression(keyExpr.get());
+            analyzeAndResolveExpression(valueExpr.get());
+        }
+    }
     // Range 표현식: start, end 분석
     else if (auto range = dynamic_cast<const RangeExpression*>(expr))
     {
@@ -858,6 +867,16 @@ void SemanticAnalyzer::resolveNamesInExpression(const Expression* expr)
         }
     }
 
+    // DictionaryLiteral: 모든 key-value 쌍 검증 (Phase 7.2)
+    else if (auto dictLit = dynamic_cast<const DictionaryLiteral*>(expr))
+    {
+        for (const auto& [keyExpr, valueExpr] : dictLit->pairs())
+        {
+            resolveNamesInExpression(keyExpr.get());
+            resolveNamesInExpression(valueExpr.get());
+        }
+    }
+
     // FunctionLiteral: 함수 본문 검증 (매개변수는 함수 스코프에서 처리)
     else if (auto funcLit = dynamic_cast<const FunctionLiteral*>(expr))
     {
@@ -1152,25 +1171,61 @@ Type* SemanticAnalyzer::inferType(const Expression* expr)
         return Type::getBuiltin("배열");
     }
 
+    // 딕셔너리 리터럴 타입 추론 (Phase 7.2)
+    else if (auto dictLit = dynamic_cast<const DictionaryLiteral*>(expr))
+    {
+        // 딕셔너리 키-값 쌍 검증
+        for (const auto& [keyExpr, valueExpr] : dictLit->pairs())
+        {
+            Type* keyType = inferType(keyExpr.get());
+            // 키는 문자열이어야 함
+            if (keyType && keyType->koreanName() != "문자열")
+            {
+                addError("딕셔너리 키는 문자열이어야 합니다 (현재: " + keyType->koreanName() + ")");
+            }
+
+            // 값 타입 검증 (값은 어떤 타입이든 가능)
+            inferType(valueExpr.get());
+        }
+
+        return Type::getBuiltin("딕셔너리");
+    }
+
     // 배열 인덱스 접근 타입 추론
     else if (auto indexExpr = dynamic_cast<const IndexExpression*>(expr))
     {
         Type* arrayType = inferType(indexExpr->array());
         Type* indexType = inferType(indexExpr->index());
 
+        // 딕셔너리 인덱스 접근 (Phase 7.2)
+        if (arrayType && arrayType->koreanName() == "딕셔너리")
+        {
+            // 딕셔너리 키는 문자열이어야 함
+            if (indexType && indexType->koreanName() != "문자열")
+            {
+                addError("딕셔너리 키는 문자열이어야 합니다 (현재: " +
+                        indexType->koreanName() + ")");
+            }
+            // 딕셔너리 값 타입은 현재 추론 불가
+            return nullptr;
+        }
+
         // 배열이 실제로 배열 타입인지 확인
         if (arrayType && arrayType->koreanName() != "배열" &&
             arrayType->koreanName() != "문자열")  // 문자열도 인덱스 접근 가능
         {
-            addError("인덱스 접근은 배열 또는 문자열에만 사용할 수 있습니다 (현재: " +
+            addError("인덱스 접근은 배열, 딕셔너리 또는 문자열에만 사용할 수 있습니다 (현재: " +
                     arrayType->koreanName() + ")");
         }
 
-        // 인덱스가 정수 타입인지 확인
-        if (indexType && indexType->koreanName() != "정수")
+        // 배열과 문자열은 정수 인덱스만 허용 (딕셔너리는 위에서 이미 처리함)
+        if (arrayType && (arrayType->koreanName() == "배열" || arrayType->koreanName() == "문자열"))
         {
-            addError("배열 인덱스는 정수여야 합니다 (현재: " +
-                    indexType->koreanName() + ")");
+            if (indexType && indexType->koreanName() != "정수")
+            {
+                addError("배열 인덱스는 정수여야 합니다 (현재: " +
+                        indexType->koreanName() + ")");
+            }
         }
 
         // 문자열 인덱스 접근은 문자열 반환

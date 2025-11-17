@@ -26,6 +26,7 @@ enum class TypeKind
     BOOLEAN,          ///< 참거짓 (bool)
     NULL_TYPE,        ///< 없음 (nullptr)
     ARRAY,            ///< 배열
+    DICTIONARY,       ///< 딕셔너리 (Phase 7.2)
     FUNCTION,         ///< 함수
     BUILTIN_FUNCTION, ///< 내장 함수
     RANGE,            ///< 범위 (1부터 10까지)

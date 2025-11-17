@@ -208,6 +208,13 @@ private:
     Value evalArrayLiteral(ast::ArrayLiteral* lit);
 
     /**
+     * @brief 딕셔너리 리터럴 평가 (Phase 7.2)
+     * @param lit 딕셔너리 리터럴 노드
+     * @return 딕셔너리 Value
+     */
+    Value evalDictionaryLiteral(ast::DictionaryLiteral* lit);
+
+    /**
      * @brief 인덱스 표현식 평가
      * @param expr 인덱스 표현식 노드
      * @return 배열 요소 Value

@@ -62,6 +62,9 @@ enum class NodeType
     ARRAY_LITERAL,              ///< 배열 리터럴 ([1, 2, 3])
     INDEX_EXPRESSION,           ///< 인덱스 접근 (arr[0])
 
+    // 딕셔너리 관련 (Phase 7.2)
+    DICTIONARY_LITERAL,         ///< 딕셔너리 리터럴 ({"key": "value"})
+
     // 패턴 매칭 (F5.5)
     MATCH_EXPRESSION,           ///< 패턴 매칭 표현식 (값에 대해 { ... })
     LITERAL_PATTERN,            ///< 리터럴 패턴 (1, "hello", 참)

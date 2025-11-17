@@ -15,6 +15,7 @@
 #include "ast/Expression.h"
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace kingsejong {
@@ -45,6 +46,9 @@ private:
     // 점프 패칭을 위한 스택
     std::vector<size_t> loopStarts_;        ///< 루프 시작 오프셋
     std::vector<std::vector<size_t>> breakJumps_;  ///< break 점프 오프셋
+
+    // Phase 7.1: 클래스 시스템
+    std::unordered_set<std::string> classNames_;  ///< 정의된 클래스 이름
 
 public:
     /**

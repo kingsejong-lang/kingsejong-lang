@@ -430,7 +430,26 @@ void Compiler::compileUnaryExpression(ast::UnaryExpression* expr) {
 }
 
 void Compiler::compileCallExpression(ast::CallExpression* expr) {
-    // 함수
+    // Phase 7.1: CallExpression이 실제로는 클래스 인스턴스화인지 확인
+    // 함수 표현식이 Identifier이고, 그 이름이 클래스 이름이면 NEW_INSTANCE 사용
+    if (auto* ident = dynamic_cast<ast::Identifier*>(const_cast<ast::Expression*>(expr->function()))) {
+        if (classNames_.count(ident->name()) > 0) {
+            // 클래스 인스턴스화
+            size_t classNameIdx = chunk_->addConstant(evaluator::Value::createString(ident->name()));
+
+            // 생성자 인자들
+            for (auto& arg : expr->arguments()) {
+                compileExpression(const_cast<ast::Expression*>(arg.get()));
+            }
+
+            // NEW_INSTANCE [class_name_index] [arg_count]
+            emit(OpCode::NEW_INSTANCE, static_cast<uint8_t>(classNameIdx),
+                 static_cast<uint8_t>(expr->arguments().size()));
+            return;
+        }
+    }
+
+    // 일반 함수 호출
     compileExpression(const_cast<ast::Expression*>(expr->function()));
 
     // 인자들
@@ -788,6 +807,9 @@ bool Compiler::isConstantCondition(ast::Expression* expr, bool& result) {
 // ============================================================================
 
 void Compiler::compileClassStatement(ast::ClassStatement* stmt) {
+    // 클래스 이름 기록 (Phase 7.1: CallExpression에서 class instantiation 구분용)
+    classNames_.insert(stmt->className());
+
     // 클래스 이름을 상수 풀에 추가
     size_t classNameIdx = chunk_->addConstant(evaluator::Value::createString(stmt->className()));
 
@@ -829,7 +851,7 @@ void Compiler::compileClassStatement(ast::ClassStatement* stmt) {
     }
 
     // 클래스 정의를 전역 변수에 저장
-    size_t globalIdx = chunk_->addConstant(evaluator::Value::createString(stmt->className()));
+    size_t globalIdx = chunk_->addName(stmt->className());
     emit(OpCode::STORE_GLOBAL, static_cast<uint8_t>(globalIdx));
 }
 

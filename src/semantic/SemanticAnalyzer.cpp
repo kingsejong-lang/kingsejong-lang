@@ -1192,10 +1192,17 @@ Type* SemanticAnalyzer::inferType(const Expression* expr)
         {
             const std::string& funcName = funcIdent->name();
 
+            // Phase 7.1: 클래스 인스턴스화인지 확인
+            if (symbolTable_.isClass(funcName))
+            {
+                // 클래스 인스턴스화 - 타입 검사는 생략 (생성자 인자 검증은 나중에)
+                return nullptr;  // 클래스 인스턴스 타입은 아직 정의되지 않음
+            }
+
             // builtin 함수가 아니고 정의되지 않았으면 에러 (Name Resolution에서 이미 체크했지만)
             if (!isBuiltinFunction(funcName) && !symbolTable_.isDefined(funcName))
             {
-                addError("정의되지 않은 함수: " + funcName);
+                addError("정의되지 않은 함수 또는 클래스: " + funcName);
             }
 
             // builtin 함수들의 반환 타입 (알려진 것들만)

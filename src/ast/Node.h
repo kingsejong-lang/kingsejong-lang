@@ -43,6 +43,7 @@ enum class NodeType
     INTEGER_LITERAL,            ///< 정수 리터럴 (123)
     FLOAT_LITERAL,              ///< 실수 리터럴 (3.14)
     STRING_LITERAL,             ///< 문자열 리터럴 ("안녕")
+    INTERPOLATED_STRING,        ///< 문자열 보간 ("이름: ${name}") - Phase 7.2
     BOOLEAN_LITERAL,            ///< 불리언 리터럴 (참, 거짓)
 
     // 연산 표현식

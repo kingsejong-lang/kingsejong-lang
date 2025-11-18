@@ -107,6 +107,53 @@ public:
 };
 
 /**
+ * @class InterpolatedString
+ * @brief 문자열 보간 노드 (Phase 7.2)
+ *
+ * 문자열 안에 표현식을 삽입할 수 있는 기능입니다.
+ * parts[0] + expr[0] + parts[1] + expr[1] + ... + parts[n] 형태로 구성됩니다.
+ *
+ * @example "이름: ${name}, 나이: ${age}"
+ * parts = ["이름: ", ", 나이: ", ""]
+ * expressions = [name, age]
+ */
+class InterpolatedString : public Expression
+{
+private:
+    std::vector<std::string> parts_;                        ///< 문자열 조각들
+    std::vector<std::unique_ptr<Expression>> expressions_;  ///< 보간 표현식들
+
+public:
+    InterpolatedString(
+        std::vector<std::string> parts,
+        std::vector<std::unique_ptr<Expression>> expressions
+    )
+        : parts_(std::move(parts))
+        , expressions_(std::move(expressions))
+    {}
+
+    NodeType type() const override { return NodeType::INTERPOLATED_STRING; }
+
+    std::string toString() const override
+    {
+        std::string result = "\"";
+        for (size_t i = 0; i < parts_.size(); ++i)
+        {
+            result += parts_[i];
+            if (i < expressions_.size())
+            {
+                result += "${" + expressions_[i]->toString() + "}";
+            }
+        }
+        result += "\"";
+        return result;
+    }
+
+    const std::vector<std::string>& parts() const { return parts_; }
+    const std::vector<std::unique_ptr<Expression>>& expressions() const { return expressions_; }
+};
+
+/**
  * @class BooleanLiteral
  * @brief 불리언 리터럴 노드
  *

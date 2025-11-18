@@ -1162,8 +1162,67 @@ std::unique_ptr<Expression> Parser::parseFloatLiteral()
 
 std::unique_ptr<Expression> Parser::parseStringLiteral()
 {
-    auto node = std::make_unique<StringLiteral>(curToken_.literal);
-    node->setLocation(curToken_.location);
+    auto startLoc = curToken_.location;
+    std::string str = curToken_.literal;
+
+    // Phase 7.2: 문자열 보간 확인
+    if (str.find("${") == std::string::npos)
+    {
+        // 일반 문자열 리터럴
+        auto node = std::make_unique<StringLiteral>(str);
+        node->setLocation(startLoc);
+        return node;
+    }
+
+    // 문자열 보간 처리
+    std::vector<std::string> parts;
+    std::vector<std::unique_ptr<Expression>> expressions;
+
+    size_t pos = 0;
+    while (pos < str.length())
+    {
+        // "${" 찾기
+        size_t start = str.find("${", pos);
+        if (start == std::string::npos)
+        {
+            // 마지막 부분
+            parts.push_back(str.substr(pos));
+            break;
+        }
+
+        // "${" 앞부분을 part로 추가
+        parts.push_back(str.substr(pos, start - pos));
+
+        // "}" 찾기
+        size_t end = str.find("}", start + 2);
+        if (end == std::string::npos)
+        {
+            errors_.push_back("문자열 보간에서 닫는 '}'을(를) 찾을 수 없습니다.");
+            return nullptr;
+        }
+
+        // "${" 와 "}" 사이의 표현식 코드
+        std::string exprCode = str.substr(start + 2, end - start - 2);
+
+        // 표현식 파싱 (간단한 경우만 지원: 식별자, 산술 연산)
+        // 미니 Lexer + Parser 생성
+        lexer::Lexer exprLexer(exprCode, "");
+        Parser exprParser(exprLexer);
+        auto expr = exprParser.parseExpression(Precedence::LOWEST);
+
+        if (!expr || !exprParser.errors().empty())
+        {
+            errors_.push_back("문자열 보간 표현식 파싱 실패: " + exprCode);
+            return nullptr;
+        }
+
+        expressions.push_back(std::move(expr));
+        pos = end + 1;
+    }
+
+    // InterpolatedString 노드 생성
+    auto node = std::make_unique<InterpolatedString>(std::move(parts), std::move(expressions));
+    node->setLocation(startLoc);
     return node;
 }
 

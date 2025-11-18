@@ -159,6 +159,13 @@ private:
     Value evalStringLiteral(ast::StringLiteral* lit);
 
     /**
+     * @brief 문자열 보간 평가 (Phase 7.2)
+     * @param interp 문자열 보간 노드
+     * @return 평가된 문자열 Value
+     */
+    Value evalInterpolatedString(ast::InterpolatedString* interp);
+
+    /**
      * @brief 불리언 리터럴 평가
      * @param lit 불리언 리터럴 노드
      * @return 불리언 Value

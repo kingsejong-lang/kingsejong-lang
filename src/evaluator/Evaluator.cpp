@@ -61,6 +61,9 @@ Value Evaluator::eval(ast::Node* node)
         case ast::NodeType::STRING_LITERAL:
             return evalStringLiteral(static_cast<ast::StringLiteral*>(node));
 
+        case ast::NodeType::INTERPOLATED_STRING:
+            return evalInterpolatedString(static_cast<ast::InterpolatedString*>(node));
+
         case ast::NodeType::BOOLEAN_LITERAL:
             return evalBooleanLiteral(static_cast<ast::BooleanLiteral*>(node));
 
@@ -188,6 +191,51 @@ Value Evaluator::evalFloatLiteral(ast::FloatLiteral* lit)
 Value Evaluator::evalStringLiteral(ast::StringLiteral* lit)
 {
     return Value::createString(lit->value());
+}
+
+Value Evaluator::evalInterpolatedString(ast::InterpolatedString* interp)
+{
+    // Phase 7.2: 문자열 보간 평가
+    const auto& parts = interp->parts();
+    const auto& expressions = interp->expressions();
+
+    std::string result;
+    for (size_t i = 0; i < parts.size(); ++i)
+    {
+        // 문자열 파트 추가
+        result += parts[i];
+
+        // 표현식 평가 및 추가
+        if (i < expressions.size())
+        {
+            Value exprValue = eval(const_cast<ast::Expression*>(expressions[i].get()));
+
+            // Value를 문자열로 변환
+            if (exprValue.isString())
+            {
+                result += exprValue.asString();
+            }
+            else if (exprValue.isInteger())
+            {
+                result += std::to_string(exprValue.asInteger());
+            }
+            else if (exprValue.isFloat())
+            {
+                result += std::to_string(exprValue.asFloat());
+            }
+            else if (exprValue.isBoolean())
+            {
+                result += exprValue.asBoolean() ? "참" : "거짓";
+            }
+            else
+            {
+                // 기타 타입은 기본 toString 사용
+                result += exprValue.toString();
+            }
+        }
+    }
+
+    return Value::createString(result);
 }
 
 Value Evaluator::evalBooleanLiteral(ast::BooleanLiteral* lit)

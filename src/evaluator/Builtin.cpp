@@ -229,6 +229,100 @@ static Value builtin_길이(const std::vector<Value>& args)
     throw std::runtime_error("길이() 함수는 문자열 또는 배열 타입이어야 합니다");
 }
 
+// ============================================================================
+// 딕셔너리 함수 (Phase 7.2)
+// ============================================================================
+
+/**
+ * @brief 딕셔너리_키들(딕셔너리) - 딕셔너리의 모든 키를 배열로 반환
+ *
+ * @param args 딕셔너리 (1개)
+ * @return 키들의 배열
+ * @throws std::runtime_error 인자 개수가 1개가 아니거나, 딕셔너리가 아닌 경우
+ */
+static Value builtin_딕셔너리_키들(const std::vector<Value>& args)
+{
+    if (args.size() != 1)
+    {
+        throw std::runtime_error("딕셔너리_키들() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isDictionary())
+    {
+        throw std::runtime_error("딕셔너리_키들() 함수의 인자는 딕셔너리여야 합니다");
+    }
+
+    const auto& dict = args[0].asDictionary();
+    std::vector<Value> keys;
+
+    for (const auto& pair : dict)
+    {
+        keys.push_back(Value::createString(pair.first));
+    }
+
+    return Value::createArray(keys);
+}
+
+/**
+ * @brief 딕셔너리_값들(딕셔너리) - 딕셔너리의 모든 값을 배열로 반환
+ *
+ * @param args 딕셔너리 (1개)
+ * @return 값들의 배열
+ * @throws std::runtime_error 인자 개수가 1개가 아니거나, 딕셔너리가 아닌 경우
+ */
+static Value builtin_딕셔너리_값들(const std::vector<Value>& args)
+{
+    if (args.size() != 1)
+    {
+        throw std::runtime_error("딕셔너리_값들() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isDictionary())
+    {
+        throw std::runtime_error("딕셔너리_값들() 함수의 인자는 딕셔너리여야 합니다");
+    }
+
+    const auto& dict = args[0].asDictionary();
+    std::vector<Value> values;
+
+    for (const auto& pair : dict)
+    {
+        values.push_back(pair.second);
+    }
+
+    return Value::createArray(values);
+}
+
+/**
+ * @brief 딕셔너리_포함(딕셔너리, 키) - 딕셔너리에 키가 존재하는지 확인
+ *
+ * @param args 딕셔너리, 키 (2개)
+ * @return 존재 여부 (논리값)
+ * @throws std::runtime_error 인자 개수가 2개가 아니거나, 첫 번째가 딕셔너리, 두 번째가 문자열이 아닌 경우
+ */
+static Value builtin_딕셔너리_포함(const std::vector<Value>& args)
+{
+    if (args.size() != 2)
+    {
+        throw std::runtime_error("딕셔너리_포함() 함수는 정확히 2개의 인자가 필요합니다");
+    }
+
+    if (!args[0].isDictionary())
+    {
+        throw std::runtime_error("딕셔너리_포함() 함수의 첫 번째 인자는 딕셔너리여야 합니다");
+    }
+
+    if (!args[1].isString())
+    {
+        throw std::runtime_error("딕셔너리_포함() 함수의 두 번째 인자는 문자열이어야 합니다");
+    }
+
+    const auto& dict = args[0].asDictionary();
+    const std::string& key = args[1].asString();
+
+    return Value::createBoolean(dict.find(key) != dict.end());
+}
+
 /**
  * @brief 분리(문자열, 구분자) - 문자열을 구분자로 분리하여 배열 반환
  *
@@ -3258,6 +3352,11 @@ void Builtin::registerAllBuiltins()
     registerBuiltin("출력", builtin_출력);
     registerBuiltin("타입", builtin_타입);
     registerBuiltin("길이", builtin_길이);
+
+    // 딕셔너리 함수 (Phase 7.2)
+    registerBuiltin("딕셔너리_키들", builtin_딕셔너리_키들);
+    registerBuiltin("딕셔너리_값들", builtin_딕셔너리_값들);
+    registerBuiltin("딕셔너리_포함", builtin_딕셔너리_포함);
 
     // 문자열 함수
     registerBuiltin("분리", builtin_분리);

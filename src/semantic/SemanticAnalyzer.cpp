@@ -38,6 +38,11 @@ void SemanticAnalyzer::initBuiltinFunctions()
     builtins_.insert("대문자");
     builtins_.insert("소문자");
 
+    // 딕셔너리 함수 (Phase 7.2)
+    builtins_.insert("딕셔너리_키들");
+    builtins_.insert("딕셔너리_값들");
+    builtins_.insert("딕셔너리_포함");
+
     // 수학 함수
     builtins_.insert("반올림");
     builtins_.insert("올림");

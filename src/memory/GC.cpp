@@ -29,8 +29,14 @@ void GarbageCollector::registerObject(Object* obj) {
     if (obj == nullptr) return;
 
     allObjects_.insert(obj);
+
+    // Phase 7.4: 새 객체는 Young Generation에 추가
+    youngGeneration_.insert(obj);
+    obj->setGeneration(Generation::YOUNG);
+
     stats_.totalAllocations++;
     stats_.currentObjects++;
+    stats_.youngObjects++;
     stats_.bytesAllocated += sizeof(Object); // 대략적인 추정
 
     // 자동 GC 확인
@@ -42,6 +48,14 @@ void GarbageCollector::unregisterObject(Object* obj) {
 
     allObjects_.erase(obj);
     roots_.erase(obj);
+
+    // Phase 7.4: 두 세대에서 모두 제거
+    if (youngGeneration_.erase(obj) > 0) {
+        if (stats_.youngObjects > 0) stats_.youngObjects--;
+    } else if (oldGeneration_.erase(obj) > 0) {
+        if (stats_.oldObjects > 0) stats_.oldObjects--;
+    }
+
     stats_.totalDeallocations++;
 
     if (stats_.currentObjects > 0) {
@@ -83,10 +97,90 @@ void GarbageCollector::unregisterEnvironment(void* envPtr) {
 size_t GarbageCollector::collect() {
     stats_.gcRunCount++;
 
-    // Mark phase: 루트부터 도달 가능한 모든 객체 마킹
+    // Phase 7.4: Young Generation이 많으면 Minor GC, 아니면 Major GC
+    // Young이 전체의 70% 이상이면 Minor GC
+    if (stats_.youngObjects > stats_.currentObjects * 0.7) {
+        return minorGC();
+    } else {
+        return majorGC();
+    }
+}
+
+size_t GarbageCollector::minorGC() {
+    stats_.minorGCCount++;
+
+    // 1. Young Generation 객체만 마크 해제
+    for (Object* obj : youngGeneration_) {
+        obj->unmark();
+    }
+
+    // 2. 루트부터 도달 가능한 객체 마킹
+    for (Object* root : roots_) {
+        markObject(root);
+    }
+
+    // 3. Environment 추적
+    for (auto it = environments_.begin(); it != environments_.end();) {
+        if (auto env = it->second.lock()) {
+            ++it;
+        } else {
+            it = environments_.erase(it);
+        }
+    }
+
+    // 4. Sweep phase: 마킹되지 않은 Young 객체 해제 & 승격
+    std::vector<Object*> toDelete;
+    std::vector<Object*> toPromote;
+
+    for (Object* obj : youngGeneration_) {
+        if (!obj->isMarked()) {
+            toDelete.push_back(obj);
+        } else {
+            // 마킹된 객체는 나이 증가
+            obj->incrementAge();
+
+            // 나이가 임계값을 넘으면 승격 대상
+            if (obj->getAge() >= promotionAge_) {
+                toPromote.push_back(obj);
+            }
+        }
+    }
+
+    // 5. 객체 승격
+    for (Object* obj : toPromote) {
+        promoteObject(obj);
+    }
+
+    // 6. 객체 삭제
+    for (Object* obj : toDelete) {
+        youngGeneration_.erase(obj);
+        allObjects_.erase(obj);
+        delete obj;
+    }
+
+    size_t freedCount = toDelete.size();
+    stats_.objectsFreed = freedCount;
+    stats_.totalObjectsFreed += freedCount;
+    stats_.currentObjects -= freedCount;
+    stats_.youngObjects -= freedCount;
+
+    return freedCount;
+}
+
+size_t GarbageCollector::majorGC() {
+    stats_.majorGCCount++;
+
+    // 기존 Mark & Sweep 알고리즘 (전체 객체 대상)
+
+    // 1. 모든 객체 마크 해제
+    for (Object* obj : allObjects_) {
+        obj->unmark();
+    }
+
+    // 2. Mark phase: 루트부터 도달 가능한 모든 객체 마킹
     markPhase();
 
-    // Sweep phase: 마킹되지 않은 객체 해제
+    // 3. Sweep phase: 마킹되지 않은 객체 해제
     size_t freedCount = sweepPhase();
 
     stats_.objectsFreed = freedCount;
@@ -126,6 +220,14 @@ size_t GarbageCollector::sweepPhase() {
     // 객체 해제
     for (Object* obj : toDelete) {
         allObjects_.erase(obj);
+
+        // Phase 7.4: 세대별 집합에서도 제거
+        if (youngGeneration_.erase(obj) > 0) {
+            if (stats_.youngObjects > 0) stats_.youngObjects--;
+        } else if (oldGeneration_.erase(obj) > 0) {
+            if (stats_.oldObjects > 0) stats_.oldObjects--;
+        }
+
         delete obj;
         freedCount++;
 
@@ -184,7 +286,12 @@ void GarbageCollector::cleanup() {
     roots_.clear();
     environments_.clear();
 
-    stats_.currentObjects = 0;
+    // Phase 7.4: 세대별 집합도 초기화
+    youngGeneration_.clear();
+    oldGeneration_.clear();
+
+    // 통계 완전 초기화
+    stats_ = GCStats();
 }
 
 std::string GarbageCollector::getStatsString() const {
@@ -218,6 +325,24 @@ bool GarbageCollector::detectCycles() {
 
     // 휴리스틱: 살아있는 Environment가 100개 이상이면 순환 참조 의심
     return aliveCount > 100;
+}
+
+void GarbageCollector::promoteObject(Object* obj) {
+    if (obj == nullptr) return;
+    if (obj->getGeneration() != Generation::YOUNG) return;
+
+    // Young에서 Old로 이동
+    youngGeneration_.erase(obj);
+    oldGeneration_.insert(obj);
+
+    // 세대 변경
+    obj->setGeneration(Generation::OLD);
+    obj->resetAge();
+
+    // 통계 업데이트
+    if (stats_.youngObjects > 0) stats_.youngObjects--;
+    stats_.oldObjects++;
+    stats_.promotions++;
 }
 
 } // namespace memory

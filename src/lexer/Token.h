@@ -154,7 +154,11 @@ enum class TokenType
     BIGONGGAE,    ///< 비공개 (private)
     JASIN,        ///< 자신 (this)
     SANGSOK,      ///< 상속 (extends)
-    SANGWI        ///< 상위 (super)
+    SANGWI,       ///< 상위 (super)
+
+    // 비동기 프로그래밍 키워드 (Phase 7.3)
+    BIDONGGI,     ///< 비동기 (async)
+    DAEGI         ///< 대기 (await)
 };
 
 /**

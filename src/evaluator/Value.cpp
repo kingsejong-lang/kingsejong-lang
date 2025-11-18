@@ -153,6 +153,14 @@ Value Value::createClassInstance(std::shared_ptr<ClassInstance> instance)
     return v;
 }
 
+Value Value::createPromise(std::shared_ptr<Promise> promise)
+{
+    Value v;
+    v.type_ = types::TypeKind::PROMISE;
+    v.data_ = promise;
+    return v;
+}
+
 // ============================================================================
 // 타입 변환 및 접근
 // ============================================================================
@@ -265,6 +273,15 @@ std::shared_ptr<ClassInstance> Value::asClassInstance() const
     return std::get<std::shared_ptr<ClassInstance>>(data_);
 }
 
+std::shared_ptr<Promise> Value::asPromise() const
+{
+    if (!isPromise())
+    {
+        throw error::TypeError("값이 프로미스 타입이 아닙니다. 실제 타입: " + types::Type::typeKindToString(type_));
+    }
+    return std::get<std::shared_ptr<Promise>>(data_);
+}
+
 // ============================================================================
 // 문자열 변환
 // ============================================================================
@@ -339,6 +356,22 @@ std::string Value::toString() const
         {
             auto instance = std::get<std::shared_ptr<ClassInstance>>(data_);
             return instance->classDef()->className() + " 인스턴스";
+        }
+
+        case types::TypeKind::PROMISE:
+        {
+            auto promise = std::get<std::shared_ptr<Promise>>(data_);
+            switch (promise->state())
+            {
+                case Promise::State::PENDING:
+                    return "프로미스<대기중>";
+                case Promise::State::FULFILLED:
+                    return "프로미스<이행됨: " + promise->value().toString() + ">";
+                case Promise::State::REJECTED:
+                    return "프로미스<거부됨: " + promise->value().toString() + ">";
+                default:
+                    return "프로미스<알 수 없는 상태>";
+            }
         }
 
         default:

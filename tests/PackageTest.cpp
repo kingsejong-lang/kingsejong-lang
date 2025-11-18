@@ -206,3 +206,132 @@ TEST_F(PackageTest, PackageRegistryBasic)
     EXPECT_EQ(retrieved->name(), "pkg1");
     EXPECT_EQ(retrieved->version(), "1.0.0");
 }
+
+// ============================================================================
+// Semantic Versioning 테스트
+// ============================================================================
+
+TEST_F(PackageTest, SemVerExactMatch)
+{
+    PackageManager pm(testDir.string());
+
+    // 정확한 버전 일치
+    EXPECT_TRUE(pm.isVersionCompatible("1.2.3", "1.2.3"));
+    EXPECT_FALSE(pm.isVersionCompatible("1.2.3", "1.2.4"));
+    EXPECT_FALSE(pm.isVersionCompatible("1.2.3", "1.3.0"));
+}
+
+TEST_F(PackageTest, SemVerCaretOperator)
+{
+    PackageManager pm(testDir.string());
+
+    // ^1.2.3: >=1.2.3 <2.0.0
+    EXPECT_TRUE(pm.isVersionCompatible("^1.2.3", "1.2.3"));
+    EXPECT_TRUE(pm.isVersionCompatible("^1.2.3", "1.2.4"));
+    EXPECT_TRUE(pm.isVersionCompatible("^1.2.3", "1.9.9"));
+    EXPECT_FALSE(pm.isVersionCompatible("^1.2.3", "1.2.2"));
+    EXPECT_FALSE(pm.isVersionCompatible("^1.2.3", "2.0.0"));
+
+    // ^0.2.3: >=0.2.3 <0.3.0 (major가 0이면 minor 기준)
+    EXPECT_TRUE(pm.isVersionCompatible("^0.2.3", "0.2.3"));
+    EXPECT_TRUE(pm.isVersionCompatible("^0.2.3", "0.2.5"));
+    EXPECT_FALSE(pm.isVersionCompatible("^0.2.3", "0.3.0"));
+
+    // ^0.0.3: >=0.0.3 <0.0.4 (major, minor가 0이면 patch 기준)
+    EXPECT_TRUE(pm.isVersionCompatible("^0.0.3", "0.0.3"));
+    EXPECT_FALSE(pm.isVersionCompatible("^0.0.3", "0.0.4"));
+}
+
+TEST_F(PackageTest, SemVerTildeOperator)
+{
+    PackageManager pm(testDir.string());
+
+    // ~1.2.3: >=1.2.3 <1.3.0
+    EXPECT_TRUE(pm.isVersionCompatible("~1.2.3", "1.2.3"));
+    EXPECT_TRUE(pm.isVersionCompatible("~1.2.3", "1.2.9"));
+    EXPECT_FALSE(pm.isVersionCompatible("~1.2.3", "1.3.0"));
+    EXPECT_FALSE(pm.isVersionCompatible("~1.2.3", "1.2.2"));
+}
+
+TEST_F(PackageTest, SemVerGreaterThanOperator)
+{
+    PackageManager pm(testDir.string());
+
+    // >1.2.3
+    EXPECT_FALSE(pm.isVersionCompatible(">1.2.3", "1.2.3"));
+    EXPECT_TRUE(pm.isVersionCompatible(">1.2.3", "1.2.4"));
+    EXPECT_TRUE(pm.isVersionCompatible(">1.2.3", "2.0.0"));
+
+    // >=1.2.3
+    EXPECT_TRUE(pm.isVersionCompatible(">=1.2.3", "1.2.3"));
+    EXPECT_TRUE(pm.isVersionCompatible(">=1.2.3", "1.2.4"));
+    EXPECT_FALSE(pm.isVersionCompatible(">=1.2.3", "1.2.2"));
+}
+
+TEST_F(PackageTest, SemVerLessThanOperator)
+{
+    PackageManager pm(testDir.string());
+
+    // <2.0.0
+    EXPECT_TRUE(pm.isVersionCompatible("<2.0.0", "1.9.9"));
+    EXPECT_FALSE(pm.isVersionCompatible("<2.0.0", "2.0.0"));
+    EXPECT_FALSE(pm.isVersionCompatible("<2.0.0", "2.1.0"));
+
+    // <=2.0.0
+    EXPECT_TRUE(pm.isVersionCompatible("<=2.0.0", "2.0.0"));
+    EXPECT_TRUE(pm.isVersionCompatible("<=2.0.0", "1.9.9"));
+    EXPECT_FALSE(pm.isVersionCompatible("<=2.0.0", "2.0.1"));
+}
+
+TEST_F(PackageTest, SemVerWildcard)
+{
+    PackageManager pm(testDir.string());
+
+    // *: 모든 버전
+    EXPECT_TRUE(pm.isVersionCompatible("*", "1.0.0"));
+    EXPECT_TRUE(pm.isVersionCompatible("*", "999.999.999"));
+
+    // 1.x: 1.x.x
+    EXPECT_TRUE(pm.isVersionCompatible("1.x", "1.0.0"));
+    EXPECT_TRUE(pm.isVersionCompatible("1.x", "1.99.99"));
+    EXPECT_FALSE(pm.isVersionCompatible("1.x", "2.0.0"));
+
+    // 1.2.x: 1.2.x
+    EXPECT_TRUE(pm.isVersionCompatible("1.2.x", "1.2.0"));
+    EXPECT_TRUE(pm.isVersionCompatible("1.2.x", "1.2.99"));
+    EXPECT_FALSE(pm.isVersionCompatible("1.2.x", "1.3.0"));
+}
+
+TEST_F(PackageTest, SemVerRange)
+{
+    PackageManager pm(testDir.string());
+
+    // 1.2.3 - 2.3.4
+    EXPECT_TRUE(pm.isVersionCompatible("1.2.3 - 2.3.4", "1.2.3"));
+    EXPECT_TRUE(pm.isVersionCompatible("1.2.3 - 2.3.4", "1.5.0"));
+    EXPECT_TRUE(pm.isVersionCompatible("1.2.3 - 2.3.4", "2.3.4"));
+    EXPECT_FALSE(pm.isVersionCompatible("1.2.3 - 2.3.4", "1.2.2"));
+    EXPECT_FALSE(pm.isVersionCompatible("1.2.3 - 2.3.4", "2.3.5"));
+}
+
+TEST_F(PackageTest, SemVerOrOperator)
+{
+    PackageManager pm(testDir.string());
+
+    // ^1.0.0 || ^2.0.0
+    EXPECT_TRUE(pm.isVersionCompatible("^1.0.0 || ^2.0.0", "1.5.0"));
+    EXPECT_TRUE(pm.isVersionCompatible("^1.0.0 || ^2.0.0", "2.5.0"));
+    EXPECT_FALSE(pm.isVersionCompatible("^1.0.0 || ^2.0.0", "3.0.0"));
+}
+
+TEST_F(PackageTest, SemVerComplexCases)
+{
+    PackageManager pm(testDir.string());
+
+    // v 접두사 처리
+    EXPECT_TRUE(pm.isVersionCompatible("^1.0.0", "v1.2.3"));
+
+    // pre-release 태그 무시
+    EXPECT_TRUE(pm.isVersionCompatible("1.2.3", "1.2.3-alpha"));
+    EXPECT_TRUE(pm.isVersionCompatible("1.2.3", "1.2.3+build.123"));
+}

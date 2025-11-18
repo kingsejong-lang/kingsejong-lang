@@ -31,7 +31,8 @@ enum class TypeKind
     BUILTIN_FUNCTION, ///< 내장 함수
     RANGE,            ///< 범위 (1부터 10까지)
     ERROR,            ///< 에러 (예외 처리용)
-    CLASS             ///< 클래스 인스턴스 (Phase 7.1)
+    CLASS,            ///< 클래스 인스턴스 (Phase 7.1)
+    PROMISE           ///< 프로미스 (Phase 7.3 - Async/Await)
 };
 
 /**

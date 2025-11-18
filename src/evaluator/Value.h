@@ -209,6 +209,90 @@ public:
 };
 
 /**
+ * @class Promise
+ * @brief 비동기 작업을 나타내는 프로미스 객체
+ *
+ * JavaScript의 Promise를 모델로 한 비동기 프로그래밍 지원
+ * Phase 7.3: Async/Await
+ */
+class Promise
+{
+public:
+    /**
+     * @enum State
+     * @brief 프로미스 상태
+     */
+    enum class State
+    {
+        PENDING,    ///< 대기 중 (아직 완료되지 않음)
+        FULFILLED,  ///< 이행됨 (성공적으로 완료)
+        REJECTED    ///< 거부됨 (에러 발생)
+    };
+
+    /**
+     * @brief Continuation 타입 (then/catch 콜백)
+     */
+    using Continuation = std::function<Value(const Value&)>;
+
+private:
+    State state_;                             ///< 프로미스 상태
+    std::shared_ptr<Value> value_;            ///< 이행 값 또는 거부 이유 (포인터로 저장)
+    std::vector<Continuation> thenCallbacks_; ///< then 콜백 리스트
+    std::vector<Continuation> catchCallbacks_;///< catch 콜백 리스트
+
+public:
+    /**
+     * @brief Promise 생성자
+     */
+    Promise();
+
+    /**
+     * @brief 프로미스 상태 반환
+     * @return State
+     */
+    State state() const { return state_; }
+
+    /**
+     * @brief 프로미스 값 반환 (이행 값 또는 거부 이유)
+     * @return Value (value_가 nullptr이면 null 반환)
+     */
+    Value value() const;
+
+    /**
+     * @brief 프로미스를 이행 상태로 변경
+     * @param value 이행 값
+     */
+    void resolve(const Value& value);
+
+    /**
+     * @brief 프로미스를 거부 상태로 변경
+     * @param reason 거부 이유 (에러)
+     */
+    void reject(const Value& reason);
+
+    /**
+     * @brief then 콜백 등록
+     * @param callback 이행 시 실행할 콜백
+     */
+    void then(Continuation callback);
+
+    /**
+     * @brief catch 콜백 등록
+     * @param callback 거부 시 실행할 콜백
+     */
+    void catchError(Continuation callback);
+
+    /**
+     * @brief 프로미스가 완료되었는지 확인 (이행 또는 거부)
+     * @return 완료되었으면 true
+     */
+    bool isSettled() const
+    {
+        return state_ != State::PENDING;
+    }
+};
+
+/**
  * @class Value
  * @brief 런타임 값을 표현하는 클래스
  *
@@ -242,7 +326,8 @@ public:
         std::shared_ptr<std::vector<Value>>,                   // ARRAY
         std::shared_ptr<std::unordered_map<std::string, Value>>,  // DICTIONARY (Phase 7.2)
         std::shared_ptr<ErrorObject>,                          // ERROR
-        std::shared_ptr<ClassInstance>                         // CLASS (Phase 7.1)
+        std::shared_ptr<ClassInstance>,                        // CLASS (Phase 7.1)
+        std::shared_ptr<Promise>                               // PROMISE (Phase 7.3)
     >;
 
 private:
@@ -335,6 +420,13 @@ public:
     static Value createClassInstance(std::shared_ptr<ClassInstance> instance);
 
     /**
+     * @brief 프로미스 값 생성 (Phase 7.3)
+     * @param promise 프로미스 객체
+     * @return Value 객체
+     */
+    static Value createPromise(std::shared_ptr<Promise> promise);
+
+    /**
      * @brief 값의 타입 반환
      * @return TypeKind
      */
@@ -405,6 +497,12 @@ public:
      * @return 클래스 인스턴스이면 true
      */
     bool isClassInstance() const { return type_ == types::TypeKind::CLASS; }
+
+    /**
+     * @brief 프로미스 값인지 확인 (Phase 7.3)
+     * @return 프로미스이면 true
+     */
+    bool isPromise() const { return type_ == types::TypeKind::PROMISE; }
 
     /**
      * @brief 정수 값 반환
@@ -479,6 +577,13 @@ public:
     std::shared_ptr<ClassInstance> asClassInstance() const;
 
     /**
+     * @brief 프로미스 값 반환 (Phase 7.3)
+     * @return shared_ptr<Promise>
+     * @throws std::runtime_error 프로미스가 아닌 경우
+     */
+    std::shared_ptr<Promise> asPromise() const;
+
+    /**
      * @brief 값을 문자열로 변환
      * @return 문자열 표현
      */
@@ -518,6 +623,88 @@ public:
      */
     bool greaterThan(const Value& other) const;
 };
+
+// ============================================================================
+// Promise 메서드 구현 (Value 클래스 정의 이후)
+// ============================================================================
+
+inline Promise::Promise()
+    : state_(State::PENDING)
+    , value_(nullptr)
+{}
+
+inline Value Promise::value() const
+{
+    if (value_ == nullptr)
+    {
+        return Value::createNull();
+    }
+    return *value_;
+}
+
+inline void Promise::resolve(const Value& value)
+{
+    if (state_ != State::PENDING)
+    {
+        return; // 이미 완료된 프로미스는 변경 불가
+    }
+
+    state_ = State::FULFILLED;
+    value_ = std::make_shared<Value>(value);
+
+    // then 콜백 실행
+    for (auto& callback : thenCallbacks_)
+    {
+        callback(*value_);
+    }
+    thenCallbacks_.clear();
+}
+
+inline void Promise::reject(const Value& reason)
+{
+    if (state_ != State::PENDING)
+    {
+        return; // 이미 완료된 프로미스는 변경 불가
+    }
+
+    state_ = State::REJECTED;
+    value_ = std::make_shared<Value>(reason);
+
+    // catch 콜백 실행
+    for (auto& callback : catchCallbacks_)
+    {
+        callback(*value_);
+    }
+    catchCallbacks_.clear();
+}
+
+inline void Promise::then(Continuation callback)
+{
+    if (state_ == State::FULFILLED && value_ != nullptr)
+    {
+        // 이미 이행된 경우 즉시 실행
+        callback(*value_);
+    }
+    else if (state_ == State::PENDING)
+    {
+        // 대기 중이면 콜백 등록
+        thenCallbacks_.push_back(callback);
+    }
+}
+
+inline void Promise::catchError(Continuation callback)
+{
+    if (state_ == State::REJECTED && value_ != nullptr)
+    {
+        // 이미 거부된 경우 즉시 실행
+        callback(*value_);
+    }
+    else if (state_ == State::PENDING)
+    {
+        // 대기 중이면 콜백 등록
+        catchCallbacks_.push_back(callback);
+    }
+}
 
 } // namespace evaluator
 } // namespace kingsejong

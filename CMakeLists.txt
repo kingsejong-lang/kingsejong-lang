@@ -118,6 +118,23 @@ elseif(UNIX)
     target_link_libraries(kingsejong PRIVATE pthread)
 endif()
 
+# ksjpm 패키지 관리자 실행 파일
+add_executable(ksjpm src/ksjpm.cpp)
+target_include_directories(ksjpm PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/include
+)
+target_link_libraries(ksjpm PRIVATE kingsejong_lib)
+
+# ksjpm 플랫폼별 설정
+if(WIN32)
+    target_compile_definitions(ksjpm PRIVATE UNICODE _UNICODE)
+elseif(APPLE)
+    target_compile_options(ksjpm PRIVATE -stdlib=libc++)
+elseif(UNIX)
+    target_link_libraries(ksjpm PRIVATE pthread)
+endif()
+
 # 테스트 활성화
 enable_testing()
 

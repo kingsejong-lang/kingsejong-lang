@@ -163,6 +163,8 @@ std::string Type::typeKindToString(TypeKind kind)
             return "ERROR";
         case TypeKind::CLASS:
             return "CLASS";
+        case TypeKind::PROMISE:
+            return "PROMISE";
         default:
             return "UNKNOWN";
     }

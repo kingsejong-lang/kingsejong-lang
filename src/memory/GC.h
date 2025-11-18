@@ -29,20 +29,31 @@ namespace evaluator {
 namespace memory {
 
 /**
+ * @enum Generation
+ * @brief 세대별 GC - 객체의 세대
+ */
+enum class Generation {
+    YOUNG,  ///< 신규 객체 (Young Generation)
+    OLD     ///< 오래된 객체 (Old Generation)
+};
+
+/**
  * @class Object
  * @brief GC가 관리하는 객체의 베이스 클래스
  *
  * 모든 GC 관리 객체는 이 클래스를 상속받습니다.
- * Mark bit와 고유 ID를 가집니다.
+ * Mark bit, 고유 ID, 세대 정보를 가집니다.
  */
 class Object {
 private:
-    bool marked_ = false;      ///< Mark phase에서 설정되는 플래그
-    uint64_t id_;              ///< 객체 고유 ID
-    static uint64_t nextId_;   ///< 다음 할당될 ID
+    bool marked_ = false;         ///< Mark phase에서 설정되는 플래그
+    uint64_t id_;                 ///< 객체 고유 ID
+    static uint64_t nextId_;      ///< 다음 할당될 ID
+    Generation generation_;       ///< 객체의 세대 (Phase 7.4)
+    uint8_t age_;                 ///< GC에서 살아남은 횟수 (Phase 7.4)
 
 public:
-    Object() : id_(nextId_++) {}
+    Object() : id_(nextId_++), generation_(Generation::YOUNG), age_(0) {}
     virtual ~Object() = default;
 
     /**
@@ -68,6 +79,36 @@ public:
     uint64_t getId() const { return id_; }
 
     /**
+     * @brief 세대 반환 (Phase 7.4)
+     * @return Generation
+     */
+    Generation getGeneration() const { return generation_; }
+
+    /**
+     * @brief 세대 설정 (Phase 7.4)
+     * @param gen 세대
+     */
+    void setGeneration(Generation gen) { generation_ = gen; }
+
+    /**
+     * @brief 나이 반환 (Phase 7.4)
+     * @return 나이 (GC 생존 횟수)
+     */
+    uint8_t getAge() const { return age_; }
+
+    /**
+     * @brief 나이 증가 (Phase 7.4)
+     */
+    void incrementAge() {
+        if (age_ < 255) age_++;
+    }
+
+    /**
+     * @brief 나이 리셋 (Phase 7.4)
+     */
+    void resetAge() { age_ = 0; }
+
+    /**
      * @brief 이 객체가 참조하는 다른 객체들을 반환
      * @return 참조하는 객체들의 포인터 벡터
      *
@@ -88,6 +129,13 @@ struct GCStats {
     size_t objectsFreed = 0;        ///< 마지막 GC에서 해제된 객체 수
     size_t totalObjectsFreed = 0;   ///< 총 GC로 해제된 객체 수
     size_t bytesAllocated = 0;      ///< 할당된 메모리 (추정)
+
+    // Phase 7.4: 세대별 GC 통계
+    size_t youngObjects = 0;        ///< Young Generation 객체 수
+    size_t oldObjects = 0;          ///< Old Generation 객체 수
+    size_t minorGCCount = 0;        ///< Minor GC 실행 횟수
+    size_t majorGCCount = 0;        ///< Major GC 실행 횟수
+    size_t promotions = 0;          ///< 승격된 객체 수
 };
 
 /**
@@ -106,6 +154,10 @@ private:
     // 관리 중인 모든 객체들
     std::unordered_set<Object*> allObjects_;
 
+    // Phase 7.4: 세대별 GC - Young/Old Generation 분리
+    std::unordered_set<Object*> youngGeneration_;   ///< 신규 객체
+    std::unordered_set<Object*> oldGeneration_;     ///< 오래된 객체
+
     // Root set (GC의 출발점)
     std::unordered_set<Object*> roots_;
 
@@ -118,6 +170,7 @@ private:
     // GC 설정
     size_t gcThreshold_ = 100;     ///< GC를 트리거할 객체 수
     bool autoGC_ = true;           ///< 자동 GC 활성화 여부
+    uint8_t promotionAge_ = 3;     ///< Phase 7.4: 승격 나이 임계값
 
     // Private constructor (Singleton)
     GarbageCollector() = default;
@@ -179,8 +232,26 @@ public:
      * @return 해제된 객체 수
      *
      * Mark & Sweep 알고리즘을 실행합니다.
+     * Phase 7.4: Young Generation이 많으면 Minor GC, 아니면 Major GC
      */
     size_t collect();
+
+    /**
+     * @brief Minor GC 수행 (Phase 7.4)
+     * @return 해제된 객체 수
+     *
+     * Young Generation만 대상으로 GC를 수행합니다.
+     * 살아남은 객체는 나이를 증가시키고, 임계값을 넘으면 Old Generation으로 승격합니다.
+     */
+    size_t minorGC();
+
+    /**
+     * @brief Major GC 수행 (Phase 7.4)
+     * @return 해제된 객체 수
+     *
+     * Young + Old Generation 전체를 대상으로 GC를 수행합니다.
+     */
+    size_t majorGC();
 
     /**
      * @brief Mark phase 수행
@@ -228,11 +299,25 @@ public:
     void setGCThreshold(size_t threshold) { gcThreshold_ = threshold; }
 
     /**
+     * @brief 승격 나이 임계값 설정 (Phase 7.4)
+     * @param age 나이 임계값
+     */
+    void setPromotionAge(uint8_t age) { promotionAge_ = age; }
+
+    /**
      * @brief 자동 GC 확인 및 실행
      *
      * 객체 수가 임계값을 넘으면 자동으로 GC를 실행합니다.
      */
     void checkAndCollect();
+
+    /**
+     * @brief 객체 승격 (Phase 7.4)
+     * @param obj 승격할 객체
+     *
+     * Young Generation 객체를 Old Generation으로 이동합니다.
+     */
+    void promoteObject(Object* obj);
 
     /**
      * @brief 모든 객체 해제 (프로그램 종료 시)

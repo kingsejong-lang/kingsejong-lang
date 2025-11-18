@@ -99,7 +99,11 @@ static const std::unordered_map<std::string, TokenType> keywords = {
     {"비공개", TokenType::BIGONGGAE},
     {"자신", TokenType::JASIN},
     {"상속", TokenType::SANGSOK},
-    {"상위", TokenType::SANGWI}
+    {"상위", TokenType::SANGWI},
+
+    // 비동기 프로그래밍 키워드 (Phase 7.3)
+    {"비동기", TokenType::BIDONGGI},
+    {"대기", TokenType::DAEGI}
 };
 
 std::string tokenTypeToString(TokenType type)
@@ -210,6 +214,10 @@ std::string tokenTypeToString(TokenType type)
         case TokenType::JASIN:        return "JASIN";
         case TokenType::SANGSOK:      return "SANGSOK";
         case TokenType::SANGWI:       return "SANGWI";
+
+        // 비동기 프로그래밍 키워드 (Phase 7.3)
+        case TokenType::BIDONGGI:     return "BIDONGGI";
+        case TokenType::DAEGI:        return "DAEGI";
 
         default:                      return "UNKNOWN";
     }

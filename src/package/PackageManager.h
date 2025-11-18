@@ -161,9 +161,57 @@ public:
      */
     void listInstalledPackages();
 
+    /**
+     * @brief 버전 호환성 확인 (Public 유틸리티)
+     * @param required 요구 버전 (예: "^1.0.0", "~1.2.0", ">=2.0.0")
+     * @param installed 설치된 버전 (예: "1.2.3")
+     * @return 호환 여부
+     */
+    bool isVersionCompatible(const std::string& required, const std::string& installed);
+
 private:
     std::string projectRoot_;    ///< 프로젝트 루트 디렉토리
     PackageRegistry registry_;   ///< 설치된 패키지 레지스트리
+
+    /**
+     * @struct SemanticVersion
+     * @brief Semantic Versioning 버전 구조체
+     */
+    struct SemanticVersion {
+        int major = 0;
+        int minor = 0;
+        int patch = 0;
+
+        bool operator<(const SemanticVersion& other) const;
+        bool operator<=(const SemanticVersion& other) const;
+        bool operator>(const SemanticVersion& other) const;
+        bool operator>=(const SemanticVersion& other) const;
+        bool operator==(const SemanticVersion& other) const;
+        bool operator!=(const SemanticVersion& other) const;
+    };
+
+    /**
+     * @brief 버전 문자열을 SemanticVersion으로 파싱
+     * @param versionStr 버전 문자열 (예: "1.2.3")
+     * @return SemanticVersion 객체
+     */
+    SemanticVersion parseVersion(const std::string& versionStr);
+
+    /**
+     * @brief 버전 범위 확인 (^ 연산자)
+     * @param base 기준 버전
+     * @param installed 설치된 버전
+     * @return 호환 여부 (>=base, <next_major)
+     */
+    bool isCaretCompatible(const SemanticVersion& base, const SemanticVersion& installed);
+
+    /**
+     * @brief 버전 범위 확인 (~ 연산자)
+     * @param base 기준 버전
+     * @param installed 설치된 버전
+     * @return 호환 여부 (>=base, <next_minor)
+     */
+    bool isTildeCompatible(const SemanticVersion& base, const SemanticVersion& installed);
 
     /**
      * @brief node_modules 디렉토리 생성
@@ -184,14 +232,6 @@ private:
      * @return 해결된 의존성 목록
      */
     std::vector<Dependency> resolveDependencies(const Package& pkg);
-
-    /**
-     * @brief 버전 호환성 확인
-     * @param required 요구 버전 (예: "^1.0.0")
-     * @param installed 설치된 버전 (예: "1.2.3")
-     * @return 호환 여부
-     */
-    bool isVersionCompatible(const std::string& required, const std::string& installed);
 };
 
 } // namespace package

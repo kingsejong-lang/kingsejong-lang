@@ -57,7 +57,9 @@ enum class NodeType
 
     // 함수 관련
     FUNCTION_LITERAL,           ///< 함수 리터럴
+    ASYNC_FUNCTION_LITERAL,     ///< 비동기 함수 리터럴 (Phase 7.3)
     CALL_EXPRESSION,            ///< 함수 호출 (함수명(인자))
+    AWAIT_EXPRESSION,           ///< await 표현식 (Phase 7.3)
 
     // 배열 관련
     ARRAY_LITERAL,              ///< 배열 리터럴 ([1, 2, 3])

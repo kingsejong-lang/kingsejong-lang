@@ -922,5 +922,88 @@ public:
     const std::vector<std::unique_ptr<Expression>>& arguments() const { return arguments_; }
 };
 
+// ============================================================================
+// 비동기 프로그래밍 (Phase 7.3)
+// ============================================================================
+
+/**
+ * @class AsyncFunctionLiteral
+ * @brief 비동기 함수 리터럴 표현식
+ *
+ * Phase 7.3 Async/Await 지원을 위한 비동기 함수입니다.
+ * 일반 함수와 동일하지만 반환 타입이 항상 Promise입니다.
+ *
+ * @example
+ * 비동기 함수(url) {
+ *     결과 = 대기 네트워크요청(url)
+ *     반환 결과
+ * }
+ */
+class AsyncFunctionLiteral : public Expression
+{
+private:
+    std::vector<std::string> parameters_;          ///< 매개변수 이름 리스트
+    std::unique_ptr<Statement> body_;              ///< 함수 본문 (BlockStatement)
+
+public:
+    AsyncFunctionLiteral(
+        std::vector<std::string> parameters,
+        std::unique_ptr<Statement> body
+    )
+        : parameters_(std::move(parameters))
+        , body_(std::move(body))
+    {}
+
+    NodeType type() const override { return NodeType::ASYNC_FUNCTION_LITERAL; }
+
+    std::string toString() const override
+    {
+        std::string result = "비동기 함수(";
+        for (size_t i = 0; i < parameters_.size(); ++i)
+        {
+            if (i > 0) result += ", ";
+            result += parameters_[i];
+        }
+        result += ") { ... }";
+        return result;
+    }
+
+    const std::vector<std::string>& parameters() const { return parameters_; }
+    Statement* body() const { return body_.get(); }
+};
+
+/**
+ * @class AwaitExpression
+ * @brief await 표현식
+ *
+ * Phase 7.3 Async/Await 지원을 위한 await 키워드입니다.
+ * Promise를 기다리고 결과 값을 반환합니다.
+ * 비동기 함수 안에서만 사용할 수 있습니다.
+ *
+ * @example
+ * 대기 네트워크요청(url)
+ * 대기 파일읽기("data.txt")
+ * 값 = 대기 비동기함수()
+ */
+class AwaitExpression : public Expression
+{
+private:
+    std::unique_ptr<Expression> argument_;  ///< 대기할 표현식 (Promise를 반환해야 함)
+
+public:
+    explicit AwaitExpression(std::unique_ptr<Expression> argument)
+        : argument_(std::move(argument))
+    {}
+
+    NodeType type() const override { return NodeType::AWAIT_EXPRESSION; }
+
+    std::string toString() const override
+    {
+        return "대기 " + argument_->toString();
+    }
+
+    const Expression* argument() const { return argument_.get(); }
+};
+
 } // namespace ast
 } // namespace kingsejong

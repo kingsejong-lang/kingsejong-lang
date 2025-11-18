@@ -76,6 +76,12 @@ Value Evaluator::eval(ast::Node* node)
         case ast::NodeType::FUNCTION_LITERAL:
             return evalFunctionLiteral(static_cast<ast::FunctionLiteral*>(node));
 
+        case ast::NodeType::ASYNC_FUNCTION_LITERAL:
+            return evalAsyncFunctionLiteral(static_cast<ast::AsyncFunctionLiteral*>(node));
+
+        case ast::NodeType::AWAIT_EXPRESSION:
+            return evalAwaitExpression(static_cast<ast::AwaitExpression*>(node));
+
         case ast::NodeType::CALL_EXPRESSION:
             return evalCallExpression(static_cast<ast::CallExpression*>(node));
 
@@ -389,6 +395,75 @@ Value Evaluator::evalFunctionLiteral(ast::FunctionLiteral* lit)
     auto func = std::make_shared<Function>(std::move(parameters), body, closure);
 
     return Value::createFunction(func);
+}
+
+/**
+ * @brief 비동기 함수 리터럴 평가 (Phase 7.3)
+ *
+ * 비동기 함수 정의를 평가하여 Function 객체를 생성합니다.
+ * 현재 구현에서는 일반 함수와 동일하게 처리하며,
+ * 완전한 Promise 기반 비동기 실행은 향후 구현됩니다.
+ *
+ * TODO: Promise를 반환하도록 수정
+ */
+Value Evaluator::evalAsyncFunctionLiteral(ast::AsyncFunctionLiteral* lit)
+{
+    // 함수 매개변수
+    std::vector<std::string> parameters = lit->parameters();
+
+    // 함수 본문 (BlockStatement)
+    ast::Statement* body = lit->body();
+
+    // 클로저: 현재 환경을 캡처
+    std::shared_ptr<Environment> closure = env_;
+
+    // Function 객체 생성 (현재는 일반 함수와 동일)
+    // TODO: async 플래그 추가하여 구별
+    auto func = std::make_shared<Function>(std::move(parameters), body, closure);
+
+    return Value::createFunction(func);
+}
+
+/**
+ * @brief await 표현식 평가 (Phase 7.3)
+ *
+ * await 표현식을 평가합니다.
+ * 현재 구현에서는 표현식을 즉시 평가하여 반환합니다.
+ * 완전한 비동기 대기 처리는 향후 구현됩니다.
+ *
+ * TODO: Promise 대기 및 Event Loop 통합
+ */
+Value Evaluator::evalAwaitExpression(ast::AwaitExpression* expr)
+{
+    // 대기할 표현식 평가
+    Value value = eval(const_cast<ast::Expression*>(expr->argument()));
+
+    // 에러 체크
+    if (value.isError())
+    {
+        return value;
+    }
+
+    // Promise인 경우 값 추출
+    if (value.isPromise())
+    {
+        auto promise = value.asPromise();
+
+        // Promise가 이미 완료된 경우 값 반환
+        if (promise->isSettled())
+        {
+            return promise->value();
+        }
+        else
+        {
+            // TODO: Event Loop에서 Promise 완료 대기
+            // 현재는 pending Promise를 그대로 반환
+            return value;
+        }
+    }
+
+    // Promise가 아닌 경우 그대로 반환
+    return value;
 }
 
 /**

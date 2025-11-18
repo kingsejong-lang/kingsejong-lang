@@ -42,6 +42,8 @@ void Parser::registerParseFunctions()
     registerPrefixFn(TokenType::LBRACKET, [this]() { return parseArrayLiteral(); });
     registerPrefixFn(TokenType::LBRACE, [this]() { return parseDictionaryLiteral(); });  // Phase 7.2
     registerPrefixFn(TokenType::HAMSU, [this]() { return parseFunctionLiteral(); });
+    registerPrefixFn(TokenType::BIDONGGI, [this]() { return parseAsyncFunctionLiteral(); });  // Phase 7.3
+    registerPrefixFn(TokenType::DAEGI, [this]() { return parseAwaitExpression(); });  // Phase 7.3
 
     // 타입 키워드도 식별자로 사용 가능 (builtin 함수 이름으로 사용)
     // 예: 정수(3.14), 실수(42), 문자열(123)
@@ -1674,6 +1676,123 @@ std::unique_ptr<Expression> Parser::parseFunctionLiteral()
     }
 
     auto expr = std::make_unique<FunctionLiteral>(std::move(parameters), std::move(body));
+    expr->setLocation(startLoc);
+    return expr;
+}
+
+// ============================================================================
+// 비동기 프로그래밍 파싱 (Phase 7.3)
+// ============================================================================
+
+/**
+ * @brief 비동기 함수 리터럴 파싱
+ *
+ * 문법: 비동기 함수(매개변수...) { 본문 }
+ * 일반 함수와 거의 동일하지만 AsyncFunctionLiteral을 반환합니다.
+ *
+ * @return AsyncFunctionLiteral 표현식
+ */
+std::unique_ptr<Expression> Parser::parseAsyncFunctionLiteral()
+{
+    // 현재 토큰은 "비동기" 키워드
+    auto startLoc = curToken_.location;
+
+    // 다음 토큰이 "함수" 키워드인지 확인
+    if (!expectPeek(TokenType::HAMSU))
+    {
+        errors_.push_back("'비동기' 다음에는 '함수' 키워드가 와야 합니다");
+        return nullptr;
+    }
+
+    // 다음 토큰이 LPAREN "(" 인지 확인
+    if (!expectPeek(TokenType::LPAREN))
+    {
+        return nullptr;
+    }
+
+    // 매개변수 리스트 파싱
+    std::vector<std::string> parameters;
+
+    // 다음 토큰으로 이동
+    nextToken();
+
+    // 빈 매개변수 리스트 체크
+    if (curTokenIs(TokenType::RPAREN))
+    {
+        // 매개변수 없음, 다음으로 진행
+        nextToken();  // RPAREN을 넘어감
+    }
+    else
+    {
+        // 첫 번째 매개변수
+        if (!curTokenIs(TokenType::IDENTIFIER))
+        {
+            peekError(TokenType::IDENTIFIER);
+            return nullptr;
+        }
+        parameters.push_back(curToken_.literal);
+
+        // 나머지 매개변수들 (COMMA로 구분)
+        while (peekTokenIs(TokenType::COMMA))
+        {
+            nextToken();  // 현재를 COMMA로
+            nextToken();  // 다음 매개변수로
+
+            if (!curTokenIs(TokenType::IDENTIFIER))
+            {
+                peekError(TokenType::IDENTIFIER);
+                return nullptr;
+            }
+            parameters.push_back(curToken_.literal);
+        }
+
+        // RPAREN ")" 확인
+        if (!expectPeek(TokenType::RPAREN))
+        {
+            return nullptr;
+        }
+
+        nextToken();  // RPAREN을 넘어감
+    }
+
+    // 함수 본문 파싱 (BlockStatement)
+    auto body = parseBlockStatement();
+
+    if (!body)
+    {
+        return nullptr;
+    }
+
+    auto expr = std::make_unique<AsyncFunctionLiteral>(std::move(parameters), std::move(body));
+    expr->setLocation(startLoc);
+    return expr;
+}
+
+/**
+ * @brief await 표현식 파싱
+ *
+ * 문법: 대기 <표현식>
+ * Promise를 반환하는 표현식을 기다립니다.
+ *
+ * @return AwaitExpression 표현식
+ */
+std::unique_ptr<Expression> Parser::parseAwaitExpression()
+{
+    // 현재 토큰은 "대기" 키워드
+    auto startLoc = curToken_.location;
+
+    // 다음 표현식 파싱 (PREFIX precedence로 파싱)
+    nextToken();
+
+    auto argument = parseExpression(Precedence::PREFIX);
+
+    if (!argument)
+    {
+        errors_.push_back("'대기' 다음에는 표현식이 와야 합니다");
+        return nullptr;
+    }
+
+    auto expr = std::make_unique<AwaitExpression>(std::move(argument));
     expr->setLocation(startLoc);
     return expr;
 }

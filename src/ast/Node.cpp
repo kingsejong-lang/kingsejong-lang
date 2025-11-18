@@ -55,6 +55,8 @@ std::string nodeTypeToString(NodeType type)
             return "FLOAT_LITERAL";
         case NodeType::STRING_LITERAL:
             return "STRING_LITERAL";
+        case NodeType::INTERPOLATED_STRING:
+            return "INTERPOLATED_STRING";
         case NodeType::BOOLEAN_LITERAL:
             return "BOOLEAN_LITERAL";
 
@@ -75,8 +77,12 @@ std::string nodeTypeToString(NodeType type)
         // 함수 관련
         case NodeType::FUNCTION_LITERAL:
             return "FUNCTION_LITERAL";
+        case NodeType::ASYNC_FUNCTION_LITERAL:
+            return "ASYNC_FUNCTION_LITERAL";
         case NodeType::CALL_EXPRESSION:
             return "CALL_EXPRESSION";
+        case NodeType::AWAIT_EXPRESSION:
+            return "AWAIT_EXPRESSION";
 
         // 배열 관련
         case NodeType::ARRAY_LITERAL:

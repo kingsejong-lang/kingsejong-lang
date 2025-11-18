@@ -201,6 +201,20 @@ private:
     Value evalFunctionLiteral(ast::FunctionLiteral* lit);
 
     /**
+     * @brief 비동기 함수 리터럴 평가 (Phase 7.3)
+     * @param lit 비동기 함수 리터럴 노드
+     * @return Promise를 반환하는 함수 Value
+     */
+    Value evalAsyncFunctionLiteral(ast::AsyncFunctionLiteral* lit);
+
+    /**
+     * @brief await 표현식 평가 (Phase 7.3)
+     * @param expr await 표현식 노드
+     * @return Promise의 해결 값 Value
+     */
+    Value evalAwaitExpression(ast::AwaitExpression* expr);
+
+    /**
      * @brief 함수 호출 평가
      * @param expr 함수 호출 노드
      * @return 함수 실행 결과 Value

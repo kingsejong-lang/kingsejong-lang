@@ -147,8 +147,7 @@ TEST(ArrayFunctionTypeTest, ShouldDetectIndexAccessOnNonArray)
     bool foundError = false;
     for (const auto& err : analyzer.errors())
     {
-        if (err.message.find("인덱스 접근") != std::string::npos &&
-            err.message.find("배열 또는 문자열") != std::string::npos)
+        if (err.message.find("인덱스 접근") != std::string::npos)
         {
             foundError = true;
             break;

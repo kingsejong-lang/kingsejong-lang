@@ -8,6 +8,8 @@
 #include "VM.h"
 #include "jit/JITCompilerT1.h"
 #include "jit/HotPathDetector.h"
+#include "evaluator/Evaluator.h"
+#include "evaluator/Environment.h"
 #include <iostream>
 #include <iomanip>
 #include <algorithm>
@@ -578,10 +580,29 @@ VMResult VM::executeInstruction() {
                 fieldNames.push_back(fieldNameVal.asString());
             }
 
-            // 메서드 이름들 읽기 (현재는 스킵)
+            // 생성자 읽기 (있으면)
+            uint8_t ctorIdx = readByte();
+            std::shared_ptr<evaluator::Function> constructor = nullptr;
+            if (ctorIdx != 0xFF) {
+                evaluator::Value ctorVal = chunk_->getConstant(ctorIdx);
+                if (ctorVal.isFunction()) {
+                    constructor = ctorVal.asFunction();
+                }
+            }
+
+            // 메서드들 읽기
             std::unordered_map<std::string, std::shared_ptr<evaluator::Function>> methods;
             for (uint8_t i = 0; i < methodCount; ++i) {
-                readByte();  // methodNameIdx - TODO: 메서드 구현 추가
+                uint8_t methodNameIdx = readByte();
+                uint8_t methodFuncIdx = readByte();
+
+                evaluator::Value methodNameVal = chunk_->getConstant(methodNameIdx);
+                std::string methodName = methodNameVal.asString();
+
+                evaluator::Value methodFuncVal = chunk_->getConstant(methodFuncIdx);
+                if (methodFuncVal.isFunction()) {
+                    methods[methodName] = methodFuncVal.asFunction();
+                }
             }
 
             // ClassDefinition 생성
@@ -589,7 +610,7 @@ VMResult VM::executeInstruction() {
                 className,
                 fieldNames,
                 methods,
-                nullptr,  // constructor (TODO)
+                constructor,
                 ""        // superClass
             );
 
@@ -617,7 +638,7 @@ VMResult VM::executeInstruction() {
                 return VMResult::RUNTIME_ERROR;
             }
 
-            // 인자들 팝 (현재는 사용하지 않음, 나중에 생성자 구현 시 사용)
+            // 인자들 팝
             std::vector<evaluator::Value> args;
             for (uint8_t i = 0; i < argCount; ++i) {
                 args.insert(args.begin(), pop());
@@ -625,6 +646,40 @@ VMResult VM::executeInstruction() {
 
             // ClassInstance 생성
             auto instance = std::make_shared<evaluator::ClassInstance>(it->second);
+
+            // 생성자 호출 (있으면)
+            auto constructor = it->second->constructor();
+            if (constructor) {
+                // 생성자 환경 생성
+                auto ctorEnv = std::make_shared<evaluator::Environment>(globals_);
+
+                // 매개변수 바인딩
+                const auto& params = constructor->parameters();
+                if (params.size() != args.size()) {
+                    runtimeError("생성자 인자 개수 불일치: 예상 " +
+                                std::to_string(params.size()) + ", 실제 " +
+                                std::to_string(args.size()));
+                    return VMResult::RUNTIME_ERROR;
+                }
+
+                for (size_t i = 0; i < params.size(); ++i) {
+                    ctorEnv->set(params[i], args[i]);
+                }
+
+                // "자신" 바인딩
+                ctorEnv->set("자신", evaluator::Value::createClassInstance(instance));
+                ctorEnv->set("이", evaluator::Value::createClassInstance(instance));
+
+                // 생성자 본문 실행
+                evaluator::Evaluator evaluator(ctorEnv);
+                evaluator::Value result = evaluator.eval(constructor->body());
+
+                // 에러 체크
+                if (result.isError()) {
+                    runtimeError("생성자 실행 오류: " + result.asString());
+                    return VMResult::RUNTIME_ERROR;
+                }
+            }
 
             // 인스턴스를 스택에 푸시
             push(evaluator::Value::createClassInstance(instance));
@@ -713,9 +768,38 @@ VMResult VM::executeInstruction() {
                 return VMResult::RUNTIME_ERROR;
             }
 
-            // TODO: 메서드 호출 구현 (함수 호출과 유사)
-            // 현재는 null 반환
-            push(evaluator::Value::createNull());
+            // 메서드 환경 생성
+            auto methodEnv = std::make_shared<evaluator::Environment>(globals_);
+
+            // 매개변수 바인딩
+            const auto& params = method->parameters();
+            if (params.size() != args.size()) {
+                runtimeError("메서드 인자 개수 불일치: 예상 " +
+                            std::to_string(params.size()) + ", 실제 " +
+                            std::to_string(args.size()));
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            for (size_t i = 0; i < params.size(); ++i) {
+                methodEnv->set(params[i], args[i]);
+            }
+
+            // "자신"/"이" 바인딩
+            methodEnv->set("자신", objVal);
+            methodEnv->set("이", objVal);
+
+            // 메서드 본문 실행
+            evaluator::Evaluator evaluator(methodEnv);
+            evaluator::Value result = evaluator.eval(method->body());
+
+            // 에러 체크
+            if (result.isError()) {
+                runtimeError("메서드 실행 오류: " + result.asString());
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            // 결과 푸시
+            push(result);
             break;
         }
 

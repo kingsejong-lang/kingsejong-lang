@@ -332,12 +332,67 @@ void Compiler::compileRepeatStatement(ast::RepeatStatement* stmt) {
     breakJumps_.pop_back();
 }
 
-void Compiler::compileRangeForStatement([[maybe_unused]] ast::RangeForStatement* stmt) {
+void Compiler::compileRangeForStatement(ast::RangeForStatement* stmt) {
     beginScope();
 
-    // TODO: 범위 반복 구현
-    // 간단화를 위해 에러 처리
-    error("Range for statement not yet fully implemented");
+    // 시작 값 평가 및 전역 변수에 저장
+    compileExpression(const_cast<ast::Expression*>(stmt->start()));
+    size_t varIdx = chunk_->addName(stmt->varName());
+    emit(OpCode::STORE_GLOBAL, static_cast<uint8_t>(varIdx));
+
+    // 끝 값 평가 및 임시 전역 변수에 저장 (__end_value)
+    compileExpression(const_cast<ast::Expression*>(stmt->end()));
+    std::string endVarName = "__end_" + stmt->varName();
+    size_t endVarIdx = chunk_->addName(endVarName);
+    emit(OpCode::STORE_GLOBAL, static_cast<uint8_t>(endVarIdx));
+
+    // 루프 시작
+    size_t loopStart = currentOffset();
+    loopStarts_.push_back(loopStart);
+    breakJumps_.push_back({});
+
+    // 반복 변수 로드
+    emit(OpCode::LOAD_GLOBAL, static_cast<uint8_t>(varIdx));
+
+    // 끝 값 로드
+    emit(OpCode::LOAD_GLOBAL, static_cast<uint8_t>(endVarIdx));
+
+    // 비교 (endInclusive에 따라 <= 또는 <)
+    if (stmt->endInclusive()) {
+        emit(OpCode::LE);  // i <= end
+    } else {
+        emit(OpCode::LT);  // i < end
+    }
+
+    // 조건이 false면 루프 종료
+    emit(OpCode::NOT);  // 조건 반전 (i > end 또는 i >= end)
+    size_t exitJump = emitJump(OpCode::JUMP_IF_TRUE);
+    emit(OpCode::POP);  // 조건 값 제거
+
+    // 루프 본문 실행
+    compileStatement(const_cast<ast::BlockStatement*>(stmt->body()));
+
+    // 반복 변수 증가
+    emit(OpCode::LOAD_GLOBAL, static_cast<uint8_t>(varIdx));
+    size_t constIdx = chunk_->addConstant(evaluator::Value::createInteger(1));
+    emit(OpCode::LOAD_CONST, static_cast<uint8_t>(constIdx));
+    emit(OpCode::ADD);
+    emit(OpCode::STORE_GLOBAL, static_cast<uint8_t>(varIdx));
+
+    // 루프 시작으로 점프
+    emitLoop(loopStart);
+
+    // 루프 종료
+    patchJump(exitJump);
+    emit(OpCode::POP);  // 조건 값 제거
+
+    // Break 점프 패치
+    for (size_t jump : breakJumps_.back()) {
+        patchJump(jump);
+    }
+
+    loopStarts_.pop_back();
+    breakJumps_.pop_back();
 
     endScope();
 }
@@ -879,14 +934,26 @@ void Compiler::compileClassStatement(ast::ClassStatement* stmt) {
     // 생성자 컴파일 (있으면)
     if (stmt->constructor()) {
         auto* ctor = stmt->constructor();
-        // 생성자를 함수로 컴파일
+        // 생성자를 Function 객체로 변환
         std::vector<std::string> params;
         for (const auto& param : ctor->parameters()) {
             params.push_back(param.name);
         }
 
-        // 생성자 본문 컴파일 (나중에 VM에서 처리)
-        // TODO: 생성자 바이트코드 생성
+        // Function 객체 생성 (클로저는 nullptr, VM에서 실행 시 환경 설정)
+        auto ctorFunc = std::make_shared<evaluator::Function>(
+            params,
+            const_cast<ast::BlockStatement*>(ctor->body()),
+            nullptr,  // closure - VM에서 설정
+            false     // isBuiltin
+        );
+
+        // Function 객체를 상수 풀에 추가
+        size_t ctorIdx = chunk_->addConstant(evaluator::Value::createFunction(ctorFunc));
+        chunk_->write(static_cast<uint8_t>(ctorIdx), currentLine());
+    } else {
+        // 생성자가 없으면 -1 (0xFF)
+        chunk_->write(0xFF, currentLine());
     }
 
     // 메서드 컴파일
@@ -895,8 +962,22 @@ void Compiler::compileClassStatement(ast::ClassStatement* stmt) {
         size_t methodNameIdx = chunk_->addConstant(evaluator::Value::createString(method->methodName()));
         chunk_->write(static_cast<uint8_t>(methodNameIdx), currentLine());
 
-        // 메서드를 함수로 컴파일
-        // TODO: 메서드 바이트코드 생성
+        // 메서드를 Function 객체로 변환
+        std::vector<std::string> params;
+        for (const auto& param : method->parameters()) {
+            params.push_back(param.name);
+        }
+
+        auto methodFunc = std::make_shared<evaluator::Function>(
+            params,
+            const_cast<ast::BlockStatement*>(method->body()),
+            nullptr,  // closure - VM에서 설정
+            false     // isBuiltin
+        );
+
+        // Function 객체를 상수 풀에 추가
+        size_t methodIdx = chunk_->addConstant(evaluator::Value::createFunction(methodFunc));
+        chunk_->write(static_cast<uint8_t>(methodIdx), currentLine());
     }
 
     // 클래스 정의를 전역 변수에 저장

@@ -82,6 +82,7 @@ enum class TokenType
     CHOGA,        ///< 초과
     IHA,          ///< 이하
     ISANG,        ///< 이상
+    SSIK,         ///< 씩 (step)
 
     // 반복 키워드
     BEON,         ///< 번

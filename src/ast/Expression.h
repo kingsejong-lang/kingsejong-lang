@@ -298,18 +298,21 @@ private:
     std::unique_ptr<Expression> end_;       ///< 끝 값
     bool startInclusive_;                   ///< 시작 값 포함 여부
     bool endInclusive_;                     ///< 끝 값 포함 여부
+    std::unique_ptr<Expression> step_;      ///< 스텝 값 (Phase 7.2)
 
 public:
     RangeExpression(
         std::unique_ptr<Expression> start,
         std::unique_ptr<Expression> end,
         bool startInclusive,
-        bool endInclusive
+        bool endInclusive,
+        std::unique_ptr<Expression> step = nullptr
     )
         : start_(std::move(start))
         , end_(std::move(end))
         , startInclusive_(startInclusive)
         , endInclusive_(endInclusive)
+        , step_(std::move(step))
     {}
 
     NodeType type() const override { return NodeType::RANGE_EXPRESSION; }
@@ -330,6 +333,8 @@ public:
     const Expression* end() const { return end_.get(); }
     bool startInclusive() const { return startInclusive_; }
     bool endInclusive() const { return endInclusive_; }
+    const Expression* step() const { return step_.get(); }  // Phase 7.2
+    bool hasStep() const { return step_ != nullptr; }       // Phase 7.2
 };
 
 // ============================================================================

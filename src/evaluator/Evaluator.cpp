@@ -992,9 +992,25 @@ Value Evaluator::evalIndexExpression(ast::IndexExpression* expr)
             return Value::createArray({});
         }
 
-        // 슬라이싱 수행
+        // Phase 7.2: Step 값 처리
+        int64_t stepValue = 1; // 기본값은 1
+        if (rangeExpr->hasStep())
+        {
+            Value stepVal = eval(const_cast<ast::Expression*>(rangeExpr->step()));
+            if (!stepVal.isInteger())
+            {
+                throw std::runtime_error("슬라이싱 step 값은 정수여야 합니다");
+            }
+            stepValue = stepVal.asInteger();
+            if (stepValue <= 0)
+            {
+                throw std::runtime_error("슬라이싱 step 값은 양수여야 합니다");
+            }
+        }
+
+        // 슬라이싱 수행 (step 적용)
         std::vector<Value> sliced;
-        for (int64_t i = startIdx; i <= endIdx; ++i)
+        for (int64_t i = startIdx; i <= endIdx; i += stepValue)
         {
             sliced.push_back(arr[static_cast<size_t>(i)]);
         }

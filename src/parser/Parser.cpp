@@ -1391,8 +1391,35 @@ std::unique_ptr<Expression> Parser::parseRangeExpression(std::unique_ptr<Express
         endInclusive = true;
     }
 
+    // Phase 7.2: Step 파싱 ("씩" 키워드)
+    // 문법: [0부터 10까지 2씩] - step 값이 "씩" 앞에 옴
+    std::unique_ptr<Expression> step = nullptr;
+    if (peekTokenIs(TokenType::INTEGER) || peekTokenIs(TokenType::IDENTIFIER))
+    {
+        // step 값 파싱
+        nextToken(); // step 값으로 이동
+        step = parseExpression(Precedence::SUM, ParseFeature::All & ~ParseFeature::Range);
+
+        if (!step)
+        {
+            errors_.push_back("step 값 파싱에 실패했습니다.");
+            return nullptr;
+        }
+
+        // "씩" 키워드 확인
+        if (!peekTokenIs(TokenType::SSIK))
+        {
+            // step 값 없이 다른 토큰이 온 경우 - 에러가 아니라 step이 없는 것으로 처리
+            // 하지만 이미 step 값을 파싱했으므로 에러
+            errors_.push_back("step 값 뒤에 '씩' 키워드가 필요합니다.");
+            return nullptr;
+        }
+
+        nextToken(); // "씩" 토큰으로 이동
+    }
+
     auto expr = std::make_unique<RangeExpression>(std::move(left), std::move(end),
-                                                   startInclusive, endInclusive);
+                                                   startInclusive, endInclusive, std::move(step));
     expr->setLocation(startLoc);
     return expr;
 }

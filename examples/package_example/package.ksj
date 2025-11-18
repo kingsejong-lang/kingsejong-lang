@@ -1,0 +1,23 @@
+{
+  "name": "my-kingsejong-project",
+  "version": "1.0.0",
+  "description": "예제 KingSejong 프로젝트",
+  "license": "MIT",
+  "main": "src/index.ksj",
+  "authors": [
+    {
+      "name": "홍길동",
+      "email": "hong@example.com"
+    }
+  ],
+  "dependencies": {
+    "stdlib": "^1.0.0"
+  },
+  "dev_dependencies": {
+    "test-framework": "^1.0.0"
+  },
+  "scripts": {
+    "start": "kingsejong src/index.ksj",
+    "test": "kingsejong tests/all.ksj"
+  }
+}

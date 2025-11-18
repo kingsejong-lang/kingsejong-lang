@@ -67,6 +67,9 @@ public:
      */
     SemanticAnalyzer()
         : symbolTable_()
+        , inFunction_(false)
+        , currentFunctionName_("")
+        , expectedReturnType_(nullptr)
     {
         initBuiltinFunctions();
     }
@@ -108,6 +111,11 @@ private:
     std::vector<SemanticError> errors_;          ///< 에러 목록
     std::unordered_set<std::string> builtins_;   ///< Builtin 함수 목록
     std::string filename_;                        ///< 현재 분석 중인 파일 이름
+
+    // 함수 컨텍스트 추적 (반환 타입 검사용)
+    bool inFunction_;                             ///< 현재 함수 내부인지 여부
+    std::string currentFunctionName_;             ///< 현재 분석 중인 함수 이름
+    types::Type* expectedReturnType_;             ///< 함수의 첫 return문에서 추론된 타입
 
     // ========================================================================
     // Builtin 함수 초기화

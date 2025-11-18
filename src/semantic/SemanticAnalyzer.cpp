@@ -982,13 +982,36 @@ void SemanticAnalyzer::checkTypesInStatement(const Statement* stmt)
             return;
         }
 
-        Type* valueType = inferType(assignStmt->value());
-        Type* varType = symbol->type;
-
-        if (valueType && varType && !isTypeCompatible(varType, valueType))
+        // 함수 리터럴인 경우 함수 컨텍스트 설정
+        if (auto funcLit = dynamic_cast<const FunctionLiteral*>(assignStmt->value()))
         {
-            addError("타입 불일치: " + varType->koreanName() + " 변수 '" + varName +
-                    "'에 " + valueType->koreanName() + " 값을 할당할 수 없습니다");
+            // 함수 컨텍스트 진입
+            bool prevInFunction = inFunction_;
+            std::string prevFunctionName = currentFunctionName_;
+            Type* prevReturnType = expectedReturnType_;
+
+            inFunction_ = true;
+            currentFunctionName_ = varName;
+            expectedReturnType_ = nullptr;  // 첫 return에서 추론
+
+            // 함수 본문 검사
+            checkTypesInStatement(funcLit->body());
+
+            // 함수 컨텍스트 복원
+            inFunction_ = prevInFunction;
+            currentFunctionName_ = prevFunctionName;
+            expectedReturnType_ = prevReturnType;
+        }
+        else
+        {
+            Type* valueType = inferType(assignStmt->value());
+            Type* varType = symbol->type;
+
+            if (valueType && varType && !isTypeCompatible(varType, valueType))
+            {
+                addError("타입 불일치: " + varType->koreanName() + " 변수 '" + varName +
+                        "'에 " + valueType->koreanName() + " 값을 할당할 수 없습니다");
+            }
         }
     }
 
@@ -1002,11 +1025,42 @@ void SemanticAnalyzer::checkTypesInStatement(const Statement* stmt)
     // ReturnStatement: 반환문의 타입 검사
     else if (auto retStmt = dynamic_cast<const ReturnStatement*>(stmt))
     {
+        // 함수 밖에서 return 사용 검사
+        if (!inFunction_)
+        {
+            addError("'반환'문은 함수 내부에서만 사용할 수 있습니다");
+            return;
+        }
+
         if (retStmt->returnValue())
         {
-            // TODO: 현재 함수의 반환 타입과 비교
-            // 함수 컨텍스트 추적 필요
-            inferType(retStmt->returnValue());
+            Type* returnType = inferType(retStmt->returnValue());
+
+            if (returnType)
+            {
+                // 첫 번째 return문: 기대 타입 설정
+                if (!expectedReturnType_)
+                {
+                    expectedReturnType_ = returnType;
+                }
+                // 이후 return문: 타입 일치 검사
+                else if (!isTypeCompatible(expectedReturnType_, returnType))
+                {
+                    addError("함수 '" + currentFunctionName_ + "'의 반환 타입 불일치: " +
+                            "예상 " + expectedReturnType_->koreanName() + ", " +
+                            "실제 " + returnType->koreanName());
+                }
+            }
+        }
+        else
+        {
+            // return 값 없음: void 타입
+            if (expectedReturnType_)
+            {
+                addError("함수 '" + currentFunctionName_ + "'는 " +
+                        expectedReturnType_->koreanName() + " 타입을 반환해야 하지만, " +
+                        "값 없이 반환하고 있습니다");
+            }
         }
     }
 

@@ -184,7 +184,7 @@ Phase 7.5: 100% 완료! (SemVer + 의존성 해결 + ksjpm CLI) 🎉
 
 **기간**: 2025-11 ~ 2026-06 (6개월)
 **목표**: 현대적 언어 기능 추가
-**진행률**: 83% (Phase 7.1 완료, Phase 7.2 완료, Phase 7.3 시작, Phase 7.4 완료, Phase 7.5 완료! 🎉)
+**진행률**: 87% (Phase 7.1 완료, Phase 7.2 완료, Phase 7.3 진행 중, Phase 7.4 완료, Phase 7.5 완료! 🎉)
 
 ### 7.1: 클래스 시스템 (OOP) - P1 ✅ 완료!
 
@@ -278,21 +278,26 @@ Phase 7.5: 100% 완료! (SemVer + 의존성 해결 + ksjpm CLI) 🎉
 ### 7.3: 비동기 프로그래밍 (Async/Await) - P2 🚧 진행 중
 
 **예상 공수**: 3-4주
-**진행률**: 20% (기초 인프라 완료)
+**진행률**: 40% (AST + Parser + Evaluator 기본 구현 완료)
 
 **완료 항목**:
 - [x] ✅ PROMISE 타입 추가 (TypeKind::PROMISE)
 - [x] ✅ Promise 클래스 구현 (resolve/reject/then/catch)
 - [x] ✅ Value 시스템 Promise 지원
 - [x] ✅ Lexer 키워드 추가 (비동기, 대기)
+- [x] ✅ AST 노드 추가 (AsyncFunctionLiteral, AwaitExpression)
+- [x] ✅ Parser 구현 (async 함수, await 표현식 파싱)
+- [x] ✅ Evaluator 기본 평가 로직 (동기 실행)
+- [x] ✅ 기본 테스트 검증 (1427 tests passed)
 
 **미완료 항목**:
-- [ ] ⏳ AST 노드 (AsyncFunctionExpression, AwaitExpression)
-- [ ] ⏳ Parser 구현 (async 함수, await 표현식)
+- [ ] ⏳ Evaluator Event Loop 구현 (실제 비동기 처리)
+- [ ] ⏳ async 함수 Promise 반환 구현
 - [ ] ⏳ Bytecode OpCode (ASYNC_CALL, AWAIT, PROMISE_RESOLVE, PROMISE_REJECT)
 - [ ] ⏳ VM 실행 로직 (Event Loop, async 실행)
 - [ ] ⏳ Semantic Analyzer (await 유효성 검증)
-- [ ] ⏳ 테스트 및 예제
+- [ ] ⏳ Promise 체이닝 (.then, .catch 메서드)
+- [ ] ⏳ 통합 테스트 및 고급 예제
 
 **문법 예시**:
 ```ksj
@@ -514,9 +519,12 @@ Phase 7.5: 100% 완료! (SemVer + 의존성 해결 + ksjpm CLI) 🎉
   - 재귀적 의존성 해결 (전이 의존성 자동 추적)
   - 버전 충돌 감지 및 해결 (최적 버전 선택)
   - ksjpm CLI 도구 (init, install, add, remove, list, info)
-**진행 중**: Phase 7.3 비동기 프로그래밍 - 20% 완료 (2025-11-19 시작) 🚧
+**진행 중**: Phase 7.3 비동기 프로그래밍 - 40% 완료 (2025-11-19 시작) 🚧
   - ✅ Promise 클래스 구현 (resolve/reject/then/catch)
   - ✅ PROMISE 타입 추가
   - ✅ Lexer 키워드 추가 (비동기, 대기)
-  - ⏳ AST/Parser/Bytecode/VM 구현 예정
+  - ✅ AST 노드 추가 (AsyncFunctionLiteral, AwaitExpression)
+  - ✅ Parser 구현 (parseAsyncFunctionLiteral, parseAwaitExpression)
+  - ✅ Evaluator 기본 평가 로직 (동기 실행)
+  - ⏳ Event Loop, Promise 체이닝, Bytecode/VM 구현 예정
 **다음 마일스톤**: Phase 7.3 비동기 프로그래밍 완료 (2025-12 ~ 2026-01)

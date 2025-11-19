@@ -139,10 +139,14 @@ TEST(AsyncAwaitTest, ShouldAllowAwaitInsideAsyncFunction)
     EXPECT_EQ(analyzer.errors().size(), 0);
 }
 
-TEST(AsyncAwaitTest, ShouldRejectAwaitOutsideAsyncFunction)
+TEST(AsyncAwaitTest, ShouldRejectAwaitInsideRegularFunction)
 {
+    // 일반 함수 내부에서 await 사용 시 에러
     std::string input = R"(
-값 = 대기 어떤함수()
+일반함수 = 함수() {
+    값 = 대기 어떤함수()
+    반환 값
+}
 )";
 
     lexer::Lexer lexer(input);
@@ -155,7 +159,7 @@ TEST(AsyncAwaitTest, ShouldRejectAwaitOutsideAsyncFunction)
     semantic::SemanticAnalyzer analyzer;
     bool result = analyzer.analyze(program.get());
 
-    EXPECT_FALSE(result) << "async 함수 외부의 await는 에러가 발생해야 합니다";
+    EXPECT_FALSE(result) << "일반 함수 내부의 await는 에러가 발생해야 합니다";
     EXPECT_GE(analyzer.errors().size(), 1);
 
     // 에러 메시지 확인
@@ -170,6 +174,30 @@ TEST(AsyncAwaitTest, ShouldRejectAwaitOutsideAsyncFunction)
         }
     }
     EXPECT_TRUE(foundAwaitError) << "await 관련 에러 메시지가 있어야 합니다";
+}
+
+TEST(AsyncAwaitTest, ShouldAllowTopLevelAwait)
+{
+    // Top-level await 허용
+    std::string input = R"(
+비동기_함수 = 비동기 함수() {
+    반환 42
+}
+결과 = 대기 비동기_함수()
+)";
+
+    lexer::Lexer lexer(input);
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+    ASSERT_EQ(parser.errors().size(), 0);
+
+    semantic::SemanticAnalyzer analyzer;
+    bool result = analyzer.analyze(program.get());
+
+    EXPECT_TRUE(result) << "top-level await는 허용되어야 합니다";
+    EXPECT_EQ(analyzer.errors().size(), 0);
 }
 
 // ============================================================================

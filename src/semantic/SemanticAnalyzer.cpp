@@ -247,11 +247,18 @@ void SemanticAnalyzer::analyzeAndResolveStatement(const Statement* stmt)
                                   nullptr);  // 타입 추론 미지원
             }
 
+            // 일반 함수 컨텍스트 설정 (await 검사용)
+            bool prevInFunction = inFunction_;
+            inFunction_ = true;
+
             // 함수 body 분석
             if (funcLit->body())
             {
                 analyzeAndResolveStatement(funcLit->body());
             }
+
+            // 컨텍스트 복원
+            inFunction_ = prevInFunction;
 
             symbolTable_.exitScope();
         }
@@ -273,7 +280,9 @@ void SemanticAnalyzer::analyzeAndResolveStatement(const Statement* stmt)
             }
 
             // 비동기 함수 컨텍스트 설정
+            bool prevInFunction = inFunction_;
             bool prevInAsyncFunction = inAsyncFunction_;
+            inFunction_ = true;
             inAsyncFunction_ = true;
 
             // 함수 body 분석
@@ -283,6 +292,7 @@ void SemanticAnalyzer::analyzeAndResolveStatement(const Statement* stmt)
             }
 
             // 컨텍스트 복원
+            inFunction_ = prevInFunction;
             inAsyncFunction_ = prevInAsyncFunction;
 
             symbolTable_.exitScope();
@@ -609,8 +619,9 @@ void SemanticAnalyzer::analyzeAndResolveExpression(const Expression* expr)
     // Phase 7.3: await 표현식
     else if (auto awaitExpr = dynamic_cast<const AwaitExpression*>(expr))
     {
-        // await는 async 함수 내부에서만 사용 가능
-        if (!inAsyncFunction_)
+        // await는 async 함수 내부 또는 top-level에서만 사용 가능
+        // 일반 함수 내부에서는 사용 불가
+        if (inFunction_ && !inAsyncFunction_)
         {
             addError("'대기'는 비동기 함수 내부에서만 사용할 수 있습니다",
                     expr->location().line, expr->location().column);

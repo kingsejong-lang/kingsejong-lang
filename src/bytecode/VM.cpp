@@ -19,9 +19,9 @@ namespace bytecode {
 
 VM::VM()
     : chunk_(nullptr), ip_(0), traceExecution_(false),
-      instructionCount_(0), maxInstructions_(10000000),  // 1천만 명령어
-      maxExecutionTime_(5000),  // 5초
-      maxStackSize_(10000),  // 1만 개
+      instructionCount_(0), maxInstructions_(VM_DEFAULT_MAX_INSTRUCTIONS),
+      maxExecutionTime_(VM_DEFAULT_MAX_EXECUTION_TIME_MS),
+      maxStackSize_(VM_DEFAULT_MAX_STACK_SIZE),
       jitEnabled_(true) {  // JIT 기본 활성화
     globals_ = std::make_shared<evaluator::Environment>();
 
@@ -30,7 +30,7 @@ VM::VM()
 
     // Hot Path Detector 초기화
     hotPathDetector_ = std::make_unique<jit::HotPathDetector>();
-    hotPathDetector_->setLoopThreshold(100);  // 100번 반복 후 JIT 컴파일
+    hotPathDetector_->setLoopThreshold(JIT_LOOP_THRESHOLD);
 }
 
 VM::~VM() {
@@ -479,8 +479,7 @@ VMResult VM::executeInstruction() {
             }
 
             int64_t encoded = funcVal.asInteger();
-            size_t funcAddr = static_cast<size_t>((encoded >> 8) & 0xFFFF);
-            // uint8_t paramCount = static_cast<uint8_t>(encoded & 0xFF);
+            size_t funcAddr = static_cast<size_t>((encoded >> 8) & FUNC_ADDR_MASK);
 
             // CallFrame 저장
             frames_.push_back({ip_, stack_.size() - argCount});
@@ -583,7 +582,7 @@ VMResult VM::executeInstruction() {
             // 생성자 읽기 (있으면)
             uint8_t ctorIdx = readByte();
             std::shared_ptr<evaluator::Function> constructor = nullptr;
-            if (ctorIdx != 0xFF) {
+            if (ctorIdx != NO_CONSTRUCTOR_FLAG) {
                 evaluator::Value ctorVal = chunk_->getConstant(ctorIdx);
                 if (ctorVal.isFunction()) {
                     constructor = ctorVal.asFunction();
@@ -840,7 +839,7 @@ VMResult VM::executeInstruction() {
             }
 
             int64_t encoded = funcVal.asInteger();
-            size_t funcAddr = static_cast<size_t>((encoded >> 8) & 0xFFFF);
+            size_t funcAddr = static_cast<size_t>((encoded >> 8) & FUNC_ADDR_MASK);
 
             // CallFrame 저장
             frames_.push_back({ip_, stack_.size() - argCount});

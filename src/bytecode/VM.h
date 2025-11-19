@@ -29,6 +29,30 @@ namespace jit {
 
 namespace bytecode {
 
+// ============================================================================
+// VM 설정 상수
+// ============================================================================
+
+/// @name 실행 제한 기본값
+/// @{
+constexpr size_t VM_DEFAULT_MAX_INSTRUCTIONS = 10000000;    ///< 최대 명령어 수 (10M)
+constexpr int VM_DEFAULT_MAX_EXECUTION_TIME_MS = 5000;      ///< 최대 실행 시간 (5초)
+constexpr size_t VM_DEFAULT_MAX_STACK_SIZE = 10000;         ///< 최대 스택 크기
+/// @}
+
+/// @name JIT 설정
+/// @{
+constexpr int JIT_LOOP_THRESHOLD = 100;                     ///< JIT 컴파일 루프 임계값
+/// @}
+
+/// @name OpCode 인코딩 상수
+/// @{
+constexpr uint8_t NO_CONSTRUCTOR_FLAG = 0xFF;               ///< 생성자 없음 플래그
+constexpr uint8_t RANGE_START_INCLUSIVE = 0x01;             ///< 범위 시작 포함 플래그
+constexpr uint8_t RANGE_END_INCLUSIVE = 0x02;               ///< 범위 끝 포함 플래그
+constexpr size_t FUNC_ADDR_MASK = 0xFFFF;                   ///< 함수 주소 마스크
+/// @}
+
 /**
  * @enum VMResult
  * @brief VM 실행 결과

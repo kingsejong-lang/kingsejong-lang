@@ -201,7 +201,9 @@ if(TEST_SOURCES)
 
     # CTest에 테스트 추가
     include(GoogleTest)
-    gtest_discover_tests(kingsejong_tests)
+    gtest_discover_tests(kingsejong_tests
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    )
 endif()
 
 # 설치 규칙

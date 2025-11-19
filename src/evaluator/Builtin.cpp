@@ -8,6 +8,7 @@
 #include "Builtin.h"
 #include "security/SecurityManager.h"
 #include "security/NetworkSecurityManager.h"
+#include "common/UTF8Utils.h"
 #include <iostream>
 #include <stdexcept>
 #include <cmath>
@@ -179,44 +180,7 @@ static Value builtin_길이(const std::vector<Value>& args)
     if (arg.isString())
     {
         const std::string& str = arg.asString();
-        int64_t count = 0;
-
-        for (size_t i = 0; i < str.length(); )
-        {
-            unsigned char c = static_cast<unsigned char>(str[i]);
-            size_t charLen = 1;
-
-            if ((c & 0x80) == 0)
-            {
-                // 1바이트 문자 (ASCII)
-                charLen = 1;
-            }
-            else if ((c & 0xE0) == 0xC0)
-            {
-                // 2바이트 UTF-8
-                charLen = 2;
-            }
-            else if ((c & 0xF0) == 0xE0)
-            {
-                // 3바이트 UTF-8 (한글 등)
-                charLen = 3;
-            }
-            else if ((c & 0xF8) == 0xF0)
-            {
-                // 4바이트 UTF-8
-                charLen = 4;
-            }
-
-            // 문자열 끝을 넘어가지 않도록 체크
-            if (i + charLen > str.length())
-            {
-                charLen = str.length() - i;
-            }
-
-            i += charLen;
-            count++;
-        }
-
+        int64_t count = static_cast<int64_t>(common::countUTF8Characters(str));
         return Value::createInteger(count);
     }
 
@@ -352,25 +316,7 @@ static Value builtin_분리(const std::vector<Value>& args)
         // 구분자가 빈 문자열이면 각 문자를 분리
         for (size_t i = 0; i < str.length(); )
         {
-            unsigned char c = static_cast<unsigned char>(str[i]);
-            size_t charLen = 1;
-
-            if ((c & 0x80) == 0)
-            {
-                charLen = 1;  // ASCII
-            }
-            else if ((c & 0xE0) == 0xC0)
-            {
-                charLen = 2;  // 2바이트 UTF-8
-            }
-            else if ((c & 0xF0) == 0xE0)
-            {
-                charLen = 3;  // 3바이트 UTF-8 (한글 등)
-            }
-            else if ((c & 0xF8) == 0xF0)
-            {
-                charLen = 4;  // 4바이트 UTF-8
-            }
+            size_t charLen = common::getUTF8CharLength(static_cast<unsigned char>(str[i]));
 
             // 문자열 끝을 넘어가지 않도록 체크
             if (i + charLen > str.length())
@@ -434,25 +380,7 @@ static Value builtin_찾기(const std::vector<Value>& args)
     int64_t charIndex = 0;
     for (size_t i = 0; i < pos && i < str.length(); )
     {
-        unsigned char c = static_cast<unsigned char>(str[i]);
-        size_t charLen = 1;
-
-        if ((c & 0x80) == 0)
-        {
-            charLen = 1;
-        }
-        else if ((c & 0xE0) == 0xC0)
-        {
-            charLen = 2;
-        }
-        else if ((c & 0xF0) == 0xE0)
-        {
-            charLen = 3;
-        }
-        else if ((c & 0xF8) == 0xF0)
-        {
-            charLen = 4;
-        }
+        size_t charLen = common::getUTF8CharLength(static_cast<unsigned char>(str[i]));
 
         // 문자열 끝을 넘어가지 않도록 체크
         if (i + charLen > str.length())

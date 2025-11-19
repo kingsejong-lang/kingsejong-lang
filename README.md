@@ -7,8 +7,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![C++23](https://img.shields.io/badge/C++-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![CI](https://github.com/0xmhha/kingsejonglang/workflows/CI/badge.svg)](https://github.com/0xmhha/kingsejonglang/actions)
-[![Tests](https://img.shields.io/badge/tests-1230%20passed-success)](tests/)
-[![Version](https://img.shields.io/badge/version-v0.3.3-blue)](https://github.com/0xmhha/kingsejonglang/releases/tag/v0.3.3)
+[![Tests](https://img.shields.io/badge/tests-1465%20passed-success)](tests/)
+[![Version](https://img.shields.io/badge/version-v0.8.0-blue)](https://github.com/0xmhha/kingsejonglang/releases/tag/v0.8.0)
 [![VS Code](https://img.shields.io/badge/VS%20Code-Extension-blue)](vscode-extension/)
 
 [빠른 시작](#빠른-시작) •
@@ -494,12 +494,26 @@ i가 1부터 10까지 {
 - ✅ **라이브러리 확장 가이드** (537줄)
 - ✅ **21개 예제 프로그램**
 
+### Phase 7: 성능 최적화 & 고급 기능 ✅ (100% 완료)
+
+- ✅ **클래스/객체 시스템** - 상속, 생성자, this
+- ✅ **JIT 컴파일러 Tier-1** - 루프 핫스팟 감지 및 네이티브 컴파일
+- ✅ **Async/Await** - 비동기 프로그래밍 지원
+- ✅ **Linter** - 12개 규칙 (미사용 변수, 매직 넘버 등)
+- ✅ **보안 관리자** - 샌드박스, 파일 접근 제어
+
+### Phase 8: 코드 품질 및 문서화 (진행 중)
+
+- 🔄 **Clean Code 적용** (60%)
+- 🔄 **주석 및 문서화**
+- ⏳ **성능 벤치마크**
+- ⏳ **테스트 강화**
+
 ### 테스트 현황
 
 ```
-총 테스트: 1003개
+총 테스트: 1465개
 통과율: 100%
-비활성화: 1개 (괄호 표현식 버그)
 
 주요 테스트:
 - Lexer/Parser: 59개
@@ -513,8 +527,11 @@ i가 1부터 10까지 {
 - GC: 15개
 - Bytecode: 19개
 - LSP: 130개 (기본 + 고급)
-- 디버거: 179개 (BreakpointManager, WatchpointManager, Debugger, CommandParser, SourceCodeViewer, DebuggerRepl)
-- 기타: 334개
+- 디버거: 179개
+- JIT: 30개
+- Linter: 200개+
+- Class/Async: 100개+
+- 기타: 400개+
 ```
 
 ---
@@ -639,7 +656,7 @@ npm run compile
 - **온라인 플레이그라운드** - 즉시 실행 (WebAssembly)
 - **REPL** - 빠른 프로토타이핑
 - **에러 메시지 한글화** - 친절한 피드백
-- **100% 테스트 통과** - 안정성 보장 (1230개)
+- **100% 테스트 통과** - 안정성 보장 (1465개)
 
 ---
 
@@ -695,6 +712,12 @@ kingsejonglang/
 │   │   ├── CallStack.cpp       # 콜스택 관리
 │   │   ├── CommandParser.cpp   # 디버거 명령 파싱
 │   │   └── SourceCodeViewer.cpp # 소스 코드 표시
+│   ├── jit/               # JIT 컴파일러
+│   │   ├── JITCompilerT1.cpp    # Tier-1 JIT 컴파일러
+│   │   └── HotPathDetector.cpp  # 핫스팟 감지
+│   ├── linter/            # 정적 분석기
+│   │   ├── Linter.cpp           # Linter 엔진
+│   │   └── rules/               # 12개 규칙
 │   └── main.cpp           # 진입점 (REPL/파일실행/LSP)
 ├── vscode-extension/      # VS Code Extension
 │   ├── src/
@@ -709,7 +732,7 @@ kingsejonglang/
 │   ├── array.ksj         # 배열 유틸리티 (18개)
 │   ├── test.ksj          # 테스트 프레임워크 (5개) ⭐ NEW
 │   └── ... (14개 모듈)
-├── tests/                 # 테스트 코드 (1230개)
+├── tests/                 # 테스트 코드 (1465개)
 │   ├── lsp/              # LSP 테스트 (130개)
 │   │   ├── JsonRpcTest.cpp
 │   │   ├── DocumentManagerTest.cpp

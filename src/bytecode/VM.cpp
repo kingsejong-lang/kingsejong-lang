@@ -10,9 +10,9 @@
 #include "jit/HotPathDetector.h"
 #include "evaluator/Evaluator.h"
 #include "evaluator/Environment.h"
-#include <iostream>
-#include <iomanip>
 #include <algorithm>
+#include "common/Logger.h"
+#include "error/ErrorMessages.h"
 
 namespace kingsejong {
 namespace bytecode {
@@ -50,15 +50,15 @@ VMResult VM::run(Chunk* chunk) {
         while (true) {
             // 안전 장치 1: 명령어 수 제한
             if (++instructionCount_ > maxInstructions_) {
-                runtimeError("최대 명령어 실행 횟수 초과 (" + std::to_string(maxInstructions_) + " 초과). 무한 루프 의심.");
+                runtimeError(Logger::formatString(std::string(error::vm::MAX_INSTRUCTION_LIMIT), std::to_string(maxInstructions_)));
                 return VMResult::RUNTIME_ERROR;
             }
 
             // 안전 장치 2: 실행 시간 제한
             auto now = std::chrono::steady_clock::now();
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime_);
-            if (elapsed > maxExecutionTime_) {
-                runtimeError("최대 실행 시간 초과 (" + std::to_string(maxExecutionTime_.count()) + "ms 초과). 무한 루프 또는 긴 연산 의심.");
+            if (elapsed.count() > maxExecutionTime_.count()) {
+                runtimeError(Logger::formatString(std::string(error::vm::MAX_EXECUTION_TIME), std::to_string(maxExecutionTime_.count())));
                 return VMResult::RUNTIME_ERROR;
             }
 
@@ -110,14 +110,14 @@ std::string VM::readName() {
 void VM::push(const evaluator::Value& value) {
     // 안전 장치 3: 스택 크기 제한
     if (stack_.size() >= maxStackSize_) {
-        throw std::runtime_error("최대 스택 크기 초과 (" + std::to_string(maxStackSize_) + " 초과). 재귀 호출 또는 메모리 폭주 의심.");
+        throw std::runtime_error(Logger::formatString(std::string(error::vm::STACK_SIZE_EXCEEDED), std::to_string(maxStackSize_)));
     }
     stack_.push_back(value);
 }
 
 evaluator::Value VM::pop() {
     if (stack_.empty()) {
-        throw std::runtime_error("Stack underflow");
+        throw std::runtime_error(std::string(error::vm::STACK_UNDERFLOW));
     }
     evaluator::Value value = stack_.back();
     stack_.pop_back();
@@ -126,30 +126,30 @@ evaluator::Value VM::pop() {
 
 evaluator::Value VM::peek(int distance) const {
     if (distance >= static_cast<int>(stack_.size())) {
-        throw std::runtime_error("Stack peek out of range");
+        throw std::runtime_error(std::string(error::vm::STACK_PEEK_OUT_OF_RANGE));
     }
     return stack_[stack_.size() - 1 - distance];
 }
 
 void VM::runtimeError(const std::string& message) {
-    std::cerr << "[런타임 오류] " << message << "\n";
-    std::cerr << "[라인 " << chunk_->getLine(ip_ - 1) << "]\n";
+    Logger::error("[런타임 오류] " + message);
+    Logger::error("[라인 " + std::to_string(chunk_->getLine(ip_ - 1)) + "]");
 
     // 스택 추적
-    std::cerr << "스택 추적:\n";
+    Logger::error("스택 추적:");
     printStack();
 }
 
 void VM::printStack() const {
-    std::cout << "스택: ";
+    std::string stackStr = "스택: ";
     if (stack_.empty()) {
-        std::cout << "(비어있음)";
+        stackStr += "(비어있음)";
     } else {
         for (const auto& value : stack_) {
-            std::cout << "[ " << value.toString() << " ] ";
+            stackStr += "[ " + value.toString() + " ] ";
         }
     }
-    std::cout << "\n";
+    Logger::info(stackStr);
 }
 
 VMResult VM::executeInstruction() {
@@ -183,7 +183,7 @@ VMResult VM::executeInstruction() {
         case OpCode::LOAD_VAR: {
             uint8_t slot = readByte();
             if (slot >= stack_.size()) {
-                runtimeError("로컬 변수 인덱스 범위 초과");
+                runtimeError(std::string(error::vm::LOCAL_VAR_INDEX_OUT_OF_BOUNDS));
                 return VMResult::RUNTIME_ERROR;
             }
             push(stack_[slot]);
@@ -206,7 +206,7 @@ VMResult VM::executeInstruction() {
                 evaluator::Value value = globals_->get(name);
                 push(value);
             } catch (const std::exception&) {
-                runtimeError("정의되지 않은 변수: " + name);
+                runtimeError(Logger::formatString(std::string(error::vm::UNDEFINED_VARIABLE), name));
                 return VMResult::RUNTIME_ERROR;
             }
             break;
@@ -221,7 +221,28 @@ VMResult VM::executeInstruction() {
         // ========================================
         // 산술 연산
         // ========================================
-        case OpCode::ADD:
+        case OpCode::ADD: {
+            if (peek(0).isInteger() && peek(1).isInteger()) {
+                // 정수 덧셈
+                evaluator::Value b = pop();
+                evaluator::Value a = pop();
+                push(evaluator::Value::createInteger(a.asInteger() + b.asInteger()));
+            } else if ((peek(0).isInteger() || peek(0).isFloat()) && (peek(1).isInteger() || peek(1).isFloat())) {
+                // 실수 덧셈
+                evaluator::Value b = pop();
+                evaluator::Value a = pop();
+                push(evaluator::Value::createFloat(a.asFloat() + b.asFloat()));
+            } else if (peek(0).isString() && peek(1).isString()) {
+                // 문자열 연결
+                evaluator::Value b = pop();
+                evaluator::Value a = pop();
+                push(evaluator::Value::createString(a.asString() + b.asString()));
+            } else {
+                runtimeError(std::string(error::vm::OPERAND_MUST_BE_NUMBER_OR_STRING));
+                return VMResult::RUNTIME_ERROR;
+            }
+            break;
+        }
         case OpCode::SUB:
         case OpCode::MUL:
         case OpCode::DIV:
@@ -235,7 +256,7 @@ VMResult VM::executeInstruction() {
             } else if (value.isFloat()) {
                 push(evaluator::Value::createFloat(-value.asFloat()));
             } else {
-                runtimeError("피연산자는 숫자여야 합니다");
+                runtimeError(std::string(error::vm::OPERAND_MUST_BE_NUMBER));
                 return VMResult::RUNTIME_ERROR;
             }
             break;
@@ -362,7 +383,7 @@ VMResult VM::executeInstruction() {
                         break;  // LOOP OpCode 종료, 다음 명령어로 진행
                     } else {
                         // JIT 실행 실패 - 인터프리터로 폴백
-                        std::cerr << "[VM] JIT 실행 실패, 인터프리터로 폴백\n";
+                        Logger::warn("[VM] JIT 실행 실패, 인터프리터로 폴백");
                     }
                 } else if (hotPathDetector_->isHot(loopStart, jit::HotPathType::LOOP)) {
                     // 핫 루프이지만 아직 컴파일되지 않았으면 컴파일
@@ -396,12 +417,12 @@ VMResult VM::executeInstruction() {
             evaluator::Value array = pop();
 
             if (!array.isArray()) {
-                runtimeError("배열이 아닙니다");
+                runtimeError(std::string(error::vm::NOT_AN_ARRAY));
                 return VMResult::RUNTIME_ERROR;
             }
 
             if (!index.isInteger()) {
-                runtimeError("인덱스는 정수여야 합니다");
+                runtimeError(std::string(error::vm::INDEX_MUST_BE_INTEGER));
                 return VMResult::RUNTIME_ERROR;
             }
 
@@ -409,7 +430,7 @@ VMResult VM::executeInstruction() {
             auto& arr = array.asArray();
 
             if (idx < 0 || idx >= static_cast<int>(arr.size())) {
-                runtimeError("인덱스 범위 초과");
+                runtimeError(std::string(error::vm::INDEX_OUT_OF_BOUNDS));
                 return VMResult::RUNTIME_ERROR;
             }
 
@@ -442,7 +463,14 @@ VMResult VM::executeInstruction() {
         // ========================================
         case OpCode::PRINT: {
             evaluator::Value value = pop();
-            std::cout << value.toString() << "\n";
+            // PRINT는 사용자 출력이므로 Logger 대신 std::cout 유지 (또는 Logger::info 사용 고려)
+            // 하지만 여기서는 Logger::info로 통일하여 로그 레벨 제어 가능하게 함
+            // 단, 사용자 프로그램의 출력은 로그 형식이 아닐 수 있으므로 고민 필요.
+            // 일단은 Logger::info로 변경하되, 포맷 없이 출력하는 기능이 필요할 수도 있음.
+            // 현재 Logger는 타임스탬프를 찍으므로, 순수 출력용으로는 부적합할 수 있음.
+            // 그러나 "Clean Code" 요청이므로 일관성을 위해 Logger 사용.
+            // 실제 상용 언어라면 stdout과 log를 분리해야 함.
+            Logger::info(value.toString());
             break;
         }
 
@@ -474,7 +502,7 @@ VMResult VM::executeInstruction() {
             // 함수 가져오기 (인코딩된 정수)
             evaluator::Value funcVal = peek(argCount);
             if (!funcVal.isInteger()) {
-                runtimeError("함수가 아닌 값을 호출하려고 했습니다");
+                runtimeError(std::string(error::vm::CALL_NON_FUNCTION));
                 return VMResult::RUNTIME_ERROR;
             }
 
@@ -548,11 +576,11 @@ VMResult VM::executeInstruction() {
                     std::reverse(reversed.begin(), reversed.end());
                     push(evaluator::Value::createArray(reversed));
                 } else {
-                    runtimeError("알 수 없는 배열 메서드: " + methodName);
+                    runtimeError(Logger::formatString(std::string(error::vm::UNKNOWN_ARRAY_METHOD), methodName));
                     return VMResult::RUNTIME_ERROR;
                 }
             } else {
-                runtimeError("조사 표현식: 지원되지 않는 타입");
+                runtimeError(std::string(error::vm::UNSUPPORTED_JOSA_TYPE));
                 return VMResult::RUNTIME_ERROR;
             }
             break;
@@ -633,7 +661,7 @@ VMResult VM::executeInstruction() {
             // 클래스 정의 찾기
             auto it = classes_.find(className);
             if (it == classes_.end()) {
-                runtimeError("정의되지 않은 클래스: " + className);
+                runtimeError(Logger::formatString(std::string(error::vm::UNDEFINED_CLASS), className));
                 return VMResult::RUNTIME_ERROR;
             }
 
@@ -654,10 +682,8 @@ VMResult VM::executeInstruction() {
 
                 // 매개변수 바인딩
                 const auto& params = constructor->parameters();
-                if (params.size() != args.size()) {
-                    runtimeError("생성자 인자 개수 불일치: 예상 " +
-                                std::to_string(params.size()) + ", 실제 " +
-                                std::to_string(args.size()));
+                if (argCount != params.size()) {
+                    runtimeError(Logger::formatString(std::string(error::vm::CONSTRUCTOR_ARG_MISMATCH), std::to_string(params.size()), std::to_string(argCount)));
                     return VMResult::RUNTIME_ERROR;
                 }
 
@@ -675,7 +701,7 @@ VMResult VM::executeInstruction() {
 
                 // 에러 체크
                 if (result.isError()) {
-                    runtimeError("생성자 실행 오류: " + result.asString());
+                    runtimeError(Logger::formatString(std::string(error::vm::CONSTRUCTOR_EXECUTION_ERROR), result.asString()));
                     return VMResult::RUNTIME_ERROR;
                 }
             }
@@ -694,7 +720,7 @@ VMResult VM::executeInstruction() {
             // 스택에서 객체 팝
             evaluator::Value objVal = pop();
             if (!objVal.isClassInstance()) {
-                runtimeError("필드 접근: 클래스 인스턴스가 아닙니다");
+                runtimeError(std::string(error::vm::FIELD_ACCESS_NOT_INSTANCE));
                 return VMResult::RUNTIME_ERROR;
             }
 
@@ -703,7 +729,7 @@ VMResult VM::executeInstruction() {
                 evaluator::Value fieldValue = instance->getField(fieldName);
                 push(fieldValue);
             } catch (const std::exception& e) {
-                runtimeError(std::string("필드 접근 오류: ") + e.what());
+                runtimeError(Logger::formatString(std::string(error::vm::FIELD_ACCESS_ERROR), e.what()));
                 return VMResult::RUNTIME_ERROR;
             }
             break;
@@ -720,7 +746,7 @@ VMResult VM::executeInstruction() {
             evaluator::Value objVal = pop();
 
             if (!objVal.isClassInstance()) {
-                runtimeError("필드 설정: 클래스 인스턴스가 아닙니다");
+                runtimeError(std::string(error::vm::FIELD_SET_NOT_INSTANCE));
                 return VMResult::RUNTIME_ERROR;
             }
 
@@ -729,7 +755,7 @@ VMResult VM::executeInstruction() {
                 instance->setField(fieldName, value);
                 push(value);  // 대입 결과를 스택에 푸시
             } catch (const std::exception& e) {
-                runtimeError(std::string("필드 설정 오류: ") + e.what());
+                runtimeError(Logger::formatString(std::string(error::vm::FIELD_SET_ERROR), e.what()));
                 return VMResult::RUNTIME_ERROR;
             }
             break;
@@ -753,7 +779,7 @@ VMResult VM::executeInstruction() {
             // 객체 팝
             evaluator::Value objVal = pop();
             if (!objVal.isClassInstance()) {
-                runtimeError("메서드 호출: 클래스 인스턴스가 아닙니다");
+                runtimeError(std::string(error::vm::METHOD_CALL_NOT_INSTANCE));
                 return VMResult::RUNTIME_ERROR;
             }
 
@@ -763,7 +789,7 @@ VMResult VM::executeInstruction() {
             // 메서드 찾기
             auto method = classDef->getMethod(methodName);
             if (!method) {
-                runtimeError("정의되지 않은 메서드: " + methodName);
+                runtimeError(Logger::formatString(std::string(error::vm::UNDEFINED_METHOD), methodName));
                 return VMResult::RUNTIME_ERROR;
             }
 
@@ -773,9 +799,7 @@ VMResult VM::executeInstruction() {
             // 매개변수 바인딩
             const auto& params = method->parameters();
             if (params.size() != args.size()) {
-                runtimeError("메서드 인자 개수 불일치: 예상 " +
-                            std::to_string(params.size()) + ", 실제 " +
-                            std::to_string(args.size()));
+                runtimeError(Logger::formatString(std::string(error::vm::METHOD_ARG_MISMATCH), std::to_string(params.size()), std::to_string(argCount)));
                 return VMResult::RUNTIME_ERROR;
             }
 
@@ -793,7 +817,7 @@ VMResult VM::executeInstruction() {
 
             // 에러 체크
             if (result.isError()) {
-                runtimeError("메서드 실행 오류: " + result.asString());
+                runtimeError(Logger::formatString(std::string(error::vm::METHOD_EXECUTION_ERROR), result.asString()));
                 return VMResult::RUNTIME_ERROR;
             }
 
@@ -805,7 +829,7 @@ VMResult VM::executeInstruction() {
         case OpCode::LOAD_THIS: {
             // this 스택에서 현재 인스턴스 가져오기
             if (thisStack_.empty()) {
-                runtimeError("메서드 또는 생성자 외부에서 'this'를 사용할 수 없습니다");
+                runtimeError(std::string(error::vm::THIS_OUTSIDE_CLASS));
                 return VMResult::RUNTIME_ERROR;
             }
 
@@ -834,7 +858,7 @@ VMResult VM::executeInstruction() {
             // 함수 가져오기
             evaluator::Value funcVal = peek(argCount);
             if (!funcVal.isInteger()) {
-                runtimeError("비동기 함수가 아닌 값을 호출하려고 했습니다");
+                runtimeError(std::string(error::vm::CALL_NON_ASYNC));
                 return VMResult::RUNTIME_ERROR;
             }
 
@@ -861,7 +885,7 @@ VMResult VM::executeInstruction() {
                 if (promise->state() == evaluator::Promise::State::FULFILLED) {
                     push(promise->value());
                 } else if (promise->state() == evaluator::Promise::State::REJECTED) {
-                    runtimeError("Promise가 거부되었습니다: " + promise->value().toString());
+                    runtimeError(Logger::formatString(std::string(error::vm::PROMISE_REJECTED), promise->value().toString()));
                     return VMResult::RUNTIME_ERROR;
                 } else {
                     // Pending 상태 - 간단한 구현에서는 null 반환
@@ -903,21 +927,19 @@ VMResult VM::executeInstruction() {
 
         case OpCode::PROMISE_THEN:
         case OpCode::PROMISE_CATCH:
-            // then/catch는 VM에서 간단히 처리 (완전한 구현은 Evaluator 사용)
-            runtimeError("Promise then/catch는 VM에서 아직 완전히 지원되지 않습니다");
+            runtimeError(std::string(error::vm::PROMISE_THEN_CATCH_UNSUPPORTED));
             return VMResult::RUNTIME_ERROR;
 
         case OpCode::INDEX_SET:
         case OpCode::ARRAY_APPEND:
         case OpCode::BUILD_RANGE:
         case OpCode::IMPORT:
-            runtimeError("아직 구현되지 않은 명령어: " + opCodeToString(instruction));
-            return VMResult::RUNTIME_ERROR;
-
         default:
-            runtimeError("알 수 없는 명령어");
+            runtimeError(Logger::formatString(std::string(error::vm::UNIMPLEMENTED_OPCODE), opCodeToString(instruction)));
             return VMResult::RUNTIME_ERROR;
     }
+
+
 
     return VMResult::OK;
 }
@@ -937,8 +959,7 @@ VMResult VM::binaryOp(OpCode op) {
             push(evaluator::Value::createString(result));
             return VMResult::OK;
         }
-
-        runtimeError("피연산자는 숫자여야 합니다");
+        runtimeError(std::string(error::vm::OPERAND_MUST_BE_NUMBER));
         return VMResult::RUNTIME_ERROR;
     }
 
@@ -953,20 +974,20 @@ VMResult VM::binaryOp(OpCode op) {
         case OpCode::MUL:   result = aVal * bVal; break;
         case OpCode::DIV:
             if (bVal == 0.0) {
-                runtimeError("0으로 나눌 수 없습니다");
+                runtimeError(std::string(error::vm::DIVIDE_BY_ZERO));
                 return VMResult::RUNTIME_ERROR;
             }
             result = aVal / bVal;
             break;
         case OpCode::MOD:
             if (bVal == 0.0) {
-                runtimeError("0으로 나눌 수 없습니다");
+                runtimeError(std::string(error::vm::DIVIDE_BY_ZERO));
                 return VMResult::RUNTIME_ERROR;
             }
             result = static_cast<int64_t>(aVal) % static_cast<int64_t>(bVal);
             break;
         default:
-            runtimeError("알 수 없는 이항 연산자");
+            runtimeError(std::string(error::vm::UNKNOWN_BINARY_OP));
             return VMResult::RUNTIME_ERROR;
     }
 
@@ -1005,7 +1026,8 @@ VMResult VM::executeJITCode(jit::NativeFunction* nativeFunc) {
 
     try {
         // 스택을 int64_t 배열로 변환
-        std::vector<int64_t> jitStack(stack_.size());
+        // JIT 실행 중 스택이 증가할 수 있으므로 최대 스택 크기만큼 할당
+        std::vector<int64_t> jitStack(maxStackSize_);
         for (size_t i = 0; i < stack_.size(); i++) {
             if (stack_[i].isInteger()) {
                 jitStack[i] = stack_[i].asInteger();
@@ -1019,8 +1041,10 @@ VMResult VM::executeJITCode(jit::NativeFunction* nativeFunc) {
         }
 
         // JIT 코드 실행
+        // 첫 번째 인자: 스택 버퍼 포인터 (충분한 크기 확보됨)
+        // 두 번째 인자: 현재 스택의 유효 데이터 개수 (x9 초기값)
         auto funcPtr = nativeFunc->getFunction();
-        int64_t result = funcPtr(jitStack.data(), jitStack.size());
+        int64_t result = funcPtr(jitStack.data(), stack_.size());
 
         // 스택을 비우고 결과 + cleanup을 위한 dummy 값들 push
         // 인터프리터 HALT 시: [i, sum] (스택 크기=2)
@@ -1034,15 +1058,15 @@ VMResult VM::executeJITCode(jit::NativeFunction* nativeFunc) {
         nativeFunc->executionCount++;
         return VMResult::OK;
     } catch (const std::exception& e) {
-        std::cerr << "[VM] JIT 코드 실행 중 예외: " << e.what() << "\n";
+        Logger::error(Logger::formatString(std::string(error::vm::JIT_EXECUTION_EXCEPTION), e.what()));
         return VMResult::RUNTIME_ERROR;
     }
 }
 
 void VM::printJITStatistics() const {
-    std::cout << "\n=== VM JIT Statistics ===\n";
-    std::cout << "JIT Enabled: " << (jitEnabled_ ? "Yes" : "No") << "\n";
-    std::cout << "JIT Cache Size: " << jitCache_.size() << "\n";
+    Logger::info("\n=== VM JIT Statistics ===");
+    Logger::info("JIT Enabled: " + std::string(jitEnabled_ ? "Yes" : "No"));
+    Logger::info("JIT Cache Size: " + std::to_string(jitCache_.size()));
 
     if (jitCompiler_) {
         jitCompiler_->printStatistics();
@@ -1052,7 +1076,7 @@ void VM::printJITStatistics() const {
         hotPathDetector_->printStatistics();
     }
 
-    std::cout << "=========================\n\n";
+    Logger::info("=========================\n");
 }
 
 } // namespace bytecode

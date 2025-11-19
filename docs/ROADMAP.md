@@ -292,7 +292,9 @@ Phase 7.5: 100% 완료! (SemVer + 의존성 해결 + ksjpm CLI) 🎉
 - [x] ✅ async 함수 Promise 반환 구현
 - [x] ✅ await Promise 값 추출 구현
 - [x] ✅ Promise 체이닝 (.then/.그러면, .catch/.오류시)
-- [x] ✅ 통합 테스트 16개 추가 (1443 tests passed)
+- [x] ✅ Top-level await 지원 (ES modules 스타일)
+- [x] ✅ 예제 파일 추가 (examples/async_await.ksj)
+- [x] ✅ 통합 테스트 17개 추가 (1444 tests passed)
 
 **미완료 항목**:
 - [ ] ⏳ Evaluator Event Loop 구현 (실제 비동기 처리)
@@ -530,6 +532,8 @@ Phase 7.5: 100% 완료! (SemVer + 의존성 해결 + ksjpm CLI) 🎉
   - ✅ async 함수 Promise 반환 구현
   - ✅ await Promise 값 추출 구현
   - ✅ Promise 체이닝 (.then/.그러면, .catch/.오류시)
-  - ✅ 통합 테스트 16개 추가 (1443 tests passed)
+  - ✅ Top-level await 지원
+  - ✅ 예제 파일 추가 (examples/async_await.ksj)
+  - ✅ 통합 테스트 17개 추가 (1444 tests passed)
   - ⏳ Event Loop, Bytecode/VM 구현 예정
 **다음 마일스톤**: Phase 7.3 비동기 프로그래밍 완료 (2025-12 ~ 2026-01)

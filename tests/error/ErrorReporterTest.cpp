@@ -463,6 +463,104 @@ TEST(MemorySafetyTest, ShouldHandleExceptionsDuringFormatting) {
     EXPECT_NO_THROW(reporter->report(error, oss));
 }
 
+TEST(MemorySafetyTest, ShouldHandleLargeErrorMessages) {
+    auto reporter = std::make_unique<ErrorReporter>();
+    reporter->setColorEnabled(false);
+
+    // 매우 긴 에러 메시지 생성
+    std::string longMessage(10000, 'x');  // 10000자 문자열
+
+    SourceLocation loc("test.ksj", 1, 1);
+    auto error = RuntimeError(longMessage, loc);
+
+    std::ostringstream oss;
+    EXPECT_NO_THROW(reporter->report(error, oss));
+    EXPECT_FALSE(oss.str().empty());
+}
+
+TEST(MemorySafetyTest, ShouldHandleEmptyStrings) {
+    auto reporter = std::make_unique<ErrorReporter>();
+    reporter->setColorEnabled(false);
+
+    // 빈 소스 코드
+    reporter->registerSource("empty.ksj", "");
+
+    SourceLocation loc("empty.ksj", 1, 1);
+    auto error = RuntimeError("", loc);  // 빈 에러 메시지
+
+    std::ostringstream oss;
+    EXPECT_NO_THROW(reporter->report(error, oss));
+}
+
+TEST(MemorySafetyTest, ShouldHandleZeroLineColumn) {
+    auto reporter = std::make_unique<ErrorReporter>();
+    reporter->setColorEnabled(false);
+
+    reporter->registerSource("test.ksj", "x = 10");
+
+    // 0번째 줄/열 (경계값 테스트)
+    SourceLocation loc("test.ksj", 0, 0);
+    auto error = RuntimeError("경계값 테스트", loc);
+
+    std::ostringstream oss;
+    EXPECT_NO_THROW(reporter->report(error, oss));
+}
+
+TEST(MemorySafetyTest, ShouldHandleVeryLongSourceLine) {
+    auto reporter = std::make_unique<ErrorReporter>();
+    reporter->setColorEnabled(false);
+
+    // 매우 긴 소스 라인
+    std::string longLine(5000, 'x');
+    reporter->registerSource("long.ksj", longLine);
+
+    SourceLocation loc("long.ksj", 1, 2500);  // 긴 라인 중간
+    auto error = RuntimeError("긴 라인 테스트", loc);
+
+    std::ostringstream oss;
+    EXPECT_NO_THROW(reporter->report(error, oss));
+}
+
+TEST(MemorySafetyTest, ShouldHandleMultipleSourceFiles) {
+    auto reporter = std::make_unique<ErrorReporter>();
+    reporter->setColorEnabled(false);
+
+    // 여러 소스 파일 등록
+    for (int i = 0; i < 100; i++) {
+        reporter->registerSource("file" + std::to_string(i) + ".ksj",
+                                 "변수" + std::to_string(i) + " = " + std::to_string(i));
+    }
+
+    // 다양한 파일에서 에러 발생
+    for (int i = 0; i < 100; i++) {
+        SourceLocation loc("file" + std::to_string(i) + ".ksj", 1, 1);
+        auto error = RuntimeError("에러 " + std::to_string(i), loc);
+
+        std::ostringstream oss;
+        EXPECT_NO_THROW(reporter->report(error, oss));
+    }
+}
+
+TEST(MemorySafetyTest, ShouldHandleRepeatedHintRegistration) {
+    auto reporter = std::make_unique<ErrorReporter>();
+    reporter->setColorEnabled(false);
+
+    // 동일한 힌트를 여러 번 등록
+    for (int i = 0; i < 100; i++) {
+        reporter->registerHint(
+            ErrorType::RUNTIME_ERROR,
+            "테스트 에러",
+            "힌트 " + std::to_string(i)
+        );
+    }
+
+    SourceLocation loc("test.ksj", 1, 1);
+    auto error = RuntimeError("테스트 에러", loc);
+
+    std::ostringstream oss;
+    EXPECT_NO_THROW(reporter->report(error, oss));
+}
+
 // ============================================================================
 // 기본 힌트 시스템 테스트
 // ============================================================================

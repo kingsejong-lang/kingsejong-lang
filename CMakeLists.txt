@@ -79,6 +79,7 @@ set(LIB_SOURCES
     src/morphology/Dictionary.cpp
     src/morphology/MorphologicalAnalyzer.cpp
     src/package/Package.cpp
+    src/common/Logger.cpp
     src/package/PackageManager.cpp
 )
 

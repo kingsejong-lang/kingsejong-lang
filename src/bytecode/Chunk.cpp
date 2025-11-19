@@ -10,6 +10,7 @@
 #include <iomanip>
 #include <stdexcept>
 #include <iostream>
+#include "error/ErrorMessages.h"
 
 namespace kingsejong {
 namespace bytecode {
@@ -46,21 +47,21 @@ size_t Chunk::addName(const std::string& name) {
 
 uint8_t Chunk::read(size_t offset) const {
     if (offset >= code_.size()) {
-        throw std::runtime_error("Chunk::read: offset out of bounds");
+        throw std::runtime_error(std::string(error::chunk::READ_OFFSET_OUT_OF_BOUNDS));
     }
     return code_[offset];
 }
 
 const evaluator::Value& Chunk::getConstant(size_t index) const {
     if (index >= constants_.size()) {
-        throw std::runtime_error("Chunk::getConstant: index out of bounds");
+        throw std::runtime_error(std::string(error::chunk::CONSTANT_INDEX_OUT_OF_BOUNDS));
     }
     return constants_[index];
 }
 
 const std::string& Chunk::getName(size_t index) const {
     if (index >= names_.size()) {
-        throw std::runtime_error("Chunk::getName: index out of bounds");
+        throw std::runtime_error(std::string(error::chunk::NAME_INDEX_OUT_OF_BOUNDS));
     }
     return names_[index];
 }
@@ -84,7 +85,7 @@ void Chunk::clear() {
 
 void Chunk::patch(size_t offset, uint8_t byte) {
     if (offset >= code_.size()) {
-        throw std::runtime_error("Chunk::patch: offset out of bounds");
+        throw std::runtime_error(std::string(error::chunk::PATCH_OFFSET_OUT_OF_BOUNDS));
     }
     code_[offset] = byte;
 }

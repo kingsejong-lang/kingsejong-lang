@@ -21,6 +21,7 @@
 #include <iostream>
 #include <cstring>
 #include <unordered_map>
+#include "common/Logger.h"
 
 namespace kingsejong {
 namespace jit {
@@ -114,33 +115,33 @@ void JITCompilerT1::reset()
 
 void JITCompilerT1::printStatistics() const
 {
-    std::cout << "\n=== JIT Compiler T1 Statistics ===\n";
-    std::cout << "Total Compilations: " << totalCompilations_ << "\n";
-    std::cout << "Cache Hits: " << cacheHits_ << "\n";
-    std::cout << "Cache Misses: " << cacheMisses_ << "\n";
-    std::cout << "Cache Size: " << cache_.size() << "\n";
-    std::cout << "==================================\n\n";
+    Logger::info("\n=== JIT Compiler T1 Statistics ===");
+    Logger::info("Total Compilations: " + std::to_string(totalCompilations_));
+    Logger::info("Cache Hits: " + std::to_string(cacheHits_));
+    Logger::info("Cache Misses: " + std::to_string(cacheMisses_));
+    Logger::info("Cache Size: " + std::to_string(cache_.size()));
+    Logger::info("==================================\n");
 }
 
 NativeFunction* JITCompilerT1::compileRange(bytecode::Chunk* chunk, size_t startOffset, size_t endOffset)
 {
     using namespace asmjit;
 
-    std::cerr << "[JIT] Compiling range [" << startOffset << ", " << endOffset << ")\n";
+    Logger::debug("[JIT] Compiling range [" + std::to_string(startOffset) + ", " + std::to_string(endOffset) + ")");
 
     // CodeHolder 생성 및 초기화
     CodeHolder code;
     Error initErr = code.init(runtime_->runtime.environment());
     if (initErr != kErrorOk)
     {
-        std::cerr << "CodeHolder init failed: " << DebugUtils::error_as_string(initErr) << "\n";
+        Logger::error("CodeHolder init failed: " + std::string(DebugUtils::error_as_string(initErr)));
         return nullptr;
     }
-    std::cerr << "[JIT] CodeHolder initialized\n";
+    Logger::debug("[JIT] CodeHolder initialized");
 
     // 현재 아키텍처 확인
     Arch arch = runtime_->runtime.environment().arch();
-    std::cerr << "[JIT] Architecture: " << static_cast<int>(arch) << "\n";
+    Logger::debug("[JIT] Architecture: " + std::to_string(static_cast<int>(arch)));
 
     // ARM64 JIT 컴파일
     if (arch == Arch::kAArch64)
@@ -154,7 +155,7 @@ NativeFunction* JITCompilerT1::compileRange(bytecode::Chunk* chunk, size_t start
     }
     else
     {
-        std::cerr << "[JIT] Unsupported architecture\n";
+        Logger::error("[JIT] Unsupported architecture");
         return nullptr;
     }
 }
@@ -169,22 +170,21 @@ NativeFunction* JITCompilerT1::compileRange_x64(void* codePtr, bytecode::Chunk* 
     // Assembler 생성
     Assembler a;
     code.attach(&a);
-    std::cerr << "[JIT] x64 Assembler attached\n";
+    Logger::debug("[JIT] x64 Assembler attached");
 
     // 함수 프롤로그
     // rdi: stack pointer (int64_t*)
     // rsi: stack size (size_t)
     std::cerr << "[JIT] Emitting prologue\n";
 
-    a.push(rbp);
     a.mov(rbp, rsp);
     a.mov(r12, rsi);  // 가상 스택 포인터를 현재 스택 크기로 초기화 (r12 = rsi)
 
-    std::cerr << "[JIT] Prologue emitted\n";
+    Logger::debug("[JIT] Prologue emitted");
 
     // 바이트코드 실행
     size_t ip = startOffset;
-    std::cerr << "[JIT] Starting bytecode loop, ip=" << ip << ", endOffset=" << endOffset << "\n";
+    Logger::debug("[JIT] Starting bytecode loop, ip=" + std::to_string(ip) + ", endOffset=" + std::to_string(endOffset));
 
     // 점프 타겟을 위한 레이블 맵 생성
     std::unordered_map<size_t, Label> jumpLabels;
@@ -199,7 +199,7 @@ NativeFunction* JITCompilerT1::compileRange_x64(void* codePtr, bytecode::Chunk* 
     while (ip < endOffset)
     {
         auto opCode = static_cast<bytecode::OpCode>(chunk->getCode()[ip]);
-        std::cerr << "[JIT] ip=" << ip << ", opcode=" << static_cast<int>(opCode) << "\n";
+        Logger::debug("[JIT] ip=" + std::to_string(ip) + ", opcode=" + std::to_string(static_cast<int>(opCode)));
 
         // 현재 위치에 레이블 바인딩
         a.bind(jumpLabels[ip]);
@@ -1165,11 +1165,11 @@ NativeFunction* JITCompilerT1::compileRange_ARM64(void* codePtr, bytecode::Chunk
                 size_t target = ip + offset;
                 std::cerr << "[JIT] ARM64 JUMP_IF_FALSE to " << target << "\n";
 
-                // Pop stack top and check
-                a.sub(a64::x9, a64::x9, 1);  // x9-- (pop)
+                // Peek stack top and check (don't pop)
+                a.sub(a64::x9, a64::x9, 1);  // x9-- (peek)
                 a.lsl(a64::x12, a64::x9, 3);
                 a.ldr(a64::x10, a64::ptr(a64::x0, a64::x12));
-                // Note: Don't restore x9 - this is a POP operation
+                a.add(a64::x9, a64::x9, 1);  // restore x9
 
                 // if (x10 == 0) jump
                 if (target >= endOffset) {

@@ -7,6 +7,7 @@
 
 #include "debugger/CallStack.h"
 #include <stdexcept>
+#include "error/ErrorMessages.h"
 
 namespace kingsejong {
 namespace debugger {
@@ -14,7 +15,7 @@ namespace debugger {
 void CallStack::pop()
 {
     if (frames_.empty()) {
-        throw std::runtime_error("CallStack::pop() - stack is empty");
+        throw std::runtime_error(std::string(error::debugger::CALLSTACK_POP_EMPTY));
     }
     frames_.pop_back();
 }
@@ -22,7 +23,7 @@ void CallStack::pop()
 CallStack::StackFrame& CallStack::current()
 {
     if (frames_.empty()) {
-        throw std::runtime_error("CallStack::current() - stack is empty");
+        throw std::runtime_error(std::string(error::debugger::CALLSTACK_CURRENT_EMPTY));
     }
     return frames_.back();
 }
@@ -30,7 +31,7 @@ CallStack::StackFrame& CallStack::current()
 const CallStack::StackFrame& CallStack::current() const
 {
     if (frames_.empty()) {
-        throw std::runtime_error("CallStack::current() - stack is empty");
+        throw std::runtime_error(std::string(error::debugger::CALLSTACK_CURRENT_EMPTY));
     }
     return frames_.back();
 }

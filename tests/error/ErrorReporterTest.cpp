@@ -9,6 +9,7 @@
 #include <gmock/gmock.h>
 #include "../../src/error/ErrorReporter.h"
 #include "../../src/error/Error.h"
+#include "../../src/error/ErrorMessages.h"
 #include <sstream>
 
 using namespace kingsejong::error;
@@ -295,6 +296,72 @@ TEST(ErrorMessageTest, ShouldHaveKoreanErrorTypeNames) {
     EXPECT_EQ(errorTypeToKorean(ErrorType::ZERO_DIVISION_ERROR), "0으로 나누기 오류");
     EXPECT_EQ(errorTypeToKorean(ErrorType::INDEX_ERROR), "인덱스 오류");
     EXPECT_EQ(errorTypeToKorean(ErrorType::ARGUMENT_ERROR), "인자 오류");
+}
+
+TEST(ErrorMessageTest, ShouldHaveVMErrorMessages) {
+    // VM 에러 메시지가 정의되어 있는지 확인
+    using namespace kingsejong::error;
+    EXPECT_FALSE(vm::STACK_OVERFLOW.empty());
+    EXPECT_FALSE(vm::DIVIDE_BY_ZERO.empty());
+    EXPECT_FALSE(vm::INDEX_OUT_OF_BOUNDS.empty());
+    EXPECT_FALSE(vm::UNDEFINED_VARIABLE.empty());
+    EXPECT_FALSE(vm::OPERAND_MUST_BE_NUMBER.empty());
+    EXPECT_FALSE(vm::NOT_AN_ARRAY.empty());
+    EXPECT_FALSE(vm::CALL_NON_FUNCTION.empty());
+    EXPECT_FALSE(vm::UNKNOWN_OPCODE.empty());
+
+    // 한글 메시지인지 확인
+    EXPECT_NE(vm::STACK_OVERFLOW.find("스택"), std::string_view::npos);
+    EXPECT_NE(vm::DIVIDE_BY_ZERO.find("나눌"), std::string_view::npos);
+}
+
+TEST(ErrorMessageTest, ShouldHaveChunkErrorMessages) {
+    // Chunk 에러 메시지가 정의되어 있는지 확인
+    using namespace kingsejong::error;
+    EXPECT_FALSE(chunk::READ_OFFSET_OUT_OF_BOUNDS.empty());
+    EXPECT_FALSE(chunk::CONSTANT_INDEX_OUT_OF_BOUNDS.empty());
+    EXPECT_FALSE(chunk::NAME_INDEX_OUT_OF_BOUNDS.empty());
+    EXPECT_FALSE(chunk::PATCH_OFFSET_OUT_OF_BOUNDS.empty());
+}
+
+TEST(ErrorMessageTest, ShouldHaveDebuggerErrorMessages) {
+    // Debugger 에러 메시지가 정의되어 있는지 확인
+    using namespace kingsejong::error;
+    EXPECT_FALSE(debugger::CALLSTACK_POP_EMPTY.empty());
+    EXPECT_FALSE(debugger::CALLSTACK_CURRENT_EMPTY.empty());
+}
+
+TEST(ErrorMessageTest, ShouldHaveClassErrorMessages) {
+    // 클래스 관련 에러 메시지 확인
+    using namespace kingsejong::error;
+    EXPECT_FALSE(vm::UNDEFINED_CLASS.empty());
+    EXPECT_FALSE(vm::CONSTRUCTOR_ARG_MISMATCH.empty());
+    EXPECT_FALSE(vm::FIELD_ACCESS_NOT_INSTANCE.empty());
+    EXPECT_FALSE(vm::UNDEFINED_METHOD.empty());
+    EXPECT_FALSE(vm::THIS_OUTSIDE_CLASS.empty());
+}
+
+TEST(ErrorMessageTest, ShouldHaveAsyncErrorMessages) {
+    // 비동기 관련 에러 메시지 확인
+    using namespace kingsejong::error;
+    EXPECT_FALSE(vm::CALL_NON_ASYNC.empty());
+    EXPECT_FALSE(vm::PROMISE_REJECTED.empty());
+
+    // 한글 메시지인지 확인
+    EXPECT_NE(vm::CALL_NON_ASYNC.find("비동기"), std::string_view::npos);
+    EXPECT_NE(vm::PROMISE_REJECTED.find("Promise"), std::string_view::npos);
+}
+
+TEST(ErrorMessageTest, ShouldHaveLimitErrorMessages) {
+    // 제한 관련 에러 메시지 확인
+    using namespace kingsejong::error;
+    EXPECT_FALSE(vm::MAX_INSTRUCTION_LIMIT.empty());
+    EXPECT_FALSE(vm::MAX_EXECUTION_TIME.empty());
+    EXPECT_FALSE(vm::STACK_SIZE_EXCEEDED.empty());
+
+    // 포맷 문자열 포함 확인 ({})
+    EXPECT_NE(vm::MAX_INSTRUCTION_LIMIT.find("{}"), std::string_view::npos);
+    EXPECT_NE(vm::MAX_EXECUTION_TIME.find("{}"), std::string_view::npos);
 }
 
 // ============================================================================

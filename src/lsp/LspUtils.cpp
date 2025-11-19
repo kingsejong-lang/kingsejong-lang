@@ -6,6 +6,7 @@
  */
 
 #include "lsp/LspUtils.h"
+#include "common/UTF8Utils.h"
 #include <sstream>
 #include <cctype>
 
@@ -38,22 +39,22 @@ size_t characterToByteOffset(const std::string& line, int character)
         unsigned char c = line[byteOffset];
 
         // UTF-8 바이트 수와 UTF-16 code units 계산
-        if ((c & 0x80) == 0) {
+        if ((c & common::UTF8_1BYTE_MASK) == common::UTF8_1BYTE_PATTERN) {
             // ASCII: 1 바이트 = 1 UTF-16 code unit
             byteOffset += 1;
             utf16Position += 1;
         }
-        else if ((c & 0xE0) == 0xC0) {
+        else if ((c & common::UTF8_2BYTE_MASK) == common::UTF8_2BYTE_PATTERN) {
             // 2바이트 UTF-8 = 1 UTF-16 code unit
             byteOffset += 2;
             utf16Position += 1;
         }
-        else if ((c & 0xF0) == 0xE0) {
+        else if ((c & common::UTF8_3BYTE_MASK) == common::UTF8_3BYTE_PATTERN) {
             // 3바이트 UTF-8 = 1 UTF-16 code unit (한글 포함)
             byteOffset += 3;
             utf16Position += 1;
         }
-        else if ((c & 0xF8) == 0xF0) {
+        else if ((c & common::UTF8_4BYTE_MASK) == common::UTF8_4BYTE_PATTERN) {
             // 4바이트 UTF-8 = 2 UTF-16 code units (surrogate pair)
             byteOffset += 4;
             utf16Position += 2;
@@ -97,18 +98,18 @@ std::string extractWordAtOffset(const std::string& line, size_t byteOffset)
         }
 
         // UTF-8 multi-byte 문자 (한글 등)
-        if (c & 0x80) {
+        if (c & common::UTF8_1BYTE_MASK) {
             // UTF-8 시작 바이트 찾기
             size_t temp = start - 1;
-            while (temp > 0 && (line[temp] & 0xC0) == 0x80) {
+            while (temp > 0 && common::isUTF8ContinuationByte(line[temp])) {
                 temp--;
             }
 
             // 유효한 UTF-8 시작인지 확인
             unsigned char firstByte = line[temp];
-            if ((firstByte & 0xE0) == 0xC0 ||
-                (firstByte & 0xF0) == 0xE0 ||
-                (firstByte & 0xF8) == 0xF0) {
+            if ((firstByte & common::UTF8_2BYTE_MASK) == common::UTF8_2BYTE_PATTERN ||
+                (firstByte & common::UTF8_3BYTE_MASK) == common::UTF8_3BYTE_PATTERN ||
+                (firstByte & common::UTF8_4BYTE_MASK) == common::UTF8_4BYTE_PATTERN) {
                 start = temp;
                 continue;
             }
@@ -131,14 +132,9 @@ std::string extractWordAtOffset(const std::string& line, size_t byteOffset)
         }
 
         // UTF-8 multi-byte 문자
-        if ((c & 0x80) != 0) {
+        if ((c & common::UTF8_1BYTE_MASK) != common::UTF8_1BYTE_PATTERN) {
             // UTF-8 문자 전체 크기 계산
-            size_t charSize = 0;
-            if ((c & 0xE0) == 0xC0) charSize = 2;
-            else if ((c & 0xF0) == 0xE0) charSize = 3;
-            else if ((c & 0xF8) == 0xF0) charSize = 4;
-            else break; // Invalid UTF-8
-
+            size_t charSize = common::getUTF8CharLength(c);
             end += charSize;
             continue;
         }

@@ -7,6 +7,7 @@
 
 #include "Lexer.h"
 #include "JosaRecognizer.h"
+#include "common/UTF8Utils.h"
 #include <cctype>
 
 namespace kingsejong {
@@ -99,13 +100,13 @@ bool Lexer::isKoreanStart(unsigned char c) const
 {
     // UTF-8 한글 범위: 0xEA-0xED (대부분의 한글)
     // 더 넓은 범위: 0xE0-0xEF (모든 3바이트 UTF-8)
-    return (c & 0xF0) == 0xE0;
+    return (c & common::UTF8_3BYTE_MASK) == common::UTF8_3BYTE_PATTERN;
 }
 
 bool Lexer::isUTF8ContinuationByte(unsigned char c) const
 {
     // UTF-8 연속 바이트: 10xxxxxx
-    return (c & 0xC0) == 0x80;
+    return common::isUTF8ContinuationByte(c);
 }
 
 std::string Lexer::readUTF8Char()
@@ -113,13 +114,13 @@ std::string Lexer::readUTF8Char()
     std::string result;
     unsigned char first = static_cast<unsigned char>(ch);
 
-    if ((first & 0x80) == 0)
+    if ((first & common::UTF8_1BYTE_MASK) == common::UTF8_1BYTE_PATTERN)
     {
         // 1바이트 문자 (ASCII)
         result += ch;
         readChar();
     }
-    else if ((first & 0xE0) == 0xC0)
+    else if ((first & common::UTF8_2BYTE_MASK) == common::UTF8_2BYTE_PATTERN)
     {
         // 2바이트 문자
         result += ch;
@@ -130,7 +131,7 @@ std::string Lexer::readUTF8Char()
             readChar();
         }
     }
-    else if ((first & 0xF0) == 0xE0)
+    else if ((first & common::UTF8_3BYTE_MASK) == common::UTF8_3BYTE_PATTERN)
     {
         // 3바이트 문자 (한글)
         result += ch;
@@ -146,7 +147,7 @@ std::string Lexer::readUTF8Char()
             }
         }
     }
-    else if ((first & 0xF8) == 0xF0)
+    else if ((first & common::UTF8_4BYTE_MASK) == common::UTF8_4BYTE_PATTERN)
     {
         // 4바이트 문자
         result += ch;

@@ -481,9 +481,110 @@ Value Evaluator::evalCallExpression(ast::CallExpression* expr)
         // 객체 평가
         Value obj = eval(const_cast<ast::Expression*>(memberAccess->object()));
 
+        // Phase 7.3: Promise 메서드 처리 (.then, .catch)
+        if (obj.isPromise())
+        {
+            auto promise = obj.asPromise();
+            const std::string& methodName = memberAccess->memberName();
+
+            // 인자 평가 (콜백 함수)
+            if (expr->arguments().size() != 1)
+            {
+                throw error::ArgumentError(
+                    "Promise." + methodName + "()은 콜백 함수 1개를 인자로 받습니다"
+                );
+            }
+
+            Value callbackValue = eval(const_cast<ast::Expression*>(expr->arguments()[0].get()));
+            if (!callbackValue.isFunction())
+            {
+                throw error::TypeError(
+                    "Promise." + methodName + "()의 인자는 함수여야 합니다"
+                );
+            }
+
+            auto callbackFunc = callbackValue.asFunction();
+
+            // Continuation 생성
+            auto continuation = [this, callbackFunc](const Value& value) -> Value {
+                // 콜백 함수 실행
+                auto funcEnv = std::make_shared<Environment>(callbackFunc->closure());
+
+                // 매개변수 바인딩 (value를 첫 번째 매개변수에)
+                if (!callbackFunc->parameters().empty())
+                {
+                    funcEnv->set(callbackFunc->parameters()[0], value);
+                }
+
+                // 기존 환경 저장
+                auto previousEnv = env_;
+                env_ = funcEnv;
+
+                // 콜백 실행
+                Value result = Value::createNull();
+                try
+                {
+                    result = eval(callbackFunc->body());
+                }
+                catch (const ReturnValue& returnVal)
+                {
+                    result = returnVal.getValue();
+                }
+
+                // 환경 복원
+                env_ = previousEnv;
+
+                return result;
+            };
+
+            // 메서드에 따라 콜백 등록
+            if (methodName == "then" || methodName == "그러면")
+            {
+                // 이미 이행된 경우 즉시 실행
+                if (promise->state() == Promise::State::FULFILLED)
+                {
+                    Value result = continuation(promise->value());
+                    // 결과를 새 Promise로 감싸서 반환 (체이닝 지원)
+                    auto newPromise = std::make_shared<Promise>();
+                    newPromise->resolve(result);
+                    return Value::createPromise(newPromise);
+                }
+                else if (promise->state() == Promise::State::PENDING)
+                {
+                    promise->then(continuation);
+                }
+                // rejected인 경우 아무것도 하지 않음
+            }
+            else if (methodName == "catch" || methodName == "오류시")
+            {
+                // 이미 거부된 경우 즉시 실행
+                if (promise->state() == Promise::State::REJECTED)
+                {
+                    Value result = continuation(promise->value());
+                    // 결과를 새 Promise로 감싸서 반환
+                    auto newPromise = std::make_shared<Promise>();
+                    newPromise->resolve(result);
+                    return Value::createPromise(newPromise);
+                }
+                else if (promise->state() == Promise::State::PENDING)
+                {
+                    promise->catchError(continuation);
+                }
+                // fulfilled인 경우 아무것도 하지 않음
+            }
+            else
+            {
+                throw error::RuntimeError("Promise에 '" + methodName + "' 메서드가 없습니다");
+            }
+
+            // 체이닝을 위해 원래 Promise 반환
+            return obj;
+        }
+
+        // 클래스 인스턴스 메서드 호출
         if (!obj.isClassInstance())
         {
-            throw error::RuntimeError("메서드 호출은 클래스 인스턴스에만 가능합니다");
+            throw error::RuntimeError("메서드 호출은 클래스 인스턴스 또는 Promise에만 가능합니다");
         }
 
         auto instance = obj.asClassInstance();

@@ -378,6 +378,221 @@ TEST(CompilerTest, ShouldCompileVariableDeclaration) {
     EXPECT_EQ(result, VMResult::OK);
 }
 
+TEST(CompilerTest, ShouldCompileStringLiteral) {
+    std::string code = "\"안녕하세요\"";
+
+    lexer::Lexer lexer(code);
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    Chunk chunk;
+    Compiler compiler;
+    bool success = compiler.compile(program.get(), &chunk);
+
+    EXPECT_TRUE(success);
+    EXPECT_GT(chunk.size(), 0);
+}
+
+TEST(CompilerTest, ShouldCompileBooleanLiteral) {
+    std::string code = "참";
+
+    lexer::Lexer lexer(code);
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    Chunk chunk;
+    Compiler compiler;
+    bool success = compiler.compile(program.get(), &chunk);
+
+    EXPECT_TRUE(success);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_TRUE(vm.top().asBoolean());
+}
+
+TEST(CompilerTest, ShouldCompileFloatLiteral) {
+    std::string code = "3.14";
+
+    lexer::Lexer lexer(code);
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    Chunk chunk;
+    Compiler compiler;
+    bool success = compiler.compile(program.get(), &chunk);
+
+    EXPECT_TRUE(success);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_NEAR(vm.top().asFloat(), 3.14, 0.001);
+}
+
+TEST(CompilerTest, ShouldCompileComparison) {
+    std::string code = "10 < 20";
+
+    lexer::Lexer lexer(code);
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    Chunk chunk;
+    Compiler compiler;
+    bool success = compiler.compile(program.get(), &chunk);
+
+    EXPECT_TRUE(success);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_TRUE(vm.top().asBoolean());
+}
+
+TEST(CompilerTest, ShouldCompileMultiplication) {
+    std::string code = "6 * 7";
+
+    lexer::Lexer lexer(code);
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    Chunk chunk;
+    Compiler compiler;
+    bool success = compiler.compile(program.get(), &chunk);
+
+    EXPECT_TRUE(success);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.top().asInteger(), 42);
+}
+
+TEST(CompilerTest, ShouldCompileSubtraction) {
+    std::string code = "100 - 58";
+
+    lexer::Lexer lexer(code);
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    Chunk chunk;
+    Compiler compiler;
+    bool success = compiler.compile(program.get(), &chunk);
+
+    EXPECT_TRUE(success);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.top().asInteger(), 42);
+}
+
+TEST(CompilerTest, ShouldCompileDivision) {
+    std::string code = "84 / 2";
+
+    lexer::Lexer lexer(code);
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    Chunk chunk;
+    Compiler compiler;
+    bool success = compiler.compile(program.get(), &chunk);
+
+    EXPECT_TRUE(success);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.top().asInteger(), 42);
+}
+
+TEST(CompilerTest, ShouldCompileNegation) {
+    std::string code = "-42";
+
+    lexer::Lexer lexer(code);
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    Chunk chunk;
+    Compiler compiler;
+    bool success = compiler.compile(program.get(), &chunk);
+
+    EXPECT_TRUE(success);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.top().asInteger(), -42);
+}
+
+TEST(CompilerTest, ShouldCompileLogicalNot) {
+    std::string code = "!참";
+
+    lexer::Lexer lexer(code);
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    Chunk chunk;
+    Compiler compiler;
+    bool success = compiler.compile(program.get(), &chunk);
+
+    EXPECT_TRUE(success);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_FALSE(vm.top().asBoolean());
+}
+
+TEST(CompilerTest, ShouldCompileComplexExpression) {
+    std::string code = "(10 + 20) * 2 - 18";
+
+    lexer::Lexer lexer(code);
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    Chunk chunk;
+    Compiler compiler;
+    bool success = compiler.compile(program.get(), &chunk);
+
+    EXPECT_TRUE(success);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.top().asInteger(), 42);
+}
+
 // ============================================================================
 // OpCode 유틸리티 테스트
 // ============================================================================

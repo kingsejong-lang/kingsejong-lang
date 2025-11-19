@@ -278,7 +278,7 @@ Phase 7.5: 100% 완료! (SemVer + 의존성 해결 + ksjpm CLI) 🎉
 ### 7.3: 비동기 프로그래밍 (Async/Await) - P2 🚧 진행 중
 
 **예상 공수**: 3-4주
-**진행률**: 60% (AST + Parser + Evaluator + SemanticAnalyzer 구현 완료)
+**진행률**: 75% (AST + Parser + Evaluator + SemanticAnalyzer + Promise 체이닝 구현 완료)
 
 **완료 항목**:
 - [x] ✅ PROMISE 타입 추가 (TypeKind::PROMISE)
@@ -292,12 +292,12 @@ Phase 7.5: 100% 완료! (SemVer + 의존성 해결 + ksjpm CLI) 🎉
 - [x] ✅ Semantic Analyzer (await 유효성 검증)
 - [x] ✅ async 함수 Promise 반환 구현
 - [x] ✅ await Promise 값 추출 구현
+- [x] ✅ Promise 체이닝 (.then/.그러면, .catch/.오류시)
 
 **미완료 항목**:
 - [ ] ⏳ Evaluator Event Loop 구현 (실제 비동기 처리)
 - [ ] ⏳ Bytecode OpCode (ASYNC_CALL, AWAIT, PROMISE_RESOLVE, PROMISE_REJECT)
 - [ ] ⏳ VM 실행 로직 (Event Loop, async 실행)
-- [ ] ⏳ Promise 체이닝 (.then, .catch 메서드)
 - [ ] ⏳ 통합 테스트 및 고급 예제
 
 **문법 예시**:
@@ -520,7 +520,7 @@ Phase 7.5: 100% 완료! (SemVer + 의존성 해결 + ksjpm CLI) 🎉
   - 재귀적 의존성 해결 (전이 의존성 자동 추적)
   - 버전 충돌 감지 및 해결 (최적 버전 선택)
   - ksjpm CLI 도구 (init, install, add, remove, list, info)
-**진행 중**: Phase 7.3 비동기 프로그래밍 - 60% 완료 (2025-11-19 시작) 🚧
+**진행 중**: Phase 7.3 비동기 프로그래밍 - 75% 완료 (2025-11-19 시작) 🚧
   - ✅ Promise 클래스 구현 (resolve/reject/then/catch)
   - ✅ PROMISE 타입 추가
   - ✅ Lexer 키워드 추가 (비동기, 대기)
@@ -530,5 +530,6 @@ Phase 7.5: 100% 완료! (SemVer + 의존성 해결 + ksjpm CLI) 🎉
   - ✅ SemanticAnalyzer await 유효성 검증
   - ✅ async 함수 Promise 반환 구현
   - ✅ await Promise 값 추출 구현
-  - ⏳ Event Loop, Promise 체이닝, Bytecode/VM 구현 예정
+  - ✅ Promise 체이닝 (.then/.그러면, .catch/.오류시)
+  - ⏳ Event Loop, Bytecode/VM 구현 예정
 **다음 마일스톤**: Phase 7.3 비동기 프로그래밍 완료 (2025-12 ~ 2026-01)

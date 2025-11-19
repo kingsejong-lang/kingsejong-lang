@@ -716,12 +716,9 @@ TEST(VMJITTest, ShouldTriggerJITOnHotLoop) {
     chunk.write(static_cast<uint8_t>(offset), 1);
     
     // 루프 종료 (스택: [sum, i, condition])
-    std::cerr << "[TEST] POP 1 위치: " << chunk.size() << "\n";
     chunk.writeOpCode(OpCode::POP, 1);  // 조건 제거
-    std::cerr << "[TEST] POP 2 위치: " << chunk.size() << "\n";
     chunk.writeOpCode(OpCode::POP, 1);  // i 제거
     // 스택에 sum만 남음
-    std::cerr << "[TEST] HALT 위치: " << chunk.size() << "\n";
     chunk.writeOpCode(OpCode::HALT, 1);
     
     // VM 실행 (JIT 활성화 - 200회 반복)
@@ -737,6 +734,155 @@ TEST(VMJITTest, ShouldTriggerJITOnHotLoop) {
     // JIT 통계 출력
     std::cerr << "\n========== JIT Test Statistics ==========\n";
     vm.printJITStatistics();
+}
+
+TEST(VMJITTest, ShouldWorkWithJITDisabled) {
+    // JIT 비활성화 상태에서도 정상 동작해야 함
+    Chunk chunk;
+
+    // sum = 0
+    chunk.addConstant(Value::createInteger(0));
+    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk.write(0, 1);
+
+    // i = 0
+    chunk.addConstant(Value::createInteger(0));
+    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk.write(1, 1);
+
+    // 루프 시작
+    size_t loopStart = chunk.size();
+
+    // i < 50?
+    chunk.writeOpCode(OpCode::DUP, 1);
+    chunk.addConstant(Value::createInteger(50));
+    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk.write(2, 1);
+    chunk.writeOpCode(OpCode::LT, 1);
+
+    // false면 종료
+    chunk.writeOpCode(OpCode::JUMP_IF_FALSE, 1);
+    chunk.write(12, 1);
+    chunk.writeOpCode(OpCode::POP, 1);
+
+    // sum = sum + 1
+    chunk.writeOpCode(OpCode::SWAP, 1);
+    chunk.addConstant(Value::createInteger(1));
+    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk.write(3, 1);
+    chunk.writeOpCode(OpCode::ADD, 1);
+    chunk.writeOpCode(OpCode::SWAP, 1);
+
+    // i = i + 1
+    chunk.addConstant(Value::createInteger(1));
+    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk.write(3, 1);
+    chunk.writeOpCode(OpCode::ADD, 1);
+
+    // 루프 백점프
+    size_t offset = chunk.size() - loopStart + 2;
+    chunk.writeOpCode(OpCode::LOOP, 1);
+    chunk.write(static_cast<uint8_t>(offset), 1);
+
+    chunk.writeOpCode(OpCode::POP, 1);
+    chunk.writeOpCode(OpCode::POP, 1);
+    chunk.writeOpCode(OpCode::HALT, 1);
+
+    // JIT 비활성화
+    VM vm;
+    vm.setJITEnabled(false);
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.top().asInteger(), 50);
+}
+
+TEST(VMJITTest, ShouldHandleHighIterationCount) {
+    // 많은 반복 테스트 (100회 반복으로 JIT 트리거 확인)
+    Chunk chunk;
+
+    // sum = 0, counter = 0
+    chunk.addConstant(Value::createInteger(0));  // 0
+    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk.write(0, 1);
+    chunk.addConstant(Value::createInteger(0));  // 1
+    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk.write(1, 1);
+
+    // 루프 시작
+    size_t loopStart = chunk.size();
+
+    // counter < 100?
+    chunk.writeOpCode(OpCode::DUP, 1);
+    chunk.addConstant(Value::createInteger(100));  // 2
+    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk.write(2, 1);
+    chunk.writeOpCode(OpCode::LT, 1);
+
+    // false면 종료
+    chunk.writeOpCode(OpCode::JUMP_IF_FALSE, 1);
+    chunk.write(12, 1);
+    chunk.writeOpCode(OpCode::POP, 1);
+
+    // sum += 1
+    chunk.writeOpCode(OpCode::SWAP, 1);
+    chunk.addConstant(Value::createInteger(1));  // 3
+    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk.write(3, 1);
+    chunk.writeOpCode(OpCode::ADD, 1);
+    chunk.writeOpCode(OpCode::SWAP, 1);
+
+    // counter += 1
+    chunk.addConstant(Value::createInteger(1));  // 4
+    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk.write(4, 1);
+    chunk.writeOpCode(OpCode::ADD, 1);
+
+    // 루프 백점프
+    size_t offset = chunk.size() - loopStart + 2;
+    chunk.writeOpCode(OpCode::LOOP, 1);
+    chunk.write(static_cast<uint8_t>(offset), 1);
+
+    chunk.writeOpCode(OpCode::POP, 1);  // 조건 제거
+    chunk.writeOpCode(OpCode::POP, 1);  // counter 제거
+    chunk.writeOpCode(OpCode::HALT, 1);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.top().asInteger(), 100);
+}
+
+TEST(VMJITTest, ShouldRespectMaxInstructions) {
+    // 최대 명령어 수 제한 테스트
+    // JIT 비활성화하여 인터프리터 모드에서 명령어 제한 테스트
+    Chunk chunk;
+
+    // 무한 루프 (sum = sum + 1)
+    chunk.addConstant(Value::createInteger(0));
+    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk.write(0, 1);
+
+    size_t loopStart = chunk.size();
+    chunk.addConstant(Value::createInteger(1));
+    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk.write(1, 1);
+    chunk.writeOpCode(OpCode::ADD, 1);
+
+    size_t offset = chunk.size() - loopStart + 2;
+    chunk.writeOpCode(OpCode::LOOP, 1);
+    chunk.write(static_cast<uint8_t>(offset), 1);
+
+    chunk.writeOpCode(OpCode::HALT, 1);
+
+    VM vm;
+    vm.setJITEnabled(false);  // JIT 비활성화 (인터프리터 모드에서만 명령어 제한 적용)
+    vm.setMaxInstructions(1000);  // 1000개 명령어 제한
+    VMResult result = vm.run(&chunk);
+
+    // 최대 명령어 초과로 런타임 에러 예상
+    EXPECT_EQ(result, VMResult::RUNTIME_ERROR);
 }
 
 // ============================================================================

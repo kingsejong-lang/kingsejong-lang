@@ -68,6 +68,7 @@ public:
     SemanticAnalyzer()
         : symbolTable_()
         , inFunction_(false)
+        , inAsyncFunction_(false)
         , currentFunctionName_("")
         , expectedReturnType_(nullptr)
     {
@@ -114,6 +115,7 @@ private:
 
     // 함수 컨텍스트 추적 (반환 타입 검사용)
     bool inFunction_;                             ///< 현재 함수 내부인지 여부
+    bool inAsyncFunction_;                        ///< 현재 비동기 함수 내부인지 여부 (Phase 7.3)
     std::string currentFunctionName_;             ///< 현재 분석 중인 함수 이름
     types::Type* expectedReturnType_;             ///< 함수의 첫 return문에서 추론된 타입
 

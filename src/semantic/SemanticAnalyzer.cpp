@@ -255,6 +255,38 @@ void SemanticAnalyzer::analyzeAndResolveStatement(const Statement* stmt)
 
             symbolTable_.exitScope();
         }
+        // Phase 7.3: 비동기 함수 리터럴 할당
+        else if (auto asyncFuncLit = dynamic_cast<const AsyncFunctionLiteral*>(assignStmt->value()))
+        {
+            // 함수 이름을 현재 스코프에 등록
+            symbolTable_.define(assignStmt->varName(), SymbolKind::FUNCTION,
+                              nullptr);
+
+            // 함수 body를 새로운 스코프에서 분석
+            symbolTable_.enterScope();
+
+            // 매개변수를 함수 스코프에 등록
+            for (const auto& param : asyncFuncLit->parameters())
+            {
+                symbolTable_.define(param, SymbolKind::VARIABLE,
+                                  nullptr);
+            }
+
+            // 비동기 함수 컨텍스트 설정
+            bool prevInAsyncFunction = inAsyncFunction_;
+            inAsyncFunction_ = true;
+
+            // 함수 body 분석
+            if (asyncFuncLit->body())
+            {
+                analyzeAndResolveStatement(asyncFuncLit->body());
+            }
+
+            // 컨텍스트 복원
+            inAsyncFunction_ = prevInAsyncFunction;
+
+            symbolTable_.exitScope();
+        }
         else
         {
             // 일반 할당문: 변수가 정의되어 있지 않으면 현재 스코프에 등록 (동적 타이핑)
@@ -557,6 +589,35 @@ void SemanticAnalyzer::analyzeAndResolveExpression(const Expression* expr)
     {
         // this는 메서드나 생성자 내부에서만 사용 가능
         // 현재는 스코프 체크 없이 허용 (TODO: 향후 메서드/생성자 스코프 추적 추가)
+    }
+    // Phase 7.3: 비동기 함수 리터럴
+    else if (auto asyncFunc = dynamic_cast<const AsyncFunctionLiteral*>(expr))
+    {
+        // 비동기 함수의 본문을 분석 (함수 본문 내의 식별자 등)
+        if (asyncFunc->body())
+        {
+            // 비동기 함수 컨텍스트 설정
+            bool prevInAsyncFunction = inAsyncFunction_;
+            inAsyncFunction_ = true;
+
+            analyzeAndResolveStatement(asyncFunc->body());
+
+            // 컨텍스트 복원
+            inAsyncFunction_ = prevInAsyncFunction;
+        }
+    }
+    // Phase 7.3: await 표현식
+    else if (auto awaitExpr = dynamic_cast<const AwaitExpression*>(expr))
+    {
+        // await는 async 함수 내부에서만 사용 가능
+        if (!inAsyncFunction_)
+        {
+            addError("'대기'는 비동기 함수 내부에서만 사용할 수 있습니다",
+                    expr->location().line, expr->location().column);
+        }
+
+        // 대기할 표현식 분석
+        analyzeAndResolveExpression(awaitExpr->argument());
     }
     // 리터럴 (정수, 실수, 문자열, 불린): 아무것도 안 함
     // 함수 리터럴: 별도 처리 필요 없음 (AssignmentStatement에서 처리)
@@ -976,10 +1037,11 @@ void SemanticAnalyzer::checkTypesInStatement(const Statement* stmt)
         const std::string& varName = assignStmt->varName();
         Symbol* symbol = symbolTable_.lookup(varName);
 
+        // 변수가 정의되어 있지 않으면 현재 스코프에 등록 (동적 타이핑)
         if (!symbol)
         {
-            addError("정의되지 않은 변수: " + varName);
-            return;
+            symbolTable_.define(varName, SymbolKind::VARIABLE, nullptr);
+            symbol = symbolTable_.lookup(varName);
         }
 
         // 함수 리터럴인 경우 함수 컨텍스트 설정
@@ -994,11 +1056,54 @@ void SemanticAnalyzer::checkTypesInStatement(const Statement* stmt)
             currentFunctionName_ = varName;
             expectedReturnType_ = nullptr;  // 첫 return에서 추론
 
+            // 함수 스코프 생성 및 매개변수 등록
+            symbolTable_.enterScope();
+            for (const auto& param : funcLit->parameters())
+            {
+                symbolTable_.define(param, SymbolKind::VARIABLE, nullptr);
+            }
+
             // 함수 본문 검사
             checkTypesInStatement(funcLit->body());
 
+            // 함수 스코프 종료
+            symbolTable_.exitScope();
+
             // 함수 컨텍스트 복원
             inFunction_ = prevInFunction;
+            currentFunctionName_ = prevFunctionName;
+            expectedReturnType_ = prevReturnType;
+        }
+        // Phase 7.3: 비동기 함수 리터럴인 경우
+        else if (auto asyncFuncLit = dynamic_cast<const AsyncFunctionLiteral*>(assignStmt->value()))
+        {
+            // 함수 컨텍스트 진입
+            bool prevInFunction = inFunction_;
+            bool prevInAsyncFunction = inAsyncFunction_;
+            std::string prevFunctionName = currentFunctionName_;
+            Type* prevReturnType = expectedReturnType_;
+
+            inFunction_ = true;
+            inAsyncFunction_ = true;  // 비동기 함수 컨텍스트
+            currentFunctionName_ = varName;
+            expectedReturnType_ = nullptr;
+
+            // 함수 스코프 생성 및 매개변수 등록
+            symbolTable_.enterScope();
+            for (const auto& param : asyncFuncLit->parameters())
+            {
+                symbolTable_.define(param, SymbolKind::VARIABLE, nullptr);
+            }
+
+            // 함수 본문 검사
+            checkTypesInStatement(asyncFuncLit->body());
+
+            // 함수 스코프 종료
+            symbolTable_.exitScope();
+
+            // 함수 컨텍스트 복원
+            inFunction_ = prevInFunction;
+            inAsyncFunction_ = prevInAsyncFunction;
             currentFunctionName_ = prevFunctionName;
             expectedReturnType_ = prevReturnType;
         }
@@ -1089,10 +1194,16 @@ void SemanticAnalyzer::checkTypesInStatement(const Statement* stmt)
     // BlockStatement: 블록 내 모든 문장 검사
     else if (auto blockStmt = dynamic_cast<const BlockStatement*>(stmt))
     {
+        // 블록 스코프 생성
+        symbolTable_.enterScope();
+
         for (const auto& s : blockStmt->statements())
         {
             checkTypesInStatement(s.get());
         }
+
+        // 블록 스코프 종료
+        symbolTable_.exitScope();
     }
 
     // WhileStatement: while문의 조건 타입 검사

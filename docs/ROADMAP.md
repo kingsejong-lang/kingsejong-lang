@@ -408,7 +408,7 @@ Phase 7.5: 100% 완료! (SemVer + 의존성 해결 + ksjpm CLI) 🎉
 
 **기간**: 2025-11 ~ 2025-12 (1개월)
 **목표**: 코드 품질 향상, 문서화 완성, 성능 검증
-**진행률**: 68%
+**진행률**: 70%
 
 ### 8.1: Clean Code 적용 - P1 (70%)
 
@@ -422,9 +422,9 @@ Phase 7.5: 100% 완료! (SemVer + 의존성 해결 + ksjpm CLI) 🎉
 - [x] 네이밍 컨벤션 확인 (trailing underscore, camelCase)
 - [x] 매직 넘버 상수화 (VM, Lexer, LspUtils, Builtin)
 
-### 8.2: 주석 및 문서화 - P1 (60%)
+### 8.2: 주석 및 문서화 - P1 (70%)
 
-- [x] Doxygen 주석 정리 및 보완 (Linter 규칙 파일)
+- [x] Doxygen 주석 정리 및 보완 (Linter 규칙, VM, Compiler, Value)
 - [ ] API 문서 생성
 - [x] README 업데이트 (Phase 7 완료, 테스트 1465개)
 - [ ] 사용자 가이드 작성

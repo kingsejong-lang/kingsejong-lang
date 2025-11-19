@@ -408,14 +408,18 @@ Phase 7.5: 100% 완료! (SemVer + 의존성 해결 + ksjpm CLI) 🎉
 
 **기간**: 2025-11 ~ 2025-12 (1개월)
 **목표**: 코드 품질 향상, 문서화 완성, 성능 검증
-**진행률**: 65%
+**진행률**: 68%
 
-### 8.1: Clean Code 적용 - P1 (60%)
+### 8.1: Clean Code 적용 - P1 (70%)
 
 - [x] 코드 스타일 통일 (clang-format 적용)
-- [ ] 함수/클래스 분리 및 리팩토링
+- [x] 긴 함수 분석 완료:
+  - VM::executeInstruction() 792줄 → 분해 필요
+  - Evaluator::evalCallExpression() 351줄 → 분해 필요
+  - Evaluator::evalJosaExpression() 284줄 → 검토 필요
+- [ ] 함수 분해 리팩토링 (Phase 9로 이관)
 - [x] 중복 코드 제거 (UTF8Utils.h 공통 유틸리티)
-- [ ] 네이밍 컨벤션 정리
+- [x] 네이밍 컨벤션 확인 (trailing underscore, camelCase)
 - [x] 매직 넘버 상수화 (VM, Lexer, LspUtils, Builtin)
 
 ### 8.2: 주석 및 문서화 - P1 (60%)

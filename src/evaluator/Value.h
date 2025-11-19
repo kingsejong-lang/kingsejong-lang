@@ -8,6 +8,7 @@
  */
 
 #include "types/Type.h"
+#include "EventLoop.h"
 #include <variant>
 #include <string>
 #include <memory>
@@ -657,10 +658,14 @@ inline void Promise::resolve(const Value& value)
     state_ = State::FULFILLED;
     value_ = std::make_shared<Value>(value);
 
-    // then 콜백 실행
+    // then 콜백을 microtask queue에 등록
+    auto& eventLoop = getGlobalEventLoop();
+    auto capturedValue = value_;
     for (auto& callback : thenCallbacks_)
     {
-        callback(*value_);
+        eventLoop.enqueueMicrotask([callback, capturedValue]() {
+            callback(*capturedValue);
+        });
     }
     thenCallbacks_.clear();
 }
@@ -675,10 +680,14 @@ inline void Promise::reject(const Value& reason)
     state_ = State::REJECTED;
     value_ = std::make_shared<Value>(reason);
 
-    // catch 콜백 실행
+    // catch 콜백을 microtask queue에 등록
+    auto& eventLoop = getGlobalEventLoop();
+    auto capturedValue = value_;
     for (auto& callback : catchCallbacks_)
     {
-        callback(*value_);
+        eventLoop.enqueueMicrotask([callback, capturedValue]() {
+            callback(*capturedValue);
+        });
     }
     catchCallbacks_.clear();
 }
@@ -687,8 +696,12 @@ inline void Promise::then(Continuation callback)
 {
     if (state_ == State::FULFILLED && value_ != nullptr)
     {
-        // 이미 이행된 경우 즉시 실행
-        callback(*value_);
+        // 이미 이행된 경우 microtask queue에 등록
+        auto& eventLoop = getGlobalEventLoop();
+        auto capturedValue = value_;
+        eventLoop.enqueueMicrotask([callback, capturedValue]() {
+            callback(*capturedValue);
+        });
     }
     else if (state_ == State::PENDING)
     {
@@ -701,8 +714,12 @@ inline void Promise::catchError(Continuation callback)
 {
     if (state_ == State::REJECTED && value_ != nullptr)
     {
-        // 이미 거부된 경우 즉시 실행
-        callback(*value_);
+        // 이미 거부된 경우 microtask queue에 등록
+        auto& eventLoop = getGlobalEventLoop();
+        auto capturedValue = value_;
+        eventLoop.enqueueMicrotask([callback, capturedValue]() {
+            callback(*capturedValue);
+        });
     }
     else if (state_ == State::PENDING)
     {

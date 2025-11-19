@@ -7,6 +7,7 @@
 
 #include "Evaluator.h"
 #include "Builtin.h"
+#include "EventLoop.h"
 #include "../error/Error.h"
 #include "../module/ModuleLoader.h"
 #include "jit/HotPathDetector.h"
@@ -166,6 +167,10 @@ Value Evaluator::evalProgram(ast::Program* program)
     {
         result = eval(stmt.get());
     }
+
+    // 프로그램 실행 후 Event Loop 실행 (microtask 처리)
+    auto& eventLoop = getGlobalEventLoop();
+    eventLoop.run();
 
     return result;
 }

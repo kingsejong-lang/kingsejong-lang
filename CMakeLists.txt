@@ -36,6 +36,7 @@ set(LIB_SOURCES
     src/evaluator/Environment.cpp
     src/evaluator/Evaluator.cpp
     src/evaluator/Builtin.cpp
+    src/evaluator/EventLoop.cpp
     src/module/ModuleLoader.cpp
     src/repl/Repl.cpp
     src/memory/GC.cpp
@@ -226,6 +227,7 @@ if(EMSCRIPTEN)
         src/evaluator/Environment.cpp
         src/evaluator/Evaluator.cpp
         src/evaluator/Builtin.cpp
+        src/evaluator/EventLoop.cpp
         src/error/ErrorReporter.cpp
         src/bytecode/OpCode.cpp
         src/bytecode/Chunk.cpp

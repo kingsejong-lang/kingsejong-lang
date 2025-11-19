@@ -401,10 +401,7 @@ Value Evaluator::evalFunctionLiteral(ast::FunctionLiteral* lit)
  * @brief 비동기 함수 리터럴 평가 (Phase 7.3)
  *
  * 비동기 함수 정의를 평가하여 Function 객체를 생성합니다.
- * 현재 구현에서는 일반 함수와 동일하게 처리하며,
- * 완전한 Promise 기반 비동기 실행은 향후 구현됩니다.
- *
- * TODO: Promise를 반환하도록 수정
+ * async 함수는 호출 시 Promise를 반환합니다.
  */
 Value Evaluator::evalAsyncFunctionLiteral(ast::AsyncFunctionLiteral* lit)
 {
@@ -417,9 +414,8 @@ Value Evaluator::evalAsyncFunctionLiteral(ast::AsyncFunctionLiteral* lit)
     // 클로저: 현재 환경을 캡처
     std::shared_ptr<Environment> closure = env_;
 
-    // Function 객체 생성 (현재는 일반 함수와 동일)
-    // TODO: async 플래그 추가하여 구별
-    auto func = std::make_shared<Function>(std::move(parameters), body, closure);
+    // Function 객체 생성 (isAsync=true)
+    auto func = std::make_shared<Function>(std::move(parameters), body, closure, false, true);
 
     return Value::createFunction(func);
 }
@@ -698,6 +694,25 @@ Value Evaluator::evalCallExpression(ast::CallExpression* expr)
         ).count();
 
         hotPathDetector_->trackFunctionCall(functionName, functionId, duration);
+    }
+
+    // Phase 7.3: async 함수는 Promise를 반환
+    if (func->isAsync())
+    {
+        // 결과를 Promise로 감싸서 반환
+        auto promise = std::make_shared<Promise>();
+
+        // 에러인 경우 reject, 아니면 resolve
+        if (result.isError())
+        {
+            promise->reject(result);
+        }
+        else
+        {
+            promise->resolve(result);
+        }
+
+        return Value::createPromise(promise);
     }
 
     return result;

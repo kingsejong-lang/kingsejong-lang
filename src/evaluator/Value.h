@@ -43,6 +43,7 @@ private:
     ast::Statement* body_;                         ///< 함수 본문 (BlockStatement)
     std::shared_ptr<Environment> closure_;         ///< 클로저 환경
     bool isBuiltin_;                               ///< 내장 함수 또는 특수 함수 여부
+    bool isAsync_;                                 ///< 비동기 함수 여부 (Phase 7.3)
     std::shared_ptr<ClassDefinition> classDef_;    ///< 클래스 생성자인 경우 클래스 정의
 
 public:
@@ -52,17 +53,20 @@ public:
      * @param body 함수 본문
      * @param closure 클로저 환경
      * @param isBuiltin 내장 함수 여부 (기본값: false)
+     * @param isAsync 비동기 함수 여부 (기본값: false)
      */
     Function(
         std::vector<std::string> parameters,
         ast::Statement* body,
         std::shared_ptr<Environment> closure,
-        bool isBuiltin = false
+        bool isBuiltin = false,
+        bool isAsync = false
     )
         : parameters_(std::move(parameters))
         , body_(body)
         , closure_(closure)
         , isBuiltin_(isBuiltin)
+        , isAsync_(isAsync)
         , classDef_(nullptr)
     {}
 
@@ -70,6 +74,7 @@ public:
     ast::Statement* body() const { return body_; }
     std::shared_ptr<Environment> closure() const { return closure_; }
     bool isBuiltin() const { return isBuiltin_; }
+    bool isAsync() const { return isAsync_; }
     std::shared_ptr<ClassDefinition> classDef() const { return classDef_; }
 
     void setClassDef(std::shared_ptr<ClassDefinition> classDef) { classDef_ = classDef; }

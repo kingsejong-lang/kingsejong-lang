@@ -3,550 +3,119 @@
 > **비전**: 한국어로 누구나 쉽게 프로그래밍할 수 있는 세상
 
 **최종 업데이트**: 2025-11-20
-**현재 버전**: v0.8.0-dev (Phase 8 진행중 95%)
-**Production Readiness**: 🟢 **8.5/10** (JIT Tier 1 + 클래스 + 세대별 GC + 코드 품질 95%!)
+**현재 버전**: v0.8.0-dev (Phase 8 진행 중)
+**Production Readiness**: Phase 8 마무리 후 재측정 예정
 **중요 문서**: [아키텍처 분석](./ARCHITECTURE_ANALYSIS.md) | [VM 분석](./KINGSEJONG_VM_ANALYSIS.md) | [언어 분석](./KINGSEJONG_LANGUAGE_ANALYSIS.md)
 
 ---
 
-## 📊 현재 상태
-
-### 통계
-
-```
-코드: 29,000+ 줄
-테스트: 1,490개 (100% 통과) ✅
-stdlib: 258개 함수 ✅
-문서: 5,000+ 줄
-예제: 35개+ ✅
-플랫폼: macOS (x64/ARM64), Linux, Windows
-JIT: Tier 1 완료 (24개 OpCode) ✅
-실행 파일: kingsejong (인터프리터), ksjpm (패키지 관리자) ✅
-클래스: 기본 구조 완료 (Phase 7.1 95%) ✅
-Phase 7: 100% 완료! (클래스, Async, 세대별 GC, 패키지 관리자) 🎉
-Phase 8: 95% 진행중 (코드 품질, 문서화, 테스트 강화) 🚧
-```
-
-### Production Readiness 평가
-
-| 차원 | 점수 | 평가 | 상태 |
-|------|------|------|------|
-| **언어 완성도** | 7.5/10 | 🟢 양호 | 클래스 + Phase 7.2 완료, async 필요 |
-| **VM/인터프리터 품질** | 9/10 | 🟢 우수 | JIT Tier 1 완료 ✅ |
-| **표준 라이브러리** | 7/10 | 🟢 양호 | 255개 함수 완료 |
-| **메모리 관리** | 8/10 | 🟢 우수 | 세대별 GC 완료 ✅ |
-| **성능** | 7/10 | 🟢 양호 | JIT Tier 1 완료 (24개 OpCode) ✅ |
-| **에러 처리** | 8/10 | 🟢 우수 | try/catch/finally ✅ |
-| **디버깅** | 6/10 | 🟡 보통 | 디버거 완료, 개선 필요 |
-| **문서화** | 8/10 | 🟢 우수 | 방대한 문서 |
-| **테스팅** | 9/10 | 🟢 우수 | 1,490 테스트 (100%) ✅ |
-| **보안** | 8/10 | 🟢 우수 | 파일 & 네트워크 보안 ✅ |
-| **도구** | 9/10 | 🟢 우수 | LSP, ksjpm, VS Code 확장 ✅ |
-
-**전체**: **8.5/10** 🟢 (프로덕션 배포 가능!)
-
-### 완료된 Phase (Phase 0-5)
-
-<details>
-<summary><b>Phase 0-5 완료 항목 보기</b></summary>
-
-| Phase | 상태 | 주요 성과 |
-|-------|------|-----------|
-| **Phase 0** | ✅ 100% | 프로젝트 초기화, 테스트 프레임워크 |
-| **Phase 1** | ✅ 100% | 핵심 차별화 기능 (조사 체인, 1급 함수, REPL) |
-| **Phase 2** | ✅ 100% | 실용 기능 (배열, 문자열, 예외 처리, stdlib) |
-| **Phase 3** | ✅ 100% | 고급 기능 (GC, 바이트코드, 모듈 시스템) |
-| **Phase 4** | ✅ 100% | 최적화 (CI/CD, 성능, 메모리 안전성) |
-| **Phase 5** | ✅ 100% | 개발자 경험 (LSP, 디버거, 플레이그라운드, 패턴 매칭) |
-
-**주요 완료 기능**:
-- ✅ 한국어 조사 체인 (독창적 문법)
-- ✅ REPL, LSP, 디버거, VS Code 확장
-- ✅ 패턴 매칭, 1급 함수, 클로저
-- ✅ GC, 바이트코드 VM, 모듈 시스템
-- ✅ Linter (8개 규칙), Formatter, Profiler
-- ✅ 표준 라이브러리 255개 함수 (io, json, time, regex, crypto, os, http, db, collections)
-- ✅ WebAssembly 빌드 (온라인 플레이그라운드)
-- ✅ 보안 (파일 샌드박스, 네트워크 접근 제어)
-- ✅ 예외 처리 (try/catch/finally/throw)
-
-</details>
-
----
-
-## ✅ Phase 6: 완성도 향상 (v0.4.0) - 100% 완료!
-
-**기간**: 2025-11 말 ~ 2025-11-17 (완료!)
-**목표**: 프로덕션 수준의 언어 + 아키텍처 개선
-**진행률**: 100% ✅
-
-### ✅ 완료 항목
-
-#### 6.1: 코드 품질 도구 ✅
-- Linter (8개 규칙, 31개 테스트)
-- Formatter (18개 테스트)
-- Profiler (8개 테스트)
-- 설정 파일 지원 (.ksjlint.json, .ksjfmt.json)
-
-#### 6.2: 표준 라이브러리 확장 ✅
-- stdlib/utils.ksj (30개)
-- stdlib/regex.ksj (30개)
-- stdlib/crypto.ksj (42개)
-- stdlib/os.ksj (39개)
-- stdlib/http.ksj (20개)
-- stdlib/db.ksj (20개)
-- stdlib/collections.ksj (30개)
-- **총 255개 함수 달성**
-
-#### 6.3: P0 긴급 과제 ✅
-- **P0-1**: Semantic Analyzer 완전 구현 ✅ (29개 테스트)
-- **P0-2**: 예외 처리 런타임 구현 ✅ (12개 테스트)
-  - try/catch/finally/throw 완전 구현
-  - 에러 전파 메커니즘
-- **P0-3**: 보안 & 안정성 ✅
-  - SecurityManager (파일 샌드박스, 17개 테스트)
-  - NetworkSecurityManager (SSRF 방지, Rate limiting, 22개 테스트)
-  - Production Readiness: 4.5/10 → 7.8/10 달성! 🎉
-
-#### 6.4: JIT Compiler (Tier 1) - P0 ✅ **완료!**
-
-**목표**: 10-20배 성능 향상
-**최종 상태**: 산술 + 변수 + 제어흐름 + 비교 + 논리 연산 + VM 통합 + 실제 스택 값 읽기 완료 ✅ (1개 테스트)
-
-**완료 항목**:
-
-1. **JIT 아키텍처 설계** ✅
-   - ✅ Tier 1 JIT 컴파일러 설계 (JIT_TIER1_DESIGN.md)
-   - ✅ asmjit 라이브러리 통합
-   - ✅ 크로스 플랫폼 지원 (x64 + ARM64)
-   - ✅ Fallback 메커니즘 (JIT 실패 시 nullptr 반환)
-
-2. **기본 JIT 구현** ✅ 완료
-   - ✅ 산술 연산 JIT 컴파일 (ADD, SUB, MUL, DIV, MOD, NEG)
-   - ✅ ARM64 네이티브 코드 생성 (Apple Silicon 지원)
-   - ✅ x64 네이티브 코드 생성 (Intel/AMD 지원)
-   - ✅ 아키텍처 자동 감지 및 디스패치
-   - ✅ 스택 기반 코드 생성
-   - ✅ 변수 접근 구현 (LOAD_VAR, STORE_VAR)
-   - ✅ 상수 로드 (LOAD_CONST, LOAD_TRUE, LOAD_FALSE, RETURN)
-   - ✅ 제어 흐름 (JUMP, JUMP_IF_FALSE, JUMP_IF_TRUE, LOOP)
-   - ✅ 레이블 맵 인프라 (점프 타겟 관리)
-   - ✅ 비교 연산 (EQ, NE, LT, GT, LE, GE)
-   - ✅ 논리 연산 (AND, OR, NOT)
-   - ✅ 스택 조작 (POP, DUP, SWAP)
-
-3. **VM 통합** ✅
-   - ✅ VM에 JIT 트리거 로직 추가
-   - ✅ Hot Path Detection 통합 (루프 임계값: 100회)
-   - ✅ JIT 캐시 관리 (중복 컴파일 방지)
-   - ✅ JIT 활성화/비활성화 플래그
-   - ✅ unique_ptr 기반 메모리 관리
-   - ✅ JIT 통계 출력 기능
-
-4. **스택 값 읽기 및 최종 통합** ✅ 완료 (2025-11-17)
-   - ✅ 가상 스택 포인터 초기화 (x9 = stackSize)
-   - ✅ JUMP_IF_FALSE OpCode peek→pop 수정
-   - ✅ 실제 스택 값 읽기 구현 (stack[1])
-   - ✅ LIFO 스택 순서 수정 ([result, dummy, dummy])
-   - ✅ 디버그 로그 정리 (에러 로그만 유지)
-   - ✅ VMJITTest.ShouldTriggerJITOnHotLoop 통과
-   - ✅ 전체 1,370개 테스트 통과
-
-**최종 성과**:
-- ✅ **JIT Tier 1 완료!** 🎉
-- ✅ ARM64 + x64 크로스 플랫폼 지원
-- ✅ 산술 연산 7개 OpCode 구현 (ADD, SUB, MUL, DIV, MOD, NEG, RETURN)
-- ✅ 변수 접근 2개 OpCode 구현 (LOAD_VAR, STORE_VAR)
-- ✅ 제어 흐름 6개 OpCode 구현 (JUMP, JUMP_IF_FALSE, JUMP_IF_TRUE, LOOP, LOAD_TRUE, LOAD_FALSE)
-- ✅ 비교 연산 6개 OpCode 구현 (EQ, NE, LT, GT, LE, GE)
-- ✅ 논리 연산 3개 OpCode 구현 (AND, OR, NOT)
-- ✅ 스택 조작 3개 OpCode 구현 (POP, DUP, SWAP)
-- ✅ 레이블 맵 인프라 (std::unordered_map<size_t, Label>)
-- ✅ **VM 통합 완료** (JIT 트리거, Hot Path Detection, 캐시 관리)
-- ✅ **실제 스택 값 읽기 구현** (하드코딩 제거)
-- ✅ VMJITTest.ShouldTriggerJITOnHotLoop 통과
-- ✅ 전체 1,370개 테스트 통과 (100%)
-- ✅ 컴파일 속도: < 1ms per function
-- ✅ **총 24개 OpCode 구현 완료**
-- 🎉 **핫 루프 실행**: 101회 인터프리터 + 99회 JIT
-
-**다음 Phase (Phase 7 - 언어 기능 확장)**:
-1. 클래스 시스템 (OOP)
-2. 언어 기능 확장 (딕셔너리, 배열 슬라이싱, 문자열 보간)
-3. 비동기 프로그래밍 (Async/Await)
-4. 성능 벤치마크 및 최적화
-5. JIT Tier 2 (고급 최적화) - 선택적
-
----
-
-## 🎯 Phase 7: 언어 기능 확장 (v1.0.0) - 진행 중
-
-**기간**: 2025-11 ~ 2026-06 (6개월)
-**목표**: 현대적 언어 기능 추가
-**진행률**: 100% (Phase 7.1~7.5 모두 완료! 🎉)
-
-### 7.1: 클래스 시스템 (OOP) - P1 ✅ 완료!
-
-**실제 소요**: 1주 (2025-11-18 완료)
-**진행률**: 95% (기본 기능 완료, 상속 제외)
-
-**완료 항목**:
-- [x] ✅ 클래스 정의 문법 (클래스, 필드, 생성자, 메서드 파싱)
-- [x] ✅ 접근 제어 (공개/비공개) - 파싱 완료
-- [x] ✅ this 키워드 (자신) - 파싱 완료
-- [x] ✅ AST 노드 추가 (ClassStatement, FieldDeclaration, MethodDeclaration, etc.)
-- [x] ✅ Lexer 키워드 추가 (클래스, 생성자, 공개, 비공개, 자신)
-- [x] ✅ Parser 구현 (12개 테스트 통과)
-- [x] ✅ 바이트코드 OpCode 추가 (CLASS_DEF, NEW_INSTANCE, LOAD_FIELD, STORE_FIELD, CALL_METHOD, LOAD_THIS)
-- [x] ✅ Object 시스템 구현 (ClassDefinition, ClassInstance)
-- [x] ✅ Compiler 구현 (클래스 → 바이트코드)
-- [x] ✅ VM 실행 로직 (클래스 정의, 인스턴스 생성)
-- [x] ✅ SemanticAnalyzer 검증 (중복 필드/메서드, 미정의 클래스)
-- [x] ✅ 통합 테스트 16개 통과
-- [x] ✅ 예제 파일 작성 (7개의 예제)
-- [x] ✅ **필드 접근 및 할당** (Phase 7.1.1 완료!)
-- [x] ✅ **생성자 실행** (Phase 7.1.2 완료!)
-- [x] ✅ **메서드 호출** (Phase 7.1.3 완료!)
-
-**미완료 항목** (Phase 7.2로 연기):
-- [ ] ⏳ 상속 (단일 상속) - 낮은 우선순위
-- [ ] ⏳ 특수 메서드 (toString, equals, hashCode) - 낮은 우선순위
-
-**문법 예시**:
-```ksj
-클래스 사람 {
-    비공개 문자열 이름
-    비공개 정수 나이
-
-    생성자(이름, 나이) {
-        이.이름 = 이름
-        이.나이 = 나이
-    }
-
-    공개 함수 인사하기() {
-        출력("안녕하세요, 저는 " + 이.이름 + "입니다")
-    }
-}
-
-변수 홍길동 = 사람("홍길동", 30)
-홍길동.인사하기()
-```
-
-### 7.2: 언어 기능 확장 - P1 ✅ 완료!
-
-**실제 소요**: 1주 (2025-11-18 완료)
-**진행률**: 100% (모든 기능 완료! 🎉)
-
-- [x] ✅ **딕셔너리 자료구조** (2025-11-18 완료)
-  - ✅ 딕셔너리 리터럴 문법: `{ "key": "value" }`
-  - ✅ 키-값 접근: `dict["key"]`
-  - ✅ 타입 검증 (키는 문자열만)
-  - ✅ 네이티브 메서드: 딕셔너리_키들(), 딕셔너리_값들(), 딕셔너리_포함() (2025-11-18 완료)
-
-- [x] ✅ **배열 슬라이싱** (2025-11-18 완료)
-  - ✅ 범위 접근: `배열[0부터 4까지]` (한글 문법)
-  - ✅ 음수 인덱스: `배열[-1]`
-  - ✅ 스텝 (Phase 7.2): `배열[0부터 9까지 2씩]`
-  - ✅ 미만/초과/이상/이하 지원
-  - ✅ 음수 인덱스와 step 조합
-
-- [x] ✅ **문자열 보간** (2025-11-18 완료)
-  - ✅ 템플릿 리터럴: `"이름: ${이름}, 나이: ${나이}"`
-  - ✅ 표현식 지원: `"합계: ${a + b}"`
-  - ✅ 다양한 타입 지원: 정수, 실수, 문자열, 논리값
-  - ✅ 복잡한 표현식 지원
-
-**문법 예시**:
-```ksj
-# 딕셔너리
-변수 사용자 = { "이름": "홍길동", "나이": 30 }
-출력(사용자["이름"])  # "홍길동"
-
-# 배열 슬라이싱
-변수 숫자들 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-출력(숫자들[0부터 4까지])        # [1, 2, 3, 4, 5]
-출력(숫자들[-3부터 -1까지])      # [8, 9, 10]
-출력(숫자들[0부터 9까지 2씩])    # [1, 3, 5, 7, 9]
-
-# 문자열 보간
-변수 이름 = "홍길동"
-변수 나이 = 30
-출력("제 이름은 ${이름}이고, 나이는 ${나이}살입니다")
-```
-
-### 7.3: 비동기 프로그래밍 (Async/Await) - P2 ✅ 완료!
-
-**예상 공수**: 3-4주
-**실제 소요**: 2일 (2025-11-19 완료)
-**진행률**: 100%
-
-**완료 항목**:
-- [x] ✅ PROMISE 타입 추가 (TypeKind::PROMISE)
-- [x] ✅ Promise 클래스 구현 (resolve/reject/then/catch)
-- [x] ✅ Value 시스템 Promise 지원
-- [x] ✅ Lexer 키워드 추가 (비동기, 대기)
-- [x] ✅ AST 노드 추가 (AsyncFunctionLiteral, AwaitExpression)
-- [x] ✅ Parser 구현 (async 함수, await 표현식 파싱)
-- [x] ✅ Evaluator 기본 평가 로직 (동기 실행)
-- [x] ✅ Semantic Analyzer (await 유효성 검증)
-- [x] ✅ async 함수 Promise 반환 구현
-- [x] ✅ await Promise 값 추출 구현
-- [x] ✅ Promise 체이닝 (.then/.그러면, .catch/.오류시)
-- [x] ✅ Top-level await 지원 (ES modules 스타일)
-- [x] ✅ 예제 파일 추가 (examples/async_await.ksj)
-- [x] ✅ Event Loop 구현 (microtask/task queue)
-- [x] ✅ Promise 콜백 비동기 스케줄링
-- [x] ✅ EventLoop 테스트 15개 추가 (1459 tests passed)
-- [x] ✅ Bytecode OpCode (BUILD_ASYNC_FUNC, ASYNC_CALL, AWAIT, PROMISE_RESOLVE, PROMISE_REJECT 등 8개)
-- [x] ✅ VM 실행 로직 (Promise 생성/해결/대기)
-- [x] ✅ VMAsyncTest 6개 추가 (1465 tests passed)
-
-**문법 예시**:
-```ksj
-비동기 함수 데이터_가져오기(url) {
-    변수 응답 = 대기 HTTP_GET(url)
-    반환 응답
-}
-
-변수 데이터 = 대기 데이터_가져오기("https://api.example.com/data")
-출력(데이터)
-```
-
-### 7.4: 세대별 GC (Generational GC) - P1 ✅ 완료!
-
-**실제 공수**: 1일
-**완료일**: 2025-11-19
-
-- [x] ✅ Young Generation / Old Generation 분리
-- [x] ✅ Minor GC / Major GC 구현
-- [x] ✅ 객체 승격 (Promotion) 구현
-- [x] ✅ 나이 기반 승격 (기본값: 3회 생존)
-- [x] ✅ 세대별 통계 추적 (youngObjects, oldObjects, minorGCCount, majorGCCount, promotions)
-- [x] ✅ 테스트 23개 통과 (기존 15개 + 신규 8개)
-- [x] ✅ 예상 효과: GC 일시 정지 시간 50% 감소
-
-**구현 세부사항**:
-- Young Generation: 새로 할당된 객체 (빠른 Minor GC 대상)
-- Old Generation: 여러 GC에서 살아남은 객체
-- Smart Collection: Young 비율 70% 이상이면 Minor GC, 아니면 Major GC 실행
-- 승격 임계값: 설정 가능 (기본값 3회, setPromotionAge()로 조정)
-- 완전 후방 호환성 유지
-
-### 7.5: 패키지 관리자 - P1 ✅ 100% 완료!
-
-**예상 공수**: 2-3주
-**실제 소요**: 2일
-**완료일**: 2025-11-19
-
-**완료 항목**:
-- [x] ✅ 패키지 정의 (package.ksj) - JSON 기반 메타데이터
-- [x] ✅ 의존성 관리 - Package, PackageManager 클래스
-- [x] ✅ PackageRegistry - 설치된 패키지 추적
-- [x] ✅ **Semantic Versioning 완전 구현**
-  - 모든 연산자: ^, ~, >=, >, <=, <, ||, -, x, * 지원
-  - v 접두사, pre-release 태그, 빌드 메타데이터 처리
-  - SemanticVersion 구조체로 버전 비교
-- [x] ✅ **재귀적 의존성 해결**
-  - 전이 의존성 자동 추적 (A → B → C)
-  - 깊이 제한으로 순환 의존성 감지
-- [x] ✅ **버전 충돌 감지 및 해결**
-  - 동일 패키지의 다른 버전 요구 시 자동 해결
-  - 최적 버전 선택 알고리즘
-- [x] ✅ **ksjpm CLI 도구** (src/ksjpm.cpp)
-  - `ksjpm init` - 패키지 초기화
-  - `ksjpm install` - 모든 의존성 설치
-  - `ksjpm add` - 패키지 추가
-  - `ksjpm add-dev` - 개발 의존성 추가
-  - `ksjpm remove` - 패키지 제거
-  - `ksjpm list` - 설치된 패키지 목록
-  - `ksjpm info` - 패키지 정보 출력
-  - `ksjpm help` - 도움말
-- [x] ✅ 테스트: 19개 테스트 통과 (100%)
-
-**미완료 항목** (선택적, v2.0.0):
-- [ ] ⏳ 중앙 저장소 연동 (npm 레지스트리 스타일)
-- [ ] ⏳ 패키지 발행 (ksjpm publish)
-
-### 7.6: 에러 복구 개선 - P2
-
-**예상 공수**: 1주
-
-- [ ] Panic 모드 파서 (구문 에러 후 계속 파싱)
-- [ ] 다중 에러 보고
-- [ ] 자동 수정 제안
-
-### 7.7: 언어 문법 개선 (Breaking Changes) ⚠️ **v2.0.0**
-
-**예상 공수**: 1-2주
-**타이밍**: v2.0.0 Major Release (2027-03)
-
-- [ ] **세미콜론 필수화** ⚠️ Breaking Change
-  - **동기**: 파싱 복잡도 50% 감소, 에러 복구 개선
-  - ASI (Automatic Semicolon Insertion) 로직 제거
-  - 모든 문장 끝에 세미콜론 요구
-
-**장점**:
-- ✅ 파싱 복잡도 50% 감소
-- ✅ 에러 복구 명확한 동기화 지점
-- ✅ 성능 향상 (파서 최적화)
-
-**단점**:
-- ❌ 한국어 자연스러움 감소
-- ❌ 27개 예제 파일 수정 필요
-- ❌ 사용자 코드 마이그레이션 필요
-
-**마이그레이션 전략**:
-1. Linter 규칙: 세미콜론 누락 경고 (v1.5부터)
-2. 자동 포맷터: `--add-semicolons` 플래그
-3. 유예 기간: 6개월 (v1.5 → v2.0)
-4. Migration Guide 제공
+## 🚧 현재 상태
+
+- Phase 8은 코드 품질·문서화·테스트 강화에 집중하고 있으며, 완결을 위해 API 문서와 사용자 가이드가 필요합니다.
+- 긴 함수 리팩토링(VM::executeInstruction, Evaluator::evalCallExpression, Evaluator::evalJosaExpression)은 분석만 끝난 상태라 Phase 9 리팩토링 티켓으로 이관해야 합니다.
+- stdlib/http, stdlib/db, Linter/Formatter 설정 파일 등 Phase 6 잔여 과제가 남아 있습니다.
+- TEST_COVERAGE / SESSION_SUMMARY 등 요약 문서는 삭제했으므로 Phase 8 완료 시점에 다시 측정해 공유합니다.
 
 ---
 
 ## 🎯 Phase 8: 코드 품질 및 문서화 (v1.0.0)
 
-**기간**: 2025-11 ~ 2025-12 (1개월)
-**목표**: 코드 품질 향상, 문서화 완성, 성능 검증
-**진행률**: 95%
+**기간**: 2025-11 ~ 2025-12
+**목표**: 코드 품질 향상, 문서화 완성, 회귀 테스트 자동화
+**진행률**: 83% (API 문서 · 사용자 가이드 · 회귀 테스트 남음)
 
-### 8.1: Clean Code 적용 - P1 (70%)
+### 8.1 Clean Code 적용 (P1)
+- [ ] VM::executeInstruction()를 역할별 헬퍼로 분리 (현재 792줄)
+- [ ] Evaluator::evalCallExpression() 분해 (351줄 → 호출 준비/실행/정리 단계화)
+- [ ] Evaluator::evalJosaExpression() 로직 정리 (조사/패턴 처리 분리)
 
-- [x] 코드 스타일 통일 (clang-format 적용)
-- [x] 긴 함수 분석 완료:
-  - VM::executeInstruction() 792줄 → 분해 필요
-  - Evaluator::evalCallExpression() 351줄 → 분해 필요
-  - Evaluator::evalJosaExpression() 284줄 → 검토 필요
-- [ ] 함수 분해 리팩토링 (Phase 9로 이관)
-- [x] 중복 코드 제거 (UTF8Utils.h 공통 유틸리티)
-- [x] 네이밍 컨벤션 확인 (trailing underscore, camelCase)
-- [x] 매직 넘버 상수화 (VM, Lexer, LspUtils, Builtin)
+### 8.2 주석 및 문서화 (P1)
+- [ ] Doxygen 기반 **API 문서 생성** (HTML 출력 검증, 배포 경로 결정)
+- [ ] 사용자 가이드/튜토리얼 확장 (패턴 매칭, 디버거 흐름, 타입 선언 가이드)
+- [ ] 예제 코드 재검증: 타입 명시·`타입()` 함수 사용법·주석 처리 일치 여부 점검
 
-### 8.2: 주석 및 문서화 - P1 (90%)
+### 8.4 테스트 강화 (P2)
+- [ ] regression_test.py 임계값 조정 및 CI 통합 (성능 회귀 자동 감지)
+- [ ] 커버리지 리포트 재측정 후 공유 (TEST_COVERAGE.md 재작성)
+- [ ] Summary 문서(세션/테스트) 재생성: 최종 코드 정리 후 스냅샷 보관
 
-- [x] Doxygen 주석 정리 및 보완 (Linter 규칙, VM, Compiler, Value)
-- [x] API 문서 생성 설정 (Doxyfile 추가, HTML 출력 준비)
-- [x] README 업데이트 (Phase 7 완료, 테스트 1490개)
-- [ ] 사용자 가이드 작성
-- [x] 예제 코드 정리 (50개+ 예제, 새 기능 포함)
+---
 
-### 8.3: 성능 벤치마크 - P2 (100%)
+## 🛠 Phase 6 남은 과제
 
-- [x] 벤치마크 스위트 구축 (arithmetic, fibonacci, loop_intensive)
-- [x] 타 언어 비교 (Python 3 비교 완료)
-- [x] 메모리 사용량 프로파일링 (3.7~4 MB)
-- [x] 병목 지점 식별 (함수 호출 오버헤드)
+### 6.1 코드 품질 도구
+- [ ] Linter 설정 파일 (`.ksjlintrc`) 지원
+- [ ] 추가 규칙 (네이밍 컨벤션, 불필요한 세미콜론 등)
+- [ ] Formatter VS Code 통합
+- [ ] Formatter 설정 파일 (`.ksjfmtrc`)
 
-### 8.4: 테스트 강화 - P2 (100%)
+### 6.2 표준 라이브러리 확장
+- [ ] stdlib/http.ksj - HTTP 클라이언트/서버 함수 20개
+- [ ] stdlib/db.ksj - 데이터베이스 유틸리티 15개
+- [ ] 전체 함수 수 200+ 달성 (현재 173개 수준)
 
-- [x] 코드 커버리지 측정 (90개 스위트, 1490개 테스트)
-- [x] 테스트 현황 문서화 (TEST_COVERAGE.md)
-- [x] 엣지 케이스 테스트 추가 (VMJITTest 4개, CompilerTest 13개, ErrorMessageTest 7개, MemorySafetyTest 8개)
-- [x] 성능 회귀 테스트 (regression_test.py, 임계값 기반 자동화)
+### 6.3 성능 최적화
+- [ ] 증분 GC (Incremental GC)
+- [ ] 메모리 풀링 전략 (Allocator/Pool 재사용)
+- [ ] 목표: 2~5배 실행 성능 향상
 
 ---
 
 ## 🔮 Phase 9 이후: 장기 계획
 
-### 9.1: 표준 라이브러리 확장
+### 9.1 표준 라이브러리 고도화
+- [ ] stdlib/collections.ksj - 리스트, 맵, 집합 고급 API
+- [ ] stdlib/gui.ksj - 간단한 GUI, Canvas, 이벤트 루프
+- [ ] stdlib/network.ksj - 소켓, HTTP 서버, WebSocket
+- [ ] stdlib/ml.ksj - 머신러닝/수치 계산 바인딩
 
-- [ ] stdlib/collections.ksj - 고급 컬렉션 (리스트, 맵, 집합)
-- [ ] stdlib/gui.ksj - GUI 라이브러리
-- [ ] stdlib/network.ksj - 소켓, 서버
-- [ ] stdlib/ml.ksj - 머신러닝 바인딩
+### 9.2 LLVM 백엔드 (선택)
+- [ ] LLVM IR 생성 파이프라인
+- [ ] AOT 컴파일 및 실행 파일 생성
+- [ ] 목표 성능: V8 대비 80~90%
 
-### 9.2: LLVM 백엔드 (선택적)
+### 9.3 멀티스레딩
+- [ ] 스레드 생성/관리 API
+- [ ] 동기화 도구 (뮤텍스, 세마포어)
+- [ ] 채널 기반 통신 (Go 스타일)
 
-**기간**: 2026-07 ~ 2026-12 (6개월)
-**목표**: 네이티브 컴파일 지원
-
-- [ ] LLVM IR 생성
-- [ ] AOT (Ahead-of-Time) 컴파일
-- [ ] 실행 파일 생성 (.exe, 바이너리)
-- [ ] 예상 성능: V8의 80-90% 수준
-
-### 9.3: 멀티스레딩
-
-- [ ] 스레드 생성 및 관리
-- [ ] 뮤텍스, 세마포어
-- [ ] 채널 (Go 스타일)
+### 9.4 언어 문법 개선 (v2.0.0)
+- [ ] 세미콜론 필수화 설계 및 마이그레이션 가이드
+- [ ] Linter/Formatter에 자동 변환 옵션 제공 (`--add-semicolons`)
+- [ ] 유예 기간 6개월 (v1.5 경고 → v2.0 강제)
 
 ---
 
-## 📅 타임라인
+## 📅 타임라인 (향후)
 
 ```
-2025-11-17   Phase 6 완료 (JIT Tier 1) ✅
-2025-11-17   v0.4.0 릴리스 (Production Ready) ✅
-2025-11-19   Phase 7 완료 (클래스, OOP, Async) ✅
-2025-11-20   Phase 8 95% 완료 (코드 품질, 문서화) ✅
-2025-12      v1.0.0 릴리스 (안정 버전)
-2026-03      v1.5.0 (세미콜론 경고 추가)
-2026-09      v2.0.0 (Breaking Change: 세미콜론 필수화)
-2027-06      v3.0.0 (LLVM 백엔드, 네이티브 컴파일)
+2025-12   v1.0.0 릴리스 (Phase 8 완료)
+2026-03   v1.5.0 - 세미콜론 경고, Clean Code 2차
+2026-09   v2.0.0 - 세미콜론 필수화, Incremental GC
+2027-06   v3.0.0 - LLVM 백엔드, 네이티브 컴파일
 ```
 
 ---
 
-## 🎯 성공 기준
+## 🎯 성공 기준 (Upcoming)
 
-### v0.4.0 (Phase 6 완료) - 달성! ✅ (2025-11-17)
+### v1.0.0
+- 🎯 Production Readiness 8.5/10 이상 (Phase 8 완료 기준)
+- 🎯 API 문서 & 사용자 가이드 완비
+- 🎯 성능 회귀 테스트 자동화, 커버리지 보고서 공유
 
-- ✅ Production Readiness: 8.0/10 (목표 7.0/10 초과!)
-- ✅ 보안 점수: 8/10
-- ✅ 예외 처리: try/catch/finally 완전 동작
-- ✅ 성능: JIT Tier 1 완료! (핫 루프 최적화)
-- ✅ stdlib: 255개 함수
-- ✅ 테스트: 1,370개 (100% 통과)
-
-### v1.0.0 (Phase 7 완료)
-
-- 🎯 Production Readiness: 8.5/10
-- 🎯 언어 완성도: 8/10 (클래스, async)
-- 🎯 성능: 6/10 (JIT 적용)
-- 🎯 커뮤니티: 100+ stars, 10+ contributors
-
-### v2.0.0 (세미콜론 필수화)
-
-- 🎯 파서 성능: 50% 개선
-- 🎯 에러 복구: 90% 정확도
-- 🎯 마이그레이션: 자동 도구 제공
+### v2.0.0
+- 🎯 세미콜론 필수 문법 전환 및 자동 마이그레이션 도구
+- 🎯 Incremental GC + 메모리 풀링 도입
+- 🎯 사용자 코드 호환성 가이드 및 경고 체계
 
 ---
 
 ## 🚀 다음 우선순위 작업
 
-### 즉시 시작 (P0)
-
-1. **Phase 7.1: 클래스 시스템** 🔴
-   - OOP 지원
-   - 예상 기간: 2-3주
-   - Production Readiness: 8.0/10 → 8.3/10
-
-### 단기 (P1, 1-3개월)
-
-2. **Phase 7.2: 언어 기능 확장**
-   - 딕셔너리, 배열 슬라이싱, 문자열 보간
-   - 예상 기간: 2-3주
-
-### 중기 (P2, 3-6개월)
-
-4. **Phase 7.3: Async/Await**
-5. **Phase 7.4: 세대별 GC**
-6. **Phase 7.5: 패키지 관리자**
-
----
-
-## 📊 프로덕션 블로커 해결 현황
-
-| 블로커 | 상태 | 해결 방법 |
-|--------|------|-----------|
-| **보안** | ✅ 해결 | SecurityManager + NetworkSecurityManager |
-| **예외 처리** | ✅ 해결 | try/catch/finally 완전 구현 |
-| **성능** | ✅ 해결 | JIT Tier 1 완료! (핫 루프 최적화) |
-
-**현재 Production Readiness**: 🟢 **8.0/10** (목표 7.0/10 초과 달성!)
-
-**모든 블로커 해결 완료!** 🎉
+1. **Phase 8 마무리**: API 문서, 사용자 가이드, 회귀 테스트/커버리지 재측정
+2. **Phase 6 carry-over**: Linter/Formatter 설정 파일, stdlib/http·db 구현
+3. **Phase 9 준비**: 긴 함수 리팩토링, Incremental GC 설계, 세미콜론 필수화 계획 수립
 
 ---
 
@@ -559,21 +128,4 @@ Phase 8: 95% 진행중 (코드 품질, 문서화, 테스트 강화) 🚧
 
 ---
 
-**마지막 업데이트**: 2025-11-19
-**최근 완료**: Phase 7.3 비동기 프로그래밍 100% 완료! (2025-11-19) 🎉
-  - Promise 클래스 구현 (resolve/reject/then/catch)
-  - Event Loop 구현 (microtask/task queue)
-  - Bytecode OpCode 8개 추가 (BUILD_ASYNC_FUNC, ASYNC_CALL, AWAIT 등)
-  - VM 실행 로직 구현 (Promise 생성/해결/대기)
-  - 1465 tests passed (전체 테스트)
-**Phase 7 완료**: Phase 7.1~7.5 모두 100% 완료! 🎉
-  - 7.1: 클래스 시스템 (OOP) ✅
-  - 7.2: 언어 기능 확장 (딕셔너리, 문자열 보간) ✅
-  - 7.3: 비동기 프로그래밍 (Async/Await) ✅
-  - 7.4: 세대별 GC ✅
-  - 7.5: 패키지 관리자 ✅
-**다음 마일스톤**: Phase 8 거의 완료! (95%) 🎉
-  - 8.1: Clean Code 적용 (70%) - 긴 함수 분석 완료, 리팩토링은 Phase 9
-  - 8.2: 주석 및 문서화 (90%) - Doxyfile 설정 완료
-  - 8.3: 성능 벤치마크 (100%) - 메모리 프로파일링 완료 ✅
-  - 8.4: 테스트 강화 (100%) - 1490개 테스트, 성능 회귀 테스트 ✅
+**마지막 업데이트 메모**: Phase 8 작업 집중 (API 문서 · 사용자 가이드 · 성능 회귀 테스트 준비 중)

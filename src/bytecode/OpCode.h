@@ -125,6 +125,18 @@ enum class OpCode : uint8_t {
     STORE_FIELD,        ///< 필드 쓰기: pop value, pop object, object.field = value
     CALL_METHOD,        ///< 메서드 호출: CALL_METHOD [method_name_index] [arg_count]
     LOAD_THIS,          ///< this (자신) 로드: push this
+
+    // ========================================
+    // 비동기 (Phase 7.3)
+    // ========================================
+    BUILD_ASYNC_FUNC,   ///< 비동기 함수 생성: BUILD_ASYNC_FUNC [param_count] [body_offset]
+    ASYNC_CALL,         ///< 비동기 함수 호출: ASYNC_CALL [arg_count], push Promise
+    AWAIT,              ///< Promise 대기: pop promise, push resolved_value
+    PROMISE_RESOLVE,    ///< Promise 이행: pop value, pop promise, promise.resolve(value)
+    PROMISE_REJECT,     ///< Promise 거부: pop reason, pop promise, promise.reject(reason)
+    BUILD_PROMISE,      ///< Promise 생성: push new_promise
+    PROMISE_THEN,       ///< then 콜백 등록: pop callback, pop promise, promise.then(callback)
+    PROMISE_CATCH,      ///< catch 콜백 등록: pop callback, pop promise, promise.catch(callback)
 };
 
 /**

@@ -815,6 +815,99 @@ VMResult VM::executeInstruction() {
             break;
         }
 
+        // Phase 7.3: 비동기 OpCode
+        case OpCode::BUILD_ASYNC_FUNC: {
+            uint8_t paramCount = readByte();
+            uint8_t addrHigh = readByte();
+            uint8_t addrLow = readByte();
+            size_t funcAddr = (static_cast<size_t>(addrHigh) << 8) | addrLow;
+
+            // 비동기 함수는 상위 비트로 표시 (일반 함수와 구분)
+            // 인코딩: (funcAddr << 8) | paramCount | 0x80000000 (async 플래그)
+            int64_t encoded = (static_cast<int64_t>(funcAddr) << 8) | paramCount | (1LL << 31);
+            push(evaluator::Value::createInteger(encoded));
+            break;
+        }
+
+        case OpCode::ASYNC_CALL: {
+            uint8_t argCount = readByte();
+
+            // 함수 가져오기
+            evaluator::Value funcVal = peek(argCount);
+            if (!funcVal.isInteger()) {
+                runtimeError("비동기 함수가 아닌 값을 호출하려고 했습니다");
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            int64_t encoded = funcVal.asInteger();
+            size_t funcAddr = static_cast<size_t>((encoded >> 8) & 0xFFFF);
+
+            // CallFrame 저장
+            frames_.push_back({ip_, stack_.size() - argCount});
+
+            // 함수로 점프
+            ip_ = funcAddr;
+
+            // Promise 생성하여 반환 (간단한 구현)
+            auto promise = std::make_shared<evaluator::Promise>();
+            push(evaluator::Value::createPromise(promise));
+            break;
+        }
+
+        case OpCode::AWAIT: {
+            // Promise를 꺼내서 resolved value를 반환
+            evaluator::Value promiseVal = pop();
+            if (promiseVal.isPromise()) {
+                auto promise = promiseVal.asPromise();
+                if (promise->state() == evaluator::Promise::State::FULFILLED) {
+                    push(promise->value());
+                } else if (promise->state() == evaluator::Promise::State::REJECTED) {
+                    runtimeError("Promise가 거부되었습니다: " + promise->value().toString());
+                    return VMResult::RUNTIME_ERROR;
+                } else {
+                    // Pending 상태 - 간단한 구현에서는 null 반환
+                    push(evaluator::Value::createNull());
+                }
+            } else {
+                // Promise가 아니면 그대로 반환
+                push(promiseVal);
+            }
+            break;
+        }
+
+        case OpCode::BUILD_PROMISE: {
+            // 새 Promise 생성
+            auto promise = std::make_shared<evaluator::Promise>();
+            push(evaluator::Value::createPromise(promise));
+            break;
+        }
+
+        case OpCode::PROMISE_RESOLVE: {
+            // Promise를 resolve
+            evaluator::Value value = pop();
+            evaluator::Value promiseVal = pop();
+            if (promiseVal.isPromise()) {
+                promiseVal.asPromise()->resolve(value);
+            }
+            break;
+        }
+
+        case OpCode::PROMISE_REJECT: {
+            // Promise를 reject
+            evaluator::Value reason = pop();
+            evaluator::Value promiseVal = pop();
+            if (promiseVal.isPromise()) {
+                promiseVal.asPromise()->reject(reason);
+            }
+            break;
+        }
+
+        case OpCode::PROMISE_THEN:
+        case OpCode::PROMISE_CATCH:
+            // then/catch는 VM에서 간단히 처리 (완전한 구현은 Evaluator 사용)
+            runtimeError("Promise then/catch는 VM에서 아직 완전히 지원되지 않습니다");
+            return VMResult::RUNTIME_ERROR;
+
         case OpCode::INDEX_SET:
         case OpCode::ARRAY_APPEND:
         case OpCode::BUILD_RANGE:

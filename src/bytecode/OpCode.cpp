@@ -89,6 +89,16 @@ std::string opCodeToString(OpCode op) {
         case OpCode::CALL_METHOD:       return "CALL_METHOD";
         case OpCode::LOAD_THIS:         return "LOAD_THIS";
 
+        // 비동기 (Phase 7.3)
+        case OpCode::BUILD_ASYNC_FUNC:  return "BUILD_ASYNC_FUNC";
+        case OpCode::ASYNC_CALL:        return "ASYNC_CALL";
+        case OpCode::AWAIT:             return "AWAIT";
+        case OpCode::PROMISE_RESOLVE:   return "PROMISE_RESOLVE";
+        case OpCode::PROMISE_REJECT:    return "PROMISE_REJECT";
+        case OpCode::BUILD_PROMISE:     return "BUILD_PROMISE";
+        case OpCode::PROMISE_THEN:      return "PROMISE_THEN";
+        case OpCode::PROMISE_CATCH:     return "PROMISE_CATCH";
+
         default:
             return "UNKNOWN";
     }
@@ -125,6 +135,12 @@ int opCodeOperandCount(OpCode op) {
         case OpCode::PRINT:
         case OpCode::HALT:
         case OpCode::LOAD_THIS:           // 클래스: this 로드
+        case OpCode::AWAIT:               // 비동기: await (pop promise, push value)
+        case OpCode::PROMISE_RESOLVE:     // 비동기: resolve
+        case OpCode::PROMISE_REJECT:      // 비동기: reject
+        case OpCode::BUILD_PROMISE:       // 비동기: 새 promise 생성
+        case OpCode::PROMISE_THEN:        // 비동기: then 콜백 등록
+        case OpCode::PROMISE_CATCH:       // 비동기: catch 콜백 등록
             return 0;
 
         // 피연산자 1개
@@ -142,6 +158,7 @@ int opCodeOperandCount(OpCode op) {
         case OpCode::IMPORT:
         case OpCode::LOAD_FIELD:          // 클래스: 필드 읽기 [field_name_index]
         case OpCode::STORE_FIELD:         // 클래스: 필드 쓰기 [field_name_index]
+        case OpCode::ASYNC_CALL:          // 비동기: async 함수 호출 [arg_count]
             return 1;
 
         // 피연산자 2개
@@ -150,6 +167,7 @@ int opCodeOperandCount(OpCode op) {
         case OpCode::BUILD_RANGE:
         case OpCode::NEW_INSTANCE:        // 클래스: 객체 생성 [class_name_index] [arg_count]
         case OpCode::CALL_METHOD:         // 클래스: 메서드 호출 [method_name_index] [arg_count]
+        case OpCode::BUILD_ASYNC_FUNC:    // 비동기: 비동기 함수 생성 [param_count] [body_offset]
             return 2;
 
         // 피연산자 3개

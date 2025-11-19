@@ -738,3 +738,121 @@ TEST(VMJITTest, ShouldTriggerJITOnHotLoop) {
     std::cerr << "\n========== JIT Test Statistics ==========\n";
     vm.printJITStatistics();
 }
+
+// ============================================================================
+// Async OpCode 테스트 (Phase 7.3)
+// ============================================================================
+
+TEST(VMAsyncTest, ShouldBuildPromise) {
+    Chunk chunk;
+    chunk.writeOpCode(OpCode::BUILD_PROMISE, 1);
+    chunk.writeOpCode(OpCode::HALT, 1);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_TRUE(vm.top().isPromise());
+}
+
+TEST(VMAsyncTest, ShouldResolvePromise) {
+    Chunk chunk;
+    // BUILD_PROMISE
+    chunk.writeOpCode(OpCode::BUILD_PROMISE, 1);
+    // DUP (스택에 promise 복제)
+    chunk.writeOpCode(OpCode::DUP, 1);
+    // LOAD_CONST 42 (resolve할 값)
+    size_t idx = chunk.addConstant(Value::createInteger(42));
+    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk.write(static_cast<uint8_t>(idx), 1);
+    // PROMISE_RESOLVE (pop value, pop promise)
+    chunk.writeOpCode(OpCode::PROMISE_RESOLVE, 1);
+    // AWAIT (남은 promise에서 값 추출)
+    chunk.writeOpCode(OpCode::AWAIT, 1);
+    chunk.writeOpCode(OpCode::HALT, 1);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.top().asInteger(), 42);
+}
+
+TEST(VMAsyncTest, ShouldBuildAsyncFunction) {
+    Chunk chunk;
+
+    // BUILD_ASYNC_FUNC [param_count] [addr_high] [addr_low]
+    // 함수 시작 주소를 임의로 100으로 설정
+    chunk.writeOpCode(OpCode::BUILD_ASYNC_FUNC, 1);
+    chunk.write(2, 1);   // 파라미터 개수 2
+    chunk.write(0, 1);   // addr_high = 0
+    chunk.write(100, 1); // addr_low = 100 (함수 시작 주소)
+
+    chunk.writeOpCode(OpCode::HALT, 1);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    // 비동기 함수는 정수로 인코딩됨 (상위 비트로 async 표시)
+    EXPECT_TRUE(vm.top().isInteger());
+
+    // 인코딩 확인: (funcAddr << 8) | paramCount | (1 << 31)
+    int64_t encoded = vm.top().asInteger();
+    EXPECT_TRUE((encoded & (1LL << 31)) != 0);  // async 플래그
+    EXPECT_EQ((encoded >> 8) & 0xFFFF, 100);    // 함수 주소
+    EXPECT_EQ(encoded & 0xFF, 2);               // 파라미터 개수
+}
+
+TEST(VMAsyncTest, ShouldAwaitNonPromiseValue) {
+    // Promise가 아닌 값을 await하면 그 값 그대로 반환
+    Chunk chunk;
+    size_t idx = chunk.addConstant(Value::createInteger(123));
+    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk.write(static_cast<uint8_t>(idx), 1);
+    chunk.writeOpCode(OpCode::AWAIT, 1);
+    chunk.writeOpCode(OpCode::HALT, 1);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.top().asInteger(), 123);
+}
+
+TEST(VMAsyncTest, ShouldRejectPromise) {
+    Chunk chunk;
+    // BUILD_PROMISE
+    chunk.writeOpCode(OpCode::BUILD_PROMISE, 1);
+    // DUP
+    chunk.writeOpCode(OpCode::DUP, 1);
+    // LOAD_CONST "에러" (reject할 이유)
+    size_t idx = chunk.addConstant(Value::createString("에러"));
+    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk.write(static_cast<uint8_t>(idx), 1);
+    // PROMISE_REJECT
+    chunk.writeOpCode(OpCode::PROMISE_REJECT, 1);
+    // AWAIT (rejected promise는 에러)
+    chunk.writeOpCode(OpCode::AWAIT, 1);
+    chunk.writeOpCode(OpCode::HALT, 1);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    // rejected promise를 await하면 런타임 에러
+    EXPECT_EQ(result, VMResult::RUNTIME_ERROR);
+}
+
+TEST(VMAsyncTest, ShouldAwaitPendingPromise) {
+    // Pending 상태의 Promise를 await하면 null 반환
+    Chunk chunk;
+    chunk.writeOpCode(OpCode::BUILD_PROMISE, 1);
+    chunk.writeOpCode(OpCode::AWAIT, 1);
+    chunk.writeOpCode(OpCode::HALT, 1);
+
+    VM vm;
+    VMResult result = vm.run(&chunk);
+
+    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_TRUE(vm.top().isNull());
+}

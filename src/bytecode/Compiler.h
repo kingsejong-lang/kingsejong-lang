@@ -108,6 +108,8 @@ private:
     void compileNewExpression(ast::NewExpression* expr);          // Phase 7.1
     void compileMemberAccessExpression(ast::MemberAccessExpression* expr);  // Phase 7.1
     void compileThisExpression(ast::ThisExpression* expr);        // Phase 7.1
+    void compileAsyncFunctionLiteral(ast::AsyncFunctionLiteral* lit);  // Phase 7.3
+    void compileAwaitExpression(ast::AwaitExpression* expr);      // Phase 7.3
 
     // 스코프 관리
     void beginScope();

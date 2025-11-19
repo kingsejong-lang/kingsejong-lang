@@ -145,6 +145,12 @@ void Compiler::compileExpression(ast::Expression* expr) {
         case ast::NodeType::THIS_EXPRESSION:  // Phase 7.1
             compileThisExpression(static_cast<ast::ThisExpression*>(expr));
             break;
+        case ast::NodeType::ASYNC_FUNCTION_LITERAL:  // Phase 7.3
+            compileAsyncFunctionLiteral(static_cast<ast::AsyncFunctionLiteral*>(expr));
+            break;
+        case ast::NodeType::AWAIT_EXPRESSION:  // Phase 7.3
+            compileAwaitExpression(static_cast<ast::AwaitExpression*>(expr));
+            break;
         default:
             error("Unknown expression type");
             emit(OpCode::LOAD_NULL);
@@ -1013,6 +1019,54 @@ void Compiler::compileMemberAccessExpression(ast::MemberAccessExpression* expr) 
 void Compiler::compileThisExpression(ast::ThisExpression* /* expr */) {
     // LOAD_THIS
     emit(OpCode::LOAD_THIS);
+}
+
+// Phase 7.3: 비동기 함수 리터럴 컴파일
+void Compiler::compileAsyncFunctionLiteral(ast::AsyncFunctionLiteral* lit) {
+    // 비동기 함수를 별도의 청크로 컴파일
+    // 간단화를 위해 현재 청크에 인라인으로 컴파일
+
+    // 함수 본체 시작 위치로 점프
+    size_t jumpOver = emitJump(OpCode::JUMP);
+
+    // 함수 본체 시작
+    size_t functionStart = currentOffset();
+
+    // 새 스코프 시작
+    beginScope();
+
+    // 파라미터를 로컬 변수로 추가
+    for (const auto& param : lit->parameters()) {
+        addLocal(param);
+    }
+
+    // 함수 본체 컴파일
+    compileBlockStatement(static_cast<ast::BlockStatement*>(lit->body()));
+
+    // 암시적 return null (Promise로 래핑됨)
+    emit(OpCode::LOAD_NULL);
+    emit(OpCode::RETURN);
+
+    // 스코프 종료
+    endScope();
+
+    // 점프 패치
+    patchJump(jumpOver);
+
+    // 비동기 함수 객체 생성
+    emit(OpCode::BUILD_ASYNC_FUNC,
+         static_cast<uint8_t>(lit->parameters().size()),
+         static_cast<uint8_t>((functionStart >> 8) & 0xFF));
+    chunk_->write(static_cast<uint8_t>(functionStart & 0xFF), currentLine());
+}
+
+// Phase 7.3: await 표현식 컴파일
+void Compiler::compileAwaitExpression(ast::AwaitExpression* expr) {
+    // Promise 표현식 컴파일
+    compileExpression(const_cast<ast::Expression*>(expr->argument()));
+
+    // AWAIT opcode - Promise를 대기하고 resolved value를 스택에 푸시
+    emit(OpCode::AWAIT);
 }
 
 void Compiler::optimizePeephole() {

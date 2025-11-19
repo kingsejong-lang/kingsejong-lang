@@ -23,26 +23,29 @@ namespace rules {
 class UnusedVariableRule : public Rule
 {
 public:
+    /// @brief UnusedVariableRule 생성자
     UnusedVariableRule()
         : Rule("unused-variable", "선언되었지만 사용되지 않는 변수 감지")
     {
     }
 
+    /**
+     * @brief 프로그램 분석 실행
+     * @param program 분석할 AST 프로그램
+     */
     void analyze(ast::Program* program) override;
 
 protected:
+    /// @brief 변수 선언 추적
     void onVarDeclaration(ast::VarDeclaration* stmt) override;
+
+    /// @brief 식별자 사용 추적
     void onIdentifier(ast::Identifier* expr) override;
 
 private:
-    // 변수 이름 -> 선언 위치
-    std::unordered_map<std::string, ast::VarDeclaration*> declaredVars_;
-
-    // 사용된 변수 이름 목록
-    std::unordered_set<std::string> usedVars_;
-
-    // 현재 처리 중인 변수 선언 (자기 자신 초기화는 사용으로 간주하지 않음)
-    std::string currentDeclaring_;
+    std::unordered_map<std::string, ast::VarDeclaration*> declaredVars_;  ///< 변수 이름 → 선언 위치
+    std::unordered_set<std::string> usedVars_;  ///< 사용된 변수 이름 목록
+    std::string currentDeclaring_;  ///< 현재 선언 중인 변수 (자기 참조 방지)
 };
 
 } // namespace rules

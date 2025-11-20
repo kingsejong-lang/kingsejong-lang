@@ -199,310 +199,8 @@ VMResult VM::executeInstruction() {
         return executePromiseOps(instruction);
     }
 
-    switch (instruction) {
-        // ========================================
-        // 스택 조작
-        // ========================================
-        case OpCode::POP: {
-            pop();
-            break;
-        }
-
-        case OpCode::DUP:
-            push(peek(0));
-            break;
-
-        case OpCode::SWAP: {
-            evaluator::Value a = pop();
-            evaluator::Value b = pop();
-            push(a);
-            push(b);
-            break;
-        }
-
-        // ========================================
-        // 기타
-        // ========================================
-        case OpCode::PRINT: {
-            evaluator::Value value = pop();
-            // PRINT는 사용자 출력이므로 Logger 대신 std::cout 유지 (또는 Logger::info 사용 고려)
-            // 하지만 여기서는 Logger::info로 통일하여 로그 레벨 제어 가능하게 함
-            // 단, 사용자 프로그램의 출력은 로그 형식이 아닐 수 있으므로 고민 필요.
-            // 일단은 Logger::info로 변경하되, 포맷 없이 출력하는 기능이 필요할 수도 있음.
-            // 현재 Logger는 타임스탬프를 찍으므로, 순수 출력용으로는 부적합할 수 있음.
-            // 그러나 "Clean Code" 요청이므로 일관성을 위해 Logger 사용.
-            // 실제 상용 언어라면 stdout과 log를 분리해야 함.
-            Logger::info(value.toString());
-            break;
-        }
-
-        // ========================================
-        // Phase 7.1: 클래스 시스템
-        // ========================================
-        case OpCode::CLASS_DEF: {
-            // CLASS_DEF [class_name_index] [field_count] [method_count]
-            uint8_t classNameIdx = readByte();
-            uint8_t fieldCount = readByte();
-            uint8_t methodCount = readByte();
-
-            // 클래스 이름 읽기
-            evaluator::Value classNameVal = chunk_->getConstant(classNameIdx);
-            std::string className = classNameVal.asString();
-
-            // 필드 이름들 읽기
-            std::vector<std::string> fieldNames;
-            for (uint8_t i = 0; i < fieldCount; ++i) {
-                uint8_t fieldNameIdx = readByte();
-                evaluator::Value fieldNameVal = chunk_->getConstant(fieldNameIdx);
-                fieldNames.push_back(fieldNameVal.asString());
-            }
-
-            // 생성자 읽기 (있으면)
-            uint8_t ctorIdx = readByte();
-            std::shared_ptr<evaluator::Function> constructor = nullptr;
-            if (ctorIdx != NO_CONSTRUCTOR_FLAG) {
-                evaluator::Value ctorVal = chunk_->getConstant(ctorIdx);
-                if (ctorVal.isFunction()) {
-                    constructor = ctorVal.asFunction();
-                }
-            }
-
-            // 메서드들 읽기
-            std::unordered_map<std::string, std::shared_ptr<evaluator::Function>> methods;
-            for (uint8_t i = 0; i < methodCount; ++i) {
-                uint8_t methodNameIdx = readByte();
-                uint8_t methodFuncIdx = readByte();
-
-                evaluator::Value methodNameVal = chunk_->getConstant(methodNameIdx);
-                std::string methodName = methodNameVal.asString();
-
-                evaluator::Value methodFuncVal = chunk_->getConstant(methodFuncIdx);
-                if (methodFuncVal.isFunction()) {
-                    methods[methodName] = methodFuncVal.asFunction();
-                }
-            }
-
-            // ClassDefinition 생성
-            auto classDef = std::make_shared<evaluator::ClassDefinition>(
-                className,
-                fieldNames,
-                methods,
-                constructor,
-                ""        // superClass
-            );
-
-            // 클래스 정의 저장
-            classes_[className] = classDef;
-
-            // 클래스 정의를 스택에 푸시 (STORE_GLOBAL에서 사용)
-            push(evaluator::Value::createString(className));
-            break;
-        }
-
-        case OpCode::NEW_INSTANCE: {
-            // NEW_INSTANCE [class_name_index] [arg_count]
-            uint8_t classNameIdx = readByte();
-            uint8_t argCount = readByte();
-
-            // 클래스 이름 읽기
-            evaluator::Value classNameVal = chunk_->getConstant(classNameIdx);
-            std::string className = classNameVal.asString();
-
-            // 클래스 정의 찾기
-            auto it = classes_.find(className);
-            if (it == classes_.end()) {
-                runtimeError(Logger::formatString(std::string(error::vm::UNDEFINED_CLASS), className));
-                return VMResult::RUNTIME_ERROR;
-            }
-
-            // 인자들 팝
-            std::vector<evaluator::Value> args;
-            for (uint8_t i = 0; i < argCount; ++i) {
-                args.insert(args.begin(), pop());
-            }
-
-            // ClassInstance 생성
-            auto instance = std::make_shared<evaluator::ClassInstance>(it->second);
-
-            // 생성자 호출 (있으면)
-            auto constructor = it->second->constructor();
-            if (constructor) {
-                // 생성자 환경 생성
-                auto ctorEnv = std::make_shared<evaluator::Environment>(globals_);
-
-                // 매개변수 바인딩
-                const auto& params = constructor->parameters();
-                if (argCount != params.size()) {
-                    runtimeError(Logger::formatString(std::string(error::vm::CONSTRUCTOR_ARG_MISMATCH), std::to_string(params.size()), std::to_string(argCount)));
-                    return VMResult::RUNTIME_ERROR;
-                }
-
-                for (size_t i = 0; i < params.size(); ++i) {
-                    ctorEnv->set(params[i], args[i]);
-                }
-
-                // "자신" 바인딩
-                ctorEnv->set("자신", evaluator::Value::createClassInstance(instance));
-                ctorEnv->set("이", evaluator::Value::createClassInstance(instance));
-
-                // 생성자 본문 실행
-                evaluator::Evaluator evaluator(ctorEnv);
-                evaluator::Value result = evaluator.eval(constructor->body());
-
-                // 에러 체크
-                if (result.isError()) {
-                    runtimeError(Logger::formatString(std::string(error::vm::CONSTRUCTOR_EXECUTION_ERROR), result.asString()));
-                    return VMResult::RUNTIME_ERROR;
-                }
-            }
-
-            // 인스턴스를 스택에 푸시
-            push(evaluator::Value::createClassInstance(instance));
-            break;
-        }
-
-        case OpCode::LOAD_FIELD: {
-            // LOAD_FIELD [field_name_index]
-            uint8_t fieldNameIdx = readByte();
-            evaluator::Value fieldNameVal = chunk_->getConstant(fieldNameIdx);
-            std::string fieldName = fieldNameVal.asString();
-
-            // 스택에서 객체 팝
-            evaluator::Value objVal = pop();
-            if (!objVal.isClassInstance()) {
-                runtimeError(std::string(error::vm::FIELD_ACCESS_NOT_INSTANCE));
-                return VMResult::RUNTIME_ERROR;
-            }
-
-            auto instance = objVal.asClassInstance();
-            try {
-                evaluator::Value fieldValue = instance->getField(fieldName);
-                push(fieldValue);
-            } catch (const std::exception& e) {
-                runtimeError(Logger::formatString(std::string(error::vm::FIELD_ACCESS_ERROR), e.what()));
-                return VMResult::RUNTIME_ERROR;
-            }
-            break;
-        }
-
-        case OpCode::STORE_FIELD: {
-            // STORE_FIELD [field_name_index]
-            uint8_t fieldNameIdx = readByte();
-            evaluator::Value fieldNameVal = chunk_->getConstant(fieldNameIdx);
-            std::string fieldName = fieldNameVal.asString();
-
-            // 스택에서 값과 객체 팝
-            evaluator::Value value = pop();
-            evaluator::Value objVal = pop();
-
-            if (!objVal.isClassInstance()) {
-                runtimeError(std::string(error::vm::FIELD_SET_NOT_INSTANCE));
-                return VMResult::RUNTIME_ERROR;
-            }
-
-            auto instance = objVal.asClassInstance();
-            try {
-                instance->setField(fieldName, value);
-                push(value);  // 대입 결과를 스택에 푸시
-            } catch (const std::exception& e) {
-                runtimeError(Logger::formatString(std::string(error::vm::FIELD_SET_ERROR), e.what()));
-                return VMResult::RUNTIME_ERROR;
-            }
-            break;
-        }
-
-        case OpCode::CALL_METHOD: {
-            // CALL_METHOD [method_name_index] [arg_count]
-            uint8_t methodNameIdx = readByte();
-            uint8_t argCount = readByte();
-
-            // 메서드 이름 읽기
-            evaluator::Value methodNameVal = chunk_->getConstant(methodNameIdx);
-            std::string methodName = methodNameVal.asString();
-
-            // 인자들 팝
-            std::vector<evaluator::Value> args;
-            for (uint8_t i = 0; i < argCount; ++i) {
-                args.insert(args.begin(), pop());
-            }
-
-            // 객체 팝
-            evaluator::Value objVal = pop();
-            if (!objVal.isClassInstance()) {
-                runtimeError(std::string(error::vm::METHOD_CALL_NOT_INSTANCE));
-                return VMResult::RUNTIME_ERROR;
-            }
-
-            auto instance = objVal.asClassInstance();
-            auto classDef = instance->classDef();
-
-            // 메서드 찾기
-            auto method = classDef->getMethod(methodName);
-            if (!method) {
-                runtimeError(Logger::formatString(std::string(error::vm::UNDEFINED_METHOD), methodName));
-                return VMResult::RUNTIME_ERROR;
-            }
-
-            // 메서드 환경 생성
-            auto methodEnv = std::make_shared<evaluator::Environment>(globals_);
-
-            // 매개변수 바인딩
-            const auto& params = method->parameters();
-            if (params.size() != args.size()) {
-                runtimeError(Logger::formatString(std::string(error::vm::METHOD_ARG_MISMATCH), std::to_string(params.size()), std::to_string(argCount)));
-                return VMResult::RUNTIME_ERROR;
-            }
-
-            for (size_t i = 0; i < params.size(); ++i) {
-                methodEnv->set(params[i], args[i]);
-            }
-
-            // "자신"/"이" 바인딩
-            methodEnv->set("자신", objVal);
-            methodEnv->set("이", objVal);
-
-            // 메서드 본문 실행
-            evaluator::Evaluator evaluator(methodEnv);
-            evaluator::Value result = evaluator.eval(method->body());
-
-            // 에러 체크
-            if (result.isError()) {
-                runtimeError(Logger::formatString(std::string(error::vm::METHOD_EXECUTION_ERROR), result.asString()));
-                return VMResult::RUNTIME_ERROR;
-            }
-
-            // 결과 푸시
-            push(result);
-            break;
-        }
-
-        case OpCode::LOAD_THIS: {
-            // this 스택에서 현재 인스턴스 가져오기
-            if (thisStack_.empty()) {
-                runtimeError(std::string(error::vm::THIS_OUTSIDE_CLASS));
-                return VMResult::RUNTIME_ERROR;
-            }
-
-            auto instance = thisStack_.back();
-            push(evaluator::Value::createClassInstance(instance));
-            break;
-        }
-
-        // ========================================
-        // 미구현 OpCode
-        // ========================================
-        case OpCode::INDEX_SET:
-        case OpCode::ARRAY_APPEND:
-        case OpCode::BUILD_RANGE:
-        case OpCode::IMPORT:
-        default:
-            runtimeError(Logger::formatString(std::string(error::vm::UNIMPLEMENTED_OPCODE), opCodeToString(instruction)));
-            return VMResult::RUNTIME_ERROR;
-    }
-
-
-
-    return VMResult::OK;
+    // 기타 (POP, DUP, SWAP, PRINT, BUILD_RANGE, IMPORT, CLASS_DEF, NEW_INSTANCE, LOAD_FIELD, STORE_FIELD, CALL_METHOD, LOAD_THIS)
+    return executeMiscOps(instruction);
 }
 
 VMResult VM::binaryOp(OpCode op) {
@@ -1159,6 +857,311 @@ VMResult VM::executePromiseOps(OpCode instruction) {
         case OpCode::PROMISE_THEN:
         case OpCode::PROMISE_CATCH:
             runtimeError(std::string(error::vm::PROMISE_THEN_CATCH_UNSUPPORTED));
+            return VMResult::RUNTIME_ERROR;
+
+        default:
+            runtimeError(Logger::formatString(std::string(error::vm::UNIMPLEMENTED_OPCODE), opCodeToString(instruction)));
+            return VMResult::RUNTIME_ERROR;
+    }
+
+    return VMResult::OK;
+}
+
+// ============================================================================
+// Phase 9 Step 9: executeMiscOps
+// ============================================================================
+
+VMResult VM::executeMiscOps(OpCode instruction) {
+    switch (instruction) {
+        // ========================================
+        // 스택 조작
+        // ========================================
+        case OpCode::POP: {
+            pop();
+            break;
+        }
+
+        case OpCode::DUP:
+            push(peek(0));
+            break;
+
+        case OpCode::SWAP: {
+            evaluator::Value a = pop();
+            evaluator::Value b = pop();
+            push(a);
+            push(b);
+            break;
+        }
+
+        // ========================================
+        // 기타
+        // ========================================
+        case OpCode::PRINT: {
+            evaluator::Value value = pop();
+            Logger::info(value.toString());
+            break;
+        }
+
+        // ========================================
+        // Phase 7.1: 클래스 시스템
+        // ========================================
+        case OpCode::CLASS_DEF: {
+            // CLASS_DEF [class_name_index] [field_count] [method_count]
+            uint8_t classNameIdx = readByte();
+            uint8_t fieldCount = readByte();
+            uint8_t methodCount = readByte();
+
+            // 클래스 이름 읽기
+            evaluator::Value classNameVal = chunk_->getConstant(classNameIdx);
+            std::string className = classNameVal.asString();
+
+            // 필드 이름들 읽기
+            std::vector<std::string> fieldNames;
+            for (uint8_t i = 0; i < fieldCount; ++i) {
+                uint8_t fieldNameIdx = readByte();
+                evaluator::Value fieldNameVal = chunk_->getConstant(fieldNameIdx);
+                fieldNames.push_back(fieldNameVal.asString());
+            }
+
+            // 생성자 읽기 (있으면)
+            uint8_t ctorIdx = readByte();
+            std::shared_ptr<evaluator::Function> constructor = nullptr;
+            if (ctorIdx != NO_CONSTRUCTOR_FLAG) {
+                evaluator::Value ctorVal = chunk_->getConstant(ctorIdx);
+                if (ctorVal.isFunction()) {
+                    constructor = ctorVal.asFunction();
+                }
+            }
+
+            // 메서드들 읽기
+            std::unordered_map<std::string, std::shared_ptr<evaluator::Function>> methods;
+            for (uint8_t i = 0; i < methodCount; ++i) {
+                uint8_t methodNameIdx = readByte();
+                uint8_t methodFuncIdx = readByte();
+
+                evaluator::Value methodNameVal = chunk_->getConstant(methodNameIdx);
+                std::string methodName = methodNameVal.asString();
+
+                evaluator::Value methodFuncVal = chunk_->getConstant(methodFuncIdx);
+                if (methodFuncVal.isFunction()) {
+                    methods[methodName] = methodFuncVal.asFunction();
+                }
+            }
+
+            // ClassDefinition 생성
+            auto classDef = std::make_shared<evaluator::ClassDefinition>(
+                className,
+                fieldNames,
+                methods,
+                constructor,
+                ""        // superClass
+            );
+
+            // 클래스 정의 저장
+            classes_[className] = classDef;
+
+            // 클래스 정의를 스택에 푸시 (STORE_GLOBAL에서 사용)
+            push(evaluator::Value::createString(className));
+            break;
+        }
+
+        case OpCode::NEW_INSTANCE: {
+            // NEW_INSTANCE [class_name_index] [arg_count]
+            uint8_t classNameIdx = readByte();
+            uint8_t argCount = readByte();
+
+            // 클래스 이름 읽기
+            evaluator::Value classNameVal = chunk_->getConstant(classNameIdx);
+            std::string className = classNameVal.asString();
+
+            // 클래스 정의 찾기
+            auto it = classes_.find(className);
+            if (it == classes_.end()) {
+                runtimeError(Logger::formatString(std::string(error::vm::UNDEFINED_CLASS), className));
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            // 인자들 팝
+            std::vector<evaluator::Value> args;
+            for (uint8_t i = 0; i < argCount; ++i) {
+                args.insert(args.begin(), pop());
+            }
+
+            // ClassInstance 생성
+            auto instance = std::make_shared<evaluator::ClassInstance>(it->second);
+
+            // 생성자 호출 (있으면)
+            auto constructor = it->second->constructor();
+            if (constructor) {
+                // 생성자 환경 생성
+                auto ctorEnv = std::make_shared<evaluator::Environment>(globals_);
+
+                // 매개변수 바인딩
+                const auto& params = constructor->parameters();
+                if (argCount != params.size()) {
+                    runtimeError(Logger::formatString(std::string(error::vm::CONSTRUCTOR_ARG_MISMATCH), std::to_string(params.size()), std::to_string(argCount)));
+                    return VMResult::RUNTIME_ERROR;
+                }
+
+                for (size_t i = 0; i < params.size(); ++i) {
+                    ctorEnv->set(params[i], args[i]);
+                }
+
+                // "자신" 바인딩
+                ctorEnv->set("자신", evaluator::Value::createClassInstance(instance));
+                ctorEnv->set("이", evaluator::Value::createClassInstance(instance));
+
+                // 생성자 본문 실행
+                evaluator::Evaluator evaluator(ctorEnv);
+                evaluator::Value result = evaluator.eval(constructor->body());
+
+                // 에러 체크
+                if (result.isError()) {
+                    runtimeError(Logger::formatString(std::string(error::vm::CONSTRUCTOR_EXECUTION_ERROR), result.asString()));
+                    return VMResult::RUNTIME_ERROR;
+                }
+            }
+
+            // 인스턴스를 스택에 푸시
+            push(evaluator::Value::createClassInstance(instance));
+            break;
+        }
+
+        case OpCode::LOAD_FIELD: {
+            // LOAD_FIELD [field_name_index]
+            uint8_t fieldNameIdx = readByte();
+            evaluator::Value fieldNameVal = chunk_->getConstant(fieldNameIdx);
+            std::string fieldName = fieldNameVal.asString();
+
+            // 스택에서 객체 팝
+            evaluator::Value objVal = pop();
+            if (!objVal.isClassInstance()) {
+                runtimeError(std::string(error::vm::FIELD_ACCESS_NOT_INSTANCE));
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            auto instance = objVal.asClassInstance();
+            try {
+                evaluator::Value fieldValue = instance->getField(fieldName);
+                push(fieldValue);
+            } catch (const std::exception& e) {
+                runtimeError(Logger::formatString(std::string(error::vm::FIELD_ACCESS_ERROR), e.what()));
+                return VMResult::RUNTIME_ERROR;
+            }
+            break;
+        }
+
+        case OpCode::STORE_FIELD: {
+            // STORE_FIELD [field_name_index]
+            uint8_t fieldNameIdx = readByte();
+            evaluator::Value fieldNameVal = chunk_->getConstant(fieldNameIdx);
+            std::string fieldName = fieldNameVal.asString();
+
+            // 스택에서 값과 객체 팝
+            evaluator::Value value = pop();
+            evaluator::Value objVal = pop();
+
+            if (!objVal.isClassInstance()) {
+                runtimeError(std::string(error::vm::FIELD_SET_NOT_INSTANCE));
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            auto instance = objVal.asClassInstance();
+            try {
+                instance->setField(fieldName, value);
+                push(value);  // 대입 결과를 스택에 푸시
+            } catch (const std::exception& e) {
+                runtimeError(Logger::formatString(std::string(error::vm::FIELD_SET_ERROR), e.what()));
+                return VMResult::RUNTIME_ERROR;
+            }
+            break;
+        }
+
+        case OpCode::CALL_METHOD: {
+            // CALL_METHOD [method_name_index] [arg_count]
+            uint8_t methodNameIdx = readByte();
+            uint8_t argCount = readByte();
+
+            // 메서드 이름 읽기
+            evaluator::Value methodNameVal = chunk_->getConstant(methodNameIdx);
+            std::string methodName = methodNameVal.asString();
+
+            // 인자들 팝
+            std::vector<evaluator::Value> args;
+            for (uint8_t i = 0; i < argCount; ++i) {
+                args.insert(args.begin(), pop());
+            }
+
+            // 객체 팝
+            evaluator::Value objVal = pop();
+            if (!objVal.isClassInstance()) {
+                runtimeError(std::string(error::vm::METHOD_CALL_NOT_INSTANCE));
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            auto instance = objVal.asClassInstance();
+            auto classDef = instance->classDef();
+
+            // 메서드 찾기
+            auto method = classDef->getMethod(methodName);
+            if (!method) {
+                runtimeError(Logger::formatString(std::string(error::vm::UNDEFINED_METHOD), methodName));
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            // 메서드 환경 생성
+            auto methodEnv = std::make_shared<evaluator::Environment>(globals_);
+
+            // 매개변수 바인딩
+            const auto& params = method->parameters();
+            if (params.size() != args.size()) {
+                runtimeError(Logger::formatString(std::string(error::vm::METHOD_ARG_MISMATCH), std::to_string(params.size()), std::to_string(argCount)));
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            for (size_t i = 0; i < params.size(); ++i) {
+                methodEnv->set(params[i], args[i]);
+            }
+
+            // "자신"/"이" 바인딩
+            methodEnv->set("자신", objVal);
+            methodEnv->set("이", objVal);
+
+            // 메서드 본문 실행
+            evaluator::Evaluator evaluator(methodEnv);
+            evaluator::Value result = evaluator.eval(method->body());
+
+            // 에러 체크
+            if (result.isError()) {
+                runtimeError(Logger::formatString(std::string(error::vm::METHOD_EXECUTION_ERROR), result.asString()));
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            // 결과 푸시
+            push(result);
+            break;
+        }
+
+        case OpCode::LOAD_THIS: {
+            // this 스택에서 현재 인스턴스 가져오기
+            if (thisStack_.empty()) {
+                runtimeError(std::string(error::vm::THIS_OUTSIDE_CLASS));
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            auto instance = thisStack_.back();
+            push(evaluator::Value::createClassInstance(instance));
+            break;
+        }
+
+        // ========================================
+        // 미구현 OpCode
+        // ========================================
+        case OpCode::INDEX_SET:
+        case OpCode::ARRAY_APPEND:
+        case OpCode::BUILD_RANGE:
+        case OpCode::IMPORT:
+            runtimeError(Logger::formatString(std::string(error::vm::UNIMPLEMENTED_OPCODE), opCodeToString(instruction)));
             return VMResult::RUNTIME_ERROR;
 
         default:

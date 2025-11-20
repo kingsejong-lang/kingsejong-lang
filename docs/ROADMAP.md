@@ -115,10 +115,14 @@
 - [x] ✅ stdlib/collections.ksj - 49개 함수 (완료)
 - [x] ✅ **전체 함수 수 251개 달성** (목표 200+ 초과 달성!)
 
-### 6.3 성능 최적화
-- [ ] 증분 GC (Incremental GC)
-- [ ] 메모리 풀링 전략 (Allocator/Pool 재사용)
-- [ ] 목표: 2~5배 실행 성능 향상
+### ✅ 6.3 메모리 풀링 (완료)
+- [x] ✅ ObjectPool 템플릿 구현 (src/memory/ObjectPool.h)
+- [x] ✅ ValuePool 싱글톤 래퍼 (src/memory/ValuePool.h)
+- [x] ✅ 16개 테스트 작성 및 통과
+- [x] ✅ 벤치마크 및 분석 완료
+- **결과**: 시스템 allocator가 2.4배 더 빠름 (placement new 오버헤드)
+- **결론**: GC 통합 보류, 현재 구조 유지
+- **향후**: 증분 GC 또는 특수 목적 풀 고려
 
 ---
 

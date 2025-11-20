@@ -161,48 +161,12 @@ VMResult VM::executeInstruction() {
         return executeConstantOps(instruction);
     }
 
+    // 변수 조작 (LOAD_VAR, STORE_VAR, LOAD_GLOBAL, STORE_GLOBAL)
+    if (instruction >= OpCode::LOAD_VAR && instruction <= OpCode::STORE_GLOBAL) {
+        return executeVariableOps(instruction);
+    }
+
     switch (instruction) {
-        // ========================================
-        // 변수 조작
-        // ========================================
-        case OpCode::LOAD_VAR: {
-            uint8_t slot = readByte();
-            if (slot >= stack_.size()) {
-                runtimeError(std::string(error::vm::LOCAL_VAR_INDEX_OUT_OF_BOUNDS));
-                return VMResult::RUNTIME_ERROR;
-            }
-            push(stack_[slot]);
-            break;
-        }
-
-        case OpCode::STORE_VAR: {
-            uint8_t slot = readByte();
-            if (slot >= stack_.size()) {
-                // 스택 확장
-                stack_.resize(slot + 1, evaluator::Value::createNull());
-            }
-            stack_[slot] = peek(0);
-            break;
-        }
-
-        case OpCode::LOAD_GLOBAL: {
-            std::string name = readName();
-            try {
-                evaluator::Value value = globals_->get(name);
-                push(value);
-            } catch (const std::exception&) {
-                runtimeError(Logger::formatString(std::string(error::vm::UNDEFINED_VARIABLE), name));
-                return VMResult::RUNTIME_ERROR;
-            }
-            break;
-        }
-
-        case OpCode::STORE_GLOBAL: {
-            std::string name = readName();
-            globals_->set(name, peek(0));
-            break;
-        }
-
         // ========================================
         // 산술 연산
         // ========================================
@@ -1087,6 +1051,54 @@ VMResult VM::executeConstantOps(OpCode instruction) {
         case OpCode::LOAD_NULL:
             push(evaluator::Value::createNull());
             break;
+
+        default:
+            runtimeError(Logger::formatString(std::string(error::vm::UNIMPLEMENTED_OPCODE), opCodeToString(instruction)));
+            return VMResult::RUNTIME_ERROR;
+    }
+
+    return VMResult::OK;
+}
+
+VMResult VM::executeVariableOps(OpCode instruction) {
+    switch (instruction) {
+        case OpCode::LOAD_VAR: {
+            uint8_t slot = readByte();
+            if (slot >= stack_.size()) {
+                runtimeError(std::string(error::vm::LOCAL_VAR_INDEX_OUT_OF_BOUNDS));
+                return VMResult::RUNTIME_ERROR;
+            }
+            push(stack_[slot]);
+            break;
+        }
+
+        case OpCode::STORE_VAR: {
+            uint8_t slot = readByte();
+            if (slot >= stack_.size()) {
+                // 스택 확장
+                stack_.resize(slot + 1, evaluator::Value::createNull());
+            }
+            stack_[slot] = peek(0);
+            break;
+        }
+
+        case OpCode::LOAD_GLOBAL: {
+            std::string name = readName();
+            try {
+                evaluator::Value value = globals_->get(name);
+                push(value);
+            } catch (const std::exception&) {
+                runtimeError(Logger::formatString(std::string(error::vm::UNDEFINED_VARIABLE), name));
+                return VMResult::RUNTIME_ERROR;
+            }
+            break;
+        }
+
+        case OpCode::STORE_GLOBAL: {
+            std::string name = readName();
+            globals_->set(name, peek(0));
+            break;
+        }
 
         default:
             runtimeError(Logger::formatString(std::string(error::vm::UNIMPLEMENTED_OPCODE), opCodeToString(instruction)));

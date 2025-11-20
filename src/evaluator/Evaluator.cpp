@@ -467,181 +467,60 @@ Value Evaluator::evalAwaitExpression(ast::AwaitExpression* expr)
     return value;
 }
 
+// ============================================================================
+// Phase 9.2: evalCallExpression() 헬퍼 메서드들
+// ============================================================================
+
 /**
- * @brief 함수 호출 평가
- *
- * 함수를 호출하고 결과를 반환합니다.
- * 1. 함수 평가 (Function 객체 얻기)
- * 2. 인자 평가
- * 3. 새로운 환경 생성 (클로저 기반)
- * 4. 매개변수 바인딩
- * 5. 함수 본문 실행
+ * @brief Promise 메서드 호출 (.then, .catch)
  */
-Value Evaluator::evalCallExpression(ast::CallExpression* expr)
+Value Evaluator::evalPromiseMethodCall(
+    ast::MemberAccessExpression* memberAccess,
+    const std::vector<std::unique_ptr<ast::Expression>>& arguments,
+    const Value& promiseObj
+)
 {
-    // Phase 7.1.3: 메서드 호출 처리
-    // 함수 표현식이 MemberAccessExpression이면 메서드 호출
-    if (auto* memberAccess = dynamic_cast<ast::MemberAccessExpression*>(const_cast<ast::Expression*>(expr->function())))
+    auto promise = promiseObj.asPromise();
+    const std::string& methodName = memberAccess->memberName();
+
+    // 인자 평가 (콜백 함수)
+    if (arguments.size() != 1)
     {
-        // 객체 평가
-        Value obj = eval(const_cast<ast::Expression*>(memberAccess->object()));
+        throw error::ArgumentError(
+            "Promise." + methodName + "()은 콜백 함수 1개를 인자로 받습니다"
+        );
+    }
 
-        // Phase 7.3: Promise 메서드 처리 (.then, .catch)
-        if (obj.isPromise())
+    Value callbackValue = eval(const_cast<ast::Expression*>(arguments[0].get()));
+    if (!callbackValue.isFunction())
+    {
+        throw error::TypeError(
+            "Promise." + methodName + "()의 인자는 함수여야 합니다"
+        );
+    }
+
+    auto callbackFunc = callbackValue.asFunction();
+
+    // Continuation 생성
+    auto continuation = [this, callbackFunc](const Value& value) -> Value {
+        // 콜백 함수 실행
+        auto funcEnv = std::make_shared<Environment>(callbackFunc->closure());
+
+        // 매개변수 바인딩 (value를 첫 번째 매개변수에)
+        if (!callbackFunc->parameters().empty())
         {
-            auto promise = obj.asPromise();
-            const std::string& methodName = memberAccess->memberName();
-
-            // 인자 평가 (콜백 함수)
-            if (expr->arguments().size() != 1)
-            {
-                throw error::ArgumentError(
-                    "Promise." + methodName + "()은 콜백 함수 1개를 인자로 받습니다"
-                );
-            }
-
-            Value callbackValue = eval(const_cast<ast::Expression*>(expr->arguments()[0].get()));
-            if (!callbackValue.isFunction())
-            {
-                throw error::TypeError(
-                    "Promise." + methodName + "()의 인자는 함수여야 합니다"
-                );
-            }
-
-            auto callbackFunc = callbackValue.asFunction();
-
-            // Continuation 생성
-            auto continuation = [this, callbackFunc](const Value& value) -> Value {
-                // 콜백 함수 실행
-                auto funcEnv = std::make_shared<Environment>(callbackFunc->closure());
-
-                // 매개변수 바인딩 (value를 첫 번째 매개변수에)
-                if (!callbackFunc->parameters().empty())
-                {
-                    funcEnv->set(callbackFunc->parameters()[0], value);
-                }
-
-                // 기존 환경 저장
-                auto previousEnv = env_;
-                env_ = funcEnv;
-
-                // 콜백 실행
-                Value result = Value::createNull();
-                try
-                {
-                    result = eval(callbackFunc->body());
-                }
-                catch (const ReturnValue& returnVal)
-                {
-                    result = returnVal.getValue();
-                }
-
-                // 환경 복원
-                env_ = previousEnv;
-
-                return result;
-            };
-
-            // 메서드에 따라 콜백 등록
-            if (methodName == "then" || methodName == "그러면")
-            {
-                // 이미 이행된 경우 즉시 실행
-                if (promise->state() == Promise::State::FULFILLED)
-                {
-                    Value result = continuation(promise->value());
-                    // 결과를 새 Promise로 감싸서 반환 (체이닝 지원)
-                    auto newPromise = std::make_shared<Promise>();
-                    newPromise->resolve(result);
-                    return Value::createPromise(newPromise);
-                }
-                else if (promise->state() == Promise::State::PENDING)
-                {
-                    promise->then(continuation);
-                }
-                // rejected인 경우 아무것도 하지 않음
-            }
-            else if (methodName == "catch" || methodName == "오류시")
-            {
-                // 이미 거부된 경우 즉시 실행
-                if (promise->state() == Promise::State::REJECTED)
-                {
-                    Value result = continuation(promise->value());
-                    // 결과를 새 Promise로 감싸서 반환
-                    auto newPromise = std::make_shared<Promise>();
-                    newPromise->resolve(result);
-                    return Value::createPromise(newPromise);
-                }
-                else if (promise->state() == Promise::State::PENDING)
-                {
-                    promise->catchError(continuation);
-                }
-                // fulfilled인 경우 아무것도 하지 않음
-            }
-            else
-            {
-                throw error::RuntimeError("Promise에 '" + methodName + "' 메서드가 없습니다");
-            }
-
-            // 체이닝을 위해 원래 Promise 반환
-            return obj;
+            funcEnv->set(callbackFunc->parameters()[0], value);
         }
-
-        // 클래스 인스턴스 메서드 호출
-        if (!obj.isClassInstance())
-        {
-            throw error::RuntimeError("메서드 호출은 클래스 인스턴스 또는 Promise에만 가능합니다");
-        }
-
-        auto instance = obj.asClassInstance();
-        auto classDef = instance->classDef();
-
-        // 메서드 찾기
-        auto method = classDef->getMethod(memberAccess->memberName());
-        if (!method)
-        {
-            throw error::RuntimeError("메서드를 찾을 수 없습니다: " + memberAccess->memberName());
-        }
-
-        // 인자 평가
-        std::vector<Value> args;
-        for (const auto& argExpr : expr->arguments())
-        {
-            Value argValue = eval(const_cast<ast::Expression*>(argExpr.get()));
-            args.push_back(argValue);
-        }
-
-        // 매개변수 개수 확인
-        if (args.size() != method->parameters().size())
-        {
-            throw error::ArgumentError(
-                "메서드 인자 개수가 일치하지 않습니다: 필요 " + std::to_string(method->parameters().size()) + "개, " +
-                "전달 " + std::to_string(args.size()) + "개"
-            );
-        }
-
-        // 새로운 환경 생성 (메서드의 클로저 기반)
-        auto methodEnv = std::make_shared<Environment>(method->closure());
-
-        // 매개변수 바인딩
-        for (size_t i = 0; i < method->parameters().size(); ++i)
-        {
-            methodEnv->set(method->parameters()[i], args[i]);
-        }
-
-        // '자신' 키워드를 인스턴스에 바인딩
-        methodEnv->set("자신", obj);
 
         // 기존 환경 저장
         auto previousEnv = env_;
+        env_ = funcEnv;
 
-        // 메서드 환경으로 전환
-        env_ = methodEnv;
-
-        // 메서드 본문 실행
+        // 콜백 실행
         Value result = Value::createNull();
         try
         {
-            result = eval(method->body());
+            result = eval(callbackFunc->body());
         }
         catch (const ReturnValue& returnVal)
         {
@@ -652,102 +531,192 @@ Value Evaluator::evalCallExpression(ast::CallExpression* expr)
         env_ = previousEnv;
 
         return result;
+    };
+
+    // 메서드에 따라 콜백 등록
+    if (methodName == "then" || methodName == "그러면")
+    {
+        // 이미 이행된 경우 즉시 실행
+        if (promise->state() == Promise::State::FULFILLED)
+        {
+            Value result = continuation(promise->value());
+            // 결과를 새 Promise로 감싸서 반환 (체이닝 지원)
+            auto newPromise = std::make_shared<Promise>();
+            newPromise->resolve(result);
+            return Value::createPromise(newPromise);
+        }
+        else if (promise->state() == Promise::State::PENDING)
+        {
+            promise->then(continuation);
+        }
+        // rejected인 경우 아무것도 하지 않음
+    }
+    else if (methodName == "catch" || methodName == "오류시")
+    {
+        // 이미 거부된 경우 즉시 실행
+        if (promise->state() == Promise::State::REJECTED)
+        {
+            Value result = continuation(promise->value());
+            // 결과를 새 Promise로 감싸서 반환
+            auto newPromise = std::make_shared<Promise>();
+            newPromise->resolve(result);
+            return Value::createPromise(newPromise);
+        }
+        else if (promise->state() == Promise::State::PENDING)
+        {
+            promise->catchError(continuation);
+        }
+        // fulfilled인 경우 아무것도 하지 않음
+    }
+    else
+    {
+        throw error::RuntimeError("Promise에 '" + methodName + "' 메서드가 없습니다");
     }
 
-    // 1. 함수 평가
-    Value funcValue = eval(const_cast<ast::Expression*>(expr->function()));
+    // 체이닝을 위해 원래 Promise 반환
+    return promiseObj;
+}
 
-    // 2. 인자 평가
+/**
+ * @brief 클래스 인스턴스 메서드 호출
+ */
+Value Evaluator::evalClassMethodCall(
+    ast::MemberAccessExpression* memberAccess,
+    const std::vector<std::unique_ptr<ast::Expression>>& arguments,
+    const Value& instanceObj
+)
+{
+    auto instance = instanceObj.asClassInstance();
+    auto classDef = instance->classDef();
+
+    // 메서드 찾기
+    auto method = classDef->getMethod(memberAccess->memberName());
+    if (!method)
+    {
+        throw error::RuntimeError("메서드를 찾을 수 없습니다: " + memberAccess->memberName());
+    }
+
+    // 인자 평가
     std::vector<Value> args;
-    for (const auto& argExpr : expr->arguments())
+    for (const auto& argExpr : arguments)
     {
         Value argValue = eval(const_cast<ast::Expression*>(argExpr.get()));
         args.push_back(argValue);
     }
 
-    // 3. 내장 함수 호출
-    if (funcValue.isBuiltinFunction())
-    {
-        auto fn = funcValue.asBuiltinFunction();
-        return fn(args);
-    }
-
-    // 4. 사용자 정의 함수 호출
-    if (!funcValue.isFunction())
-    {
-        throw error::TypeError(
-            "함수가 아닌 값을 호출하려고 합니다: " + funcValue.toString() + "\n" +
-            "해결 방법: 함수 이름이 올바른지 확인하고, 함수가 정의되어 있는지 확인하세요."
-        );
-    }
-
-    auto func = funcValue.asFunction();
-
-    // Phase 7.1: 클래스 생성자 호출
-    if (func->classDef())
-    {
-        auto classDef = func->classDef();
-        auto instance = std::make_shared<ClassInstance>(classDef);
-
-        // 생성자가 있으면 실행
-        if (classDef->constructor())
-        {
-            auto ctor = classDef->constructor();
-
-            // 매개변수 개수 확인
-            if (args.size() != ctor->parameters().size())
-            {
-                throw error::ArgumentError(
-                    "생성자 인자 개수가 일치하지 않습니다: 필요 " + std::to_string(ctor->parameters().size()) + "개, " +
-                    "전달 " + std::to_string(args.size()) + "개"
-                );
-            }
-
-            // 새로운 환경 생성 (생성자의 클로저 기반)
-            auto ctorEnv = std::make_shared<Environment>(ctor->closure());
-
-            // 매개변수 바인딩
-            for (size_t i = 0; i < ctor->parameters().size(); ++i)
-            {
-                ctorEnv->set(ctor->parameters()[i], args[i]);
-            }
-
-            // '자신' 키워드를 인스턴스에 바인딩
-            ctorEnv->set("자신", Value::createClassInstance(instance));
-
-            // 기존 환경 저장
-            auto previousEnv = env_;
-
-            // 생성자 환경으로 전환
-            env_ = ctorEnv;
-
-            // 생성자 본문 실행
-            try
-            {
-                eval(ctor->body());
-            }
-            catch (const ReturnValue&)
-            {
-                // 생성자에서 return은 무시
-            }
-
-            // 환경 복원
-            env_ = previousEnv;
-        }
-
-        return Value::createClassInstance(instance);
-    }
-
-    // 5. 매개변수 개수 확인
-    if (args.size() != func->parameters().size())
+    // 매개변수 개수 확인
+    if (args.size() != method->parameters().size())
     {
         throw error::ArgumentError(
-            "함수 인자 개수가 일치하지 않습니다: 필요 " + std::to_string(func->parameters().size()) + "개, " +
-            "전달 " + std::to_string(args.size()) + "개\n" +
-            "해결 방법: 함수 정의를 확인하고 올바른 개수의 인자를 전달하세요."
+            "메서드 인자 개수가 일치하지 않습니다: 필요 " + std::to_string(method->parameters().size()) + "개, " +
+            "전달 " + std::to_string(args.size()) + "개"
         );
     }
 
+    // 새로운 환경 생성 (메서드의 클로저 기반)
+    auto methodEnv = std::make_shared<Environment>(method->closure());
+
+    // 매개변수 바인딩
+    for (size_t i = 0; i < method->parameters().size(); ++i)
+    {
+        methodEnv->set(method->parameters()[i], args[i]);
+    }
+
+    // '자신' 키워드를 인스턴스에 바인딩
+    methodEnv->set("자신", instanceObj);
+
+    // 기존 환경 저장
+    auto previousEnv = env_;
+
+    // 메서드 환경으로 전환
+    env_ = methodEnv;
+
+    // 메서드 본문 실행
+    Value result = Value::createNull();
+    try
+    {
+        result = eval(method->body());
+    }
+    catch (const ReturnValue& returnVal)
+    {
+        result = returnVal.getValue();
+    }
+
+    // 환경 복원
+    env_ = previousEnv;
+
+    return result;
+}
+
+/**
+ * @brief 클래스 생성자 호출
+ */
+Value Evaluator::evalConstructorCall(
+    std::shared_ptr<Function> func,
+    const std::vector<Value>& args
+)
+{
+    auto classDef = func->classDef();
+    auto instance = std::make_shared<ClassInstance>(classDef);
+
+    // 생성자가 있으면 실행
+    if (classDef->constructor())
+    {
+        auto ctor = classDef->constructor();
+
+        // 매개변수 개수 확인
+        if (args.size() != ctor->parameters().size())
+        {
+            throw error::ArgumentError(
+                "생성자 인자 개수가 일치하지 않습니다: 필요 " + std::to_string(ctor->parameters().size()) + "개, " +
+                "전달 " + std::to_string(args.size()) + "개"
+            );
+        }
+
+        // 새로운 환경 생성 (생성자의 클로저 기반)
+        auto ctorEnv = std::make_shared<Environment>(ctor->closure());
+
+        // 매개변수 바인딩
+        for (size_t i = 0; i < ctor->parameters().size(); ++i)
+        {
+            ctorEnv->set(ctor->parameters()[i], args[i]);
+        }
+
+        // '자신' 키워드를 인스턴스에 바인딩
+        ctorEnv->set("자신", Value::createClassInstance(instance));
+
+        // 기존 환경 저장
+        auto previousEnv = env_;
+
+        // 생성자 환경으로 전환
+        env_ = ctorEnv;
+
+        // 생성자 본문 실행
+        try
+        {
+            eval(ctor->body());
+        }
+        catch (const ReturnValue&)
+        {
+            // 생성자에서 return은 무시
+        }
+
+        // 환경 복원
+        env_ = previousEnv;
+    }
+
+    return Value::createClassInstance(instance);
+}
+
+/**
+ * @brief 일반 사용자 정의 함수 호출
+ */
+Value Evaluator::evalRegularFunctionCall(
+    ast::CallExpression* expr,
+    std::shared_ptr<Function> func,
+    const std::vector<Value>& args
+)
+{
     // Hot Path Tracking: 함수 호출 추적
     std::string functionName = "anonymous";
     size_t functionId = reinterpret_cast<size_t>(func.get());
@@ -760,16 +729,16 @@ Value Evaluator::evalCallExpression(ast::CallExpression* expr)
 
     auto startTime = std::chrono::steady_clock::now();
 
-    // 6. 새로운 환경 생성 (클로저 기반)
+    // 새로운 환경 생성 (클로저 기반)
     auto funcEnv = std::make_shared<Environment>(func->closure());
 
-    // 7. 매개변수 바인딩
+    // 매개변수 바인딩
     for (size_t i = 0; i < func->parameters().size(); ++i)
     {
         funcEnv->set(func->parameters()[i], args[i]);
     }
 
-    // 8. 함수 본문 실행 (새로운 환경에서)
+    // 함수 본문 실행 (새로운 환경에서)
     // 기존 환경 저장
     auto previousEnv = env_;
 
@@ -822,6 +791,85 @@ Value Evaluator::evalCallExpression(ast::CallExpression* expr)
     }
 
     return result;
+}
+
+/**
+ * @brief 함수 호출 평가
+ *
+ * 함수를 호출하고 결과를 반환합니다.
+ * 1. 함수 평가 (Function 객체 얻기)
+ * 2. 인자 평가
+ * 3. 새로운 환경 생성 (클로저 기반)
+ * 4. 매개변수 바인딩
+ * 5. 함수 본문 실행
+ */
+Value Evaluator::evalCallExpression(ast::CallExpression* expr)
+{
+    // 1. 메서드 호출인지 확인 (MemberAccessExpression)
+    if (auto* memberAccess = dynamic_cast<ast::MemberAccessExpression*>(
+        const_cast<ast::Expression*>(expr->function())))
+    {
+        Value obj = eval(const_cast<ast::Expression*>(memberAccess->object()));
+
+        // Promise 메서드 호출
+        if (obj.isPromise())
+        {
+            return evalPromiseMethodCall(memberAccess, expr->arguments(), obj);
+        }
+
+        // 클래스 인스턴스 메서드 호출
+        if (obj.isClassInstance())
+        {
+            return evalClassMethodCall(memberAccess, expr->arguments(), obj);
+        }
+
+        throw error::RuntimeError("메서드 호출은 클래스 인스턴스 또는 Promise에만 가능합니다");
+    }
+
+    // 2. 함수 및 인자 평가
+    Value funcValue = eval(const_cast<ast::Expression*>(expr->function()));
+
+    std::vector<Value> args;
+    for (const auto& argExpr : expr->arguments())
+    {
+        args.push_back(eval(const_cast<ast::Expression*>(argExpr.get())));
+    }
+
+    // 3. 내장 함수 호출
+    if (funcValue.isBuiltinFunction())
+    {
+        return funcValue.asBuiltinFunction()(args);
+    }
+
+    // 4. 사용자 정의 함수인지 확인
+    if (!funcValue.isFunction())
+    {
+        throw error::TypeError(
+            "함수가 아닌 값을 호출하려고 합니다: " + funcValue.toString() + "\n" +
+            "해결 방법: 함수 이름이 올바른지 확인하고, 함수가 정의되어 있는지 확인하세요."
+        );
+    }
+
+    auto func = funcValue.asFunction();
+
+    // 5. 클래스 생성자 호출
+    if (func->classDef())
+    {
+        return evalConstructorCall(func, args);
+    }
+
+    // 6. 매개변수 개수 확인
+    if (args.size() != func->parameters().size())
+    {
+        throw error::ArgumentError(
+            "함수 인자 개수가 일치하지 않습니다: 필요 " + std::to_string(func->parameters().size()) + "개, " +
+            "전달 " + std::to_string(args.size()) + "개\n" +
+            "해결 방법: 함수 정의를 확인하고 올바른 개수의 인자를 전달하세요."
+        );
+    }
+
+    // 7. 일반 함수 호출
+    return evalRegularFunctionCall(expr, func, args);
 }
 
 // ============================================================================

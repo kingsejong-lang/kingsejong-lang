@@ -270,6 +270,58 @@ private:
      */
     Value evalThisExpression(ast::ThisExpression* expr);
 
+    // Phase 9.2: evalCallExpression() 헬퍼 메서드들
+
+    /**
+     * @brief Promise 메서드 호출 (.then, .catch)
+     * @param memberAccess 멤버 접근 표현식
+     * @param arguments 함수 인자 목록
+     * @param promiseObj Promise 객체
+     * @return 체이닝을 위한 Promise Value
+     */
+    Value evalPromiseMethodCall(
+        ast::MemberAccessExpression* memberAccess,
+        const std::vector<std::unique_ptr<ast::Expression>>& arguments,
+        const Value& promiseObj
+    );
+
+    /**
+     * @brief 클래스 인스턴스 메서드 호출
+     * @param memberAccess 멤버 접근 표현식
+     * @param arguments 함수 인자 목록
+     * @param instanceObj 클래스 인스턴스 객체
+     * @return 메서드 실행 결과 Value
+     */
+    Value evalClassMethodCall(
+        ast::MemberAccessExpression* memberAccess,
+        const std::vector<std::unique_ptr<ast::Expression>>& arguments,
+        const Value& instanceObj
+    );
+
+    /**
+     * @brief 클래스 생성자 호출
+     * @param func 클래스 생성자 함수
+     * @param args 생성자 인자 목록
+     * @return 생성된 클래스 인스턴스 Value
+     */
+    Value evalConstructorCall(
+        std::shared_ptr<Function> func,
+        const std::vector<Value>& args
+    );
+
+    /**
+     * @brief 일반 사용자 정의 함수 호출
+     * @param expr 함수 호출 표현식
+     * @param func 함수 객체
+     * @param args 함수 인자 목록
+     * @return 함수 실행 결과 Value
+     */
+    Value evalRegularFunctionCall(
+        ast::CallExpression* expr,
+        std::shared_ptr<Function> func,
+        const std::vector<Value>& args
+    );
+
     // Statement 실행 함수들
 
     /**

@@ -166,51 +166,12 @@ VMResult VM::executeInstruction() {
         return executeVariableOps(instruction);
     }
 
+    // 산술 연산 (ADD, SUB, MUL, DIV, MOD, NEG)
+    if (instruction >= OpCode::ADD && instruction <= OpCode::NEG) {
+        return executeArithmeticOps(instruction);
+    }
+
     switch (instruction) {
-        // ========================================
-        // 산술 연산
-        // ========================================
-        case OpCode::ADD: {
-            if (peek(0).isInteger() && peek(1).isInteger()) {
-                // 정수 덧셈
-                evaluator::Value b = pop();
-                evaluator::Value a = pop();
-                push(evaluator::Value::createInteger(a.asInteger() + b.asInteger()));
-            } else if ((peek(0).isInteger() || peek(0).isFloat()) && (peek(1).isInteger() || peek(1).isFloat())) {
-                // 실수 덧셈
-                evaluator::Value b = pop();
-                evaluator::Value a = pop();
-                push(evaluator::Value::createFloat(a.asFloat() + b.asFloat()));
-            } else if (peek(0).isString() && peek(1).isString()) {
-                // 문자열 연결
-                evaluator::Value b = pop();
-                evaluator::Value a = pop();
-                push(evaluator::Value::createString(a.asString() + b.asString()));
-            } else {
-                runtimeError(std::string(error::vm::OPERAND_MUST_BE_NUMBER_OR_STRING));
-                return VMResult::RUNTIME_ERROR;
-            }
-            break;
-        }
-        case OpCode::SUB:
-        case OpCode::MUL:
-        case OpCode::DIV:
-        case OpCode::MOD:
-            return binaryOp(instruction);
-
-        case OpCode::NEG: {
-            evaluator::Value value = pop();
-            if (value.isInteger()) {
-                push(evaluator::Value::createInteger(-value.asInteger()));
-            } else if (value.isFloat()) {
-                push(evaluator::Value::createFloat(-value.asFloat()));
-            } else {
-                runtimeError(std::string(error::vm::OPERAND_MUST_BE_NUMBER));
-                return VMResult::RUNTIME_ERROR;
-            }
-            break;
-        }
-
         // ========================================
         // 비교 연산
         // ========================================
@@ -1097,6 +1058,58 @@ VMResult VM::executeVariableOps(OpCode instruction) {
         case OpCode::STORE_GLOBAL: {
             std::string name = readName();
             globals_->set(name, peek(0));
+            break;
+        }
+
+        default:
+            runtimeError(Logger::formatString(std::string(error::vm::UNIMPLEMENTED_OPCODE), opCodeToString(instruction)));
+            return VMResult::RUNTIME_ERROR;
+    }
+
+    return VMResult::OK;
+}
+
+VMResult VM::executeArithmeticOps(OpCode instruction) {
+    switch (instruction) {
+        case OpCode::ADD: {
+            if (peek(0).isInteger() && peek(1).isInteger()) {
+                // 정수 덧셈
+                evaluator::Value b = pop();
+                evaluator::Value a = pop();
+                push(evaluator::Value::createInteger(a.asInteger() + b.asInteger()));
+            } else if ((peek(0).isInteger() || peek(0).isFloat()) && (peek(1).isInteger() || peek(1).isFloat())) {
+                // 실수 덧셈
+                evaluator::Value b = pop();
+                evaluator::Value a = pop();
+                push(evaluator::Value::createFloat(a.asFloat() + b.asFloat()));
+            } else if (peek(0).isString() && peek(1).isString()) {
+                // 문자열 연결
+                evaluator::Value b = pop();
+                evaluator::Value a = pop();
+                push(evaluator::Value::createString(a.asString() + b.asString()));
+            } else {
+                runtimeError(std::string(error::vm::OPERAND_MUST_BE_NUMBER_OR_STRING));
+                return VMResult::RUNTIME_ERROR;
+            }
+            break;
+        }
+
+        case OpCode::SUB:
+        case OpCode::MUL:
+        case OpCode::DIV:
+        case OpCode::MOD:
+            return binaryOp(instruction);
+
+        case OpCode::NEG: {
+            evaluator::Value value = pop();
+            if (value.isInteger()) {
+                push(evaluator::Value::createInteger(-value.asInteger()));
+            } else if (value.isFloat()) {
+                push(evaluator::Value::createFloat(-value.asFloat()));
+            } else {
+                runtimeError(std::string(error::vm::OPERAND_MUST_BE_NUMBER));
+                return VMResult::RUNTIME_ERROR;
+            }
             break;
         }
 

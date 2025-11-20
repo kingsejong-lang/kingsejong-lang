@@ -238,6 +238,69 @@ private:
      */
     VMResult executeInstruction();
 
+    /**
+     * @brief 상수 로드 OpCode 실행 (LOAD_CONST, LOAD_TRUE, LOAD_FALSE, LOAD_NULL)
+     * @param instruction OpCode
+     * @return 실행 결과
+     */
+    VMResult executeConstantOps(OpCode instruction);
+
+    /**
+     * @brief 변수 조작 OpCode 실행 (LOAD_VAR, STORE_VAR, LOAD_GLOBAL, STORE_GLOBAL)
+     * @param instruction OpCode
+     * @return 실행 결과
+     */
+    VMResult executeVariableOps(OpCode instruction);
+
+    /**
+     * @brief 산술 연산 OpCode 실행 (ADD, SUB, MUL, DIV, MOD, NEG)
+     * @param instruction OpCode
+     * @return 실행 결과
+     */
+    VMResult executeArithmeticOps(OpCode instruction);
+
+    /**
+     * @brief 비교 연산 OpCode 실행 (EQ, NE, LT, LE, GT, GE)
+     * @param instruction OpCode
+     * @return 실행 결과
+     */
+    VMResult executeComparisonOps(OpCode instruction);
+
+    /**
+     * @brief 논리 연산 OpCode 실행 (AND, OR, NOT)
+     * @param instruction OpCode
+     * @return 실행 결과
+     */
+    VMResult executeLogicalOps(OpCode instruction);
+
+    /**
+     * @brief 제어 흐름 OpCode 실행 (JUMP, JUMP_IF_FALSE, LOOP, CALL, RETURN, HALT, POP)
+     * @param instruction OpCode
+     * @return 실행 결과
+     */
+    VMResult executeControlFlowOps(OpCode instruction);
+
+    /**
+     * @brief 배열/딕셔너리 OpCode 실행 (BUILD_ARRAY, BUILD_DICT, INDEX_GET, etc.)
+     * @param instruction OpCode
+     * @return 실행 결과
+     */
+    VMResult executeArrayOps(OpCode instruction);
+
+    /**
+     * @brief Promise/Async OpCode 실행 (AWAIT, BUILD_PROMISE, PROMISE_RESOLVE, etc.)
+     * @param instruction OpCode
+     * @return 실행 결과
+     */
+    VMResult executePromiseOps(OpCode instruction);
+
+    /**
+     * @brief 기타 OpCode 실행 (PRINT, BUILD_RANGE, IMPORT, etc.)
+     * @param instruction OpCode
+     * @return 실행 결과
+     */
+    VMResult executeMiscOps(OpCode instruction);
+
     // 산술 연산
     VMResult binaryOp(OpCode op);
 

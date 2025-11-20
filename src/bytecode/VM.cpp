@@ -155,28 +155,13 @@ void VM::printStack() const {
 VMResult VM::executeInstruction() {
     OpCode instruction = static_cast<OpCode>(readByte());
 
+    // Phase 9: OpCode 카테고리별 분기
+    // 상수 로드 (LOAD_CONST, LOAD_TRUE, LOAD_FALSE, LOAD_NULL)
+    if (instruction >= OpCode::LOAD_CONST && instruction <= OpCode::LOAD_NULL) {
+        return executeConstantOps(instruction);
+    }
+
     switch (instruction) {
-        // ========================================
-        // 상수 로드
-        // ========================================
-        case OpCode::LOAD_CONST: {
-            evaluator::Value constant = readConstant();
-            push(constant);
-            break;
-        }
-
-        case OpCode::LOAD_TRUE:
-            push(evaluator::Value::createBoolean(true));
-            break;
-
-        case OpCode::LOAD_FALSE:
-            push(evaluator::Value::createBoolean(false));
-            break;
-
-        case OpCode::LOAD_NULL:
-            push(evaluator::Value::createNull());
-            break;
-
         // ========================================
         // 변수 조작
         // ========================================
@@ -1077,6 +1062,38 @@ void VM::printJITStatistics() const {
     }
 
     Logger::info("=========================\n");
+}
+
+// ============================================================================
+// Phase 9: executeInstruction() 분해 - OpCode 카테고리별 메서드
+// ============================================================================
+
+VMResult VM::executeConstantOps(OpCode instruction) {
+    switch (instruction) {
+        case OpCode::LOAD_CONST: {
+            evaluator::Value constant = readConstant();
+            push(constant);
+            break;
+        }
+
+        case OpCode::LOAD_TRUE:
+            push(evaluator::Value::createBoolean(true));
+            break;
+
+        case OpCode::LOAD_FALSE:
+            push(evaluator::Value::createBoolean(false));
+            break;
+
+        case OpCode::LOAD_NULL:
+            push(evaluator::Value::createNull());
+            break;
+
+        default:
+            runtimeError(Logger::formatString(std::string(error::vm::UNIMPLEMENTED_OPCODE), opCodeToString(instruction)));
+            return VMResult::RUNTIME_ERROR;
+    }
+
+    return VMResult::OK;
 }
 
 } // namespace bytecode

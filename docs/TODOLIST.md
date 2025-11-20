@@ -2,18 +2,27 @@
 
 > **프로젝트**: KingSejong Programming Language (`.ksj`)
 > **최종 업데이트**: 2025-11-20
-> **현재 버전**: v0.8.0 (Phase 8 진행중)
+> **현재 버전**: v0.8.0 (Phase 8 완료! 🎉)
 > **상태 기호**: ✅ 완료 | 🚧 진행중 | 📝 예정 | ⏸️ 보류
 
 ---
 
+## ✅ 최근 완료된 작업
+
+### Phase 8: 코드 품질 및 문서화 (v0.8.0) - 100% 완료!
+- [x] Doxygen 설정 완료 (Doxyfile 추가)
+- [x] 사용자 가이드 작성 완료 (USER_GUIDE.md)
+- [x] 성능 회귀 테스트 자동화 (regression_test.py)
+- [x] 전체 1490개 테스트 100% 통과
+- [x] CTest WORKING_DIRECTORY 수정
+- [x] 긴 함수 분석 완료 → Phase 9 리팩토링으로 이관
+
 ## 🚧 현재 집중 작업
 
-### Phase 8: 코드 품질 및 문서화 (v0.8.0)
-- [ ] Doxygen에서 누락된 항목 보완 후 **API 문서 생성**
-- [ ] 사용자 가이드 확장 (튜토리얼, 패턴 매칭, 디버거 흐름)
-- [ ] 8.4 테스트 강화 - **성능 회귀 테스트** 시나리오 작성 및 자동화
-- [ ] 8.1 긴 함수 분해 (VM::executeInstruction, Evaluator::evalCallExpression, Evaluator::evalJosaExpression) → Phase 9 리팩토링 티켓으로 승격
+### Phase 9 준비
+- [ ] 긴 함수 리팩토링 계획 수립
+- [ ] VM::executeInstruction() 분해 전략
+- [ ] Evaluator 리팩토링 설계
 
 ## 🛠 Phase 6 남은 과제
 
@@ -91,5 +100,5 @@ perf: 성능 개선
 ---
 
 **마지막 업데이트**: 2025-11-20
-**현재 상태**: Phase 8 진행 중 (83%)
-**다음 우선순위**: Phase 8 완료 (API 문서 생성 → 성능 회귀 테스트)
+**현재 상태**: Phase 8 완료! (100%) 🎉
+**다음 우선순위**: Phase 9 시작 (긴 함수 리팩토링) 또는 Phase 6 잔여 작업 (stdlib/http·db)

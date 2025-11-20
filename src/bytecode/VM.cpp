@@ -181,74 +181,14 @@ VMResult VM::executeInstruction() {
         return executeLogicalOps(instruction);
     }
 
+    // 제어 흐름 (JUMP, JUMP_IF_FALSE, JUMP_IF_TRUE, LOOP, BUILD_FUNCTION, CALL, RETURN, HALT)
+    if ((instruction >= OpCode::JUMP && instruction <= OpCode::LOOP) ||
+        (instruction >= OpCode::CALL && instruction <= OpCode::BUILD_FUNCTION) ||
+        instruction == OpCode::HALT) {
+        return executeControlFlowOps(instruction);
+    }
+
     switch (instruction) {
-        // ========================================
-        // 제어 흐름
-        // ========================================
-        case OpCode::JUMP: {
-            uint8_t offset = readByte();
-            ip_ += offset;
-            break;
-        }
-
-        case OpCode::JUMP_IF_FALSE: {
-            uint8_t offset = readByte();
-            if (!peek(0).isTruthy()) {
-                ip_ += offset;
-            }
-            break;
-        }
-
-        case OpCode::JUMP_IF_TRUE: {
-            uint8_t offset = readByte();
-            if (peek(0).isTruthy()) {
-                ip_ += offset;
-            }
-            break;
-        }
-
-        case OpCode::LOOP: {
-            uint8_t offset = readByte();
-            size_t loopStart = ip_ - offset;
-
-            // JIT 컴파일 및 실행
-            if (jitEnabled_) {
-                // 루프 백엣지 추적
-                hotPathDetector_->trackLoopBackedge(loopStart);
-
-                // 디버그: 루프 추적 확인
-                // 루프 프로파일 정보는 HotPathDetector가 관리
-
-                // JIT 캐시 확인: 이미 컴파일된 코드가 있는지
-                auto it = jitCache_.find(loopStart);
-
-                if (it != jitCache_.end()) {
-                    // JIT 코드가 존재 - 실행!
-                    VMResult jitResult = executeJITCode(it->second);
-
-                    if (jitResult == VMResult::OK) {
-                        // JIT 실행 성공 - 루프 전체가 완료됨
-                        // executeJITCode가 스택 = [dummy, dummy, result] 상태로 남겨놨음
-                        // 첫 번째 POP부터 실행해야 cleanup이 올바르게 작동함
-                        // exitOffset은 JUMP_IF_FALSE target이므로 -1 필요
-                        ip_ = it->second->exitOffset - 1;
-                        break;  // LOOP OpCode 종료, 다음 명령어로 진행
-                    } else {
-                        // JIT 실행 실패 - 인터프리터로 폴백
-                        Logger::warn("[VM] JIT 실행 실패, 인터프리터로 폴백");
-                    }
-                } else if (hotPathDetector_->isHot(loopStart, jit::HotPathType::LOOP)) {
-                    // 핫 루프이지만 아직 컴파일되지 않았으면 컴파일
-                    tryJITCompileLoop(loopStart);
-                    // 이번 반복은 인터프리터로 계속 진행
-                }
-            }
-
-            // 인터프리터 폴백: 루프 백점프 실행
-            ip_ -= offset;
-            break;
-        }
-
         // ========================================
         // 배열
         // ========================================
@@ -1121,6 +1061,131 @@ VMResult VM::executeLogicalOps(OpCode instruction) {
             push(evaluator::Value::createBoolean(!a.isTruthy()));
             break;
         }
+
+        default:
+            runtimeError(Logger::formatString(std::string(error::vm::UNIMPLEMENTED_OPCODE), opCodeToString(instruction)));
+            return VMResult::RUNTIME_ERROR;
+    }
+
+    return VMResult::OK;
+}
+
+VMResult VM::executeControlFlowOps(OpCode instruction) {
+    switch (instruction) {
+        case OpCode::JUMP: {
+            uint8_t offset = readByte();
+            ip_ += offset;
+            break;
+        }
+
+        case OpCode::JUMP_IF_FALSE: {
+            uint8_t offset = readByte();
+            if (!peek(0).isTruthy()) {
+                ip_ += offset;
+            }
+            break;
+        }
+
+        case OpCode::JUMP_IF_TRUE: {
+            uint8_t offset = readByte();
+            if (peek(0).isTruthy()) {
+                ip_ += offset;
+            }
+            break;
+        }
+
+        case OpCode::LOOP: {
+            uint8_t offset = readByte();
+            size_t loopStart = ip_ - offset;
+
+            // JIT 컴파일 및 실행
+            if (jitEnabled_) {
+                // 루프 백엣지 추적
+                hotPathDetector_->trackLoopBackedge(loopStart);
+
+                // JIT 캐시 확인
+                auto it = jitCache_.find(loopStart);
+
+                if (it != jitCache_.end()) {
+                    // JIT 코드 실행
+                    VMResult jitResult = executeJITCode(it->second);
+
+                    if (jitResult == VMResult::OK) {
+                        ip_ = it->second->exitOffset - 1;
+                        break;
+                    } else {
+                        Logger::warn("[VM] JIT 실행 실패, 인터프리터로 폴백");
+                    }
+                } else if (hotPathDetector_->isHot(loopStart, jit::HotPathType::LOOP)) {
+                    // 핫 루프 컴파일
+                    tryJITCompileLoop(loopStart);
+                }
+            }
+
+            // 인터프리터 폴백
+            ip_ -= offset;
+            break;
+        }
+
+        case OpCode::BUILD_FUNCTION: {
+            uint8_t paramCount = readByte();
+            uint8_t addrHigh = readByte();
+            uint8_t addrLow = readByte();
+            size_t funcAddr = (static_cast<size_t>(addrHigh) << 8) | addrLow;
+
+            int64_t encoded = (static_cast<int64_t>(funcAddr) << 8) | paramCount;
+            push(evaluator::Value::createInteger(encoded));
+            break;
+        }
+
+        case OpCode::CALL: {
+            uint8_t argCount = readByte();
+
+            evaluator::Value funcVal = peek(argCount);
+            if (!funcVal.isInteger()) {
+                runtimeError(std::string(error::vm::CALL_NON_FUNCTION));
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            int64_t encoded = funcVal.asInteger();
+            size_t funcAddr = static_cast<size_t>((encoded >> 8) & FUNC_ADDR_MASK);
+
+            // CallFrame 저장
+            frames_.push_back({ip_, stack_.size() - argCount});
+
+            // 함수로 점프
+            ip_ = funcAddr;
+            break;
+        }
+
+        case OpCode::RETURN: {
+            evaluator::Value result = pop();
+
+            if (frames_.empty()) {
+                // 최상위 레벨 return
+                push(result);
+                return VMResult::OK;
+            }
+
+            // CallFrame 복원
+            CallFrame frame = frames_.back();
+            frames_.pop_back();
+
+            // 스택 정리
+            while (stack_.size() > frame.stackBase) {
+                pop();
+            }
+
+            // 반환값 푸시
+            push(result);
+
+            // IP 복원
+            ip_ = frame.returnAddress;
+            break;
+        }
+
+        case OpCode::HALT:
+            return VMResult::HALT;
 
         default:
             runtimeError(Logger::formatString(std::string(error::vm::UNIMPLEMENTED_OPCODE), opCodeToString(instruction)));

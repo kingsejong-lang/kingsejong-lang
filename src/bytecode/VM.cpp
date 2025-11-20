@@ -171,52 +171,12 @@ VMResult VM::executeInstruction() {
         return executeArithmeticOps(instruction);
     }
 
+    // 비교 연산 (EQ, NE, LT, GT, LE, GE)
+    if (instruction >= OpCode::EQ && instruction <= OpCode::GE) {
+        return executeComparisonOps(instruction);
+    }
+
     switch (instruction) {
-        // ========================================
-        // 비교 연산
-        // ========================================
-        case OpCode::EQ: {
-            evaluator::Value b = pop();
-            evaluator::Value a = pop();
-            push(evaluator::Value::createBoolean(a.equals(b)));
-            break;
-        }
-
-        case OpCode::NE: {
-            evaluator::Value b = pop();
-            evaluator::Value a = pop();
-            push(evaluator::Value::createBoolean(!a.equals(b)));
-            break;
-        }
-
-        case OpCode::LT: {
-            evaluator::Value b = pop();
-            evaluator::Value a = pop();
-            push(evaluator::Value::createBoolean(a.lessThan(b)));
-            break;
-        }
-
-        case OpCode::GT: {
-            evaluator::Value b = pop();
-            evaluator::Value a = pop();
-            push(evaluator::Value::createBoolean(a.greaterThan(b)));
-            break;
-        }
-
-        case OpCode::LE: {
-            evaluator::Value b = pop();
-            evaluator::Value a = pop();
-            push(evaluator::Value::createBoolean(a.lessThan(b) || a.equals(b)));
-            break;
-        }
-
-        case OpCode::GE: {
-            evaluator::Value b = pop();
-            evaluator::Value a = pop();
-            push(evaluator::Value::createBoolean(a.greaterThan(b) || a.equals(b)));
-            break;
-        }
-
         // ========================================
         // 논리 연산
         // ========================================
@@ -1112,6 +1072,43 @@ VMResult VM::executeArithmeticOps(OpCode instruction) {
             }
             break;
         }
+
+        default:
+            runtimeError(Logger::formatString(std::string(error::vm::UNIMPLEMENTED_OPCODE), opCodeToString(instruction)));
+            return VMResult::RUNTIME_ERROR;
+    }
+
+    return VMResult::OK;
+}
+
+VMResult VM::executeComparisonOps(OpCode instruction) {
+    evaluator::Value b = pop();
+    evaluator::Value a = pop();
+
+    switch (instruction) {
+        case OpCode::EQ:
+            push(evaluator::Value::createBoolean(a.equals(b)));
+            break;
+
+        case OpCode::NE:
+            push(evaluator::Value::createBoolean(!a.equals(b)));
+            break;
+
+        case OpCode::LT:
+            push(evaluator::Value::createBoolean(a.lessThan(b)));
+            break;
+
+        case OpCode::GT:
+            push(evaluator::Value::createBoolean(a.greaterThan(b)));
+            break;
+
+        case OpCode::LE:
+            push(evaluator::Value::createBoolean(a.lessThan(b) || a.equals(b)));
+            break;
+
+        case OpCode::GE:
+            push(evaluator::Value::createBoolean(a.greaterThan(b) || a.equals(b)));
+            break;
 
         default:
             runtimeError(Logger::formatString(std::string(error::vm::UNIMPLEMENTED_OPCODE), opCodeToString(instruction)));

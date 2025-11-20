@@ -176,30 +176,12 @@ VMResult VM::executeInstruction() {
         return executeComparisonOps(instruction);
     }
 
+    // 논리 연산 (AND, OR, NOT)
+    if (instruction >= OpCode::AND && instruction <= OpCode::NOT) {
+        return executeLogicalOps(instruction);
+    }
+
     switch (instruction) {
-        // ========================================
-        // 논리 연산
-        // ========================================
-        case OpCode::AND: {
-            evaluator::Value b = pop();
-            evaluator::Value a = pop();
-            push(evaluator::Value::createBoolean(a.isTruthy() && b.isTruthy()));
-            break;
-        }
-
-        case OpCode::OR: {
-            evaluator::Value b = pop();
-            evaluator::Value a = pop();
-            push(evaluator::Value::createBoolean(a.isTruthy() || b.isTruthy()));
-            break;
-        }
-
-        case OpCode::NOT: {
-            evaluator::Value value = pop();
-            push(evaluator::Value::createBoolean(!value.isTruthy()));
-            break;
-        }
-
         // ========================================
         // 제어 흐름
         // ========================================
@@ -1109,6 +1091,36 @@ VMResult VM::executeComparisonOps(OpCode instruction) {
         case OpCode::GE:
             push(evaluator::Value::createBoolean(a.greaterThan(b) || a.equals(b)));
             break;
+
+        default:
+            runtimeError(Logger::formatString(std::string(error::vm::UNIMPLEMENTED_OPCODE), opCodeToString(instruction)));
+            return VMResult::RUNTIME_ERROR;
+    }
+
+    return VMResult::OK;
+}
+
+VMResult VM::executeLogicalOps(OpCode instruction) {
+    switch (instruction) {
+        case OpCode::AND: {
+            evaluator::Value b = pop();
+            evaluator::Value a = pop();
+            push(evaluator::Value::createBoolean(a.isTruthy() && b.isTruthy()));
+            break;
+        }
+
+        case OpCode::OR: {
+            evaluator::Value b = pop();
+            evaluator::Value a = pop();
+            push(evaluator::Value::createBoolean(a.isTruthy() || b.isTruthy()));
+            break;
+        }
+
+        case OpCode::NOT: {
+            evaluator::Value a = pop();
+            push(evaluator::Value::createBoolean(!a.isTruthy()));
+            break;
+        }
 
         default:
             runtimeError(Logger::formatString(std::string(error::vm::UNIMPLEMENTED_OPCODE), opCodeToString(instruction)));

@@ -188,48 +188,13 @@ VMResult VM::executeInstruction() {
         return executeControlFlowOps(instruction);
     }
 
+    // 배열 (BUILD_ARRAY, INDEX_GET, INDEX_SET, ARRAY_APPEND, JOSA_CALL)
+    if ((instruction >= OpCode::BUILD_ARRAY && instruction <= OpCode::ARRAY_APPEND) ||
+        instruction == OpCode::JOSA_CALL) {
+        return executeArrayOps(instruction);
+    }
+
     switch (instruction) {
-        // ========================================
-        // 배열
-        // ========================================
-        case OpCode::BUILD_ARRAY: {
-            uint8_t count = readByte();
-            std::vector<evaluator::Value> elements;
-
-            for (int i = 0; i < count; i++) {
-                elements.insert(elements.begin(), pop());
-            }
-
-            push(evaluator::Value::createArray(elements));
-            break;
-        }
-
-        case OpCode::INDEX_GET: {
-            evaluator::Value index = pop();
-            evaluator::Value array = pop();
-
-            if (!array.isArray()) {
-                runtimeError(std::string(error::vm::NOT_AN_ARRAY));
-                return VMResult::RUNTIME_ERROR;
-            }
-
-            if (!index.isInteger()) {
-                runtimeError(std::string(error::vm::INDEX_MUST_BE_INTEGER));
-                return VMResult::RUNTIME_ERROR;
-            }
-
-            int idx = static_cast<int>(index.asInteger());
-            auto& arr = array.asArray();
-
-            if (idx < 0 || idx >= static_cast<int>(arr.size())) {
-                runtimeError(std::string(error::vm::INDEX_OUT_OF_BOUNDS));
-                return VMResult::RUNTIME_ERROR;
-            }
-
-            push(arr[idx]);
-            break;
-        }
-
         // ========================================
         // 스택 조작
         // ========================================
@@ -263,118 +228,6 @@ VMResult VM::executeInstruction() {
             // 그러나 "Clean Code" 요청이므로 일관성을 위해 Logger 사용.
             // 실제 상용 언어라면 stdout과 log를 분리해야 함.
             Logger::info(value.toString());
-            break;
-        }
-
-        case OpCode::HALT:
-            return VMResult::HALT;
-
-        // ========================================
-        // 미구현
-        // ========================================
-        // ========================================
-        // 함수 관련
-        // ========================================
-        case OpCode::BUILD_FUNCTION: {
-            uint8_t paramCount = readByte();
-            uint8_t addrHigh = readByte();
-            uint8_t addrLow = readByte();
-            size_t funcAddr = (static_cast<size_t>(addrHigh) << 8) | addrLow;
-
-            // 간단화된 함수 표현: [타입=정수, 값1=주소, 값2=파라미터개수]
-            // Value에 정수로 인코딩 (주소 << 8 | 파라미터개수)
-            int64_t encoded = (static_cast<int64_t>(funcAddr) << 8) | paramCount;
-            push(evaluator::Value::createInteger(encoded));
-            break;
-        }
-
-        case OpCode::CALL: {
-            uint8_t argCount = readByte();
-
-            // 함수 가져오기 (인코딩된 정수)
-            evaluator::Value funcVal = peek(argCount);
-            if (!funcVal.isInteger()) {
-                runtimeError(std::string(error::vm::CALL_NON_FUNCTION));
-                return VMResult::RUNTIME_ERROR;
-            }
-
-            int64_t encoded = funcVal.asInteger();
-            size_t funcAddr = static_cast<size_t>((encoded >> 8) & FUNC_ADDR_MASK);
-
-            // CallFrame 저장
-            frames_.push_back({ip_, stack_.size() - argCount});
-
-            // 함수로 점프
-            ip_ = funcAddr;
-            break;
-        }
-
-        case OpCode::RETURN: {
-            evaluator::Value result = pop();
-
-            if (frames_.empty()) {
-                // 최상위 레벨 return: 프로그램 종료
-                push(result);
-                return VMResult::OK;
-            }
-
-            // CallFrame 복원
-            CallFrame frame = frames_.back();
-            frames_.pop_back();
-
-            // 스택 정리: 함수와 인자들 제거
-            while (stack_.size() > frame.stackBase) {
-                pop();
-            }
-
-            // 반환값 푸시
-            push(result);
-
-            // IP 복원
-            ip_ = frame.returnAddress;
-            break;
-        }
-
-        case OpCode::JOSA_CALL: {
-            [[maybe_unused]] uint8_t josaType = readByte();
-            uint8_t methodIdx = readByte();
-
-            // 객체
-            evaluator::Value obj = pop();
-
-            // 메서드 이름
-            std::string methodName = chunk_->getName(methodIdx);
-
-            // 조사 기반 메서드 호출 (간단화: 내장 메서드만 지원)
-            // 실제로는 evaluator의 조사 표현식 평가 로직 사용해야 함
-            // 현재는 기본적인 배열 메서드만 지원
-
-            if (obj.isArray()) {
-                auto& arr = obj.asArray();
-
-                if (methodName == "정렬한다" || methodName == "정렬") {
-                    // 정렬 (간단화: 정수 배열만)
-                    std::vector<evaluator::Value> sorted = arr;
-                    std::sort(sorted.begin(), sorted.end(),
-                              [](const evaluator::Value& a, const evaluator::Value& b) {
-                                  if (a.isInteger() && b.isInteger()) {
-                                      return a.asInteger() < b.asInteger();
-                                  }
-                                  return false;
-                              });
-                    push(evaluator::Value::createArray(sorted));
-                } else if (methodName == "역순으로_나열한다" || methodName == "역순") {
-                    std::vector<evaluator::Value> reversed = arr;
-                    std::reverse(reversed.begin(), reversed.end());
-                    push(evaluator::Value::createArray(reversed));
-                } else {
-                    runtimeError(Logger::formatString(std::string(error::vm::UNKNOWN_ARRAY_METHOD), methodName));
-                    return VMResult::RUNTIME_ERROR;
-                }
-            } else {
-                runtimeError(std::string(error::vm::UNSUPPORTED_JOSA_TYPE));
-                return VMResult::RUNTIME_ERROR;
-            }
             break;
         }
 
@@ -1186,6 +1039,106 @@ VMResult VM::executeControlFlowOps(OpCode instruction) {
 
         case OpCode::HALT:
             return VMResult::HALT;
+
+        default:
+            runtimeError(Logger::formatString(std::string(error::vm::UNIMPLEMENTED_OPCODE), opCodeToString(instruction)));
+            return VMResult::RUNTIME_ERROR;
+    }
+
+    return VMResult::OK;
+}
+
+// ============================================================================
+// Phase 9 Step 7: executeArrayOps
+// ============================================================================
+
+VMResult VM::executeArrayOps(OpCode instruction) {
+    switch (instruction) {
+        case OpCode::BUILD_ARRAY: {
+            uint8_t count = readByte();
+            std::vector<evaluator::Value> elements;
+
+            for (int i = 0; i < count; i++) {
+                elements.insert(elements.begin(), pop());
+            }
+
+            push(evaluator::Value::createArray(elements));
+            break;
+        }
+
+        case OpCode::INDEX_GET: {
+            evaluator::Value index = pop();
+            evaluator::Value array = pop();
+
+            if (!array.isArray()) {
+                runtimeError(std::string(error::vm::NOT_AN_ARRAY));
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            if (!index.isInteger()) {
+                runtimeError(std::string(error::vm::INDEX_MUST_BE_INTEGER));
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            int idx = static_cast<int>(index.asInteger());
+            auto& arr = array.asArray();
+
+            if (idx < 0 || idx >= static_cast<int>(arr.size())) {
+                runtimeError(std::string(error::vm::INDEX_OUT_OF_BOUNDS));
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            push(arr[idx]);
+            break;
+        }
+
+        case OpCode::INDEX_SET:
+        case OpCode::ARRAY_APPEND:
+            runtimeError(Logger::formatString(std::string(error::vm::UNIMPLEMENTED_OPCODE), opCodeToString(instruction)));
+            return VMResult::RUNTIME_ERROR;
+
+        case OpCode::JOSA_CALL: {
+            [[maybe_unused]] uint8_t josaType = readByte();
+            uint8_t methodIdx = readByte();
+
+            // 객체
+            evaluator::Value obj = pop();
+
+            // 메서드 이름
+            std::string methodName = chunk_->getName(methodIdx);
+
+            // 조사 기반 메서드 호출 (간단화: 내장 메서드만 지원)
+            // 실제로는 evaluator의 조사 표현식 평가 로직 사용해야 함
+            // 현재는 기본적인 배열 메서드만 지원
+
+            if (obj.isArray()) {
+                auto& arr = obj.asArray();
+
+                if (methodName == "정렬한다" || methodName == "정렬") {
+                    // 정렬 (간단화: 정수 배열만)
+                    std::vector<evaluator::Value> sorted = arr;
+                    std::sort(sorted.begin(), sorted.end(),
+                              [](const evaluator::Value& a, const evaluator::Value& b) {
+                                  if (a.isInteger() && b.isInteger()) {
+                                      return a.asInteger() < b.asInteger();
+                                  }
+                                  return false;
+                              });
+                    push(evaluator::Value::createArray(sorted));
+                } else if (methodName == "역순으로_나열한다" || methodName == "역순") {
+                    std::vector<evaluator::Value> reversed = arr;
+                    std::reverse(reversed.begin(), reversed.end());
+                    push(evaluator::Value::createArray(reversed));
+                } else {
+                    runtimeError(Logger::formatString(std::string(error::vm::UNKNOWN_ARRAY_METHOD), methodName));
+                    return VMResult::RUNTIME_ERROR;
+                }
+            } else {
+                runtimeError(std::string(error::vm::UNSUPPORTED_JOSA_TYPE));
+                return VMResult::RUNTIME_ERROR;
+            }
+            break;
+        }
 
         default:
             runtimeError(Logger::formatString(std::string(error::vm::UNIMPLEMENTED_OPCODE), opCodeToString(instruction)));

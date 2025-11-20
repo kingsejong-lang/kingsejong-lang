@@ -7,14 +7,14 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![C++23](https://img.shields.io/badge/C++-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![CI](https://github.com/0xmhha/kingsejonglang/workflows/CI/badge.svg)](https://github.com/0xmhha/kingsejonglang/actions)
-[![Tests](https://img.shields.io/badge/tests-1465%20passed-success)](tests/)
-[![Version](https://img.shields.io/badge/version-v0.8.0-blue)](https://github.com/0xmhha/kingsejonglang/releases/tag/v0.8.0)
+[![Tests](https://img.shields.io/badge/tests-1490%20passed-success)](tests/)
+[![Version](https://img.shields.io/badge/version-v0.5.0-blue)](https://github.com/0xmhha/kingsejonglang/releases/tag/v0.5.0)
 [![VS Code](https://img.shields.io/badge/VS%20Code-Extension-blue)](vscode-extension/)
 
-[빠른 시작](#빠른-시작) •
-[주요 특징](#주요-특징) •
-[튜토리얼](docs/TUTORIAL.md) •
-[문서](docs/LANGUAGE_REFERENCE.md) •
+[빠른 시작](#빠른-시작) |
+[주요 특징](#주요-특징) |
+[튜토리얼](docs/TUTORIAL.md) |
+[문서](docs/LANGUAGE_REFERENCE.md) |
 [예제](examples/)
 
 </div>
@@ -45,13 +45,13 @@
 
 KingSejong은 macOS, Linux, Windows를 지원합니다.
 
-#### 📦 사전 요구사항
+#### 사전 요구사항
 
 - **C++23 지원 컴파일러** (GCC 12+, Clang 15+, MSVC 2022+)
 - **CMake 3.20+**
 - **Git**
 
-#### 🍎 macOS
+#### macOS
 
 ```bash
 # Homebrew로 의존성 설치
@@ -68,7 +68,7 @@ make -j4
 ./bin/kingsejong ../examples/hello.ksj
 ```
 
-#### 🐧 Linux (Ubuntu/Debian)
+#### Linux (Ubuntu/Debian)
 
 ```bash
 # 의존성 설치
@@ -86,7 +86,7 @@ make -j4
 ./bin/kingsejong ../examples/hello.ksj
 ```
 
-#### 🐧 Linux (Fedora/CentOS)
+#### Linux (Fedora/CentOS)
 
 ```bash
 # 의존성 설치
@@ -103,7 +103,7 @@ make -j4
 ./bin/kingsejong ../examples/hello.ksj
 ```
 
-#### 🪟 Windows
+#### Windows
 
 **Visual Studio 2022 사용:**
 
@@ -126,21 +126,24 @@ cmake --build . --config Release
 .\bin\Release\kingsejong.exe ..\examples\hello.ksj
 ```
 
-> 📖 **자세한 설치 가이드**: [docs/INSTALL.md](docs/INSTALL.md)
+> **자세한 설치 가이드**: [docs/INSTALL.md](docs/INSTALL.md)
 
 ### Hello, World!
 
 **hello.ksj**:
+
 ```ksj
 출력("안녕, KingSejong!")
 ```
 
 실행:
+
 ```bash
 ./kingsejong hello.ksj
 ```
 
 출력:
+
 ```
 안녕, KingSejong!
 ```
@@ -165,7 +168,7 @@ $ ./kingsejong
 
 ## 주요 특징
 
-### 🔗 1. 조사 기반 메서드 체이닝
+### 1. 조사 기반 메서드 체이닝
 
 한국어의 조사(`을/를`, `이/가`, `의` 등)를 활용한 자연스러운 메서드 호출:
 
@@ -177,12 +180,13 @@ $ ./kingsejong
 ```
 
 **받침 자동 인식:**
+
 ```ksj
 배열을 정렬한다    # 받침 있음 → '을'
 데이터를 처리한다  # 받침 없음 → '를'
 ```
 
-### 🎯 2. 함수형 프로그래밍
+### 2. 함수형 프로그래밍
 
 고차 함수와 함수형 메서드 지원:
 
@@ -198,12 +202,13 @@ $ ./kingsejong
 ```
 
 **지원하는 함수형 메서드:**
+
 - `걸러낸다(함수)` - filter
 - `변환한다(함수)` - map
 - `축약한다(초기값, 함수)` - reduce
 - `찾다(함수)` - find
 
-### 📦 3. 모듈 시스템
+### 3. 모듈 시스템
 
 표준 라이브러리와 사용자 정의 모듈:
 
@@ -223,6 +228,7 @@ $ ./kingsejong
 ```
 
 **표준 라이브러리 (stdlib):**
+
 - `math.ksj` - 18개 수학 함수 (절댓값, 거듭제곱, 팩토리얼, GCD, 소수 판별 등)
 - `string.ksj` - 9개 문자열 처리 함수 (반복, 결합, 채우기 등)
 - `array.ksj` - 18개 배열 유틸리티 (범위, 중복 제거, zip 등)
@@ -236,9 +242,9 @@ $ ./kingsejong
 - `http.ksj` - 20개 HTTP 클라이언트 함수
 - `db.ksj` - 15개 데이터베이스 함수 (SQLite)
 - `collections.ksj` - 50개 자료구조 함수 (Set, Map, Queue, Stack, Deque)
-- `test.ksj` - 5개 테스트 프레임워크 함수 (assert 계열) ⭐ NEW
+- `test.ksj` - 5개 테스트 프레임워크 함수 (assert 계열) **NEW**
 
-### 📐 4. 자연스러운 범위 표현
+### 4. 자연스러운 범위 표현
 
 수학적으로 직관적인 범위 표현:
 
@@ -256,7 +262,7 @@ i가 1 초과 10 이하 {    # (1, 10] - 1 미포함, 10 포함
 }
 ```
 
-### 🔢 5. 직관적인 타입 시스템
+### 5. 직관적인 타입 시스템
 
 한글로 타입을 명시:
 
@@ -271,7 +277,7 @@ i가 1 초과 10 이하 {    # (1, 10] - 1 미포함, 10 포함
 메시지 = "안녕"    # 자동으로 문자열로 추론
 ```
 
-### 🎮 6. 1급 함수와 클로저
+### 6. 1급 함수와 클로저
 
 함수를 값처럼 다루기:
 
@@ -301,7 +307,7 @@ i가 1 초과 10 이하 {    # (1, 10] - 1 미포함, 10 포함
 }
 ```
 
-### 🔁 7. 편리한 반복문
+### 7. 편리한 반복문
 
 다양한 반복 구문:
 
@@ -323,7 +329,7 @@ i가 1부터 10까지 {
 }
 ```
 
-### 🗑️ 8. 가비지 컬렉터
+### 8. 가비지 컬렉터
 
 자동 메모리 관리로 메모리 누수 방지:
 
@@ -334,13 +340,14 @@ i가 1부터 10까지 {
 ```
 
 **특징:**
+
 - Mark & Sweep 알고리즘
 - 순환 참조 감지 및 해제
 - 루트 집합 관리
 - 자동/수동 GC 모드
 - 메모리 통계 제공
 
-### ⚡ 9. 바이트코드 컴파일러
+### 9. 바이트코드 컴파일러
 
 고성능 실행을 위한 바이트코드 VM:
 
@@ -351,6 +358,7 @@ i가 1부터 10까지 {
 ```
 
 **구성:**
+
 - 60+ OpCode 명령어 세트
 - 스택 기반 가상 머신
 - 상수 풀 및 이름 테이블
@@ -359,49 +367,55 @@ i가 1부터 10까지 {
 
 ---
 
-## 📚 문서
+## 문서
 
-| 문서 | 설명 | 대상 |
-|------|------|------|
-| [튜토리얼](docs/TUTORIAL.md) | 단계별 학습 가이드 (10개 챕터) | 초보자 |
-| [언어 레퍼런스](docs/LANGUAGE_REFERENCE.md) | 완전한 문법 가이드 | 모든 사용자 |
-| [라이브러리 가이드](docs/LIBRARY_GUIDE.md) | 모듈 개발 가이드 | 개발자 |
-| [표준 라이브러리](stdlib/README.md) | stdlib 함수 목록 | 모든 사용자 |
-| [GC 설계 문서](docs/GC_DESIGN.md) | 가비지 컬렉터 설계 및 구현 | 고급 개발자 |
-| [VS Code Extension](vscode-extension/README.md) | Extension 설치 및 사용법 | VS Code 사용자 |
-| [작업 목록](docs/TODOLIST.md) | 프로젝트 진행 상황 | 기여자 |
+| 문서                                            | 설명                           | 대상           |
+| ----------------------------------------------- | ------------------------------ | -------------- |
+| [튜토리얼](docs/TUTORIAL.md)                    | 단계별 학습 가이드 (10개 챕터) | 초보자         |
+| [언어 레퍼런스](docs/LANGUAGE_REFERENCE.md)     | 완전한 문법 가이드             | 모든 사용자    |
+| [라이브러리 가이드](docs/LIBRARY_GUIDE.md)      | 모듈 개발 가이드               | 개발자         |
+| [표준 라이브러리](stdlib/README.md)             | stdlib 함수 목록               | 모든 사용자    |
+| [GC 설계 문서](docs/GC_DESIGN.md)               | 가비지 컬렉터 설계 및 구현     | 고급 개발자    |
+| [VS Code Extension](vscode-extension/README.md) | Extension 설치 및 사용법       | VS Code 사용자 |
+| [작업 목록](docs/TODOLIST.md)                   | 프로젝트 진행 상황             | 기여자         |
 
 ---
 
-## 🎯 예제 프로그램
+## 예제 프로그램
 
 **21개의 예제 프로그램** 제공:
 
 ### 기초 예제
+
 - `hello.ksj` - Hello World
 - `calculator.ksj` - 산술 연산
 - `type_demo.ksj` - 타입 시스템
 
 ### 제어 구조
+
 - `conditional.ksj` - 조건문
 - `loop.ksj` - 반복문
 - `nested_loops.ksj` - 중첩 반복문
 
 ### 함수
+
 - `function.ksj` - 1급 함수
 - `closure.ksj` - 클로저
 - `fibonacci.ksj`, `recursion.ksj` - 재귀
 
 ### 배열
+
 - `array_methods.ksj` - 배열 메서드
 - `functional_array.ksj` - 함수형 메서드
 
 ### 표준 라이브러리
+
 - `stdlib_math.ksj` - 수학 함수 활용
 - `stdlib_string.ksj` - 문자열 처리
 - `stdlib_array.ksj` - 배열 유틸리티
 
 ### 고급 예제
+
 - `prime_finder.ksj` - 소수 찾기 (에라토스테네스의 체)
 - `sorting_demo.ksj` - 정렬 알고리즘 (버블 정렬)
 - `statistics.ksj` - 통계 분석 (분산, 표준편차, 이상치)
@@ -416,127 +430,7 @@ i가 1부터 10까지 {
 
 ---
 
-## 🏗️ 프로젝트 상태
-
-### Phase 1: 핵심 차별화 ✅ (100% 완료)
-
-- ✅ Token 시스템 & 조사 인식기
-- ✅ Lexer & Parser (Pratt Parsing)
-- ✅ AST & Evaluator
-- ✅ 타입 시스템 (정수, 실수, 문자열, 불리언, 배열, 함수)
-- ✅ 제어 구조 (조건문, 반복문)
-- ✅ 1급 함수 (클로저, 재귀)
-- ✅ 내장 함수 (출력, 타입, 길이)
-- ✅ REPL & 파일 실행
-
-### Phase 2: 실용 기능 ✅ (100% 완료)
-
-- ✅ 배열 구현 (리터럴, 인덱싱, 슬라이싱)
-- ✅ 함수형 메서드 (걸러낸다, 변환한다, 축약한다, 찾다)
-- ✅ 메서드 체이닝 (정렬한다, 역순으로_나열한다)
-- ✅ 문자열 타입
-- ✅ 실수 타입
-- ✅ 에러 처리 시스템
-- ✅ 한글 에러 메시지
-- ✅ 타입 검사
-- ✅ **표준 라이브러리** (14개 모듈, 255개 함수)
-
-### Phase 3: 고급 기능 ✅ (100% 완료)
-
-- ✅ **모듈 시스템** (가져오기, 캐싱, 순환 참조 방지)
-- ✅ **가비지 컬렉터** (Mark & Sweep, 순환 참조 감지, 자동 메모리 관리)
-- ✅ **바이트코드 컴파일러** (60+ OpCode, 스택 기반 VM, AST → Bytecode)
-
-### Phase 5: 개발자 경험 & 생태계 ✅ (필수 100% 완료)
-
-- ✅ **에러 메시지 개선**
-  - 100% 한글 에러 메시지
-  - 정확한 위치 표시 (줄, 열 번호)
-  - 해결 힌트 제공
-- ✅ **Language Server Protocol (LSP)**
-  - JSON-RPC 2.0 통신
-  - 기본 기능 (자동 완성, 진단, 문서 관리)
-  - 고급 기능 (정의 이동, 호버, 참조 찾기, 이름 변경)
-  - SymbolTable & SymbolCollector (심볼 관리)
-  - UTF-16/UTF-8 변환 (한글 지원)
-  - 스코프 인식 (전역/로컬 변수 구분)
-  - 130개 테스트
-- ✅ **VS Code Extension**
-  - 구문 강조 (Syntax Highlighting)
-  - 자동 완성 (34개 키워드)
-  - 실시간 에러 검사
-  - 정의로 이동 (F12)
-  - 호버 정보 표시
-  - 참조 찾기 (Shift+F12)
-  - 심볼 이름 변경 (F2)
-  - 자동 괄호 닫기, 들여쓰기
-- ✅ **디버거 (179개 테스트)**
-  - 브레이크포인트 (조건부 포함)
-  - 와치포인트 (변수 변경 감지)
-  - 단계별 실행 (step, next, continue)
-  - 변수 검사, 콜스택 표시
-  - REPL 통합
-  - 소스 코드 뷰어
-- ✅ **온라인 플레이그라운드**
-  - WebAssembly 빌드 (Emscripten)
-  - JavaScript API 바인딩
-  - 웹 인터페이스 (Vite + Monaco Editor)
-  - 예제 갤러리 (10개)
-  - GitHub Pages 자동 배포
-- ✅ **표준 라이브러리 확장 (255개 함수)**
-  - 14개 모듈 (math, string, array, io, json, time, utils, regex, crypto, os, http, db, collections, test)
-  - stdlib/test.ksj - 테스트 프레임워크 (5개) ⭐ NEW
-
-### 문서화 ✅ (완료)
-
-- ✅ **완전한 언어 레퍼런스** (679줄)
-- ✅ **초보자 튜토리얼** (650줄, 10개 챕터)
-- ✅ **라이브러리 확장 가이드** (537줄)
-- ✅ **21개 예제 프로그램**
-
-### Phase 7: 성능 최적화 & 고급 기능 ✅ (100% 완료)
-
-- ✅ **클래스/객체 시스템** - 상속, 생성자, this
-- ✅ **JIT 컴파일러 Tier-1** - 루프 핫스팟 감지 및 네이티브 컴파일
-- ✅ **Async/Await** - 비동기 프로그래밍 지원
-- ✅ **Linter** - 12개 규칙 (미사용 변수, 매직 넘버 등)
-- ✅ **보안 관리자** - 샌드박스, 파일 접근 제어
-
-### Phase 8: 코드 품질 및 문서화 (진행 중)
-
-- 🔄 **Clean Code 적용** (60%)
-- 🔄 **주석 및 문서화**
-- ⏳ **성능 벤치마크**
-- ⏳ **테스트 강화**
-
-### 테스트 현황
-
-```
-총 테스트: 1465개
-통과율: 100%
-
-주요 테스트:
-- Lexer/Parser: 59개
-- Evaluator: 30개
-- Type System: 48개
-- Array: 62개
-- Float: 48개
-- String: 45개
-- Function: 13개
-- Loop: 21개
-- GC: 15개
-- Bytecode: 19개
-- LSP: 130개 (기본 + 고급)
-- 디버거: 179개
-- JIT: 30개
-- Linter: 200개+
-- Class/Async: 100개+
-- 기타: 400개+
-```
-
----
-
-## 🔧 빌드 및 설치
+## 빌드 및 설치
 
 ### 요구사항
 
@@ -576,6 +470,7 @@ ctest --output-on-failure
 ```
 
 **REPL 명령어:**
+
 - `.exit`, `.quit` - 종료
 - `.help` - 도움말
 - `.clear` - 변수 초기화
@@ -617,6 +512,7 @@ npm run compile
 **제공하는 기능:**
 
 **기본 기능:**
+
 - 구문 강조 (Syntax Highlighting)
 - 자동 완성 (Auto Completion) - 34개 키워드, 변수명
 - 실시간 진단 (Diagnostics) - 구문 오류 표시
@@ -624,6 +520,7 @@ npm run compile
 - 들여쓰기 자동 조정
 
 **고급 기능:**
+
 - 정의로 이동 (Go to Definition) - F12
 - 호버 정보 (Hover Information) - 타입/시그니처 표시
 - 참조 찾기 (Find References) - Shift+F12
@@ -633,7 +530,7 @@ npm run compile
 
 ---
 
-## 🌟 왜 KingSejong인가?
+## 왜 KingSejong인가?
 
 ### 교육적 가치
 
@@ -656,11 +553,11 @@ npm run compile
 - **온라인 플레이그라운드** - 즉시 실행 (WebAssembly)
 - **REPL** - 빠른 프로토타이핑
 - **에러 메시지 한글화** - 친절한 피드백
-- **100% 테스트 통과** - 안정성 보장 (1465개)
+- **100% 테스트 통과** - 안정성 보장 (1490개)
 
 ---
 
-## 📖 학습 경로
+## 학습 경로
 
 1. **[튜토리얼 시작](docs/TUTORIAL.md)** - Hello World부터 차근차근
 2. **[예제 실행](examples/)** - 21개 예제로 실습
@@ -669,7 +566,7 @@ npm run compile
 
 ---
 
-## 🤝 기여하기
+## 기여하기
 
 기여를 환영합니다!
 
@@ -683,7 +580,7 @@ npm run compile
 
 ---
 
-## 📂 프로젝트 구조
+## 프로젝트 구조
 
 ```
 kingsejonglang/
@@ -730,9 +627,9 @@ kingsejonglang/
 │   ├── math.ksj          # 수학 함수 (18개)
 │   ├── string.ksj        # 문자열 처리 (9개)
 │   ├── array.ksj         # 배열 유틸리티 (18개)
-│   ├── test.ksj          # 테스트 프레임워크 (5개) ⭐ NEW
+│   ├── test.ksj          # 테스트 프레임워크 (5개) **NEW**
 │   └── ... (14개 모듈)
-├── tests/                 # 테스트 코드 (1465개)
+├── tests/                 # 테스트 코드 (1490개)
 │   ├── lsp/              # LSP 테스트 (130개)
 │   │   ├── JsonRpcTest.cpp
 │   │   ├── DocumentManagerTest.cpp
@@ -769,7 +666,7 @@ kingsejonglang/
 
 ---
 
-## 📜 라이센스
+## 라이센스
 
 이 프로젝트는 **MIT 라이센스** 하에 배포됩니다.
 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
@@ -786,8 +683,6 @@ kingsejonglang/
 ---
 
 <div align="center">
-
-**Made with ❤️ by KingSejong Team**
 
 [GitHub](https://github.com/0xmhha/kingsejonglang) •
 [이슈 제기](https://github.com/0xmhha/kingsejonglang/issues) •

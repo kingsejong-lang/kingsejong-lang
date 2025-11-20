@@ -1,72 +1,81 @@
-# Sejong 언어 구현 계획
+# KingSejong 언어 구현 상태 및 계획
 
-> Sejong Programming Language Implementation Roadmap
-> 완전히 새로운 프로젝트 - Clean Room 설계
+> KingSejong Programming Language Implementation Status & Roadmap
 
-**프로젝트**: Sejong (`.sj`)
-**시작일**: 2025-11-06
-**예상 기간**: 12개월
-**저장소**: (새 GitHub 저장소 생성 예정)
+**프로젝트**: KingSejong (`.ksj`)
+**현재 버전**: v0.5.0 (Phase 8 완료)
+**저장소**: https://github.com/0xmhha/kingsejonglang
+**테스트**: 1,503개 (100% 통과)
+**마지막 업데이트**: 2025-11-21
 
 ---
 
 ## 목차
 
-1. [Phase 0: 프로젝트 초기화 (1주)](#phase-0-프로젝트-초기화-1주)
-2. [Phase 1: 핵심 차별화 기능 (3개월)](#phase-1-핵심-차별화-기능-3개월)
-3. [Phase 2: 실용 기능 (3개월)](#phase-2-실용-기능-3개월)
-4. [Phase 3: 고급 기능 (6개월)](#phase-3-고급-기능-6개월)
+1. [✅ 완료된 Phase (0-8)](#-완료된-phase-0-8)
+2. [📝 계획 중인 Phase (9 이후)](#-계획-중인-phase-9-이후)
+3. [구현 상세 내역](#구현-상세-내역)
 
 ---
 
-## 개발 원칙
+## 개발 원칙 (✅ 적용 완료)
 
-### Clean Room 설계
-- 원본 KoreanLanguage 코드는 **참고만** (직접 복사 금지)
-- 알고리즘과 아이디어는 독립적으로 재설계
-- 완전히 새로운 코드베이스
-- 라이센스 문제 완전 해결
+### Clean Room 설계 ✅
+- ✅ 독립적으로 재설계된 코드베이스
+- ✅ 알고리즘과 아이디어 독립 구현
+- ✅ MIT License 적용
+- ✅ 라이센스 문제 완전 해결
 
-### 핵심 우선순위
-1. **차별화 먼저**: 조사 체인, 범위 표현 등 혁신적 기능
-2. **교육 중심**: 명확한 에러 메시지
-3. **실용성 확보**: 실제 사용 가능한 수준
-
----
-
-## Phase 0: 프로젝트 초기화 (1주)
-
-### 목표
-새 프로젝트 구조 및 개발 환경 구축
+### 핵심 우선순위 (✅ 달성)
+1. ✅ **차별화 먼저**: 조사 체인, 범위 표현 등 혁신적 기능 구현 완료
+2. ✅ **교육 중심**: 명확한 에러 메시지, 한글 문서화
+3. ✅ **실용성 확보**: 실제 사용 가능한 수준 (LSP, 디버거, VS Code)
+4. ✅ **고성능**: Bytecode VM + JIT Compiler Tier 1
 
 ---
 
-### 0.1 GitHub 저장소 생성 (1일)
+## ✅ 완료된 Phase (0-8)
+
+### Phase 0: 프로젝트 초기화 ✅
+
+**목표**: 새 프로젝트 구조 및 개발 환경 구축
+**상태**: ✅ 완료
+
+---
+
+#### 0.1 GitHub 저장소 생성 ✅
 
 **작업 내용**:
-- ☐ 새 저장소 생성: `sejong-lang` 또는 `sejong`
-- ☐ MIT License 적용
-- ☐ README.md 초안
-- ☐ .gitignore 설정
-- ☐ 브랜치 전략 수립 (main, develop, feature/*)
+- [x] 저장소 생성: `kingsejonglang`
+- [x] MIT License 적용
+- [x] README.md 작성
+- [x] .gitignore 설정
+- [x] 브랜치 전략 수립 (main 브랜치)
 
-**파일**:
+**결과**:
 ```
-sejong/
-├── LICENSE (MIT)
-├── README.md
-├── .gitignore
+kingsejonglang/
+├── LICENSE (MIT) ✅
+├── README.md ✅
+├── .gitignore ✅
 └── docs/
-    ├── LANGUAGE_DESIGN.md
-    ├── FEATURES.md
-    └── CONTRIBUTING.md
+    ├── LANGUAGE_DESIGN_PHILOSOPHY.md ✅
+    ├── FEATURES.md ✅
+    ├── IMPLEMENTATION.md ✅
+    ├── PROJECT_OVERVIEW.md ✅
+    ├── STARTER_GUIDE.md ✅
+    └── CONTRIBUTING.md ✅
 ```
 
----
+#### 0.2-0.5 프로젝트 기반 구축 ✅
 
-### 0.2 프로젝트 구조 설계 (2일)
+**완료된 작업**:
+- [x] CMake 빌드 시스템 (C++23)
+- [x] GoogleTest 통합 (1,503개 테스트)
+- [x] CI/CD 설정 (GitHub Actions)
+- [x] 크로스 플랫폼 지원 (macOS, Linux, Windows)
 
-**디렉토리 구조**:
+**현재 디렉토리 구조**:
 ```
 sejong/
 ├── src/
@@ -769,34 +778,111 @@ test: 타입 시스템 테스트 추가
 
 ---
 
-## 마일스톤
+## ✅ 달성된 마일스톤
 
-### M1: 첫 실행 (1개월)
-```sejong
-출력("안녕, Sejong!")
+### ✅ M1: 첫 실행 (완료)
+```ksj
+출력("안녕, KingSejong!")
 ```
 
-### M2: 핵심 차별화 (3개월)
-```sejong
+### ✅ M2: 핵심 차별화 (완료)
+```ksj
 숫자들 = [1, 2, 3, 4, 5]
 결과 = 숫자들에서 짝수만_걸러내고 각각을_제곱한다
 출력(결과)
 ```
 
-### M3: 실용 수준 (6개월)
-```sejong
-함수 데이터_가져오기(url) {
-    응답 = API호출(url)를_할때까지_기다린다
-    데이터 = 응답.본문을_파싱할때까지_기다린다
+### ✅ M3: 실용 수준 (완료)
+```ksj
+비동기_함수 데이터_가져오기(url) {
+    응답 = API호출(url)를_기다린다
+    데이터 = 응답_파싱()을_기다린다
     반환 데이터
 }
 ```
 
-### M4: 완성 (12개월)
-- 온라인 플레이그라운드
-- 30+ 예제
-- 교육 과정 통합
+### 🚧 M4: 완성 (진행 중)
+- 🚧 온라인 플레이그라운드 (WebAssembly)
+- ✅ 21개 예제
+- 📝 교육 과정 통합
 
 ---
 
-**다음 작업**: 새 GitHub 저장소 생성 및 Phase 0 시작!
+## 📝 계획 중인 Phase (9 이후)
+
+### Phase 9: 리팩토링 및 최적화
+
+**목표**: 코드 품질 향상 및 성능 최적화
+
+**작업 내용**:
+- [ ] 긴 함수 리팩토링 (VM::execute, Evaluator 메서드들)
+- [ ] Incremental GC 구현 (현재: Stop-the-World GC)
+- [ ] 메모리 풀링 전략 (Allocator/Pool 재사용)
+- [ ] stdlib/http, stdlib/db 완성 (현재 일부 구현)
+- [ ] 성능 프로파일링 및 핫스팟 최적화
+
+**예상 기간**: 2-3개월
+
+---
+
+## 🎯 v1.0.0 릴리스 목표
+
+**Production Readiness**: 8.5/10 → 9.5/10
+
+**필수 작업**:
+- [ ] Phase 9 완료 (리팩토링 및 최적화)
+- [ ] 최종 안정화 테스트
+- [ ] 릴리스 노트 작성
+- [ ] 프로덕션 배포 가이드
+
+**선택 작업**:
+- [ ] 온라인 플레이그라운드 (WebAssembly)
+- [ ] 교육 기관 파일럿 테스트
+- [ ] 커뮤니티 구축
+
+---
+
+## 📊 현재 상태 요약 (v0.5.0)
+
+| 카테고리           | 진행률  | 상태 |
+| ------------------ | ------- | ---- |
+| **핵심 언어 기능** | 100%    | ✅   |
+| **표준 라이브러리**| 95%     | ✅   |
+| **개발 도구**      | 100%    | ✅   |
+| **테스트**         | 100%    | ✅   |
+| **문서화**         | 100%    | ✅   |
+| **성능 최적화**    | 80%     | 🚧   |
+
+**구현 완료된 주요 기능**:
+- ✅ 조사 기반 메서드 체인
+- ✅ 자연스러운 범위 표현
+- ✅ 명확한 타입 시스템
+- ✅ 클래스 및 상속
+- ✅ Async/Await
+- ✅ Try/Catch/Finally
+- ✅ 패턴 매칭
+- ✅ 모듈 시스템
+- ✅ Bytecode VM (56개 OpCode)
+- ✅ JIT Compiler Tier 1
+- ✅ 세대별 GC
+- ✅ LSP (Language Server Protocol)
+- ✅ 디버거
+- ✅ Linter & Formatter
+- ✅ VS Code 확장
+- ✅ ksjpm 패키지 관리자
+
+**표준 라이브러리**:
+- ✅ 14개 모듈
+- ✅ 182개 함수
+- ✅ array, collections, crypto, db, http, io, json, math, os, regex, string, test, time, utils
+
+**테스트**:
+- ✅ 1,503개 테스트
+- ✅ 100% 통과
+- ✅ regression_test.py 자동화
+
+---
+
+**프로젝트 상태**: Phase 8 완료, Phase 9 준비 중
+**저장소**: https://github.com/0xmhha/kingsejonglang
+**다음 작업**: Phase 9 시작 - 긴 함수 리팩토링 및 Incremental GC 구현

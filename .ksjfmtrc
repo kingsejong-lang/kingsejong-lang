@@ -1,0 +1,8 @@
+{
+  "indentSize": 4,
+  "useSpaces": true,
+  "spaceAroundOperators": true,
+  "spaceAfterComma": true,
+  "spaceBeforeBrace": true,
+  "maxLineLength": 100
+}

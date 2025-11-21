@@ -13,11 +13,14 @@
 - [x] Doxygen 설정 완료 (Doxyfile 추가)
 - [x] 사용자 가이드 작성 완료 (USER_GUIDE.md)
 - [x] 성능 회귀 테스트 자동화 (regression_test.py)
-- [x] 전체 1,503개 테스트 100% 통과
+- [x] 전체 1,506개 테스트 100% 통과
 - [x] CTest WORKING_DIRECTORY 수정
 - [x] 긴 함수 분석 완료 → Phase 9 리팩토링으로 이관
 - [x] Analysis 문서 정리 (구식 문서 삭제)
 - [x] README.md 버전 정정 (v0.5.0)
+- [x] stdlib 함수 문서화 완료 (STDLIB_REFERENCE.md - 251개 함수)
+- [x] Linter 규칙 확장 완료 (LINTER_RULES.md - 13개 규칙)
+- [x] README.md 대폭 업데이트 (새 문서 반영)
 
 ### Phase 6.1: 코드 품질 도구 - 완료!
 - [x] Linter 설정 파일 (`.ksjlintrc`) - 8개 규칙 정의
@@ -64,18 +67,19 @@
 
 ## 🛠 Phase 6 남은 과제
 
-### 6.1: 코드 품질 도구 - 80% 완료!
+### 6.1: 코드 품질 도구 - 95% 완료!
 - [x] Linter 설정 파일 (`.ksjlintrc`) ✅
-- [ ] 추가 Linter 규칙 (네이밍 컨벤션 등)
+- [x] 추가 Linter 규칙 (네이밍 컨벤션 등) ✅ - 13개 규칙 완료
+- [x] LINTER_RULES.md 문서 작성 ✅
 - [ ] Formatter VS Code 확장 기능 개발
 - [x] Formatter 설정 파일 (`.ksjfmtrc`) ✅
 
-### 6.2: 표준 라이브러리 확장
+### 6.2: 표준 라이브러리 확장 - 100% 완료!
 - [x] stdlib/http.ksj - HTTP 클라이언트 (완료)
 - [x] stdlib/db.ksj - 데이터베이스 유틸리티 (완료)
 - [x] stdlib/collections.ksj - 컬렉션 라이브러리 (완료)
-- [ ] stdlib 함수 문서화 및 테스트 확장
-- [ ] **목표**: 표준 라이브러리 200개+ 함수 (현재 182개 문서화)
+- [x] stdlib 함수 문서화 ✅ - STDLIB_REFERENCE.md 작성
+- [x] **목표 달성**: 표준 라이브러리 251개 함수 완전 문서화 (14개 모듈)
 
 ### ✅ 6.3: 메모리 풀링 - 완료!
 - [x] ObjectPool 템플릿 구현 (src/memory/ObjectPool.h)
@@ -87,7 +91,9 @@
 
 ## 📚 문서화 TODO
 - [x] ✅ 디버거 사용 가이드 (DEBUGGER_GUIDE.md 완성)
-- [ ] 플레이그라운드 튜토리얼 (Monaco, WebAssembly 흐름)
+- [x] ✅ 표준 라이브러리 레퍼런스 (STDLIB_REFERENCE.md - 251개 함수)
+- [x] ✅ Linter 규칙 가이드 (LINTER_RULES.md - 13개 규칙)
+- [x] ✅ 플레이그라운드 튜토리얼 (PLAYGROUND_TUTORIAL.md - Monaco, WASM, 배포)
 - [ ] 패턴 매칭 가이드 (선택)
 
 ---
@@ -143,10 +149,13 @@ perf: 성능 개선
 ---
 
 **마지막 업데이트**: 2025-11-21
-**현재 상태**: Phase 9 완료! VM & Evaluator 리팩토링 성공
-**다음 우선순위**: stdlib 확장 및 v0.9.0 릴리스 준비
+**현재 상태**: Phase 6, 8, 9 완료! 문서화 및 리팩토링 성공
+**다음 우선순위**: 플레이그라운드 튜토리얼, v0.9.0 릴리스 준비
 **최근 성과**:
 - ✅ VM::executeInstruction() 93% 감소 (790줄 → 50줄)
 - ✅ Evaluator::evalCallExpression() 80% 감소 (345줄 → 68줄)
-- ✅ 코드 가독성 및 유지보수성 대폭 향상
-- ✅ 전체 1,490개 테스트 100% 통과 유지
+- ✅ stdlib 251개 함수 완전 문서화 (STDLIB_REFERENCE.md)
+- ✅ Linter 13개 규칙 문서화 (LINTER_RULES.md)
+- ✅ 디버거 사용 가이드 작성 (DEBUGGER_GUIDE.md)
+- ✅ 메모리 풀링 분석 완료 (MEMORY_POOLING_DESIGN.md)
+- ✅ 전체 1,506개 테스트 100% 통과 유지

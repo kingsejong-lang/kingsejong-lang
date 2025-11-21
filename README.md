@@ -377,6 +377,7 @@ i가 1부터 10까지 {
 | [표준 라이브러리 레퍼런스](docs/STDLIB_REFERENCE.md) | 251개 stdlib 함수 완전 레퍼런스 | 모든 사용자    |
 | [디버거 가이드](docs/DEBUGGER_GUIDE.md)           | 디버거 사용법 및 실전 예제     | 모든 사용자    |
 | [Linter 규칙 가이드](docs/LINTER_RULES.md)        | 13개 Linter 규칙 설명 및 설정  | 개발자         |
+| [플레이그라운드 튜토리얼](docs/PLAYGROUND_TUTORIAL.md) | 웹 플레이그라운드 개발 가이드 | 개발자         |
 | [GC 설계 문서](docs/GC_DESIGN.md)                 | 가비지 컬렉터 설계 및 구현     | 고급 개발자    |
 | [메모리 풀링 분석](docs/MEMORY_POOLING_DESIGN.md) | ObjectPool 설계 및 벤치마크    | 고급 개발자    |
 | [VS Code Extension](vscode-extension/README.md)   | Extension 설치 및 사용법       | VS Code 사용자 |
@@ -673,6 +674,7 @@ kingsejonglang/
 │   ├── STDLIB_REFERENCE.md       # 표준 라이브러리 레퍼런스 (251개 함수)
 │   ├── DEBUGGER_GUIDE.md         # 디버거 사용 가이드
 │   ├── LINTER_RULES.md           # Linter 규칙 가이드 (13개)
+│   ├── PLAYGROUND_TUTORIAL.md    # 플레이그라운드 개발 튜토리얼
 │   ├── GC_DESIGN.md              # GC 설계 문서
 │   ├── MEMORY_POOLING_DESIGN.md  # 메모리 풀링 분석
 │   ├── TODOLIST.md               # 작업 목록

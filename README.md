@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![C++23](https://img.shields.io/badge/C++-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![CI](https://github.com/0xmhha/kingsejonglang/workflows/CI/badge.svg)](https://github.com/0xmhha/kingsejonglang/actions)
-[![Tests](https://img.shields.io/badge/tests-1490%20passed-success)](tests/)
+[![Tests](https://img.shields.io/badge/tests-1506%20passed-success)](tests/)
 [![Version](https://img.shields.io/badge/version-v0.5.0-blue)](https://github.com/0xmhha/kingsejonglang/releases/tag/v0.5.0)
 [![VS Code](https://img.shields.io/badge/VS%20Code-Extension-blue)](vscode-extension/)
 
@@ -227,7 +227,7 @@ $ ./kingsejong
 중복제거 = 중복_제거([1, 2, 2, 3, 3])
 ```
 
-**표준 라이브러리 (stdlib):**
+**표준 라이브러리 (stdlib) - 총 251개 함수:**
 
 - `math.ksj` - 18개 수학 함수 (절댓값, 거듭제곱, 팩토리얼, GCD, 소수 판별 등)
 - `string.ksj` - 9개 문자열 처리 함수 (반복, 결합, 채우기 등)
@@ -236,13 +236,13 @@ $ ./kingsejong
 - `json.ksj` - 17개 JSON 처리 함수 (파싱, 문자열화, 파일 I/O, object 조작 등)
 - `time.ksj` - 14개 시간/날짜 함수 (타임스탬프, 포맷팅, 날짜 연산, 슬립 등)
 - `utils.ksj` - 30개 유틸리티 함수
-- `regex.ksj` - 30개+ 정규표현식 함수
+- `regex.ksj` - 30개 정규표현식 함수
 - `crypto.ksj` - 42개 암호화 함수
 - `os.ksj` - 39개 OS & 파일 시스템 함수
 - `http.ksj` - 20개 HTTP 클라이언트 함수
 - `db.ksj` - 15개 데이터베이스 함수 (SQLite)
 - `collections.ksj` - 50개 자료구조 함수 (Set, Map, Queue, Stack, Deque)
-- `test.ksj` - 5개 테스트 프레임워크 함수 (assert 계열) **NEW**
+- `test.ksj` - 5개 테스트 프레임워크 함수 (assert 계열)
 
 ### 4. 자연스러운 범위 표현
 
@@ -369,15 +369,18 @@ i가 1부터 10까지 {
 
 ## 문서
 
-| 문서                                            | 설명                           | 대상           |
-| ----------------------------------------------- | ------------------------------ | -------------- |
-| [튜토리얼](docs/TUTORIAL.md)                    | 단계별 학습 가이드 (10개 챕터) | 초보자         |
-| [언어 레퍼런스](docs/LANGUAGE_REFERENCE.md)     | 완전한 문법 가이드             | 모든 사용자    |
-| [라이브러리 가이드](docs/LIBRARY_GUIDE.md)      | 모듈 개발 가이드               | 개발자         |
-| [표준 라이브러리](stdlib/README.md)             | stdlib 함수 목록               | 모든 사용자    |
-| [GC 설계 문서](docs/GC_DESIGN.md)               | 가비지 컬렉터 설계 및 구현     | 고급 개발자    |
-| [VS Code Extension](vscode-extension/README.md) | Extension 설치 및 사용법       | VS Code 사용자 |
-| [작업 목록](docs/TODOLIST.md)                   | 프로젝트 진행 상황             | 기여자         |
+| 문서                                              | 설명                           | 대상           |
+| ------------------------------------------------- | ------------------------------ | -------------- |
+| [튜토리얼](docs/TUTORIAL.md)                      | 단계별 학습 가이드 (10개 챕터) | 초보자         |
+| [언어 레퍼런스](docs/LANGUAGE_REFERENCE.md)       | 완전한 문법 가이드             | 모든 사용자    |
+| [라이브러리 가이드](docs/LIBRARY_GUIDE.md)        | 모듈 개발 가이드               | 개발자         |
+| [표준 라이브러리 레퍼런스](docs/STDLIB_REFERENCE.md) | 251개 stdlib 함수 완전 레퍼런스 | 모든 사용자    |
+| [디버거 가이드](docs/DEBUGGER_GUIDE.md)           | 디버거 사용법 및 실전 예제     | 모든 사용자    |
+| [Linter 규칙 가이드](docs/LINTER_RULES.md)        | 13개 Linter 규칙 설명 및 설정  | 개발자         |
+| [GC 설계 문서](docs/GC_DESIGN.md)                 | 가비지 컬렉터 설계 및 구현     | 고급 개발자    |
+| [메모리 풀링 분석](docs/MEMORY_POOLING_DESIGN.md) | ObjectPool 설계 및 벤치마크    | 고급 개발자    |
+| [VS Code Extension](vscode-extension/README.md)   | Extension 설치 및 사용법       | VS Code 사용자 |
+| [작업 목록](docs/TODOLIST.md)                     | 프로젝트 진행 상황             | 기여자         |
 
 ---
 
@@ -548,12 +551,13 @@ npm run compile
 
 ### 실용성
 
-- **표준 라이브러리** - 255개 함수 (14개 모듈)
+- **표준 라이브러리** - 251개 함수 (14개 모듈)
 - **디버거** - 브레이크포인트, 단계 실행, 변수 검사
+- **Linter** - 13개 코드 품질 규칙 (.ksjlintrc 설정)
 - **온라인 플레이그라운드** - 즉시 실행 (WebAssembly)
 - **REPL** - 빠른 프로토타이핑
 - **에러 메시지 한글화** - 친절한 피드백
-- **100% 테스트 통과** - 안정성 보장 (1490개)
+- **100% 테스트 통과** - 안정성 보장 (1,506개)
 
 ---
 
@@ -591,6 +595,9 @@ kingsejonglang/
 │   ├── evaluator/         # 평가기 (Value, Environment)
 │   ├── types/             # 타입 시스템
 │   ├── error/             # 에러 처리
+│   ├── memory/            # 메모리 관리
+│   │   ├── ObjectPool.h         # 객체 풀 템플릿
+│   │   └── ValuePool.h          # Value 풀 싱글톤
 │   ├── module/            # 모듈 시스템
 │   ├── repl/              # 대화형 실행
 │   ├── lsp/               # Language Server Protocol
@@ -614,7 +621,7 @@ kingsejonglang/
 │   │   └── HotPathDetector.cpp  # 핫스팟 감지
 │   ├── linter/            # 정적 분석기
 │   │   ├── Linter.cpp           # Linter 엔진
-│   │   └── rules/               # 12개 규칙
+│   │   └── rules/               # 13개 규칙
 │   └── main.cpp           # 진입점 (REPL/파일실행/LSP)
 ├── vscode-extension/      # VS Code Extension
 │   ├── src/
@@ -623,13 +630,16 @@ kingsejonglang/
 │   │   └── kingsejong.tmLanguage.json  # 구문 강조
 │   ├── package.json       # Extension 메타데이터
 │   └── README.md          # Extension 가이드
-├── stdlib/                # 표준 라이브러리 (255개 함수)
+├── stdlib/                # 표준 라이브러리 (251개 함수)
 │   ├── math.ksj          # 수학 함수 (18개)
 │   ├── string.ksj        # 문자열 처리 (9개)
 │   ├── array.ksj         # 배열 유틸리티 (18개)
-│   ├── test.ksj          # 테스트 프레임워크 (5개) **NEW**
+│   ├── collections.ksj   # 자료구조 (50개)
+│   ├── http.ksj          # HTTP 클라이언트 (20개)
+│   ├── db.ksj            # 데이터베이스 (15개)
+│   ├── test.ksj          # 테스트 프레임워크 (5개)
 │   └── ... (14개 모듈)
-├── tests/                 # 테스트 코드 (1490개)
+├── tests/                 # 테스트 코드 (1,506개)
 │   ├── lsp/              # LSP 테스트 (130개)
 │   │   ├── JsonRpcTest.cpp
 │   │   ├── DocumentManagerTest.cpp
@@ -652,13 +662,22 @@ kingsejonglang/
 │   │   ├── CommandParserTest.cpp
 │   │   ├── SourceCodeViewerTest.cpp
 │   │   └── DebuggerReplTest.cpp
+│   ├── memory/           # 메모리 관리 테스트 (16개)
+│   │   ├── ObjectPoolTest.cpp
+│   │   └── ValuePoolTest.cpp
 ├── examples/              # 예제 프로그램 (21개)
 ├── docs/                  # 문서
 │   ├── TUTORIAL.md               # 초보자 튜토리얼
 │   ├── LANGUAGE_REFERENCE.md     # 언어 레퍼런스
 │   ├── LIBRARY_GUIDE.md          # 라이브러리 가이드
-│   ├── TODOLIST.md               # 작업 목록 (통합)
-│   └── ROADMAP.md                # 개발 로드맵 (통합)
+│   ├── STDLIB_REFERENCE.md       # 표준 라이브러리 레퍼런스 (251개 함수)
+│   ├── DEBUGGER_GUIDE.md         # 디버거 사용 가이드
+│   ├── LINTER_RULES.md           # Linter 규칙 가이드 (13개)
+│   ├── GC_DESIGN.md              # GC 설계 문서
+│   ├── MEMORY_POOLING_DESIGN.md  # 메모리 풀링 분석
+│   ├── TODOLIST.md               # 작업 목록
+│   └── ROADMAP.md                # 개발 로드맵
+├── .ksjlintrc            # Linter 설정 파일 (13개 규칙)
 ├── CMakeLists.txt        # 빌드 설정
 ├── LICENSE               # MIT 라이센스
 └── README.md             # 이 파일

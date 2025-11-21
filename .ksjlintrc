@@ -7,6 +7,15 @@
     "empty-block": "warning",
     "no-magic-number": "hint",
     "no-shadowing": "warning",
-    "no-unused-parameter": "hint"
+    "no-unused-parameter": "hint",
+    "camelcase-naming": "hint",
+    "max-line-length": "hint",
+    "no-trailing-spaces": "hint",
+    "prefer-const": "hint",
+    "no-duplicate-imports": "warning"
+  },
+  "settings": {
+    "max-line-length": 120,
+    "naming-convention": "camelCase"
   }
 }

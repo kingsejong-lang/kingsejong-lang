@@ -2,10 +2,10 @@
 
 > **비전**: 한국어로 누구나 쉽게 프로그래밍할 수 있는 세상
 
-**최종 업데이트**: 2025-11-23
-**현재 버전**: v0.5.0 (릴리스 완료!)
+**최종 업데이트**: 2025-11-24
+**현재 버전**: v0.5.0+ (TCO 최적화 완료!)
 **Production Readiness**: 8.9/10
-**중요 문서**: [아키텍처 분석](./ARCHITECTURE_ANALYSIS.md) | [VM 분석](./KINGSEJONG_VM_ANALYSIS.md) | [언어 분석](./KINGSEJONG_LANGUAGE_ANALYSIS.md)
+**중요 문서**: [아키텍처 분석](./ARCHITECTURE_ANALYSIS.md) | [VM 분석](./KINGSEJONG_VM_ANALYSIS.md) | [언어 분석](./KINGSEJONG_LANGUAGE_ANALYSIS.md) | [성능 분석](./PERFORMANCE_ANALYSIS.md)
 
 ---
 
@@ -28,6 +28,16 @@
 ---
 
 ## 📋 남은 작업
+
+### 성능 최적화 (진행 중)
+**우선순위**: 최고 | **상태**: 진행 중
+
+- [x] **Tail Call Optimization (TCO)** ✅ 완료 (2025-11-24)
+  - [x] `TAIL_CALL` opcode 추가
+  - [x] 컴파일러에서 tail call 자동 감지
+  - [x] CallFrame 재사용으로 스택 최적화
+  - [x] 테스트 및 벤치마크 (195배 성능 개선 확인)
+  - **성과**: Tail call fibonacci(25) 0.023초 (기존 4.48초 대비)
 
 ### 코드 품질 도구 완성
 **우선순위**: 높음 | **예상 기간**: 1-2주
@@ -130,11 +140,12 @@
 2025-11-20   Phase 8 완료 (코드 품질, 문서화) ✅
 2025-11-21   Phase 9 완료 (VM & Evaluator 리팩토링) ✅
 2025-11-23   v0.5.0 릴리스 ✅
+2025-11-24   Tail Call Optimization (TCO) 구현 완료 ✅
 
 [예정]
-2025-12      추가 Linter 규칙 구현
-2026-01      Formatter VS Code 확장 개발
-2026-02      v0.6.0 릴리스 (안정 버전)
+2025-12      함수 인라이닝 (JIT Tier 2) 시작
+2026-01      벤치마크 개선 및 추가 최적화
+2026-02      v0.6.0 릴리스 (성능 최적화 버전)
 2026-03~06   stdlib 고도화 (gui, network, ml)
 2026-09      v0.7.0 - 세미콜론 경고, Clean Code 2차
 2027-03      v0.8.0 - 세미콜론 필수화, Incremental GC

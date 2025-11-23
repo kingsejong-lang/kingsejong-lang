@@ -1,13 +1,24 @@
 # KingSejong 언어 개발 작업 목록
 
 > **프로젝트**: KingSejong Programming Language (`.ksj`)
-> **최종 업데이트**: 2025-11-21
-> **현재 버전**: v0.5.0
+> **최종 업데이트**: 2025-11-24
+> **현재 버전**: v0.5.0+
 > **상태 기호**: ✅ 완료 | 🚧 진행중 | 📝 예정 | ⏸️ 보류
 
 ---
 
 ## ✅ 최근 완료된 작업
+
+### Phase 10: Tail Call Optimization - 100% 완료!
+- [x] TAIL_CALL opcode 추가 (OpCode.h/cpp)
+- [x] 컴파일러에서 tail call 자동 감지 (Compiler.cpp)
+- [x] VM에서 CallFrame 재사용 구현 (VM.cpp)
+- [x] 테스트 및 검증 (1,519개 테스트 100% 통과)
+- [x] 성능 벤치마크 측정
+  - Tail call fibonacci(25): 0.023초 (기존 4.48초 대비 195배 개선)
+  - 꼬리 재귀 합계(n=1000): 정상 작동
+- [x] 문서 업데이트 (PERFORMANCE_ANALYSIS.md, ROADMAP.md)
+- **성과**: 꼬리 재귀 패턴에서 195배 성능 향상, 스택 오버플로우 방지
 
 ### Phase 8: 코드 품질 및 문서화 - 100% 완료!
 - [x] Doxygen 설정 완료 (Doxyfile 추가)
@@ -60,9 +71,15 @@
 
 ## 🚧 현재 집중 작업
 
-### v0.9.0 릴리스 준비
-- [ ] stdlib 확장 (Phase 6 남은 과제)
-- [ ] 성능 최적화 검토
+### 벤치마크 개선
+- [ ] array_ops.ksj 문법 업데이트
+- [ ] memory_test.ksj "반복" 키워드 수정
+- [ ] 벤치마크 재실행 및 검증
+
+### v0.6.0 릴리스 준비
+- [x] Tail Call Optimization 구현 ✅
+- [ ] 함수 인라이닝 (JIT Tier 2) 검토
+- [ ] 성능 회귀 테스트 확장
 - [ ] 릴리스 노트 작성
 
 ## 🛠 Phase 6 남은 과제
@@ -148,14 +165,15 @@ perf: 성능 개선
 
 ---
 
-**마지막 업데이트**: 2025-11-21
-**현재 상태**: Phase 6, 8, 9 완료! 문서화 및 리팩토링 성공
-**다음 우선순위**: 플레이그라운드 튜토리얼, v0.9.0 릴리스 준비
+**마지막 업데이트**: 2025-11-24
+**현재 상태**: Phase 6, 8, 9, 10 완료! TCO 최적화 성공
+**다음 우선순위**: 벤치마크 개선, 함수 인라이닝, v0.6.0 릴리스 준비
 **최근 성과**:
+- ✅ **Tail Call Optimization 구현** - 꼬리 재귀 195배 성능 개선
 - ✅ VM::executeInstruction() 93% 감소 (790줄 → 50줄)
 - ✅ Evaluator::evalCallExpression() 80% 감소 (345줄 → 68줄)
 - ✅ stdlib 251개 함수 완전 문서화 (STDLIB_REFERENCE.md)
 - ✅ Linter 13개 규칙 문서화 (LINTER_RULES.md)
 - ✅ 디버거 사용 가이드 작성 (DEBUGGER_GUIDE.md)
 - ✅ 메모리 풀링 분석 완료 (MEMORY_POOLING_DESIGN.md)
-- ✅ 전체 1,506개 테스트 100% 통과 유지
+- ✅ 전체 1,519개 테스트 100% 통과 유지

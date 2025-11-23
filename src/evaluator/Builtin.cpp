@@ -24,9 +24,15 @@
 #include <algorithm>
 #include <functional>
 #include <cstdlib>
+#include <cstdio>
 
 // HTTP 클라이언트 라이브러리
 #include "third_party/httplib.h"
+
+// Undefine DELETE macro from DNS headers to avoid conflict with FileOperation::DELETE
+#ifdef DELETE
+#undef DELETE
+#endif
 
 // SQLite 데이터베이스
 #include <sqlite3.h>

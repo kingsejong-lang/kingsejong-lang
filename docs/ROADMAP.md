@@ -2,9 +2,9 @@
 
 > **비전**: 한국어로 누구나 쉽게 프로그래밍할 수 있는 세상
 
-**최종 업데이트**: 2025-11-21
-**현재 버전**: v0.9.0-dev (Phase 9 진행 중)
-**Production Readiness**: 8.7/10 (코드 품질 대폭 향상)
+**최종 업데이트**: 2025-11-23
+**현재 버전**: v0.5.0 (릴리스 준비 중)
+**Production Readiness**: 8.9/10 (코드 품질 + Playground 향상)
 **중요 문서**: [아키텍처 분석](./ARCHITECTURE_ANALYSIS.md) | [VM 분석](./KINGSEJONG_VM_ANALYSIS.md) | [언어 분석](./KINGSEJONG_LANGUAGE_ANALYSIS.md)
 
 ---
@@ -22,7 +22,12 @@
   - ✅ CONFIG_GUIDE.md 작성 (상세 가이드)
   - ✅ VS Code 통합 및 CI/CD 예제 포함
   - ✅ **stdlib 251개 함수** (목표 200+ 초과 달성!)
-- Production Readiness: **8.7/10** (코드 품질 및 stdlib 향상)
+- **Playground 완료!** 온라인 플레이그라운드 대폭 개선
+  - ✅ **17개 템플릿** (기본 9개 + stdlib 8개)
+  - ✅ 코드 공유 기능 (URL 기반)
+  - ✅ 실행 결과 다운로드
+  - ✅ 클립보드 복사 기능
+- Production Readiness: **8.9/10** (코드 품질 + Playground 향상)
 
 ---
 
@@ -160,7 +165,7 @@
 2025-11-21   Phase 6.1 완료 (Linter/Formatter 설정) ✅
 2025-11-21   Phase 9 완료 (VM & Evaluator 리팩토링) ✅
 2025-11~12   Phase 6 남은 과제 (stdlib 확장, 성능 최적화)
-2025-12      v0.9.0 릴리스 (리팩토링 완료)
+2025-12      v0.5.0 릴리스 (리팩토링 완료)
 2026-01      v1.0.0 릴리스 (안정 버전)
 2026-03      v1.5.0 - 세미콜론 경고, Clean Code 2차
 2026-09      v2.0.0 - 세미콜론 필수화, Incremental GC
@@ -171,9 +176,10 @@
 
 ## 🎯 성공 기준 (Upcoming)
 
-### v0.9.0
-- 🎯 Production Readiness 8.7/10 이상 (코드 품질 향상)
+### v0.5.0
+- 🎯 Production Readiness 8.9/10 이상 (코드 품질 향상)
 - 🎯 VM 및 Evaluator 리팩토링 완료
+- 🎯 Playground 17개 템플릿 지원
 - 🎯 전체 테스트 1,490개 100% 통과 유지
 
 ### v1.0.0
@@ -190,11 +196,14 @@
 
 ## 🚀 다음 우선순위 작업
 
-1. **Phase 6 완료**: stdlib 확장 및 성능 최적화
+1. **v0.5.0 릴리스**: 리팩토링 및 Playground 개선 완료
+   - CHANGELOG.md 작성
+   - 릴리스 노트 작성
+   - 버전 태그 생성
+2. **Phase 6 완료**: stdlib 확장 및 성능 최적화
    - stdlib/http·db 추가 기능 구현
    - 추가 Linter 규칙 구현
    - 증분 GC 및 메모리 풀링
-2. **v0.9.0 준비**: 리팩토링 완료 후 릴리스
 3. **v1.0.0 준비**: 최종 안정화, 릴리스 노트 작성
 
 ---
@@ -208,4 +217,8 @@
 
 ---
 
-**마지막 업데이트 메모**: Phase 9 완료! 🎉 VM & Evaluator 리팩토링 성공 (VM: 790줄 → 50줄, Evaluator: 345줄 → 68줄). 전체 1,490개 테스트 100% 통과. 다음은 stdlib 확장 및 v0.9.0 준비.
+**마지막 업데이트 메모**: v0.5.0 릴리스 준비 완료! 🎉
+- Phase 9: VM & Evaluator 리팩토링 (VM: 790줄 → 50줄, Evaluator: 345줄 → 68줄)
+- Playground: 17개 템플릿 추가 (기본 9개 + stdlib 8개)
+- 전체 1,490개 테스트 100% 통과
+- Production Readiness: 8.9/10

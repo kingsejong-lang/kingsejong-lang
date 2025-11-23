@@ -11,8 +11,11 @@
 
 // asmjit includes
 #pragma GCC diagnostic push
+#ifdef __clang__
 #pragma GCC diagnostic ignored "-Wgnu-anonymous-struct"
 #pragma GCC diagnostic ignored "-Wnested-anon-types"
+#endif
+#pragma GCC diagnostic ignored "-Wpedantic"
 #include <asmjit/core.h>
 #include <asmjit/x86.h>
 #include <asmjit/a64.h>

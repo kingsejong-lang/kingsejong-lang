@@ -281,7 +281,25 @@ void Compiler::compileForStatement([[maybe_unused]] ast::ForStatement* stmt) {
 
 void Compiler::compileReturnStatement(ast::ReturnStatement* stmt) {
     if (stmt->returnValue()) {
-        compileExpression(const_cast<ast::Expression*>(stmt->returnValue()));
+        // Tail Call Optimization: return 문의 값이 함수 호출이면 TAIL_CALL 사용
+        auto* returnExpr = const_cast<ast::Expression*>(stmt->returnValue());
+        if (returnExpr->type() == ast::NodeType::CALL_EXPRESSION) {
+            auto* callExpr = static_cast<ast::CallExpression*>(returnExpr);
+
+            // 일반 함수 호출
+            compileExpression(const_cast<ast::Expression*>(callExpr->function()));
+
+            // 인자들
+            for (auto& arg : callExpr->arguments()) {
+                compileExpression(const_cast<ast::Expression*>(arg.get()));
+            }
+
+            // Tail call
+            emit(OpCode::TAIL_CALL, static_cast<uint8_t>(callExpr->arguments().size()));
+            return;  // RETURN 명령어 생략 (TAIL_CALL이 직접 반환)
+        }
+
+        compileExpression(returnExpr);
     } else {
         emit(OpCode::LOAD_NULL);
     }

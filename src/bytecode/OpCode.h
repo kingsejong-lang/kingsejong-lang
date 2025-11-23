@@ -77,6 +77,7 @@ enum class OpCode : uint8_t {
     // 함수 관련
     // ========================================
     CALL,               ///< 함수 호출: CALL [arg_count]
+    TAIL_CALL,          ///< 꼬리 재귀 호출: TAIL_CALL [arg_count] (CallFrame 재사용)
     RETURN,             ///< 함수 반환: pop return_value, return
     BUILD_FUNCTION,     ///< 함수 생성: BUILD_FUNCTION [param_count] [body_offset]
 

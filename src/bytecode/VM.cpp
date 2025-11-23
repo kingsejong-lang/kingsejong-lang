@@ -625,6 +625,48 @@ VMResult VM::executeControlFlowOps(OpCode instruction) {
             break;
         }
 
+        case OpCode::TAIL_CALL: {
+            uint8_t argCount = readByte();
+
+            evaluator::Value funcVal = peek(argCount);
+            if (!funcVal.isInteger()) {
+                runtimeError(std::string(error::vm::CALL_NON_FUNCTION));
+                return VMResult::RUNTIME_ERROR;
+            }
+
+            int64_t encoded = funcVal.asInteger();
+            size_t funcAddr = static_cast<size_t>((encoded >> 8) & FUNC_ADDR_MASK);
+
+            if (frames_.empty()) {
+                // 최상위 레벨에서 tail call (일반 call처럼 처리)
+                frames_.push_back({ip_, stack_.size() - argCount - 1});
+                ip_ = funcAddr;
+                break;
+            }
+
+            // 함수 + 인자들을 임시 저장 (top에서 bottom으로)
+            std::vector<evaluator::Value> callData;
+            callData.reserve(argCount + 1);
+            for (int i = 0; i <= argCount; ++i) {
+                callData.push_back(pop());
+            }
+
+            // 현재 frame의 stackBase - 1까지 스택 정리 (현재 함수도 제거)
+            CallFrame& currentFrame = frames_.back();
+            while (stack_.size() >= currentFrame.stackBase) {
+                pop();
+            }
+
+            // 함수 + 인자들을 다시 push (역순)
+            for (auto it = callData.rbegin(); it != callData.rend(); ++it) {
+                push(*it);
+            }
+
+            // 함수로 점프 (CallFrame 재사용, stackBase 유지)
+            ip_ = funcAddr;
+            break;
+        }
+
         case OpCode::RETURN: {
             evaluator::Value result = pop();
 

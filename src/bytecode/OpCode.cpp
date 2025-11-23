@@ -54,6 +54,7 @@ std::string opCodeToString(OpCode op) {
 
         // 함수
         case OpCode::CALL:              return "CALL";
+        case OpCode::TAIL_CALL:         return "TAIL_CALL";
         case OpCode::RETURN:            return "RETURN";
         case OpCode::BUILD_FUNCTION:    return "BUILD_FUNCTION";
 
@@ -154,6 +155,7 @@ int opCodeOperandCount(OpCode op) {
         case OpCode::JUMP_IF_TRUE:
         case OpCode::LOOP:
         case OpCode::CALL:
+        case OpCode::TAIL_CALL:
         case OpCode::BUILD_ARRAY:
         case OpCode::IMPORT:
         case OpCode::LOAD_FIELD:          // 클래스: 필드 읽기 [field_name_index]

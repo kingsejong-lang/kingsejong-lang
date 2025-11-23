@@ -46,6 +46,7 @@ set(LIB_SOURCES
     src/bytecode/VM.cpp
     src/jit/HotPathDetector.cpp
     src/jit/JITCompilerT1.cpp
+    src/jit/InliningAnalyzer.cpp
     src/security/SecurityManager.cpp
     src/security/NetworkSecurityManager.cpp
     src/error/ErrorReporter.cpp

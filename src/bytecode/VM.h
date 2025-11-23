@@ -23,6 +23,7 @@ namespace kingsejong {
 // Forward declarations
 namespace jit {
     class JITCompilerT1;
+    class JITCompilerT2;
     class HotPathDetector;
     struct NativeFunction;
 }
@@ -98,7 +99,8 @@ private:
     size_t maxStackSize_;                       ///< 최대 스택 크기 (기본: 10000)
 
     // JIT 컴파일러
-    std::unique_ptr<jit::JITCompilerT1> jitCompiler_;  ///< JIT 컴파일러
+    std::unique_ptr<jit::JITCompilerT1> jitCompiler_;  ///< JIT Tier 1 컴파일러
+    std::unique_ptr<jit::JITCompilerT2> jitCompilerT2_;  ///< JIT Tier 2 컴파일러 (인라이닝)
     std::unique_ptr<jit::HotPathDetector> hotPathDetector_;  ///< 핫 패스 감지기
     bool jitEnabled_;                           ///< JIT 활성화 여부 (기본: true)
     std::unordered_map<size_t, jit::NativeFunction*> jitCache_;  ///< JIT 캐시 (ip -> NativeFunction)

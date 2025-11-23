@@ -7,6 +7,7 @@
 
 #include "VM.h"
 #include "jit/JITCompilerT1.h"
+#include "jit/JITCompilerT2.h"
 #include "jit/HotPathDetector.h"
 #include "evaluator/Evaluator.h"
 #include "evaluator/Environment.h"
@@ -27,6 +28,7 @@ VM::VM()
 
     // JIT 컴파일러 초기화
     jitCompiler_ = std::make_unique<jit::JITCompilerT1>();
+    jitCompilerT2_ = std::make_unique<jit::JITCompilerT2>();
 
     // Hot Path Detector 초기화
     hotPathDetector_ = std::make_unique<jit::HotPathDetector>();
@@ -329,6 +331,10 @@ void VM::printJITStatistics() const {
 
     if (jitCompiler_) {
         jitCompiler_->printStatistics();
+    }
+
+    if (jitCompilerT2_) {
+        jitCompilerT2_->printStatistics();
     }
 
     if (hotPathDetector_) {

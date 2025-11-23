@@ -48,6 +48,7 @@ set(LIB_SOURCES
     src/jit/JITCompilerT1.cpp
     src/jit/InliningAnalyzer.cpp
     src/jit/InliningTransformer.cpp
+    src/jit/JITCompilerT2.cpp
     src/security/SecurityManager.cpp
     src/security/NetworkSecurityManager.cpp
     src/error/ErrorReporter.cpp

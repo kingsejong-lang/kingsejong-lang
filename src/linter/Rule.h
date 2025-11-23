@@ -97,6 +97,7 @@ protected:
     virtual void onBlockStatement(ast::BlockStatement* /* stmt */) {}
     virtual void onRangeForStatement(ast::RangeForStatement* /* stmt */) {}
     virtual void onRepeatStatement(ast::RepeatStatement* /* stmt */) {}
+    virtual void onImportStatement(ast::ImportStatement* /* stmt */) {}
 
     /**
      * @brief 특정 Expression 타입 처리 (오버라이드 가능)

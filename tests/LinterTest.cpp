@@ -17,6 +17,10 @@
 #include "linter/rules/NoUnusedParameterRule.h"
 #include "linter/rules/NoShadowingRule.h"
 #include "linter/rules/NoMagicNumberRule.h"
+#include "linter/rules/NamingConventionRule.h"
+#include "linter/rules/FunctionComplexityRule.h"
+#include "linter/rules/UnusedImportRule.h"
+#include "linter/rules/ImportOrderRule.h"
 
 using namespace kingsejong;
 using namespace kingsejong::lexer;
@@ -975,4 +979,379 @@ y = x + 42
         }
     }
     EXPECT_TRUE(foundHint);
+}
+
+// ============================================================================
+// NamingConventionRule 테스트
+// ============================================================================
+
+/**
+ * @test PascalCase 변수명 감지
+ */
+TEST(LinterTest, ShouldDetectPascalCaseVariable)
+{
+    std::string code = R"(
+정수 MyVariable = 10
+정수 x = MyVariable + 1
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<NamingConventionRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    // PascalCase는 경고가 나와야 함 (snake_case 또는 camelCase 권장)
+    EXPECT_GE(linter.warningCount(), 1);
+
+    const auto& issues = linter.issues();
+    bool found = false;
+    for (const auto& issue : issues) {
+        if (issue.message.find("MyVariable") != std::string::npos) {
+            found = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found);
+}
+
+/**
+ * @test snake_case 변수명은 허용
+ */
+TEST(LinterTest, ShouldAllowSnakeCaseVariable)
+{
+    std::string code = R"(
+정수 my_variable = 10
+출력(my_variable)
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<NamingConventionRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    EXPECT_EQ(linter.issues().size(), 0);
+}
+
+/**
+ * @test 한글 변수명은 허용
+ */
+TEST(LinterTest, ShouldAllowKoreanVariableName)
+{
+    std::string code = R"(
+정수 변수명 = 10
+정수 또다른변수 = 20
+출력(변수명 + 또다른변수)
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<NamingConventionRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    // 한글 변수명은 허용됨
+    EXPECT_EQ(linter.issues().size(), 0);
+}
+
+/**
+ * @test UPPER_SNAKE_CASE 상수는 허용
+ */
+TEST(LinterTest, ShouldAllowUpperSnakeCaseConstant)
+{
+    std::string code = R"(
+정수 MAX_VALUE = 100
+정수 MIN_VALUE = 0
+출력(MAX_VALUE)
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<NamingConventionRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    // UPPER_SNAKE_CASE는 상수로 간주하여 허용
+    EXPECT_EQ(linter.issues().size(), 0);
+}
+
+// ============================================================================
+// FunctionComplexityRule 테스트
+// ============================================================================
+
+/**
+ * @test 복잡도가 낮은 함수는 통과
+ */
+TEST(LinterTest, ShouldPassSimpleFunction)
+{
+    std::string code = R"(
+함수 간단한함수(x) {
+    만약 (x > 0) {
+        반환 x
+    }
+    반환 0
+}
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<FunctionComplexityRule>(10));
+    linter.analyze(program.get(), "test.ksj");
+
+    // 복잡도가 낮으므로 경고 없음
+    EXPECT_EQ(linter.issues().size(), 0);
+}
+
+/**
+ * @test 복잡도가 높은 함수는 경고
+ */
+TEST(LinterTest, ShouldWarnComplexFunction)
+{
+    std::string code = R"(
+함수 복잡한함수(x, y, z) {
+    만약 (x > 0) {
+        만약 (y > 0) {
+            만약 (z > 0) {
+                반환 1
+            }
+        }
+    }
+    만약 (x < 0) {
+        만약 (y < 0) {
+            만약 (z < 0) {
+                반환 -1
+            }
+        }
+    }
+    만약 (x == 0 && y == 0 && z == 0) {
+        반환 0
+    }
+    반환 999
+}
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<FunctionComplexityRule>(5));
+    linter.analyze(program.get(), "test.ksj");
+
+    // 복잡도가 높으므로 경고
+    EXPECT_GE(linter.warningCount(), 1);
+}
+
+/**
+ * @test 논리 연산자는 복잡도 증가
+ */
+TEST(LinterTest, ShouldCountLogicalOperatorComplexity)
+{
+    std::string code = R"(
+함수 검사(x, y, z) {
+    만약 (x > 0 && y > 0 && z > 0) {
+        반환 참
+    }
+    반환 거짓
+}
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<FunctionComplexityRule>(3));
+    linter.analyze(program.get(), "test.ksj");
+
+    // if + 2개의 && = 복잡도 4 (기본 1 + if 1 + && 2)
+    EXPECT_GE(linter.warningCount(), 1);
+}
+
+// ============================================================================
+// UnusedImportRule 테스트
+// ============================================================================
+
+/**
+ * @test 사용하지 않는 import 감지
+ */
+TEST(LinterTest, ShouldDetectUnusedImport)
+{
+    std::string code = R"(
+가져오기 "stdlib/math"
+가져오기 "stdlib/json"
+정수 x = 절댓값(-10)
+출력(x)
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<UnusedImportRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    // json 모듈이 사용되지 않음
+    EXPECT_GE(linter.warningCount(), 1);
+
+    const auto& issues = linter.issues();
+    bool foundJson = false;
+    for (const auto& issue : issues) {
+        if (issue.message.find("json") != std::string::npos) {
+            foundJson = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(foundJson);
+}
+
+/**
+ * @test 여러 미사용 import 감지
+ */
+TEST(LinterTest, ShouldDetectMultipleUnusedImports)
+{
+    std::string code = R"(
+가져오기 "stdlib/math"
+가져오기 "stdlib/json"
+가져오기 "stdlib/time"
+가져오기 "stdlib/http"
+출력("hello")
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<UnusedImportRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    // 4개 모두 미사용
+    EXPECT_EQ(linter.warningCount(), 4);
+}
+
+// ============================================================================
+// ImportOrderRule 테스트
+// ============================================================================
+
+/**
+ * @test stdlib import가 먼저 오는지 검사
+ */
+TEST(LinterTest, ShouldDetectMisorderedImports)
+{
+    std::string code = R"(
+가져오기 "utils/helper"
+가져오기 "stdlib/math"
+가져오기 "stdlib/json"
+출력("test")
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<ImportOrderRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    // stdlib import가 사용자 import 뒤에 옴
+    EXPECT_GE(linter.warningCount(), 1);
+}
+
+/**
+ * @test 올바른 import 순서는 문제 없음
+ */
+TEST(LinterTest, ShouldAllowCorrectImportOrder)
+{
+    std::string code = R"(
+가져오기 "stdlib/json"
+가져오기 "stdlib/math"
+가져오기 "utils/helper"
+출력("test")
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<ImportOrderRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    // stdlib가 먼저, 각 그룹 내 알파벳 순서
+    EXPECT_EQ(linter.issues().size(), 0);
+}
+
+/**
+ * @test stdlib import 내부 알파벳 순서 검사
+ */
+TEST(LinterTest, ShouldDetectUnorderedStdlibImports)
+{
+    std::string code = R"(
+가져오기 "stdlib/time"
+가져오기 "stdlib/math"
+가져오기 "stdlib/json"
+출력("test")
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<ImportOrderRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    // stdlib 그룹 내에서 알파벳 순서가 아님
+    EXPECT_GE(linter.warningCount(), 1);
+}
+
+/**
+ * @test 사용자 import 내부 알파벳 순서 검사
+ */
+TEST(LinterTest, ShouldDetectUnorderedUserImports)
+{
+    std::string code = R"(
+가져오기 "stdlib/math"
+가져오기 "utils/validator"
+가져오기 "utils/helper"
+출력("test")
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<ImportOrderRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    // 사용자 import 그룹 내에서 알파벳 순서가 아님
+    EXPECT_GE(linter.warningCount(), 1);
 }

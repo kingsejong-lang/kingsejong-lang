@@ -25,6 +25,12 @@
 - 들여쓰기 자동 조정
 - 주석 토글 (향후 지원 예정)
 
+### ✅ 코드 포맷팅 (NEW!)
+- `kingsejong fmt` 명령어를 통한 자동 코드 포맷팅
+- `.ksjfmtrc` 파일을 통한 포맷팅 설정
+- `Format Document` (Shift+Alt+F) 단축키 지원
+- 저장 시 자동 포맷팅 지원
+
 ## 설치
 
 ### 개발 환경에서 실행
@@ -81,12 +87,41 @@ npm run compile
 ```json
 {
   "kingsejong.trace.server": "verbose",
-  "kingsejong.maxNumberOfProblems": 100
+  "kingsejong.maxNumberOfProblems": 100,
+  "kingsejong.formatter.enable": true,
+  "kingsejong.formatter.indentSize": 4,
+  "kingsejong.formatter.useSpaces": true,
+  "kingsejong.formatter.maxLineLength": 100,
+  "kingsejong.formatter.insertFinalNewline": true,
+  "kingsejong.formatter.trimTrailingWhitespace": true
 }
 ```
 
+#### LSP 설정
 - `kingsejong.trace.server`: LSP 서버 통신 로그 레벨 (`off`, `messages`, `verbose`)
 - `kingsejong.maxNumberOfProblems`: 표시할 최대 문제 개수
+
+#### Formatter 설정
+- `kingsejong.formatter.enable`: 포맷터 활성화 (기본값: `true`)
+- `kingsejong.formatter.indentSize`: 들여쓰기 크기 (기본값: `4`)
+- `kingsejong.formatter.useSpaces`: 탭 대신 스페이스 사용 (기본값: `true`)
+- `kingsejong.formatter.maxLineLength`: 최대 줄 길이 (기본값: `100`)
+- `kingsejong.formatter.insertFinalNewline`: 파일 끝에 빈 줄 추가 (기본값: `true`)
+- `kingsejong.formatter.trimTrailingWhitespace`: 줄 끝 공백 제거 (기본값: `true`)
+
+### `.ksjfmtrc` 파일
+
+프로젝트 루트에 `.ksjfmtrc` 파일을 생성하여 포맷팅 설정을 커스터마이징할 수 있습니다:
+
+```json
+{
+  "indentSize": 2,
+  "useSpaces": true,
+  "maxLineLength": 120,
+  "insertFinalNewline": true,
+  "trimTrailingWhitespace": true
+}
+```
 
 ## 문제 해결
 

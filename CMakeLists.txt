@@ -73,6 +73,10 @@ set(LIB_SOURCES
     src/linter/rules/NoUnusedParameterRule.cpp
     src/linter/rules/NoShadowingRule.cpp
     src/linter/rules/NoMagicNumberRule.cpp
+    src/linter/rules/NamingConventionRule.cpp
+    src/linter/rules/FunctionComplexityRule.cpp
+    src/linter/rules/UnusedImportRule.cpp
+    src/linter/rules/ImportOrderRule.cpp
     src/formatter/Formatter.cpp
     src/profiler/Profiler.cpp
     src/config/ConfigLoader.cpp

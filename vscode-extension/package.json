@@ -68,9 +68,45 @@
           "type": "number",
           "default": 100,
           "description": "표시할 최대 문제(에러/경고) 개수"
+        },
+        "kingsejong.formatter.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "KingSejong 코드 포맷터 활성화"
+        },
+        "kingsejong.formatter.indentSize": {
+          "type": "number",
+          "default": 4,
+          "description": "들여쓰기 크기"
+        },
+        "kingsejong.formatter.useSpaces": {
+          "type": "boolean",
+          "default": true,
+          "description": "탭 대신 스페이스 사용"
+        },
+        "kingsejong.formatter.maxLineLength": {
+          "type": "number",
+          "default": 100,
+          "description": "최대 줄 길이"
+        },
+        "kingsejong.formatter.insertFinalNewline": {
+          "type": "boolean",
+          "default": true,
+          "description": "파일 끝에 빈 줄 추가"
+        },
+        "kingsejong.formatter.trimTrailingWhitespace": {
+          "type": "boolean",
+          "default": true,
+          "description": "줄 끝 공백 제거"
         }
       }
-    }
+    },
+    "commands": [
+      {
+        "command": "kingsejong.formatDocument",
+        "title": "KingSejong: Format Document"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

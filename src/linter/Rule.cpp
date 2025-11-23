@@ -115,6 +115,11 @@ void Rule::visitStatement(Statement* stmt)
             visitStatement(const_cast<BlockStatement*>(repeatStmt->body()));
         }
     }
+    // ImportStatement
+    else if (auto importStmt = dynamic_cast<ImportStatement*>(stmt))
+    {
+        onImportStatement(importStmt);
+    }
 }
 
 void Rule::visitExpression(Expression* expr)

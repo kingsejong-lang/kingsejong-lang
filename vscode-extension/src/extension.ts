@@ -8,13 +8,14 @@
  */
 
 import * as path from 'path';
-import { workspace, ExtensionContext } from 'vscode';
+import { workspace, ExtensionContext, languages } from 'vscode';
 import {
     LanguageClient,
     LanguageClientOptions,
     ServerOptions,
     TransportKind
 } from 'vscode-languageclient/node';
+import { KingSejongFormattingProvider, findFormatterExecutable } from './formatter';
 
 let client: LanguageClient;
 
@@ -65,6 +66,20 @@ export function activate(context: ExtensionContext) {
     client.start();
 
     console.log('KingSejong LSP client started');
+
+    // Formatter 등록
+    const formatterPath = findFormatterExecutable(context.extensionPath);
+    if (formatterPath) {
+        const formattingProvider = new KingSejongFormattingProvider(formatterPath);
+        const disposable = languages.registerDocumentFormattingEditProvider(
+            { language: 'kingsejong', scheme: 'file' },
+            formattingProvider
+        );
+        context.subscriptions.push(disposable);
+        console.log('KingSejong formatter registered');
+    } else {
+        console.warn('KingSejong formatter not found - formatting disabled');
+    }
 }
 
 /**

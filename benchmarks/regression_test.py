@@ -15,9 +15,11 @@ from pathlib import Path
 # 성능 임계값 (초) - 이 값을 초과하면 회귀로 판단
 # 20% 마진을 포함한 값
 THRESHOLDS = {
-    'arithmetic': 0.1,      # 기준: 0.043s, 임계: 0.1s
-    'loop_intensive': 0.1,  # 기준: 0.051s, 임계: 0.1s
-    'fibonacci_15': 0.5,    # fibonacci(15) - 더 작은 값으로 CI용
+    'arithmetic': 0.1,       # 기준: 0.043s, 임계: 0.1s
+    'loop_intensive': 0.1,   # 기준: 0.051s, 임계: 0.1s
+    'fibonacci_15': 0.5,     # fibonacci(15) - 더 작은 값으로 CI용
+    'array_ops': 0.15,       # 배열 조작 벤치마크
+    'memory_test': 0.2,      # 메모리 사용량 벤치마크
 }
 
 # 각 벤치마크 실행 횟수

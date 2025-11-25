@@ -22,9 +22,9 @@
   - [x] Phase 4: 테스트 및 벤치마크 인프라 (1주) ✅ 2025-11-24
     - VM 통합, Hot Function 감지, 벤치마크 케이스 완성
     - 성능 측정은 VM 바이트코드 컴파일러 안정화 후 진행
-- [ ] 성능 회귀 테스트 확장
-  - [ ] 추가 벤치마크 케이스 작성
-  - [ ] CI/CD 통합
+- [x] 성능 회귀 테스트 확장 ✅ 2025-11-24
+  - [x] 추가 벤치마크 케이스 작성 (array_ops, memory_test)
+  - [x] CI/CD 통합 (GitHub Actions regression-test job)
 - [x] 릴리스 노트 작성 ✅ 2025-11-24
   - [x] v0.6.0 릴리스 노트 초안 ✅
   - [x] CHANGELOG.md 업데이트 ✅

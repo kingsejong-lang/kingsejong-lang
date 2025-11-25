@@ -1,18 +1,18 @@
 # KingSejong 코딩 스타일 가이드
 
-**버전**: 1.0
-**최종 수정**: 2025-11-06
+**버전**: 2.0
+**최종 수정**: 2025-11-26
 
 ## 개요
 
-이 문서는 KingSejong 프로젝트의 코딩 스타일 가이드입니다. 모든 기여자는 이 가이드를 따라야 합니다.
+이 문서는 KingSejong 프로젝트의 실제 코드베이스에서 사용되는 코딩 스타일을 정리한 가이드입니다. 모든 기여자는 일관성을 위해 이 가이드를 따라야 합니다.
 
 **핵심 원칙**:
-- 가독성을 최우선으로
-- 일관성 유지
-- 모던 C++23 스타일 준수
-- SOLID 원칙 적용
-- Clean Code 실천
+- **일관성**: 기존 코드 스타일 유지
+- **가독성**: 명확하고 이해하기 쉬운 코드
+- **모던 C++23**: 최신 C++ 기능 적극 활용
+- **Doxygen 문서화**: 모든 공개 API 문서화
+- **RAII & 스마트 포인터**: 안전한 메모리 관리
 
 ---
 
@@ -63,21 +63,53 @@ int token_count;
 int TokenCount;
 ```
 
-### 1.4 상수
+### 1.4 멤버 변수
+
+**camelCase + 언더스코어 접미사** (private/protected 멤버)
+
+```cpp
+class Lexer {
+private:
+    std::string input;              // public은 접미사 없음
+    size_t position;
+    morphology::MorphologicalAnalyzer morphAnalyzer_;  // private은 '_' 접미사
+
+public:
+    std::string filename;           // public 멤버는 접미사 없음
+};
+
+// 실제 예제 (Lexer.h)
+class Lexer {
+private:
+    std::string input;
+    std::string filename;
+    size_t position;
+    size_t readPosition;
+    char ch;
+    int currentLine;
+    int currentColumn;
+    morphology::MorphologicalAnalyzer morphAnalyzer_;  // RAII 객체는 '_'
+};
+```
+
+### 1.5 상수
 
 **UPPER_SNAKE_CASE** 사용
 
 ```cpp
-// Good
-constexpr int MAX_TOKEN_LENGTH = 256;
-constexpr char* DEFAULT_ENCODING = "UTF-8";
+// Good (실제 예제: VM.h)
+constexpr size_t VM_DEFAULT_MAX_INSTRUCTIONS = 10000000;
+constexpr int VM_DEFAULT_MAX_EXECUTION_TIME_MS = 5000;
+constexpr size_t VM_DEFAULT_MAX_STACK_SIZE = 10000;
+constexpr int JIT_LOOP_THRESHOLD = 100;
+constexpr uint8_t NO_CONSTRUCTOR_FLAG = 0xFF;
 
 // Bad
-const int maxTokenLength = 256;
-const int max_token_length = 256;
+const int vmDefaultMaxInstructions = 10000000;
+const int vm_default_max_instructions = 10000000;
 ```
 
-### 1.5 네임스페이스
+### 1.6 네임스페이스
 
 **소문자 snake_case** 사용
 
@@ -94,27 +126,42 @@ namespace KingSejong { }
 namespace KingSejong_Lexer { }
 ```
 
-### 1.6 Enum Class
+### 1.7 Enum Class
 
-**PascalCase** (타입), **PascalCase** (값)
+**PascalCase** (타입), **PascalCase** 또는 **UPPER_CASE** (값)
 
 ```cpp
-// Good
-enum class TokenType {
-    Integer,
-    Identifier,
-    Plus,
-    Minus
+// Good (실제 예제: Parser.h, VM.h)
+enum class ParseFeature : uint32_t {
+    None       = 0,
+    Range      = 1 << 0,
+    All        = 0xFFFFFFFFu
+};
+
+enum class Precedence {
+    LOWEST = 0,
+    ASSIGN,
+    RANGE,
+    OR,
+    AND,
+    EQUALS
+};
+
+enum class VMResult {
+    OK,                 ///< 인라인 주석 스타일
+    HALT,
+    COMPILE_ERROR,
+    RUNTIME_ERROR
 };
 
 // Bad
-enum class token_type {
-    INTEGER,
-    identifier
+enum class token_type {    // 타입은 PascalCase
+    identifier,            // 값은 PascalCase 또는 UPPER_CASE
+    INTEGER
 };
 ```
 
-### 1.7 파일명
+### 1.8 파일명
 
 - 헤더: **PascalCase.h**
 - 구현: **PascalCase.cpp**
@@ -123,14 +170,119 @@ enum class token_type {
 ```
 src/lexer/Lexer.h
 src/lexer/Lexer.cpp
+src/parser/Parser.h
+src/parser/Parser.cpp
+src/bytecode/VM.h
+src/bytecode/VM.cpp
 tests/lexer/LexerTest.cpp
+tests/parser/ParserTest.cpp
+tests/bytecode/VMTest.cpp
 ```
 
 ---
 
-## 2. 포맷팅 규칙
+## 2. Doxygen 문서화
 
-### 2.1 들여쓰기
+### 2.1 파일 헤더
+
+모든 헤더 파일은 Doxygen 주석으로 시작합니다.
+
+```cpp
+#pragma once
+
+/**
+ * @file Parser.h
+ * @brief KingSejong 언어 파서 (Pratt Parsing 알고리즘)
+ * @author KingSejong Team
+ * @date 2025-11-07
+ */
+```
+
+### 2.2 클래스 문서화
+
+```cpp
+/**
+ * @class Lexer
+ * @brief 소스 코드를 토큰으로 분해하는 어휘 분석기
+ *
+ * UTF-8 인코딩된 한글 소스 코드를 읽어서 토큰 스트림으로 변환합니다.
+ * 한글 키워드, 조사, 식별자를 올바르게 인식합니다.
+ */
+class Lexer {
+    // ...
+};
+```
+
+### 2.3 함수 문서화
+
+```cpp
+/**
+ * @brief Lexer 생성자
+ * @param input 분석할 소스 코드 문자열 (UTF-8 인코딩)
+ * @param filename 소스 파일 이름
+ */
+Lexer(const std::string& input, const std::string& filename);
+
+/**
+ * @brief 다음 토큰을 반환
+ * @return Token 객체
+ *
+ * 입력 문자열에서 다음 토큰을 읽어서 반환합니다.
+ * 파일 끝에 도달하면 EOF_TOKEN을 반환합니다.
+ */
+Token nextToken();
+```
+
+### 2.4 멤버 변수 인라인 주석
+
+```cpp
+class Lexer {
+private:
+    std::string input;          ///< 입력 소스 코드
+    std::string filename;       ///< 소스 파일 이름 (에러 메시지용)
+    size_t position;            ///< 현재 읽는 위치
+    size_t readPosition;        ///< 다음 읽을 위치
+    char ch;                    ///< 현재 문자
+    int currentLine;            ///< 현재 줄 번호 (1부터 시작)
+    int currentColumn;          ///< 현재 열 번호 (1부터 시작)
+};
+```
+
+### 2.5 Enum 문서화
+
+```cpp
+/**
+ * @enum VMResult
+ * @brief VM 실행 결과
+ */
+enum class VMResult {
+    OK,                 ///< 성공
+    HALT,               ///< 정상 종료 (HALT 명령)
+    COMPILE_ERROR,      ///< 컴파일 에러
+    RUNTIME_ERROR       ///< 런타임 에러
+};
+```
+
+---
+
+## 3. 포맷팅 규칙
+
+### 3.1 헤더 가드
+
+**`#pragma once`** 사용 (전통적인 include guard 대신)
+
+```cpp
+// Good
+#pragma once
+
+// Bad
+#ifndef KINGSEJONG_LEXER_H
+#define KINGSEJONG_LEXER_H
+// ...
+#endif
+```
+
+### 3.2 들여쓰기
 
 **4칸 스페이스** 사용 (탭 금지)
 

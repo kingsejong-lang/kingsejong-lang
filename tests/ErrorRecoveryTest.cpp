@@ -185,3 +185,68 @@ TEST(ErrorRecoveryTest, ShouldCollectAllErrorsInOnePass)
     const auto& errors = parser.errors();
     EXPECT_GT(errors.size(), 1);  // 최소 2개 이상의 에러
 }
+
+// ============================================================================
+// 개선된 에러 메시지 테스트
+// ============================================================================
+
+TEST(ErrorRecoveryTest, ShouldShowClearErrorForMissingVariableName)
+{
+    // 타입 키워드 뒤에 바로 ASSIGN이 오는 경우
+    std::string code = R"(
+배열 = [1, 2, 3]
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    // 에러가 수집되어야 함
+    const auto& errors = parser.errors();
+    EXPECT_GT(errors.size(), 0);
+
+    // 에러 메시지에 "변수명이 누락" 문구가 포함되어야 함
+    bool foundMissingVarError = false;
+    for (const auto& err : errors)
+    {
+        if (err.find("변수명이 누락") != std::string::npos)
+        {
+            foundMissingVarError = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(foundMissingVarError);
+}
+
+TEST(ErrorRecoveryTest, ShouldShowClearErrorForMissingVariableNameWithMultipleTypes)
+{
+    // 여러 타입 키워드에서 같은 에러 패턴
+    std::string code = R"(
+정수 = 10
+실수 = 3.14
+문자열 = "안녕"
+)";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+
+    ASSERT_NE(program, nullptr);
+
+    // 여러 에러가 수집되어야 함
+    const auto& errors = parser.errors();
+    EXPECT_GE(errors.size(), 3);
+
+    // 각 에러 메시지가 명확해야 함 (error recovery로 인해 일부만 감지될 수 있음)
+    int missingVarErrors = 0;
+    for (const auto& err : errors)
+    {
+        if (err.find("변수명이 누락") != std::string::npos)
+        {
+            missingVarErrors++;
+        }
+    }
+    EXPECT_GE(missingVarErrors, 2);  // 최소 2개 이상의 에러 감지
+}

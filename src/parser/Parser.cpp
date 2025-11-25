@@ -557,6 +557,16 @@ std::unique_ptr<VarDeclaration> Parser::parseVarDeclaration()
 
     // 변수 이름 (IDENTIFIER 또는 타입 키워드도 변수명으로 허용)
     nextToken();
+
+    // ASSIGN이 바로 오면 변수명이 누락된 것
+    if (curTokenIs(TokenType::ASSIGN))
+    {
+        std::string msg = "변수 선언에서 변수명이 누락되었습니다. '" + typeName +
+                         "' 타입 뒤에 변수명을 입력해주세요. (예: " + typeName + " 변수명 = 값)";
+        errors_.push_back(msg);
+        return nullptr;
+    }
+
     if (!curTokenIs(TokenType::IDENTIFIER) &&
         !curTokenIs(TokenType::JEONGSU) &&
         !curTokenIs(TokenType::SILSU) &&

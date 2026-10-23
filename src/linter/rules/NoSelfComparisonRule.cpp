@@ -47,17 +47,6 @@ void NoSelfComparisonRule::onBinaryExpression(BinaryExpression* expr)
     }
 }
 
-void NoSelfComparisonRule::onVarDeclaration(VarDeclaration* stmt)
-{
-    if (!stmt) return;
-
-    // initializer 방문하여 내부의 BinaryExpression 검사
-    if (stmt->initializer())
-    {
-        visitExpression(const_cast<Expression*>(stmt->initializer()));
-    }
-}
-
 bool NoSelfComparisonRule::isSameIdentifier(const Expression* left, const Expression* right)
 {
     if (!left || !right) return false;

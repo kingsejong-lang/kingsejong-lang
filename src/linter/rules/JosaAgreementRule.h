@@ -25,7 +25,6 @@ public:
 
 protected:
     void onJosaExpression(ast::JosaExpression* expr) override;
-    void onVarDeclaration(ast::VarDeclaration* stmt) override;
 };
 
 } // namespace rules

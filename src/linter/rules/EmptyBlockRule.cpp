@@ -133,17 +133,6 @@ void EmptyBlockRule::onFunctionLiteral(FunctionLiteral* expr)
     }
 }
 
-void EmptyBlockRule::onVarDeclaration(VarDeclaration* stmt)
-{
-    if (!stmt) return;
-
-    // initializer 방문하여 내부의 FunctionLiteral 검사
-    if (stmt->initializer())
-    {
-        visitExpression(const_cast<Expression*>(stmt->initializer()));
-    }
-}
-
 bool EmptyBlockRule::isEmpty(const BlockStatement* block)
 {
     if (!block) return true;

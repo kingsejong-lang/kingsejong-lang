@@ -32,6 +32,7 @@ set(LIB_SOURCES
     src/lexer/JosaRecognizer.cpp
     src/lexer/Lexer.cpp
     src/ast/Node.cpp
+    src/ast/Visitor.cpp
     src/parser/Parser.cpp
     src/semantic/SemanticAnalyzer.cpp
     src/types/Type.cpp

@@ -745,7 +745,7 @@ sejong --tutorial
 16. ✅ Bytecode VM + JIT
 17. ✅ 세대별 GC
 18. ✅ LSP, 디버거, VS Code 확장
-19. ✅ ksjpm 패키지 관리자
+19. ~~ksjpm 패키지 관리자~~ (2026-10 제거: 저장소·다운로드 없는 뼈대)
 20. ✅ Linter & Formatter
 
 ### ✅ Phase 8: 코드 품질 및 문서화 (완료!)

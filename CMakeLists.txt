@@ -49,9 +49,6 @@ set(LIB_SOURCES
     src/bytecode/VM.cpp
     src/jit/HotPathDetector.cpp
     src/jit/JITCompilerT1.cpp
-    src/jit/InliningAnalyzer.cpp
-    src/jit/InliningTransformer.cpp
-    src/jit/JITCompilerT2.cpp
     src/security/SecurityManager.cpp
     src/security/NetworkSecurityManager.cpp
     src/error/ErrorReporter.cpp
@@ -89,9 +86,7 @@ set(LIB_SOURCES
     src/config/ConfigLoader.cpp
     src/morphology/Dictionary.cpp
     src/morphology/MorphologicalAnalyzer.cpp
-    src/package/Package.cpp
     src/common/Logger.cpp
-    src/package/PackageManager.cpp
 )
 
 # 라이브러리 생성 (kingsejong_lib)
@@ -139,23 +134,6 @@ elseif(APPLE)
 elseif(UNIX)
     # Linux 특정 설정
     target_link_libraries(kingsejong PRIVATE pthread)
-endif()
-
-# ksjpm 패키지 관리자 실행 파일
-add_executable(ksjpm src/ksjpm.cpp)
-target_include_directories(ksjpm PRIVATE
-    ${CMAKE_SOURCE_DIR}/src
-    ${CMAKE_SOURCE_DIR}/include
-)
-target_link_libraries(ksjpm PRIVATE kingsejong_lib)
-
-# ksjpm 플랫폼별 설정
-if(WIN32)
-    target_compile_definitions(ksjpm PRIVATE UNICODE _UNICODE)
-elseif(APPLE)
-    target_compile_options(ksjpm PRIVATE -stdlib=libc++)
-elseif(UNIX)
-    target_link_libraries(ksjpm PRIVATE pthread)
 endif()
 
 # 테스트 활성화

@@ -10,7 +10,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 if(MSVC)
     # MSVC 는 경고를 에러로 올리지 않는다. 기존 코드에 MSVC 전용 경고(C4244 등)가 남아 있어
     # /WX 를 켜면 Windows 빌드가 한 번도 통과하지 못했다. 경고를 없앤 뒤 /WX 를 다시 켠다.
-    add_compile_options(/W4)
+    # 소스는 UTF-8 이고 식별자에 한글이 있다(builtin_파일_읽기 등). /utf-8 이 없으면 MSVC 가 코드 페이지로 읽어 C3872 를 낸다.
+    add_compile_options(/W4 /utf-8)
 else()
     add_compile_options(-Wall -Wextra -Wpedantic -Werror)
 endif()

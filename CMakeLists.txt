@@ -196,7 +196,7 @@ set(ASMJIT_NO_CUSTOM_FLAGS TRUE CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(asmjit)
 
 # asmjit의 엄격한 경고 비활성화
-if(TARGET asmjit)
+if(TARGET asmjit AND NOT MSVC)
     target_compile_options(asmjit PRIVATE -Wno-error -Wno-gnu-anonymous-struct -Wno-nested-anon-types)
 endif()
 
@@ -240,6 +240,14 @@ if(Python3_Interpreter_FOUND)
         NAME examples
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/examples/run_examples.py
                 --interpreter $<TARGET_FILE:kingsejong>
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    )
+    # 같은 예제를 --vm 으로도 돌린다. 평가기와 달라야 정상인 예제는 KNOWN_FAILURES_VM 에 적는다.
+    add_test(
+        NAME examples-vm
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/examples/run_examples.py
+                --interpreter $<TARGET_FILE:kingsejong> --interpreter-flag=--vm
+                --known-failures ${CMAKE_SOURCE_DIR}/examples/expected/KNOWN_FAILURES_VM
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     )
 endif()

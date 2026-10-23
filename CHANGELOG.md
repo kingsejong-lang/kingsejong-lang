@@ -19,6 +19,8 @@
 
 ### 추가
 - `--sandbox`, `--untrusted`, `--allow-path` 플래그로 보안 정책을 켠다.
+- `--vm`: 바이트코드 컴파일러와 VM 으로 실행한다 (실험적). VM 이 네이티브 내장 함수를 부를 수 있게 됐고, 같은 예제를 VM 으로 돌리는 ctest 항목 `examples-vm` 이 생겼다. 평가기와 다르게 동작하는 예제는 `examples/expected/KNOWN_FAILURES_VM` 에 있다.
+- CI: GCC 의 주석 경고와 MSVC 에 넘어가던 asmjit 플래그를 고쳤다. 한 번도 통과한 적 없는 테스트 6개(JIT Tier 2 벤치마크 3, LSP 스코프 2, 할당 주소에 의존하는 JIT 캐시 1)는 이유를 적고 GTEST_SKIP 한다.
 - `kingsejong lint` 서브커맨드. 규칙 13개가 기본 등록되고 `.ksjlint.json` 으로 끄고 켠다.
 - `kingsejong --debug 파일.ksj`: 중단점·단계 실행·호출 스택·식 평가가 실제 실행에 연결됐다.
 - LSP 서버가 `textDocument/publishDiagnostics` 를 보낸다. 구문 오류가 실제 줄에 표시된다.

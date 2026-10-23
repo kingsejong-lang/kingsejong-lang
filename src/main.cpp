@@ -25,6 +25,9 @@
 #include "module/ModuleLoader.h"
 #include "version/Version.h"
 #include "security/SecurityManager.h"
+#include "bytecode/Chunk.h"
+#include "bytecode/VM.h"
+#include "bytecode/Compiler.h"
 #include "debugger/Debugger.h"
 #include "linter/Linter.h"
 #include "formatter/Formatter.h"
@@ -69,7 +72,7 @@ static void collectModuleSearchPaths(const char* argv0)
  * @param filename 실행할 파일 경로
  * @return 종료 코드 (0: 성공, 1: 실패)
  */
-int executeFile(const std::string& filename)
+int executeFile(const std::string& filename, bool useVm = false)
 {
     // ErrorReporter 생성 및 기본 힌트 등록
     kingsejong::error::ErrorReporter errorReporter;
@@ -146,6 +149,25 @@ int executeFile(const std::string& filename)
         // 5. 환경 생성
         auto env = std::make_shared<kingsejong::evaluator::Environment>();
 
+
+        // 6.5 --vm: 바이트코드 컴파일러와 VM 으로 실행 (실험적). 평가기와 기능이 같지 않다.
+        if (useVm)
+        {
+            kingsejong::bytecode::Chunk chunk;
+            kingsejong::bytecode::Compiler compiler;
+            if (!compiler.compile(program.get(), &chunk))
+            {
+                std::cerr << "에러: 바이트코드 컴파일에 실패했습니다. (--vm 은 실험적이며 일부 구문을 지원하지 않습니다)\n";
+                return 1;
+            }
+            kingsejong::bytecode::VM vm;
+            auto result = vm.run(&chunk);
+            if (result != kingsejong::bytecode::VMResult::OK && result != kingsejong::bytecode::VMResult::HALT)
+            {
+                return 1;
+            }
+            return 0;
+        }
 
         // 7. Evaluator
         kingsejong::evaluator::Evaluator evaluator(env);
@@ -521,6 +543,7 @@ void printHelp()
     std::cout << "  -v, --version       버전 정보 출력\n";
     std::cout << "  --lsp               LSP 서버 모드로 실행\n";
     std::cout << "  --debug             디버거 모드로 파일 실행 (break/run/step/next/continue/print/backtrace)\n";
+    std::cout << "  --vm                바이트코드 VM 으로 실행 (실험적: 클로저·가져오기·예외 등 일부 미지원)\n";
     std::cout << "  --sandbox           샌드박스 모드: 현재 디렉터리와 --allow-path 경로만 파일 접근 허용\n";
     std::cout << "  --untrusted         비신뢰 모드: 시스템 경로(/etc, /sys, /proc ...) 접근 차단\n";
     std::cout << "  --allow-path 경로   샌드박스에서 추가로 허용할 경로 (여러 번 지정 가능)\n";
@@ -597,6 +620,7 @@ int main(int argc, char* argv[])
     std::string securityMode;
     std::vector<std::string> allowPaths;
     bool debugMode = false;
+    bool vmMode = false;
 
     for (size_t i = 0; i < args.size(); ++i)
     {
@@ -619,6 +643,10 @@ int main(int argc, char* argv[])
         if (arg == "--debug")
         {
             debugMode = true;
+        }
+        else if (arg == "--vm")
+        {
+            vmMode = true;
         }
         else if (arg == "--sandbox")
         {
@@ -673,5 +701,5 @@ int main(int argc, char* argv[])
     {
         return runDebugger(filename);
     }
-    return executeFile(filename);
+    return executeFile(filename, vmMode);
 }

@@ -10,6 +10,7 @@
 #include "jit/JITCompilerT2.h"
 #include "jit/HotPathDetector.h"
 #include "evaluator/Evaluator.h"
+#include "evaluator/Builtin.h"
 #include "evaluator/Environment.h"
 #include <algorithm>
 #include "common/Logger.h"
@@ -400,6 +401,11 @@ VMResult VM::executeVariableOps(OpCode instruction) {
 
         case OpCode::LOAD_GLOBAL: {
             std::string name = readName();
+            // 전역 환경에 없으면 네이티브 내장 함수 표를 본다 (평가기와 같은 규칙)
+            if (!globals_->existsInChain(name) && evaluator::Builtin::hasBuiltin(name)) {
+                push(evaluator::Builtin::getBuiltin(name));
+                break;
+            }
             try {
                 evaluator::Value value = globals_->get(name);
                 push(value);
@@ -615,6 +621,21 @@ VMResult VM::executeControlFlowOps(OpCode instruction) {
             uint8_t argCount = readByte();
 
             evaluator::Value funcVal = peek(argCount);
+            // 내장 함수: 인자를 모아 바로 호출한다 (CALL, TAIL_CALL, ASYNC_CALL 공통)
+            if (funcVal.isBuiltinFunction()) {
+                std::vector<evaluator::Value> args(argCount);
+                for (int i = static_cast<int>(argCount) - 1; i >= 0; --i) {
+                    args[static_cast<size_t>(i)] = pop();
+                }
+                pop();  // 함수 값
+                try {
+                    push(funcVal.asBuiltinFunction()(args));
+                } catch (const std::exception& e) {
+                    runtimeError(e.what());
+                    return VMResult::RUNTIME_ERROR;
+                }
+                break;
+            }
             if (!funcVal.isInteger()) {
                 runtimeError(std::string(error::vm::CALL_NON_FUNCTION));
                 return VMResult::RUNTIME_ERROR;
@@ -663,6 +684,21 @@ VMResult VM::executeControlFlowOps(OpCode instruction) {
             uint8_t argCount = readByte();
 
             evaluator::Value funcVal = peek(argCount);
+            // 내장 함수: 인자를 모아 바로 호출한다 (CALL, TAIL_CALL, ASYNC_CALL 공통)
+            if (funcVal.isBuiltinFunction()) {
+                std::vector<evaluator::Value> args(argCount);
+                for (int i = static_cast<int>(argCount) - 1; i >= 0; --i) {
+                    args[static_cast<size_t>(i)] = pop();
+                }
+                pop();  // 함수 값
+                try {
+                    push(funcVal.asBuiltinFunction()(args));
+                } catch (const std::exception& e) {
+                    runtimeError(e.what());
+                    return VMResult::RUNTIME_ERROR;
+                }
+                break;
+            }
             if (!funcVal.isInteger()) {
                 runtimeError(std::string(error::vm::CALL_NON_FUNCTION));
                 return VMResult::RUNTIME_ERROR;
@@ -862,6 +898,21 @@ VMResult VM::executePromiseOps(OpCode instruction) {
 
             // 함수 가져오기
             evaluator::Value funcVal = peek(argCount);
+            // 내장 함수: 인자를 모아 바로 호출한다 (CALL, TAIL_CALL, ASYNC_CALL 공통)
+            if (funcVal.isBuiltinFunction()) {
+                std::vector<evaluator::Value> args(argCount);
+                for (int i = static_cast<int>(argCount) - 1; i >= 0; --i) {
+                    args[static_cast<size_t>(i)] = pop();
+                }
+                pop();  // 함수 값
+                try {
+                    push(funcVal.asBuiltinFunction()(args));
+                } catch (const std::exception& e) {
+                    runtimeError(e.what());
+                    return VMResult::RUNTIME_ERROR;
+                }
+                break;
+            }
             if (!funcVal.isInteger()) {
                 runtimeError(std::string(error::vm::CALL_NON_ASYNC));
                 return VMResult::RUNTIME_ERROR;

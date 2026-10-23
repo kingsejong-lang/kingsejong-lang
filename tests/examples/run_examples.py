@@ -32,9 +32,9 @@ def load_list(path: Path) -> dict[str, str]:
     return entries
 
 
-def run_one(interpreter: Path, example: Path, timeout: float) -> tuple[int, str, str]:
+def run_one(interpreter: Path, flags: list[str], example: Path, timeout: float) -> tuple[int, str, str]:
     proc = subprocess.run(
-        [str(interpreter), str(example)],
+        [str(interpreter), *flags, str(example)],
         capture_output=True, text=True, timeout=timeout, encoding="utf-8", errors="replace",
     )
     return proc.returncode, proc.stdout, proc.stderr
@@ -47,6 +47,10 @@ def main() -> int:
     ap.add_argument("--expected-dir", type=Path, default=Path("examples/expected"))
     ap.add_argument("--update", action="store_true", help="기대 출력을 현재 출력으로 다시 쓴다")
     ap.add_argument("--timeout", type=float, default=60.0)
+    ap.add_argument("--interpreter-flag", action="append", default=[],
+                    help="인터프리터에 넘길 플래그 (예: --interpreter-flag=--vm)")
+    ap.add_argument("--known-failures", type=Path, default=None,
+                    help="기대 실패 목록 파일 (기본 <expected-dir>/KNOWN_FAILURES)")
     args = ap.parse_args()
 
     if not args.interpreter.is_file():
@@ -55,7 +59,7 @@ def main() -> int:
 
     skip = load_list(args.expected_dir / "SKIP")
     # 아직 언어가 지원하지 않는 구문을 쓰는 예제. 실패해야 정상이고, 통과하기 시작하면 목록에서 빼라고 알린다.
-    known_failures = load_list(args.expected_dir / "KNOWN_FAILURES")
+    known_failures = load_list(args.known_failures or (args.expected_dir / "KNOWN_FAILURES"))
     args.expected_dir.mkdir(parents=True, exist_ok=True)
     examples = sorted(args.examples_dir.glob("*.ksj"))
     if not examples:
@@ -68,17 +72,19 @@ def main() -> int:
         name = example.name
         expected_path = args.expected_dir / (example.stem + ".out")
         try:
-            code, out, err = run_one(args.interpreter, example, args.timeout)
+            code, out, err = run_one(args.interpreter, args.interpreter_flag, example, args.timeout)
         except subprocess.TimeoutExpired:
             failures.append(f"{name}: 시간 초과 ({args.timeout}s)")
             continue
 
         if name in known_failures:
-            if code != 0:
+            expected = expected_path.read_text(encoding="utf-8") if expected_path.is_file() else None
+            matches = code == 0 and (expected is None or out.rstrip() == expected.rstrip())
+            if not matches:
                 print(f"XFAIL {name} ({known_failures[name]})")
                 passed += 1
             else:
-                failures.append(f"{name}: KNOWN_FAILURES 에 있는데 통과했습니다. 목록에서 빼고 --update 로 기대 출력을 만드세요")
+                failures.append(f"{name}: 기대 실패 목록에 있는데 통과했습니다. 목록에서 빼세요")
             continue
 
         if code != 0:

@@ -1,0 +1,10 @@
+# 아직 실패해야 정상인 예제. "<파일명> <이유>". 통과하기 시작하면 runner 가 알려 주니 그때 여기서 빼고
+# `python3 tests/examples/run_examples.py --interpreter build/bin/kingsejong --update` 로 기대 출력을 만든다.
+hot_path_detection.ksj 존재하지 않는 함수 배열크기·배열추가 사용 (예전 API)
+simple_loop_test.ksj 지원하지 않는 반복 구문 "인_동안"
+stdlib_collections.ksj 존재하지 않는 함수 부분문자열 사용
+stdlib_crypto.ksj 101행 구문 오류: 길이(암호문)을_문자열로(...)
+stdlib_io.ksj 존재하지 않는 함수 포함 사용
+stdlib_json.ksj null(없음) 값을 문자열에 더하는 연산 미지원
+stdlib_regex.ksj "필드들를 길이로 측정한다" 같은 미지원 조사 구문
+stdlib_utils.ksj 존재하지 않는 함수 각 사용

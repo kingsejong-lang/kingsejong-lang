@@ -13,6 +13,7 @@
 #include "parser/Parser.h"
 #include <fstream>
 #include <filesystem>
+#include "semantic/SemanticAnalyzer.h"
 
 using namespace kingsejong::module;
 using namespace kingsejong::evaluator;
@@ -317,4 +318,40 @@ TEST_F(ModuleTestFixture, ShouldResolvePath)
     // 확장자가 있어도 검색 규칙은 같다. 없는 파일이면 첫 후보(basePath)를 돌려준다
     std::string path3 = loader.resolvePath("test.ksj");
     EXPECT_EQ(path3, testModulePath_ + "/test.ksj");
+}
+
+/**
+ * @test 의미 분석기가 가져온 모듈의 이름을 알아서 "정의되지 않은 식별자"를 내지 않는다
+ */
+TEST_F(ModuleTestFixture, SemanticAnalyzerKnowsImportedNames)
+{
+    createTestModule("semmod", R"(
+        정수 상수값 = 7
+        함수 더하기(a, b) {
+            반환 a + b
+        }
+    )");
+
+    std::string source = R"(
+        가져오기 "semmod"
+        정수 결과 = 더하기(상수값, 1)
+    )";
+
+    Lexer lexer(source, "main.ksj");
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_TRUE(parser.errors().empty());
+
+    ModuleLoader loader(testModulePath_);
+    kingsejong::semantic::SemanticAnalyzer analyzer;
+    analyzer.setModuleResolver([&loader](const std::string& m, const std::string& f) {
+        return loader.resolvePath(m, f);
+    });
+
+    EXPECT_TRUE(analyzer.analyze(program.get()));
+    EXPECT_TRUE(analyzer.errors().empty()) << analyzer.errors()[0].toString();
+
+    // 해석기를 주지 않으면 예전처럼 가져온 이름을 알 수 없다
+    kingsejong::semantic::SemanticAnalyzer plain;
+    EXPECT_FALSE(plain.analyze(program.get()));
 }

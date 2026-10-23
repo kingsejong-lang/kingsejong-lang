@@ -11,6 +11,7 @@
 #include "linter/rules/EmptyBlockRule.h"
 #include "linter/rules/FunctionComplexityRule.h"
 #include "linter/rules/ImportOrderRule.h"
+#include "linter/rules/JosaAgreementRule.h"
 #include "linter/rules/NamingConventionRule.h"
 #include "linter/rules/NoMagicNumberRule.h"
 #include "linter/rules/NoSelfComparisonRule.h"
@@ -74,6 +75,7 @@ void Linter::addDefaultRules()
     addRule(std::make_unique<rules::NoUnusedParameterRule>());
     addRule(std::make_unique<rules::UnusedImportRule>());
     addRule(std::make_unique<rules::UnusedVariableRule>());
+    addRule(std::make_unique<rules::JosaAgreementRule>());
 }
 
 size_t Linter::errorCount() const

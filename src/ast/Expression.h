@@ -274,16 +274,19 @@ private:
     std::unique_ptr<Expression> object_;            ///< 명사 (객체)
     lexer::JosaRecognizer::JosaType josaType_;     ///< 조사 타입
     std::unique_ptr<Expression> method_;            ///< 동사/메서드
+    std::string particle_;                          ///< 소스에 적힌 조사 그대로 ("을", "를" ...)
 
 public:
     JosaExpression(
         std::unique_ptr<Expression> object,
         lexer::JosaRecognizer::JosaType josaType,
-        std::unique_ptr<Expression> method
+        std::unique_ptr<Expression> method,
+        std::string particle = ""
     )
         : object_(std::move(object))
         , josaType_(josaType)
         , method_(std::move(method))
+        , particle_(std::move(particle))
     {}
 
     NodeType type() const override { return NodeType::JOSA_EXPRESSION; }
@@ -302,6 +305,11 @@ public:
     const Expression* object() const { return object_.get(); }
     lexer::JosaRecognizer::JosaType josaType() const { return josaType_; }
     const Expression* method() const { return method_.get(); }
+    /// 소스에 적힌 조사. 받침 일치 검사(린터)가 쓴다. 타입은 을/를을 하나로 접어서 알 수 없다.
+    const std::string& particle() const { return particle_; }
+
+    /// 파서가 "i가 <식>부터 ... {" 를 범위 반복문으로 다시 조립할 때 쓴다
+    std::unique_ptr<Expression> releaseMethod() { return std::move(method_); }
 };
 
 /**
@@ -381,6 +389,10 @@ public:
     bool startInclusive() const { return startInclusive_; }
     bool endInclusive() const { return endInclusive_; }
     const Expression* step() const { return step_.get(); }  // Phase 7.2
+
+    /// 파서가 범위 반복문으로 다시 조립할 때 쓴다. 호출 뒤 이 노드는 비어 있다.
+    std::unique_ptr<Expression> releaseStart() { return std::move(start_); }
+    std::unique_ptr<Expression> releaseEnd() { return std::move(end_); }
     bool hasStep() const { return step_ != nullptr; }       // Phase 7.2
 };
 

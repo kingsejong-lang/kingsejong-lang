@@ -80,9 +80,10 @@ std::shared_ptr<evaluator::Environment> ModuleLoader::loadModule(const std::stri
 
         if (!parser.errors().empty())
         {
+            const auto& first = parser.errorDetails()[0];
             throw error::ParserError(
-                "모듈 파싱 오류: " + resolvedPath + "\n" +
-                parser.errors()[0]
+                "모듈 파싱 오류: " + resolvedPath + ":" + std::to_string(first.location.line) + ":" +
+                std::to_string(first.location.column) + "\n" + first.message
             );
         }
 

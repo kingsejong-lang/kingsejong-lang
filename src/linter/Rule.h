@@ -113,6 +113,7 @@ protected:
     virtual void onCallExpression(ast::CallExpression* /* expr */) {}
     virtual void onIndexExpression(ast::IndexExpression* /* expr */) {}
     virtual void onFunctionLiteral(ast::FunctionLiteral* /* expr */) {}
+    virtual void onJosaExpression(ast::JosaExpression* /* expr */) {}
 
 private:
     std::string ruleId_;        ///< 규칙 ID

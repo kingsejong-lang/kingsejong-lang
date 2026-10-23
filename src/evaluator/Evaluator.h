@@ -279,6 +279,14 @@ private:
     Value evalJosaExpression(ast::JosaExpression* expr);
 
     /**
+     * @brief 함수 값(사용자 함수·내장 함수·생성자)을 인자와 함께 호출한다
+     *
+     * 조사 디스패치(x를 f(a) == f(x, a))처럼 CallExpression 노드가 없는 호출에 쓴다.
+     */
+    Value callValue(const Value& callee, const std::vector<Value>& args,
+                    const std::string& name, const ast::SourceLocation& callSite);
+
+    /**
      * @brief 패턴 매칭 표현식 평가
      * @param expr 패턴 매칭 표현식 노드
      * @return 매칭된 케이스의 결과 Value
@@ -387,6 +395,11 @@ private:
      * @return 실행된 블록의 평가 결과
      */
     Value evalIfStatement(ast::IfStatement* stmt);
+
+    /**
+     * @brief 조건 반복문 실행: 조건이 참인 동안 본문을 반복한다
+     */
+    Value evalWhileStatement(ast::WhileStatement* stmt);
 
     /**
      * @brief N번 반복 문장 실행

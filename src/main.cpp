@@ -103,17 +103,34 @@ int executeFile(const std::string& filename)
         // 파서 에러 확인
         if (!parser.errors().empty())
         {
-            // ErrorReporter로 각 에러를 출력
-            for (const auto& err : parser.errors())
+            // 위치가 있는 에러는 파일:줄:열 로 보여 준다
+            for (const auto& err : parser.errorDetails())
             {
-                auto error = kingsejong::error::ParserError(err);
+                std::string message = err.message;
+                if (err.location.isValid())
+                {
+                    message = filename + ":" + std::to_string(err.location.line) + ":" +
+                              std::to_string(err.location.column) + ": " + message;
+                }
+                auto error = kingsejong::error::ParserError(message);
                 errorReporter.report(error);
             }
             return 1;
         }
 
-        // 4. Semantic Analyzer (의미 분석)
+        // 4. ModuleLoader 생성 및 설정 (의미 분석기도 모듈 경로를 알아야 한다)
+        auto moduleLoader = std::make_shared<kingsejong::module::ModuleLoader>(".");
+        for (const auto& dir : g_moduleSearchPaths)
+        {
+            moduleLoader->addSearchPath(dir);
+        }
+
+        // 5. Semantic Analyzer (의미 분석). 가져온 모듈의 이름을 알도록 경로 해석기를 넘긴다
         kingsejong::semantic::SemanticAnalyzer semanticAnalyzer;
+        semanticAnalyzer.setModuleResolver(
+            [&moduleLoader](const std::string& modulePath, const std::string& fromFile) {
+                return moduleLoader->resolvePath(modulePath, fromFile);
+            });
         bool semanticOk = semanticAnalyzer.analyze(program.get());
 
         // Semantic 에러 확인
@@ -129,12 +146,6 @@ int executeFile(const std::string& filename)
         // 5. 환경 생성
         auto env = std::make_shared<kingsejong::evaluator::Environment>();
 
-        // 6. ModuleLoader 생성 및 설정
-        auto moduleLoader = std::make_shared<kingsejong::module::ModuleLoader>(".");
-        for (const auto& dir : g_moduleSearchPaths)
-        {
-            moduleLoader->addSearchPath(dir);
-        }
 
         // 7. Evaluator
         kingsejong::evaluator::Evaluator evaluator(env);

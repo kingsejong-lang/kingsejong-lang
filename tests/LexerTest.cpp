@@ -526,13 +526,84 @@ TEST(LexerTest, TokenizeJosaChain)
     EXPECT_EQ(tok2.type, TokenType::JOSA_EUL);
     EXPECT_EQ(tok2.literal, "을");
 
+    // "정렬하고" 뒤에 메서드가 이어지지 않으므로 식별자 하나다. 평가기는 "정렬하고" 를
+    // "정렬한다" 와 같은 메서드 이름으로 받는다.
     Token tok3 = lexer.nextToken();
     EXPECT_EQ(tok3.type, TokenType::IDENTIFIER);
-    EXPECT_EQ(tok3.literal, "정렬");
+    EXPECT_EQ(tok3.literal, "정렬하고");
 
-    Token tok4 = lexer.nextToken();
-    EXPECT_EQ(tok4.type, TokenType::HAGO);
-    EXPECT_EQ(tok4.literal, "하고");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::EOF_TOKEN);
+}
+
+/**
+ * @test 조사처럼 끝나는 식별자: 뒤에 메서드가 오지 않으면 통째로 식별자다
+ */
+TEST(LexerTest, DoesNotSplitParticleLikeEndingWithoutMethod)
+{
+    {
+        Lexer lexer("마을 = 1");
+        Token tok = lexer.nextToken();
+        EXPECT_EQ(tok.type, TokenType::IDENTIFIER);
+        EXPECT_EQ(tok.literal, "마을");
+        EXPECT_EQ(lexer.nextToken().type, TokenType::ASSIGN);
+    }
+    {
+        Lexer lexer("출력(소수인가)");
+        lexer.nextToken();  // 출력
+        lexer.nextToken();  // (
+        Token tok = lexer.nextToken();
+        EXPECT_EQ(tok.type, TokenType::IDENTIFIER);
+        EXPECT_EQ(tok.literal, "소수인가");
+        EXPECT_EQ(lexer.nextToken().type, TokenType::RPAREN);
+    }
+    {
+        Lexer lexer("제곱차이 = x");
+        Token tok = lexer.nextToken();
+        EXPECT_EQ(tok.literal, "제곱차이");
+    }
+}
+
+/**
+ * @test 파서가 모르는 조사(과/와/도/만)는 떼어 내지 않는다
+ */
+TEST(LexerTest, DoesNotSplitParticlesWithoutToken)
+{
+    Lexer lexer("사과 = 짝수만");
+    EXPECT_EQ(lexer.nextToken().literal, "사과");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::ASSIGN);
+    EXPECT_EQ(lexer.nextToken().literal, "짝수만");
+}
+
+/**
+ * @test 숫자가 들어간 이름도 뒤에 메서드가 오면 조사를 떼고, 아니면 통째로 둔다
+ */
+TEST(LexerTest, SplitsAfterDigitOnlyWhenMethodFollows)
+{
+    {
+        Lexer lexer("결과1을 변환한다");
+        Token tok1 = lexer.nextToken();
+        EXPECT_EQ(tok1.literal, "결과1");
+        EXPECT_EQ(lexer.nextToken().type, TokenType::JOSA_EUL);
+        EXPECT_EQ(lexer.nextToken().literal, "변환한다");
+    }
+    {
+        Lexer lexer("값1이 = 3");
+        EXPECT_EQ(lexer.nextToken().literal, "값1이");
+        EXPECT_EQ(lexer.nextToken().type, TokenType::ASSIGN);
+    }
+}
+
+/**
+ * @test 메서드가 이어지면 그대로 떼어 낸다 (기존 동작 유지)
+ */
+TEST(LexerTest, StillSplitsWhenMethodFollows)
+{
+    Lexer lexer("숫자들을 걸러낸다(소수인가)");
+    EXPECT_EQ(lexer.nextToken().literal, "숫자들");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::JOSA_EUL);
+    EXPECT_EQ(lexer.nextToken().literal, "걸러낸다");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::LPAREN);
+    EXPECT_EQ(lexer.nextToken().literal, "소수인가");
 }
 
 /**

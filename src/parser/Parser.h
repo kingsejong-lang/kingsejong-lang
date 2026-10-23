@@ -177,6 +177,13 @@ private:
     std::unique_ptr<AssignmentStatement> parseAssignmentStatement();
     std::unique_ptr<ReturnStatement> parseReturnStatement();
     std::unique_ptr<IfStatement> parseIfStatement();
+
+    /// 멤버·메서드 이름 자리에 올 수 있는 토큰인가. 식별자와, 글자로 된 키워드("가져오기", "마지막")를 허용한다.
+    bool isNameToken(const Token& token) const;
+
+    /// 매개변수 이름을 읽는다. 식별자, 타입 키워드("함수(배열)"), 타입 있는 선언("배열 arr")을 받는다.
+    bool readParameterName(std::string& name);
+    std::unique_ptr<WhileStatement> parseWhileStatement();
     std::unique_ptr<RepeatStatement> parseRepeatStatement();
     std::unique_ptr<RangeForStatement> parseRangeForStatement();
     std::unique_ptr<BlockStatement> parseBlockStatement();

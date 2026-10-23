@@ -135,6 +135,9 @@ Value Evaluator::eval(ast::Node* node)
         case ast::NodeType::IF_STATEMENT:
             return evalIfStatement(static_cast<ast::IfStatement*>(node));
 
+        case ast::NodeType::WHILE_STATEMENT:
+            return evalWhileStatement(static_cast<ast::WhileStatement*>(node));
+
         case ast::NodeType::REPEAT_STATEMENT:
             return evalRepeatStatement(static_cast<ast::RepeatStatement*>(node));
 
@@ -267,6 +270,12 @@ Value Evaluator::evalIdentifier(ast::Identifier* ident)
 {
     const std::string& name = ident->name();
 
+    // 0. 언어 참조의 null 리터럴 "없음". 변수로 가려지지 않는 한 null 이다.
+    if (name == "없음" && !env_->existsInChain(name))
+    {
+        return Value::createNull();
+    }
+
     // 1. 먼저 환경에서 변수 조회
     if (env_->existsInChain(name))
     {
@@ -317,9 +326,43 @@ Value Evaluator::evalBinaryExpression(ast::BinaryExpression* expr)
             env_->set(ident->name(), value);
             return value;
         }
+        // 좌변이 IndexExpression이면 배열 요소·사전 키 할당 (배열[i] = 값, 사전["키"] = 값)
+        else if (auto* indexExpr = dynamic_cast<ast::IndexExpression*>(const_cast<ast::Expression*>(expr->left())))
+        {
+            Value container = eval(const_cast<ast::Expression*>(indexExpr->array()));
+            Value key = eval(const_cast<ast::Expression*>(indexExpr->index()));
+
+            if (container.isArray())
+            {
+                if (!key.isInteger())
+                {
+                    throw error::TypeError("배열 인덱스는 정수여야 합니다: " + key.toString());
+                }
+                auto& elements = container.asArray();  // 배열은 공유되므로 제자리에서 바뀐다
+                int64_t i = key.asInteger();
+                if (i < 0 || static_cast<size_t>(i) >= elements.size())
+                {
+                    throw error::RuntimeError(
+                        "배열 인덱스가 범위를 벗어났습니다: " + std::to_string(i) +
+                        " (길이 " + std::to_string(elements.size()) + ")");
+                }
+                elements[static_cast<size_t>(i)] = value;
+                return value;
+            }
+            if (container.isDictionary())
+            {
+                if (!key.isString())
+                {
+                    throw error::TypeError("사전의 키는 문자열이어야 합니다: " + key.toString());
+                }
+                container.asDictionary()[key.asString()] = value;
+                return value;
+            }
+            throw error::TypeError("인덱스 할당은 배열이나 사전에만 할 수 있습니다: " + container.toString());
+        }
         else
         {
-            throw error::RuntimeError("Invalid left-hand side of assignment");
+            throw error::RuntimeError("할당의 좌변이 올바르지 않습니다 (변수, 필드, 배열[인덱스], 사전[키] 만 가능합니다)");
         }
     }
 
@@ -354,6 +397,15 @@ Value Evaluator::evalBinaryExpression(ast::BinaryExpression* expr)
     }
 
     // 문자열 연결
+    // 배열 + 배열: 이어 붙인 새 배열 (표준 라이브러리가 "결과 = 결과 + [쌍]" 으로 쓴다)
+    if (op == "+" && left.isArray() && right.isArray())
+    {
+        std::vector<Value> joined = left.asArray();
+        const auto& tail = right.asArray();
+        joined.insert(joined.end(), tail.begin(), tail.end());
+        return Value::createArray(joined);
+    }
+
     if (op == "+" && left.isString() && right.isString())
     {
         return Value::createString(left.asString() + right.asString());
@@ -901,6 +953,22 @@ Value Evaluator::evalCallExpression(ast::CallExpression* expr)
 // ============================================================================
 // Statement 실행 함수들
 // ============================================================================
+
+Value Evaluator::evalWhileStatement(ast::WhileStatement* stmt)
+{
+    Value result = Value::createNull();
+    while (true)
+    {
+        Value condition = eval(const_cast<ast::Expression*>(stmt->condition()));
+        if (!condition.isTruthy())
+        {
+            break;
+        }
+        // 안전 한도(최대 평가 횟수·시간)는 eval 이 매 노드마다 검사한다
+        result = eval(const_cast<ast::BlockStatement*>(stmt->body()));
+    }
+    return result;
+}
 
 Value Evaluator::evalExpressionStatement(ast::ExpressionStatement* stmt)
 {
@@ -1522,12 +1590,155 @@ Value Evaluator::evalTryStatement(ast::TryStatement* stmt)
     return result;
 }
 
+Value Evaluator::callValue(const Value& callee, const std::vector<Value>& args,
+                           const std::string& name, const ast::SourceLocation& callSite)
+{
+    if (callee.isBuiltinFunction())
+    {
+        return callee.asBuiltinFunction()(args);
+    }
+    if (!callee.isFunction())
+    {
+        throw error::TypeError(
+            "함수가 아닌 값을 호출하려고 합니다: " + name + "\n" +
+            "해결 방법: 조사 뒤에는 함수 이름이나 배열 메서드가 와야 합니다."
+        );
+    }
+    auto func = callee.asFunction();
+    if (func->classDef())
+    {
+        return evalConstructorCall(func, args);
+    }
+    if (args.size() != func->parameters().size())
+    {
+        throw error::ArgumentError(
+            "함수 인자 개수가 일치하지 않습니다: 필요 " + std::to_string(func->parameters().size()) + "개, " +
+            "전달 " + std::to_string(args.size()) + "개 (" + name + ")\n" +
+            "해결 방법: 조사 앞의 값이 첫 인자로 들어간다는 점을 확인하세요."
+        );
+    }
+
+    auto funcEnv = std::make_shared<Environment>(func->closure());
+    for (size_t i = 0; i < func->parameters().size(); ++i)
+    {
+        funcEnv->set(func->parameters()[i], args[i]);
+    }
+
+    auto previousEnv = env_;
+    env_ = funcEnv;
+
+    struct ObserverExitGuard
+    {
+        ExecutionObserver* observer;
+        ~ObserverExitGuard() { if (observer) observer->onFunctionExit(); }
+    };
+    if (observer_)
+    {
+        observer_->onFunctionEnter(name, callSite, funcEnv);
+    }
+    ObserverExitGuard exitGuard{observer_};
+
+    Value result = Value::createNull();
+    try
+    {
+        result = eval(func->body());
+    }
+    catch (const ReturnValue& returnVal)
+    {
+        result = returnVal.getValue();
+    }
+    catch (...)
+    {
+        env_ = previousEnv;
+        throw;
+    }
+    env_ = previousEnv;
+
+    if (func->isAsync())
+    {
+        auto promise = std::make_shared<Promise>();
+        if (result.isError())
+        {
+            promise->reject(result);
+        }
+        else
+        {
+            promise->resolve(result);
+        }
+        return Value::createPromise(promise);
+    }
+    return result;
+}
+
 Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
 {
     // 객체 평가
     Value object = eval(const_cast<ast::Expression*>(expr->object()));
 
-    // 배열이 아닌 타입에 대한 조사 표현식
+    // 1. '의' 는 소유격: 클래스 인스턴스의 필드나 사전의 키를 읽는다 ("사용자의 이름")
+    if (expr->josaType() == lexer::JosaRecognizer::JosaType::UI)
+    {
+        if (auto* member = dynamic_cast<const ast::Identifier*>(expr->method()))
+        {
+            if (object.isClassInstance())
+            {
+                return object.asClassInstance()->getField(member->name());
+            }
+            if (object.isDictionary())
+            {
+                const auto& dict = object.asDictionary();
+                auto it = dict.find(member->name());
+                if (it == dict.end())
+                {
+                    throw error::NameError(
+                        "사전에 '" + member->name() + "' 키가 없습니다.\n" +
+                        "해결 방법: 키 이름을 확인하세요."
+                    );
+                }
+                return it->second;
+            }
+            throw error::TypeError(
+                "'의'는 클래스 인스턴스나 사전의 멤버를 읽을 때 쓸 수 있습니다: " + object.toString() + "\n" +
+                "해결 방법: 배열 메서드에는 을/를 을 쓰세요."
+            );
+        }
+    }
+
+    // 2. 메서드 이름이 사용자 함수나 내장 함수이면 객체를 첫 인자로 넘겨 호출한다
+    //    ("x를 f(a)" 는 "f(x, a)", "값을 출력" 은 "출력(값)")
+    {
+        std::string name;
+        std::vector<const ast::Expression*> argExprs;
+        if (auto* call = dynamic_cast<const ast::CallExpression*>(expr->method()))
+        {
+            if (auto* fn = dynamic_cast<const ast::Identifier*>(call->function()))
+            {
+                name = fn->name();
+                for (const auto& arg : call->arguments())
+                {
+                    argExprs.push_back(arg.get());
+                }
+            }
+        }
+        else if (auto* ident = dynamic_cast<const ast::Identifier*>(expr->method()))
+        {
+            name = ident->name();
+        }
+
+        if (!name.empty() && (env_->existsInChain(name) || Builtin::hasBuiltin(name)))
+        {
+            Value callee = env_->existsInChain(name) ? env_->get(name) : Builtin::getBuiltin(name);
+            std::vector<Value> args;
+            args.push_back(object);
+            for (const auto* argExpr : argExprs)
+            {
+                args.push_back(eval(const_cast<ast::Expression*>(argExpr)));
+            }
+            return callValue(callee, args, name, expr->location());
+        }
+    }
+
+    // 3. 내장 배열 메서드 (걸러낸다, 변환한다, 축약한다, 찾다, 정렬한다, 역순으로_나열한다)
     if (!object.isArray())
     {
         throw error::TypeError(

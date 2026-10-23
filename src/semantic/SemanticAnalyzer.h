@@ -16,6 +16,7 @@
 #include <vector>
 #include <memory>
 #include <unordered_set>
+#include <functional>
 
 namespace kingsejong {
 namespace semantic {
@@ -83,6 +84,16 @@ public:
     bool analyze(ast::Program* program);
 
     /**
+     * @brief 가져오기 문의 모듈 경로를 실제 파일 경로로 바꾸는 함수를 등록한다
+     *
+     * 등록하면 분석기가 모듈 파일을 파싱해 최상위 이름(함수·변수·클래스)을 심볼로
+     * 선언하므로, 가져온 함수가 "정의되지 않은 식별자"로 잡히지 않는다. 등록하지
+     * 않으면 가져오기 문은 건너뛴다.
+     */
+    using ModuleResolver = std::function<std::string(const std::string& modulePath, const std::string& fromFile)>;
+    void setModuleResolver(ModuleResolver resolver) { moduleResolver_ = std::move(resolver); }
+
+    /**
      * @brief 에러 목록 반환
      */
     const std::vector<SemanticError>& errors() const
@@ -112,6 +123,11 @@ private:
     std::vector<SemanticError> errors_;          ///< 에러 목록
     std::unordered_set<std::string> builtins_;   ///< Builtin 함수 목록
     std::string filename_;                        ///< 현재 분석 중인 파일 이름
+    ModuleResolver moduleResolver_;               ///< 가져오기 경로 해석기 (없으면 가져오기 무시)
+    std::unordered_set<std::string> importedModules_;  ///< 이미 선언한 모듈 (순환·중복 방지)
+
+    /// 모듈 파일을 파싱해 최상위 이름을 현재 스코프에 선언한다 (중첩 가져오기 포함)
+    void declareModuleSymbols(const std::string& modulePath, const std::string& fromFile);
 
     // 함수 컨텍스트 추적 (반환 타입 검사용)
     bool inFunction_;                             ///< 현재 함수 내부인지 여부

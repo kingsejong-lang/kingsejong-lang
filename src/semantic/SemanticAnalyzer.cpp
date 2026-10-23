@@ -6,6 +6,11 @@
  */
 
 #include "semantic/SemanticAnalyzer.h"
+#include <sstream>
+#include <fstream>
+#include "parser/Parser.h"
+#include "evaluator/Builtin.h"
+#include "lexer/Lexer.h"
 #include <iostream>
 
 namespace kingsejong {
@@ -23,6 +28,9 @@ void SemanticAnalyzer::initBuiltinFunctions()
     // 기본 I/O
     builtins_.insert("출력");
     builtins_.insert("입력");
+
+    // null 리터럴
+    builtins_.insert("없음");
 
     // 타입 및 변환
     builtins_.insert("타입");
@@ -165,7 +173,8 @@ void SemanticAnalyzer::initBuiltinFunctions()
 
 bool SemanticAnalyzer::isBuiltinFunction(const std::string& name) const
 {
-    return builtins_.find(name) != builtins_.end();
+    // 손으로 적은 목록은 낡기 쉽다. 실제로 등록된 네이티브 내장 함수 표도 함께 본다.
+    return builtins_.find(name) != builtins_.end() || evaluator::Builtin::hasBuiltin(name);
 }
 
 // ============================================================================
@@ -426,10 +435,10 @@ void SemanticAnalyzer::analyzeAndResolveStatement(const Statement* stmt)
             analyzeAndResolveExpression(exprStmt->expression());
         }
     }
-    // import문 (스킵)
-    else if (dynamic_cast<const ImportStatement*>(stmt))
+    // import문: 모듈의 최상위 이름을 선언한다 (해석기가 있을 때만)
+    else if (auto importStmt = dynamic_cast<const ImportStatement*>(stmt))
     {
-        // TODO: 모듈 import 처리
+        declareModuleSymbols(importStmt->modulePath(), importStmt->location().filename);
     }
     // Phase 7.1: 클래스 정의문
     else if (auto classStmt = dynamic_cast<const ClassStatement*>(stmt))
@@ -498,6 +507,60 @@ void SemanticAnalyzer::analyzeAndResolveStatement(const Statement* stmt)
             }
 
             symbolTable_.exitScope();
+        }
+    }
+}
+
+void SemanticAnalyzer::declareModuleSymbols(const std::string& modulePath, const std::string& fromFile)
+{
+    if (!moduleResolver_)
+    {
+        return;
+    }
+    std::string path = moduleResolver_(modulePath, fromFile);
+    if (path.empty() || !importedModules_.insert(path).second)
+    {
+        return;
+    }
+
+    // 파일이 없거나 파싱이 실패하면 여기서는 조용히 넘어간다. 실행 시점에 ModuleLoader 가
+    // 찾아본 경로와 함께 에러를 내는 쪽이 사용자에게 더 정확하다.
+    std::ifstream file(path);
+    if (!file.is_open())
+    {
+        return;
+    }
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+
+    lexer::Lexer lexer(buffer.str(), path);
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+    if (!program)
+    {
+        return;
+    }
+
+    for (const auto& stmt : program->statements())
+    {
+        if (auto assign = dynamic_cast<const AssignmentStatement*>(stmt.get()))
+        {
+            bool isFunction = dynamic_cast<const FunctionLiteral*>(assign->value()) != nullptr ||
+                              dynamic_cast<const AsyncFunctionLiteral*>(assign->value()) != nullptr;
+            symbolTable_.define(assign->varName(), isFunction ? SymbolKind::FUNCTION : SymbolKind::VARIABLE, nullptr);
+        }
+        else if (auto varDecl = dynamic_cast<const VarDeclaration*>(stmt.get()))
+        {
+            symbolTable_.define(varDecl->varName(), SymbolKind::VARIABLE, nullptr);
+        }
+        else if (auto classStmt = dynamic_cast<const ClassStatement*>(stmt.get()))
+        {
+            symbolTable_.define(classStmt->className(), SymbolKind::CLASS, nullptr);
+        }
+        else if (auto nested = dynamic_cast<const ImportStatement*>(stmt.get()))
+        {
+            // 모듈이 가져온 이름도 가져오기 문으로 넘어온다 (평가기가 환경 전체를 복사한다)
+            declareModuleSymbols(nested->modulePath(), path);
         }
     }
 }
@@ -1331,22 +1394,11 @@ Type* SemanticAnalyzer::inferType(const Expression* expr)
     // 배열 리터럴 타입 추론
     else if (auto arrayLit = dynamic_cast<const ArrayLiteral*>(expr))
     {
-        // 배열 요소들의 타입 일관성 검사
-        if (!arrayLit->elements().empty())
+        // 배열은 동적 타입이라 요소 타입이 달라도 된다 (JSON, [["상태", 200], ...] 같은 쌍 배열).
+        // 요소는 각각 검사만 하고 타입 불일치는 에러로 보지 않는다.
+        for (const auto& elem : arrayLit->elements())
         {
-            Type* firstType = inferType(arrayLit->elements()[0].get());
-
-            // 모든 요소가 같은 타입인지 확인
-            for (size_t i = 1; i < arrayLit->elements().size(); i++)
-            {
-                Type* elemType = inferType(arrayLit->elements()[i].get());
-                if (firstType && elemType &&
-                    firstType->koreanName() != elemType->koreanName())
-                {
-                    addError("배열 요소의 타입이 일치하지 않습니다: " +
-                            firstType->koreanName() + " vs " + elemType->koreanName());
-                }
-            }
+            inferType(elem.get());
         }
 
         return Type::getBuiltin("배열");

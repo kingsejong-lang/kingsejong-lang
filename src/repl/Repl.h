@@ -12,6 +12,7 @@
 #include "../evaluator/Evaluator.h"
 #include "../evaluator/Environment.h"
 #include "../error/ErrorReporter.h"
+#include "../module/ModuleLoader.h"
 #include <string>
 #include <memory>
 
@@ -39,6 +40,9 @@ public:
 private:
     /// 전역 환경 (세션 동안 유지)
     std::shared_ptr<evaluator::Environment> env_;
+
+    /// 모듈 로더. 없으면 REPL 에서 가져오기가 항상 실패한다.
+    module::ModuleLoader moduleLoader_{"."};
 
     /// 에러 리포터 (향상된 에러 메시지 제공)
     std::unique_ptr<error::ErrorReporter> errorReporter_;

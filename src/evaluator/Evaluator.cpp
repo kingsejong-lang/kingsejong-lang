@@ -47,6 +47,15 @@ Value Evaluator::eval(ast::Node* node)
     // 안전 장치 체크 (무한 루프 방지)
     checkSafetyLimits();
 
+    // 디버거 등 관찰자에게 문장 단위로 알린다
+    if (observer_)
+    {
+        if (auto* stmt = dynamic_cast<ast::Statement*>(node))
+        {
+            observer_->onStatement(stmt, env_);
+        }
+    }
+
     switch (node->type())
     {
         // Expressions
@@ -745,6 +754,18 @@ Value Evaluator::evalRegularFunctionCall(
     // 함수 환경으로 전환
     env_ = funcEnv;
 
+    // 관찰자에게 함수 진입을 알리고, 어떤 경로로 나가든 종료를 알린다
+    struct ObserverExitGuard
+    {
+        ExecutionObserver* observer;
+        ~ObserverExitGuard() { if (observer) observer->onFunctionExit(); }
+    };
+    if (observer_)
+    {
+        observer_->onFunctionEnter(functionName, expr->location(), funcEnv);
+    }
+    ObserverExitGuard exitGuard{observer_};
+
     // 함수 본문 실행
     Value result = Value::createNull();
     try
@@ -755,6 +776,11 @@ Value Evaluator::evalRegularFunctionCall(
     {
         // return 문으로 인한 정상적인 함수 종료
         result = returnVal.getValue();
+    }
+    catch (...)
+    {
+        env_ = previousEnv;
+        throw;
     }
 
     // 환경 복원
@@ -1355,8 +1381,9 @@ Value Evaluator::evalImportStatement(ast::ImportStatement* stmt)
     }
 
     // 모듈 로딩
+    // 가져오기 문이 있는 파일을 기준으로 상대 경로를 해석한다
     std::string modulePath = stmt->modulePath();
-    auto moduleEnv = moduleLoader_->loadModule(modulePath);
+    auto moduleEnv = moduleLoader_->loadModule(modulePath, stmt->location().filename);
 
     // 모듈의 모든 변수를 현재 환경으로 가져오기
     for (const auto& [name, value] : moduleEnv->getAllBindings())

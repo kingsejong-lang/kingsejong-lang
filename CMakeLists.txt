@@ -232,6 +232,10 @@ if(TEST_SOURCES)
 endif()
 
 # 설치 규칙
+# 설치된 바이너리가 stdlib 를 찾을 수 있게 위치를 컴파일 시점에 알려 준다
+target_compile_definitions(kingsejong_lib PUBLIC KINGSEJONG_STDLIB_DIR="${CMAKE_INSTALL_PREFIX}/share/kingsejong")
+install(DIRECTORY stdlib DESTINATION share/kingsejong)
+
 install(TARGETS kingsejong
     RUNTIME DESTINATION bin
 )

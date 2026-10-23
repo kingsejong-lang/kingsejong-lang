@@ -113,6 +113,23 @@ public:
      */
     const std::vector<std::string>& errors() const { return errors_; }
 
+    /**
+     * @brief 위치가 붙은 파싱 에러
+     *
+     * 메시지만으로는 LSP 진단과 에러 리포터가 줄을 가리킬 수 없다. 위치는 에러를
+     * 낸 시점의 토큰(기대 토큰 검사면 다음 토큰, 그 외는 현재 토큰) 위치다.
+     */
+    struct ParseError
+    {
+        std::string message;
+        ast::SourceLocation location;
+    };
+
+    /**
+     * @brief 위치가 붙은 에러 목록 (errors() 와 같은 순서)
+     */
+    const std::vector<ParseError>& errorDetails() const { return errorDetails_; }
+
 private:
     // 타입 별칭
     using PrefixParseFn = std::function<std::unique_ptr<Expression>()>;
@@ -125,6 +142,10 @@ private:
     Token peekPeekPeekToken_;   ///< LL(3) lookahead: 3칸 앞 토큰
     Token peekPeekPeekPeekToken_; ///< LL(4) lookahead: 4칸 앞 토큰
     std::vector<std::string> errors_;
+    std::vector<ParseError> errorDetails_;
+
+    /// 에러를 메시지 목록과 위치 목록에 함께 기록한다
+    void recordError(const std::string& message, const ast::SourceLocation& location);
 
     // Pratt Parsing 함수 맵
     std::unordered_map<TokenType, PrefixParseFn> prefixParseFns_;

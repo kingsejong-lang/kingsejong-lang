@@ -21,8 +21,6 @@ LanguageServer::LanguageServer()
     : initialized_(false)
     , shutdown_(false)
 {
-    // DiagnosticsProvider는 향후 사용 예정
-    (void)diagnosticsProvider_;
 }
 
 nlohmann::json LanguageServer::handleRequest(const nlohmann::json& request)
@@ -298,6 +296,9 @@ void LanguageServer::handleTextDocumentDidOpen(const nlohmann::json& params)
     // 문서 열기
     documentManager_.openDocument(uri, text, version);
 
+    // 구문 진단을 클라이언트에 보낸다
+    queueDiagnostics(uri);
+
     // 심볼 테이블 업데이트
     try {
         lexer::Lexer lexer(text);
@@ -350,6 +351,9 @@ void LanguageServer::handleTextDocumentDidChange(const nlohmann::json& params)
 
     // 문서 업데이트
     documentManager_.updateDocument(uri, newText, version);
+
+    // 구문 진단을 클라이언트에 보낸다
+    queueDiagnostics(uri);
 
     // 심볼 테이블 업데이트
     try {
@@ -458,6 +462,24 @@ void LanguageServer::handleExit(const nlohmann::json& params)
     (void)params;
 
     // exit notification - 실제 종료는 상위 레벨에서 처리
+}
+
+std::vector<nlohmann::json> LanguageServer::takePendingNotifications()
+{
+    std::vector<nlohmann::json> out;
+    out.swap(pendingNotifications_);
+    return out;
+}
+
+void LanguageServer::queueDiagnostics(const std::string& uri)
+{
+    const auto* doc = documentManager_.getDocument(uri);
+    if (!doc) {
+        return;
+    }
+    // 진단이 비어 있어도 보내야 이전 에러 밑줄이 지워진다
+    auto diagnostics = diagnosticsProvider_.provideDiagnostics(*doc);
+    pendingNotifications_.push_back(createPublishDiagnosticsNotification(uri, diagnostics));
 }
 
 nlohmann::json LanguageServer::createPublishDiagnosticsNotification(

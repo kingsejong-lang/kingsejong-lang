@@ -546,3 +546,57 @@ TEST_F(LanguageServerTest, ShouldHandleCompleteWorkflow) {
     // Assert
     EXPECT_TRUE(server->isShutdown());
 }
+
+// ============================================================================
+// 진단 발행
+// ============================================================================
+
+/**
+ * @test didOpen 뒤에 publishDiagnostics 알림이 쌓이고, 에러 줄이 실제 위치를 가리킨다
+ */
+TEST_F(LanguageServerTest, ShouldQueuePublishDiagnosticsOnOpen) {
+    LanguageServer server;
+    server.handleRequest({{"jsonrpc", "2.0"}, {"id", 1}, {"method", "initialize"}, {"params", {{"capabilities", {}}}}});
+    server.takePendingNotifications();
+
+    nlohmann::json open = {
+        {"jsonrpc", "2.0"},
+        {"method", "textDocument/didOpen"},
+        {"params", {{"textDocument", {
+            {"uri", "file:///diag.ksj"},
+            {"languageId", "kingsejong"},
+            {"version", 1},
+            {"text", "정수 x = 1\n정수 y = @\n"}
+        }}}}
+    };
+    server.handleRequest(open);
+
+    auto notifications = server.takePendingNotifications();
+    ASSERT_EQ(notifications.size(), 1u);
+    EXPECT_EQ(notifications[0]["method"], "textDocument/publishDiagnostics");
+    EXPECT_EQ(notifications[0]["params"]["uri"], "file:///diag.ksj");
+    auto diagnostics = notifications[0]["params"]["diagnostics"];
+    ASSERT_FALSE(diagnostics.empty());
+    EXPECT_EQ(diagnostics[0]["range"]["start"]["line"], 1);
+
+    // 두 번 꺼내면 비어 있다
+    EXPECT_TRUE(server.takePendingNotifications().empty());
+}
+
+/**
+ * @test 에러가 없어도 빈 진단을 보내 이전 밑줄을 지운다
+ */
+TEST_F(LanguageServerTest, ShouldPublishEmptyDiagnosticsForValidCode) {
+    LanguageServer server;
+    server.handleRequest({{"jsonrpc", "2.0"}, {"id", 1}, {"method", "initialize"}, {"params", {{"capabilities", {}}}}});
+    server.takePendingNotifications();
+
+    server.handleRequest({
+        {"jsonrpc", "2.0"},
+        {"method", "textDocument/didOpen"},
+        {"params", {{"textDocument", {{"uri", "file:///ok.ksj"}, {"languageId", "kingsejong"}, {"version", 1}, {"text", "정수 x = 1\n"}}}}}
+    });
+    auto notifications = server.takePendingNotifications();
+    ASSERT_EQ(notifications.size(), 1u);
+    EXPECT_TRUE(notifications[0]["params"]["diagnostics"].empty());
+}

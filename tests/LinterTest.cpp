@@ -1355,3 +1355,26 @@ TEST(LinterTest, ShouldDetectUnorderedUserImports)
     // 사용자 import 그룹 내에서 알파벳 순서가 아님
     EXPECT_GE(linter.warningCount(), 1);
 }
+
+/**
+ * @test addDefaultRules 가 저장소의 규칙을 모두 등록한다
+ */
+TEST(LinterDefaultRulesTest, ShouldRegisterEveryRule)
+{
+    std::string code = "정수 unused_value = 1\n정수 used = 2\n출력(used)\n";
+    kingsejong::lexer::Lexer lexer(code);
+    kingsejong::parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    kingsejong::linter::Linter linter;
+    linter.addDefaultRules();
+    linter.analyze(program.get(), "default.ksj");
+
+    bool foundUnused = false;
+    for (const auto& issue : linter.issues())
+    {
+        if (issue.ruleId == "unused-variable") foundUnused = true;
+    }
+    EXPECT_TRUE(foundUnused) << "기본 규칙에 unused-variable 이 없다";
+}

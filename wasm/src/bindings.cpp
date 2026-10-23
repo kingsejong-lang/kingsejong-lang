@@ -37,7 +37,7 @@ public:
         : env_(std::make_shared<evaluator::Environment>())
     {
         // 내장 함수 등록
-        evaluator::registerBuiltins(*env_);
+        evaluator::Builtin::registerAllBuiltins();
     }
 
     /**
@@ -77,7 +77,7 @@ public:
             evaluator::Value result = evaluator.eval(program.get());
 
             // 결과 반환 (null 제외)
-            if (result.type() == evaluator::ValueType::NIL) {
+            if (result.isNull()) {
                 return "";
             }
 
@@ -95,7 +95,7 @@ public:
      */
     void reset() {
         env_ = std::make_shared<evaluator::Environment>();
-        evaluator::registerBuiltins(*env_);
+        evaluator::Builtin::registerAllBuiltins();
     }
 
     /**

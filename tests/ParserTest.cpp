@@ -1538,3 +1538,19 @@ TEST_F(ParserTest, ShouldParseCompleteClassExample)
     EXPECT_EQ(classStmt->methods()[2]->methodName(), "내부_검증");
     EXPECT_EQ(classStmt->methods()[2]->access(), AccessModifier::PRIVATE);
 }
+
+/**
+ * @test 파서 에러에 위치가 붙는다
+ */
+TEST(ParserErrorLocationTest, ShouldRecordErrorLocations)
+{
+    std::string code = "정수 x = 1\n정수 y = @\n";
+    kingsejong::lexer::Lexer lexer(code, "loc.ksj");
+    kingsejong::parser::Parser parser(lexer);
+    parser.parseProgram();
+
+    ASSERT_FALSE(parser.errorDetails().empty());
+    EXPECT_EQ(parser.errorDetails().size(), parser.errors().size());
+    EXPECT_EQ(parser.errorDetails()[0].location.line, 2);
+    EXPECT_EQ(parser.errorDetails()[0].location.filename, "loc.ksj");
+}

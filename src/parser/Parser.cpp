@@ -179,13 +179,19 @@ void Parser::peekError(TokenType expected)
 {
     std::string msg = "다음 토큰으로 '" + tokenTypeToString(expected) + "'을(를) 예상했지만, '" +
                       tokenTypeToString(peekToken_.type) + "'을(를) 받았습니다.";
-    errors_.push_back(msg);
+    recordError(msg, peekToken_.location);
+}
+
+void Parser::recordError(const std::string& message, const ast::SourceLocation& location)
+{
+    errors_.push_back(message);
+    errorDetails_.push_back(ParseError{message, location});
 }
 
 void Parser::noPrefixParseFnError(TokenType type)
 {
     std::string msg = "'" + tokenTypeToString(type) + "'으(로) 시작하는 표현식을 파싱할 수 없습니다.";
-    errors_.push_back(msg);
+    recordError(msg, curToken_.location);
 }
 
 /**
@@ -563,7 +569,7 @@ std::unique_ptr<VarDeclaration> Parser::parseVarDeclaration()
     {
         std::string msg = "변수 선언에서 변수명이 누락되었습니다. '" + typeName +
                          "' 타입 뒤에 변수명을 입력해주세요. (예: " + typeName + " 변수명 = 값)";
-        errors_.push_back(msg);
+        recordError(msg, curToken_.location);
         return nullptr;
     }
 
@@ -822,7 +828,7 @@ std::unique_ptr<RangeForStatement> Parser::parseRangeForStatement()
     {
         std::string msg = "범위 종료 키워드 (까지/미만/이하/이상)를 예상했지만, '" +
                          tokenTypeToString(peekToken_.type) + "'을(를) 받았습니다.";
-        errors_.push_back(msg);
+        recordError(msg, curToken_.location);
         return nullptr;
     }
 
@@ -933,7 +939,7 @@ std::unique_ptr<ThrowStatement> Parser::parseThrowStatement()
 
     if (!value)
     {
-        errors_.push_back("던지다 문장에서 던질 값을 파싱할 수 없습니다.");
+        recordError("던지다 문장에서 던질 값을 파싱할 수 없습니다.", curToken_.location);
         return nullptr;
     }
 
@@ -1043,7 +1049,7 @@ std::unique_ptr<TryStatement> Parser::parseTryStatement()
     // 최소 하나의 catch 또는 finally가 있어야 함
     if (catchClauses.empty() && !finallyBlock)
     {
-        errors_.push_back("시도 문장에는 최소 하나의 오류 절 또는 마지막 절이 필요합니다.");
+        recordError("시도 문장에는 최소 하나의 오류 절 또는 마지막 절이 필요합니다.", curToken_.location);
         return nullptr;
     }
 
@@ -1151,7 +1157,7 @@ std::unique_ptr<Expression> Parser::parseIntegerLiteral()
     }
     catch (const std::exception&)
     {
-        errors_.push_back("'" + curToken_.literal + "'을(를) 정수로 변환할 수 없습니다.");
+        recordError("'" + curToken_.literal + "'을(를) 정수로 변환할 수 없습니다.", curToken_.location);
         return nullptr;
     }
 }
@@ -1167,7 +1173,7 @@ std::unique_ptr<Expression> Parser::parseFloatLiteral()
     }
     catch (const std::exception&)
     {
-        errors_.push_back("'" + curToken_.literal + "'을(를) 실수로 변환할 수 없습니다.");
+        recordError("'" + curToken_.literal + "'을(를) 실수로 변환할 수 없습니다.", curToken_.location);
         return nullptr;
     }
 }
@@ -1209,7 +1215,7 @@ std::unique_ptr<Expression> Parser::parseStringLiteral()
         size_t end = str.find("}", start + 2);
         if (end == std::string::npos)
         {
-            errors_.push_back("문자열 보간에서 닫는 '}'을(를) 찾을 수 없습니다.");
+            recordError("문자열 보간에서 닫는 '}'을(를) 찾을 수 없습니다.", curToken_.location);
             return nullptr;
         }
 
@@ -1224,7 +1230,7 @@ std::unique_ptr<Expression> Parser::parseStringLiteral()
 
         if (!expr || !exprParser.errors().empty())
         {
-            errors_.push_back("문자열 보간 표현식 파싱 실패: " + exprCode);
+            recordError("문자열 보간 표현식 파싱 실패: " + exprCode, curToken_.location);
             return nullptr;
         }
 
@@ -1434,7 +1440,7 @@ std::unique_ptr<Expression> Parser::parseRangeExpression(std::unique_ptr<Express
     {
         std::string msg = "범위 종료 키워드 (까지/미만/이하/이상)를 예상했지만, '" +
                          tokenTypeToString(peekToken_.type) + "'을(를) 받았습니다.";
-        errors_.push_back(msg);
+        recordError(msg, curToken_.location);
         return nullptr;
     }
 
@@ -1473,7 +1479,7 @@ std::unique_ptr<Expression> Parser::parseRangeExpression(std::unique_ptr<Express
 
         if (!step)
         {
-            errors_.push_back("step 값 파싱에 실패했습니다.");
+            recordError("step 값 파싱에 실패했습니다.", curToken_.location);
             return nullptr;
         }
 
@@ -1482,7 +1488,7 @@ std::unique_ptr<Expression> Parser::parseRangeExpression(std::unique_ptr<Express
         {
             // step 값 없이 다른 토큰이 온 경우 - 에러가 아니라 step이 없는 것으로 처리
             // 하지만 이미 step 값을 파싱했으므로 에러
-            errors_.push_back("step 값 뒤에 '씩' 키워드가 필요합니다.");
+            recordError("step 값 뒤에 '씩' 키워드가 필요합니다.", curToken_.location);
             return nullptr;
         }
 
@@ -1710,7 +1716,7 @@ std::unique_ptr<Expression> Parser::parseAsyncFunctionLiteral()
     // 다음 토큰이 "함수" 키워드인지 확인
     if (!expectPeek(TokenType::HAMSU))
     {
-        errors_.push_back("'비동기' 다음에는 '함수' 키워드가 와야 합니다");
+        recordError("'비동기' 다음에는 '함수' 키워드가 와야 합니다", curToken_.location);
         return nullptr;
     }
 
@@ -1798,7 +1804,7 @@ std::unique_ptr<Expression> Parser::parseAwaitExpression()
 
     if (!argument)
     {
-        errors_.push_back("'대기' 다음에는 표현식이 와야 합니다");
+        recordError("'대기' 다음에는 표현식이 와야 합니다", curToken_.location);
         return nullptr;
     }
 
@@ -1818,7 +1824,7 @@ std::unique_ptr<Expression> Parser::parseMatchExpression(std::unique_ptr<Express
 
     if (!curTokenIs(TokenType::LBRACE))
     {
-        errors_.push_back("패턴 매칭에는 '{'가 필요합니다");
+        recordError("패턴 매칭에는 '{'가 필요합니다", curToken_.location);
         return nullptr;
     }
 
@@ -1843,7 +1849,7 @@ std::unique_ptr<Expression> Parser::parseMatchExpression(std::unique_ptr<Express
 
     if (!curTokenIs(TokenType::RBRACE))
     {
-        errors_.push_back("패턴 매칭에는 '}'가 필요합니다");
+        recordError("패턴 매칭에는 '}'가 필요합니다", curToken_.location);
         return nullptr;
     }
 
@@ -1858,7 +1864,7 @@ MatchCase Parser::parseMatchCase()
     auto pattern = parsePattern();
     if (!pattern)
     {
-        errors_.push_back("패턴 파싱 실패");
+        recordError("패턴 파싱 실패", curToken_.location);
         return MatchCase(nullptr, nullptr, nullptr);
     }
 
@@ -1872,7 +1878,7 @@ MatchCase Parser::parseMatchCase()
 
     if (!expectPeek(TokenType::ARROW))
     {
-        errors_.push_back("패턴 매칭 케이스에는 '->'가 필요합니다");
+        recordError("패턴 매칭 케이스에는 '->'가 필요합니다", curToken_.location);
         return MatchCase(std::move(pattern), nullptr, nullptr);
     }
 
@@ -1882,7 +1888,7 @@ MatchCase Parser::parseMatchCase()
 
     if (!body)
     {
-        errors_.push_back("패턴 매칭 본문 파싱 실패");
+        recordError("패턴 매칭 본문 파싱 실패", curToken_.location);
         return MatchCase(std::move(pattern), nullptr, nullptr);
     }
 
@@ -1924,7 +1930,7 @@ std::unique_ptr<Pattern> Parser::parsePattern()
         return pattern;
     }
 
-    errors_.push_back("알 수 없는 패턴: " + tokenTypeToString(curToken_.type));
+    recordError("알 수 없는 패턴: " + tokenTypeToString(curToken_.type), curToken_.location);
     return nullptr;
 }
 
@@ -2044,7 +2050,7 @@ std::unique_ptr<ClassStatement> Parser::parseClassStatement()
         {
             if (constructor)
             {
-                errors_.push_back("클래스에는 하나의 생성자만 허용됩니다.");
+                recordError("클래스에는 하나의 생성자만 허용됩니다.", curToken_.location);
                 return nullptr;
             }
 
@@ -2078,7 +2084,7 @@ std::unique_ptr<ClassStatement> Parser::parseClassStatement()
         }
         else
         {
-            errors_.push_back("클래스 멤버로 예상하지 못한 토큰: " + tokenTypeToString(curToken_.type));
+            recordError("클래스 멤버로 예상하지 못한 토큰: " + tokenTypeToString(curToken_.type), curToken_.location);
             return nullptr;
         }
 

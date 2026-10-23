@@ -75,7 +75,15 @@ enum class DebuggerState {
  * - run() 메서드 (Evaluator 통합)
  * - step/next/continue 명령
  */
-class Debugger {
+/**
+ * @brief 사용자가 디버거에서 quit 를 입력했을 때 실행을 끝내기 위해 던지는 예외
+ */
+class DebuggerExit : public std::exception {
+public:
+    const char* what() const noexcept override { return "debugger exit requested"; }
+};
+
+class Debugger : public evaluator::ExecutionObserver {
 public:
     // 복사 금지, 이동 허용
     Debugger();
@@ -261,6 +269,31 @@ public:
         std::ostream& output = std::cout
     );
 
+    /**
+     * @brief 실행 중 멈췼을 때 쓸 입출력 스트림 (기본 std::cin/std::cout)
+     */
+    void setStreams(std::istream& input, std::ostream& output) {
+        input_ = &input;
+        output_ = &output;
+    }
+
+    /// 사용자가 quit 를 입력했는지
+    bool quitRequested() const { return quitRequested_; }
+
+    /**
+     * @brief 평가기에 붙은 상태로 표시한다
+     *
+     * 붙은 상태에서는 run/continue/step/next 가 프롬프트를 떠나 실행을 재개한다.
+     * 붙지 않은 상태(단독 명령 셸, 테스트)에서는 quit 까지 프롬프트에 머무른다.
+     */
+    void setAttached(bool attached) { attached_ = attached; }
+
+    // ExecutionObserver: 평가기가 부른다
+    void onStatement(ast::Statement* stmt, const std::shared_ptr<evaluator::Environment>& env) override;
+    void onFunctionEnter(const std::string& name, const ast::SourceLocation& callSite,
+                         const std::shared_ptr<evaluator::Environment>& functionEnv) override;
+    void onFunctionExit() override;
+
 private:
     /**
      * @brief 명령어 실행 핸들러
@@ -304,6 +337,10 @@ private:
 
     /// 현재 디버거 상태
     DebuggerState state_;
+    std::istream* input_ = &std::cin;    ///< 멈췼을 때 명령을 읽는 스트림
+    std::ostream* output_ = &std::cout;  ///< 멈췼을 때 출력하는 스트림
+    bool quitRequested_ = false;         ///< quit 입력 여부
+    bool attached_ = false;              ///< 평가기에 붙어 실행을 제어하는 중인지
 
     /// step over 시작 시점의 스택 깊이
     size_t stepOverDepth_;

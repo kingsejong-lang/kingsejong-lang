@@ -48,6 +48,29 @@ public:
  * AST 노드를 순회하면서 실행하고 결과를 Value로 반환합니다.
  * Environment를 통해 변수의 저장과 조회를 관리합니다.
  */
+/**
+ * @class ExecutionObserver
+ * @brief 평가기의 실행 흐름을 지켜보는 인터페이스 (디버거가 구현한다)
+ *
+ * 평가기는 관찰자를 알지만 디버거를 알지 않는다. 문장 하나를 평가하기 직전과
+ * 함수 호출의 시작·끝에 알린다. 관찰자가 없으면 비용은 포인터 검사 하나다.
+ */
+class ExecutionObserver
+{
+public:
+    virtual ~ExecutionObserver() = default;
+
+    /// 문장을 평가하기 직전 (BlockStatement 포함)
+    virtual void onStatement(ast::Statement* stmt, const std::shared_ptr<Environment>& env) = 0;
+
+    /// 사용자 함수 본문에 들어가기 직전
+    virtual void onFunctionEnter(const std::string& name, const ast::SourceLocation& callSite,
+                                 const std::shared_ptr<Environment>& functionEnv) = 0;
+
+    /// 함수 본문에서 나온 직후 (정상 반환, 반환문, 예외 모두)
+    virtual void onFunctionExit() = 0;
+};
+
 class Evaluator
 {
 public:
@@ -113,6 +136,11 @@ public:
     void setHotPathDetector(jit::HotPathDetector* detector) { hotPathDetector_ = detector; }
 
     /**
+     * @brief 실행 관찰자 설정 (디버거). nullptr 이면 알리지 않는다.
+     */
+    void setObserver(ExecutionObserver* observer) { observer_ = observer; }
+
+    /**
      * @brief 최대 평가 횟수 설정
      * @param max 최대 평가 횟수
      */
@@ -128,6 +156,7 @@ private:
     std::shared_ptr<Environment> env_;  ///< 변수 저장 환경
     module::ModuleLoader* moduleLoader_ = nullptr;  ///< 모듈 로더
     jit::HotPathDetector* hotPathDetector_ = nullptr;  ///< 핫 패스 감지기
+    ExecutionObserver* observer_ = nullptr;  ///< 실행 관찰자 (디버거)
 
     // 안전 장치
     size_t evaluationCount_ = 0;  ///< 평가 카운터

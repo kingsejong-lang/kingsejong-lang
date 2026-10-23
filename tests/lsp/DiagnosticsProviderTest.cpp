@@ -299,3 +299,18 @@ TEST_F(DiagnosticsProviderTest, ShouldHandleUnicodeKoreanWithErrors) {
     EXPECT_FALSE(diagnostics.empty());
     EXPECT_EQ(diagnostics[0].severity, DiagnosticsProvider::DiagnosticSeverity::Error);
 }
+
+/**
+ * @test 에러 위치가 실제 줄과 열을 가리킨다 (0부터, UTF-16 단위)
+ */
+TEST_F(DiagnosticsProviderTest, ShouldReportRealErrorPosition) {
+    DocumentManager::Document doc("file:///pos.ksj", "정수 x = 1\n정수 y = @\n", 1);
+    DiagnosticsProvider provider;
+    auto diagnostics = provider.provideDiagnostics(doc);
+
+    ASSERT_FALSE(diagnostics.empty());
+    EXPECT_EQ(diagnostics[0].startLine, 1);
+    // "정수 y = " 는 UTF-16 으로 8단위이므로 '@' 는 8번째(0부터) 자리 근처에 있어야 한다
+    EXPECT_GE(diagnostics[0].startCharacter, 6);
+    EXPECT_LE(diagnostics[0].startCharacter, 9);
+}

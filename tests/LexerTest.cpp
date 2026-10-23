@@ -898,7 +898,7 @@ TEST(LexerTest, TokenizeClassDefinitionSyntax)
 // 열은 모든 줄에서 1부터 센다 (바이트 단위). 예전에는 줄바꿈 뒤 열이 1에서 출발해 하나씩 밀렸다.
 TEST(LexerTest, ShouldNumberColumnsFromOneOnEveryLine)
 {
-    lexer::Lexer lexer("x = 1\n  y = 2\n정수 z");
+    kingsejong::lexer::Lexer lexer("x = 1\n  y = 2\n정수 z");
     auto x = lexer.nextToken();
     EXPECT_EQ(x.literal, "x");
     EXPECT_EQ(x.location.line, 1);

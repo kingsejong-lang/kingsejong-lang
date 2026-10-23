@@ -1,0 +1,18 @@
+========== HTTP 라이브러리 테스트 ==========
+
+1. HTTP GET 요청 테스트:
+  URL: http://httpbin.org/get
+  응답 타입: 알 수 없음
+  응답 길이: 3
+  첫 항목: [상태, 200]
+
+2. HTTP POST 요청 테스트:
+  URL: http://httpbin.org/post
+  POST 응답 타입: 알 수 없음
+  POST 응답 길이: 3
+
+3. HTTP_요청 테스트 (GET with headers):
+  사용자 정의 헤더 요청 완료
+  응답 타입: 알 수 없음
+
+========== 테스트 완료 ==========

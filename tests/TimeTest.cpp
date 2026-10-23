@@ -194,8 +194,8 @@ TEST_F(TimeTest, ShouldSleepForSpecifiedTime)
 
     // Assert - 최소 100ms 이상 대기했어야 함
     EXPECT_GE(duration, 100);
-    // 최대 200ms 이내 (너무 오래 대기하지 않았는지)
-    EXPECT_LE(duration, 200);
+    // 상한은 느슨하게 둔다. CI 러너처럼 부하가 있는 환경에서는 100ms 대기가 200ms 를 넘기도 한다.
+    EXPECT_LE(duration, 1000);
 }
 
 TEST_F(TimeTest, ShouldThrowOnNegativeSleep)

@@ -135,8 +135,12 @@ std::string SecurityManager::normalizePath(const std::string& path)
             p = fs::current_path() / p;
         }
 
-        // 경로 정규화 (. 및 .. 처리)
-        p = fs::weakly_canonical(p);
+        // 경로 정규화 (. 및 .. 처리). 권한이 없어 실제 경로를 확인할 수 없으면(/root 등)
+        // 문자열 기준으로만 정규화한다. 빈 문자열을 돌려주면 UNTRUSTED 모드의 접두 검사가
+        // 통과해 버리므로 절대 빈 값을 돌려주지 않는다.
+        std::error_code ec;
+        fs::path canonical = fs::weakly_canonical(p, ec);
+        p = ec ? p.lexically_normal() : canonical;
 
         // 문자열로 변환
         std::string normalized = p.string();

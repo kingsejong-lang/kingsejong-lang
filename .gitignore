@@ -77,3 +77,6 @@ CLAUDE.local.md
 search_test.txt
 test_output.txt
 test_dir/
+
+# 예제 기대 출력은 추적한다 (*.out 무시 규칙의 예외)
+!examples/expected/*.out

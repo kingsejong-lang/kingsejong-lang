@@ -1300,6 +1300,9 @@ static Value builtin_디렉토리_목록(const std::vector<Value>& args)
     for (const auto& entry : std::filesystem::directory_iterator(dirpath)) {
         entries.push_back(Value::createString(entry.path().filename().string()));
     }
+    // 파일 시스템의 순회 순서는 플랫폼마다 다르므로 이름순으로 고정한다
+    std::sort(entries.begin(), entries.end(),
+              [](const Value& a, const Value& b) { return a.asString() < b.asString(); });
 
     return Value::createArray(entries);
 }
@@ -3077,6 +3080,8 @@ static Value builtin_디렉토리_나열(const std::vector<Value>& args)
         for (const auto& entry : std::filesystem::directory_iterator(path)) {
             entries.push_back(Value::createString(entry.path().filename().string()));
         }
+        std::sort(entries.begin(), entries.end(),
+                  [](const Value& a, const Value& b) { return a.asString() < b.asString(); });
         return Value::createArray(entries);
     } catch (const std::exception& e) {
         throw std::runtime_error("디렉토리를 나열할 수 없습니다: " + std::string(e.what()));

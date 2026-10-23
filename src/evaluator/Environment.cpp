@@ -143,19 +143,28 @@ std::vector<std::string> Environment::keys() const
 namespace {
 
 /**
- * @brief 환경 하나에서 출발하는 객체 그래프의 "안쪽 참조" 수를 센다
+ * @brief 환경 하나에서 출발하는 객체 그래프를 걷고, 그 환경이 바깥에서 닿을 수 있는지 판정한다
  *
- * 객체마다 이 그래프 안에서 발견한 참조 수(internal)를 세고, 그 수가 use_count 와
- * 같아진 객체만 더 들어가 본다. use_count 가 더 크면 바깥 어딘가가 잡고 있는 것이고,
- * 그 객체에서 뻗는 간선은 세지 않으므로 그 너머에 있는 closure 참조는 발견되지 않는다.
- * 그러면 root 의 use_count 와 발견한 참조 수가 어긋나 호출자가 비우기를 포기한다.
- * 즉 발견한 수 <= 실제 수, 호출자 핸들 수 <= 실제 핸들 수가 항상 성립하므로
- * 두 합이 use_count 와 같다는 것은 둘 다 정확히 맞았다는 뜻이다.
+ * 1단계: 저장소에서 출발해 닿는 객체(함수, 환경, 클래스 정의, 인스턴스, 배열, 사전)를 걷고
+ *        객체마다 이 그래프 안에서 발견한 참조 수(internal)와 부모·자식 목록을 기록한다.
+ *        - 배열·사전은 참조가 하나뿐일 때만 들어간다. 여러 곳에서 잡힌 큰 배열(함수 인자로
+ *          넘긴 배열 등)을 호출마다 전부 훑지 않기 위해서다.
+ *        - 환경은 root 의 자손(outer 사슬이 root 를 지나는 것)만 들어간다. 다른 환경은 root 에
+ *          닿을 수 없고(호출자는 자기 사슬 밖의 환경에 변수를 쓸 수 없다), 모듈 환경처럼 큰
+ *          것을 훑거나 잘못 비우는 일을 피한다.
+ *        들어가지 않은 객체는 바깥에서 잡힌 것으로 본다.
+ * 2단계: use_count 가 internal 보다 큰 객체는 그래프 밖 어딘가가 잡고 있다(외부 객체).
+ *        외부 객체에서 자식 간선을 따라 닿는 객체는 모두 아직 살아 있어야 한다.
+ *        root 가 그 안에 들면 비울 수 없다. 아니면 root 와, 역시 바깥에서 닿지 않는 자손
+ *        환경들의 저장소를 비운다. 자손 환경도 같이 비워야 그 안의 함수 ↔ 환경 사슬까지 풀린다.
+ *
+ * 건너뛰거나 못 찾은 참조는 항상 "비우지 않음" 쪽으로만 작용한다: 발견한 참조 수는 실제보다
+ * 작거나 같고, 그러면 root 의 수가 맞지 않거나 외부 객체로 분류되기 때문이다.
  */
-class ReachabilityCounter
+class ReachabilityGraph
 {
 public:
-    explicit ReachabilityCounter(const Environment* root)
+    explicit ReachabilityGraph(Environment* root)
         : root_(root)
     {
         for (auto outer = root->outer(); outer; outer = outer->outer())
@@ -164,30 +173,12 @@ public:
         }
     }
 
-    size_t rootInternalRefs() const
-    {
-        auto it = internal_.find(root_);
-        return it == internal_.end() ? 0 : it->second;
-    }
-
     void walkStore(const std::unordered_map<std::string, Value>& store)
     {
         for (const auto& [name, value] : store)
         {
-            visitValue(value);
+            visitValue(root_, value);
         }
-        drain();
-    }
-
-private:
-    const Environment* root_;
-    std::unordered_set<const void*> ancestors_;
-    std::unordered_map<const void*, size_t> internal_;
-    std::unordered_set<const void*> expanded_;
-    std::vector<std::function<void()>> pending_;
-
-    void drain()
-    {
         while (!pending_.empty())
         {
             auto job = std::move(pending_.back());
@@ -196,26 +187,127 @@ private:
         }
     }
 
-    // 간선을 하나 발견했다. 대상의 참조가 모두 이 그래프 안에서 왔다고 확인되면 안으로 들어간다.
+    /// root 로 들어오는 참조 중 이 그래프 안에서 발견한 수
+    size_t rootInternalRefs() const
+    {
+        auto it = nodes_.find(root_);
+        return it == nodes_.end() ? 0 : it->second.internal;
+    }
+
+    /**
+     * @brief 외부 객체에서 닿는 객체를 표시한다
+     * @return root 가 바깥에서 닿을 수 있으면 true
+     */
+    bool markReachableFromOutside()
+    {
+        std::vector<const void*> stack;
+        for (auto& [key, node] : nodes_)
+        {
+            if (key != root_ && (node.skipped || node.useCount > node.internal))
+            {
+                node.external = true;
+                stack.push_back(key);
+            }
+        }
+        while (!stack.empty())
+        {
+            const void* current = stack.back();
+            stack.pop_back();
+            for (const void* child : nodes_[current].children)
+            {
+                Node& node = nodes_[child];
+                if (!node.external)
+                {
+                    node.external = true;
+                    stack.push_back(child);
+                }
+            }
+        }
+        auto it = nodes_.find(root_);
+        return it != nodes_.end() && it->second.external;
+    }
+
+    /// 걸어 들어간 자손 환경 중 바깥에서 닿지 않는 것들
+    std::vector<Environment*> collectableEnvironments() const
+    {
+        std::vector<Environment*> result;
+        for (Environment* env : descendants_)
+        {
+            auto it = nodes_.find(env);
+            if (it != nodes_.end() && !it->second.external)
+            {
+                result.push_back(env);
+            }
+        }
+        return result;
+    }
+
+private:
+    struct Node
+    {
+        size_t internal = 0;             ///< 그래프 안에서 발견한 참조 수
+        size_t useCount = 0;             ///< 처음 만났을 때의 shared_ptr use_count
+        bool skipped = false;            ///< 들어가지 않음 (바깥에서 잡힌 것으로 취급)
+        bool expanded = false;
+        bool external = false;           ///< 외부 객체에서 닿음
+        std::vector<const void*> children;
+    };
+
+    Environment* root_;
+    std::unordered_set<const void*> ancestors_;
+    std::unordered_map<const void*, Node> nodes_;
+    std::vector<Environment*> descendants_;
+    std::vector<std::function<void()>> pending_;
+
+    bool isDescendantOfRoot(const Environment& env) const
+    {
+        for (auto outer = env.outer(); outer; outer = outer->outer())
+        {
+            if (outer.get() == root_)
+            {
+                return true;
+            }
+            if (ancestors_.count(outer.get()))
+            {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    // 간선 parent -> target 을 기록한다. 처음 만난 대상은 (들어가도 되면) 안으로 들어간다.
     template <typename T, typename Expand>
-    void edge(const std::shared_ptr<T>& target, Expand expand)
+    void edge(const void* parent, const std::shared_ptr<T>& target, bool enter, Expand expand)
     {
         if (!target)
         {
             return;
         }
         const void* key = target.get();
-        size_t count = ++internal_[key];
-        if (count == static_cast<size_t>(target.use_count()) && expanded_.insert(key).second)
+        nodes_[parent].children.push_back(key);
+        Node& node = nodes_[key];
+        if (node.internal == 0)
         {
-            // raw pointer 만 잡아 두어 use_count 를 바꾸지 않는다. 그래프 밖에서 잡힌 객체가 없음을
-            // 확인한 뒤에만 들어가므로, 호출자가 root 핸들을 쥐고 있는 동안 대상은 살아 있다.
-            const T* raw = target.get();
-            pending_.push_back([raw, expand]() { expand(*raw); });
+            node.useCount = static_cast<size_t>(target.use_count());
         }
+        ++node.internal;
+        if (node.expanded || node.skipped)
+        {
+            return;
+        }
+        if (!enter)
+        {
+            node.skipped = true;
+            return;
+        }
+        node.expanded = true;
+        // raw pointer 만 잡아 use_count 를 바꾸지 않는다. 호출자가 root 핸들을 쥐고 있고
+        // 걷는 동안 아무것도 바꾸지 않으므로 대상은 살아 있다.
+        T* raw = target.get();
+        pending_.push_back([raw, expand]() { expand(*raw); });
     }
 
-    void edgeEnvironment(const std::shared_ptr<Environment>& env)
+    void edgeEnvironment(const void* parent, const std::shared_ptr<Environment>& env)
     {
         if (!env)
         {
@@ -223,78 +315,80 @@ private:
         }
         if (env.get() == root_)
         {
-            // root 자체는 걷지 않는다. 여기로 돌아오는 간선 수만 센다.
-            ++internal_[root_];
+            nodes_[parent].children.push_back(root_);
+            ++nodes_[root_].internal;
             return;
         }
         if (ancestors_.count(env.get()))
         {
-            // 바깥 스코프는 root 를 저장소에 담지 않는 한 root 에 닿지 못하고, 담았다면
-            // 그 참조는 발견되지 않아 호출자가 포기한다. 전역 환경 전체를 걷는 비용을 피한다.
+            // 바깥 스코프는 root 를 저장소에 담지 않는 한 root 에 닿지 못하고, 담았다면 그
+            // 참조는 여기서 발견되지 않아 수가 맞지 않게 된다. 전역 환경 전체를 걷는 비용을 피한다.
             return;
         }
-        edge(env, [this](const Environment& e) {
+        bool enter = isDescendantOfRoot(*env);
+        edge(parent, env, enter, [this](Environment& e) {
+            descendants_.push_back(&e);
             for (const auto& [name, value] : e.getAllBindings())
             {
-                visitValue(value);
+                visitValue(&e, value);
             }
-            edgeEnvironment(e.outer());
+            edgeEnvironment(&e, e.outer());
         });
     }
 
-    void edgeFunction(const std::shared_ptr<Function>& fn)
+    void edgeFunction(const void* parent, const std::shared_ptr<Function>& fn)
     {
-        edge(fn, [this](const Function& f) {
-            edgeEnvironment(f.closure());
-            edgeClassDef(f.classDef());
+        edge(parent, fn, true, [this](Function& f) {
+            edgeEnvironment(&f, f.closure());
+            edgeClassDef(&f, f.classDef());
         });
     }
 
-    void edgeClassDef(const std::shared_ptr<ClassDefinition>& def)
+    void edgeClassDef(const void* parent, const std::shared_ptr<ClassDefinition>& def)
     {
-        edge(def, [this](const ClassDefinition& d) {
+        edge(parent, def, true, [this](ClassDefinition& d) {
             for (const auto& [name, method] : d.methods())
             {
-                edgeFunction(method);
+                edgeFunction(&d, method);
             }
-            edgeFunction(d.constructor());
+            edgeFunction(&d, d.constructor());
         });
     }
 
-    void visitValue(const Value& value)
+    void visitValue(const void* parent, const Value& value)
     {
         std::visit(
-            [this](const auto& item) {
+            [this, parent](const auto& item) {
                 using T = std::decay_t<decltype(item)>;
                 if constexpr (std::is_same_v<T, std::shared_ptr<Function>>)
                 {
-                    edgeFunction(item);
+                    edgeFunction(parent, item);
                 }
                 else if constexpr (std::is_same_v<T, std::shared_ptr<std::vector<Value>>>)
                 {
-                    edge(item, [this](const std::vector<Value>& arr) {
+                    edge(parent, item, item.use_count() == 1, [this](std::vector<Value>& arr) {
                         for (const auto& v : arr)
                         {
-                            visitValue(v);
+                            visitValue(&arr, v);
                         }
                     });
                 }
                 else if constexpr (std::is_same_v<T, std::shared_ptr<std::unordered_map<std::string, Value>>>)
                 {
-                    edge(item, [this](const std::unordered_map<std::string, Value>& dict) {
+                    edge(parent, item, item.use_count() == 1, [this](std::unordered_map<std::string, Value>& dict) {
                         for (const auto& [k, v] : dict)
                         {
-                            visitValue(v);
+                            visitValue(&dict, v);
                         }
                     });
                 }
                 else if constexpr (std::is_same_v<T, std::shared_ptr<ClassInstance>>)
                 {
-                    edge(item, [this](const ClassInstance& inst) {
-                        edgeClassDef(inst.classDef());
+                    edge(parent, item, true, [this](ClassInstance& inst) {
+                        edgeClassDef(&inst, inst.classDef());
                         for (const auto& [k, v] : inst.fields())
                         {
-                            visitValue(v);
+                            visitValue(&inst, v);
                         }
                     });
                 }
@@ -316,15 +410,31 @@ bool Environment::releaseIfUnreachable(size_t externalHandles)
         return false;
     }
 
-    ReachabilityCounter counter(this);
-    counter.walkStore(store_);
+    ReachabilityGraph graph(this);
+    graph.walkStore(store_);
 
-    if (useCount != externalHandles + counter.rootInternalRefs())
+    if (useCount != externalHandles + graph.rootInternalRefs())
+    {
+        return false;
+    }
+    if (graph.markReachableFromOutside())
     {
         return false;
     }
 
-    // 모든 참조가 저장소 안에서 출발했다. 저장소를 비우면 사슬이 끊겨 전부 해제된다.
+    // root 에 닿는 모든 참조가 저장소 안에서 출발했다. root 와, 역시 바깥에서 닿지 않는 자손
+    // 환경의 저장소를 비우면 사슬이 끊겨 전부 해제된다. 자손의 저장소를 먼저 비운다: root 를
+    // 비우는 순간 자손이 해제될 수 있기 때문이다.
+    // 저장소를 비우는 순간 다른 자손 환경이 해제될 수 있으므로(그 환경을 잡던 마지막 함수가
+    // 이 저장소에 있던 경우), 먼저 모든 저장소를 떼어내 한곳에 모아 두었다가 마지막에 한꺼번에
+    // 버린다. 떼어내는 동안은 아무것도 해제되지 않아 포인터가 전부 유효하다.
+    std::vector<std::unordered_map<std::string, Value>> detached;
+    for (Environment* env : graph.collectableEnvironments())
+    {
+        detached.emplace_back(std::move(env->store_));
+        env->store_.clear();
+    }
+    detached.emplace_back(std::move(store_));
     store_.clear();
     return true;
 }

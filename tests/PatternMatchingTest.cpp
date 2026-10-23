@@ -39,8 +39,8 @@ protected:
             return "NULL_PROGRAM";
         }
 
-        auto env = std::make_shared<evaluator::Environment>();
-        evaluator::Evaluator evaluator(env);
+        // 평가기가 환경의 유일한 소유자여야 소멸 시 함수-환경 순환 참조를 끊는다.
+        evaluator::Evaluator evaluator(std::make_shared<evaluator::Environment>());
 
         try {
             evaluator::Value result = evaluator.eval(program.get());

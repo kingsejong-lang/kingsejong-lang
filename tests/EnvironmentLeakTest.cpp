@@ -103,6 +103,31 @@ TEST_F(EnvironmentLeakTest, LocalNamedFunctionDoesNotAccumulatePerCall)
     EXPECT_EQ(run.result.asInteger(), 39800);
     // 전역 환경 하나만 남아 있어야 한다. 호출 200번 분의 환경이 남았다면 실패.
     EXPECT_EQ(evaluator::Environment::liveCount(), baseline_ + 1);
+    EXPECT_TRUE(env->releaseIfUnreachable(1));
+}
+
+// 자손 환경이 사슬로 이어진 경우: 바깥 호출 환경 A 가 중간 호출 환경 B 의 함수를 변수로 잡고,
+// B 는 자기 함수에 잡혀 있다. A 를 떠날 때 A 와 B 가 모두 풀려야 하고, 푸는 순서 때문에
+// 해제된 환경을 건드리는 일이 없어야 한다 (ASan 빌드에서 확인).
+TEST_F(EnvironmentLeakTest, ChainedDescendantEnvironmentsAreFreedTogether)
+{
+    auto env = std::make_shared<evaluator::Environment>();
+    auto run = runProgram(
+        "함수 바깥() {\n"
+        "    함수 중간() { 함수 안쪽() { 반환 1 } 반환 안쪽 }\n"
+        "    x = 중간()\n"
+        "    y = 중간()\n"
+        "    반환 x() + y()\n"
+        "}\n"
+        "정수 합 = 0\n"
+        "i가 0부터 99까지 반복한다 { 합 = 합 + 바깥() }\n"
+        "합",
+        env);
+    EXPECT_EQ(run.result.asInteger(), 200);
+    EXPECT_EQ(evaluator::Environment::liveCount(), baseline_ + 1);
+    EXPECT_TRUE(env->releaseIfUnreachable(1));
+    env.reset();
+    EXPECT_EQ(evaluator::Environment::liveCount(), baseline_);
 }
 
 // 빠져나간 클로저는 환경을 계속 써야 한다. 이름 붙은 내부 함수(재귀)를 반환하는 경우.
@@ -120,6 +145,10 @@ TEST_F(EnvironmentLeakTest, EscapedNamedClosureKeepsItsEnvironment)
     EXPECT_EQ(evaluator::Environment::liveCount(), baseline_ + 2);
     auto second = runProgram("세기5(5)", env);
     EXPECT_EQ(second.result.asInteger(), 105);
+    // 전역 저장소 → 세기5 → 호출 환경 → 전역 으로 닫힌 사슬은 소유자가 끊는다.
+    EXPECT_TRUE(env->releaseIfUnreachable(1));
+    env.reset();
+    EXPECT_EQ(evaluator::Environment::liveCount(), baseline_);
 }
 
 // 익명 클로저가 상태를 갱신하는 카운터: 기존 동작이 그대로여야 한다.
@@ -133,6 +162,9 @@ TEST_F(EnvironmentLeakTest, AnonymousCounterClosureStillWorks)
         "증가()",
         env);
     EXPECT_EQ(run.result.asInteger(), 3);
+    EXPECT_TRUE(env->releaseIfUnreachable(1));
+    env.reset();
+    EXPECT_EQ(evaluator::Environment::liveCount(), baseline_);
 }
 
 // 클래스: 메서드 클로저가 전역을 잡고 인스턴스가 클래스 정의를 잡는다. 전부 해제되어야 한다.
@@ -178,4 +210,7 @@ TEST_F(EnvironmentLeakTest, ReleaseRefusesWhenFunctionEscaped)
     ASSERT_TRUE(run.result.isFunction());
     EXPECT_FALSE(env->releaseIfUnreachable(1));
     EXPECT_TRUE(env->exists("f"));
+    // 빠져나간 함수를 놓으면 비울 수 있다.
+    run.result = Value::createNull();
+    EXPECT_TRUE(env->releaseIfUnreachable(1));
 }

@@ -62,13 +62,23 @@ void Type::initBuiltinTypes()
         return; // 이미 초기화됨
     }
 
-    // 빌트인 타입 생성
-    integerType_ = new Type(TypeKind::INTEGER, "정수");
-    floatType_ = new Type(TypeKind::FLOAT, "실수");
-    stringType_ = new Type(TypeKind::STRING, "문자열");
-    booleanType_ = new Type(TypeKind::BOOLEAN, "논리");
-    nullType_ = new Type(TypeKind::NULL_TYPE, "없음");
-    rangeType_ = new Type(TypeKind::RANGE, "범위");
+    // 빌트인 타입은 프로세스가 끝날 때까지 살아야 하므로 정적 객체로 둔다.
+    // (heap 에 new 로 만들고 지우지 않으면 LeakSanitizer 가 누수로 보고한다.)
+    static Type integerType(TypeKind::INTEGER, "정수");
+    static Type floatType(TypeKind::FLOAT, "실수");
+    static Type stringType(TypeKind::STRING, "문자열");
+    static Type booleanType(TypeKind::BOOLEAN, "논리");
+    static Type nullType(TypeKind::NULL_TYPE, "없음");
+    static Type rangeType(TypeKind::RANGE, "범위");
+    static Type arrayType(TypeKind::ARRAY, "배열");
+    static Type dictionaryType(TypeKind::DICTIONARY, "딕셔너리");
+
+    integerType_ = &integerType;
+    floatType_ = &floatType;
+    stringType_ = &stringType;
+    booleanType_ = &booleanType;
+    nullType_ = &nullType;
+    rangeType_ = &rangeType;
 
     // 한글 이름 매핑
     builtinTypes_["정수"] = integerType_;
@@ -79,8 +89,8 @@ void Type::initBuiltinTypes()
     builtinTypes_["불린"] = booleanType_;  // 별칭
     builtinTypes_["없음"] = nullType_;
     builtinTypes_["범위"] = rangeType_;
-    builtinTypes_["배열"] = new Type(TypeKind::ARRAY, "배열");  // 배열 타입
-    builtinTypes_["딕셔너리"] = new Type(TypeKind::DICTIONARY, "딕셔너리");  // 딕셔너리 타입 (Phase 7.2)
+    builtinTypes_["배열"] = &arrayType;
+    builtinTypes_["딕셔너리"] = &dictionaryType;  // (Phase 7.2)
 }
 
 Type* Type::getBuiltin(const std::string& koreanName)

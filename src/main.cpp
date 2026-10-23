@@ -169,8 +169,9 @@ int executeFile(const std::string& filename, bool useVm = false)
             return 0;
         }
 
-        // 7. Evaluator
-        kingsejong::evaluator::Evaluator evaluator(env);
+        // 7. Evaluator. 환경을 넘겨주어 평가기가 유일한 소유자가 되게 한다:
+        // 그래야 소멸할 때 전역 함수·클래스가 만든 함수-환경 순환 참조를 끊을 수 있다.
+        kingsejong::evaluator::Evaluator evaluator(std::move(env));
         evaluator.setModuleLoader(moduleLoader.get());
         evaluator.evalProgram(program.get());
 
@@ -511,7 +512,8 @@ int runDebugger(const std::string& filename)
         return 0;
     }
 
-    kingsejong::evaluator::Evaluator evaluator(env);
+    // 환경의 마지막 핸들을 평가기에 넘겨 소멸 시 순환 참조를 끊게 한다.
+    kingsejong::evaluator::Evaluator evaluator(std::move(env));
     evaluator.setModuleLoader(&moduleLoader);
     evaluator.setObserver(&debugger);
     try

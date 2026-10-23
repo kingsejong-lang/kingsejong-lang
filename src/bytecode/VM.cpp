@@ -7,7 +7,6 @@
 
 #include "VM.h"
 #include "jit/JITCompilerT1.h"
-#include "jit/JITCompilerT2.h"
 #include "jit/HotPathDetector.h"
 #include "evaluator/Evaluator.h"
 #include "evaluator/Builtin.h"
@@ -29,7 +28,6 @@ VM::VM()
 
     // JIT 컴파일러 초기화
     jitCompiler_ = std::make_unique<jit::JITCompilerT1>();
-    jitCompilerT2_ = std::make_unique<jit::JITCompilerT2>();
 
     // Hot Path Detector 초기화
     hotPathDetector_ = std::make_unique<jit::HotPathDetector>();
@@ -332,10 +330,6 @@ void VM::printJITStatistics() const {
 
     if (jitCompiler_) {
         jitCompiler_->printStatistics();
-    }
-
-    if (jitCompilerT2_) {
-        jitCompilerT2_->printStatistics();
     }
 
     if (hotPathDetector_) {
@@ -644,32 +638,10 @@ VMResult VM::executeControlFlowOps(OpCode instruction) {
             int64_t encoded = funcVal.asInteger();
             size_t funcAddr = static_cast<size_t>((encoded >> 8) & FUNC_ADDR_MASK);
 
-            // Hot Function 추적 (JIT 활성화 시)
+            // Hot Function 추적 (JIT 활성화 시). 함수 단위 컴파일(옛 Tier 2)은 네이티브 코드를
+            // 만들지 못한 채 제거됐고, 지금은 루프 단위 Tier 1 만 있다.
             if (jitEnabled_ && hotPathDetector_) {
                 hotPathDetector_->trackFunctionCall("func_" + std::to_string(funcAddr), funcAddr);
-
-                // 매우 핫한 함수이고 Tier 2로 컴파일되지 않았으면 컴파일 시도
-                if (hotPathDetector_->isVeryHot(funcAddr, jit::HotPathType::FUNCTION)) {
-                    auto it = jitCache_.find(funcAddr);
-                    bool needsTier2 = (it == jitCache_.end()) || (it->second == nullptr);
-
-                    if (needsTier2 && jitCompilerT2_) {
-                        // 함수 끝 찾기 (간단한 휴리스틱: RETURN OpCode)
-                        size_t funcEnd = funcAddr;
-                        while (funcEnd < chunk_->size() &&
-                               static_cast<OpCode>(chunk_->getCode()[funcEnd]) != OpCode::RETURN) {
-                            funcEnd++;
-                        }
-                        funcEnd++; // RETURN 포함
-
-                        // Tier 2 컴파일 시도
-                        auto result = jitCompilerT2_->compileWithInlining(chunk_, funcAddr, funcEnd);
-                        if (result.success && result.function) {
-                            jitCache_[funcAddr] = result.function;
-                            hotPathDetector_->markJITCompiled(funcAddr, jit::HotPathType::FUNCTION, jit::JITTier::TIER_2);
-                        }
-                    }
-                }
             }
 
             // CallFrame 저장

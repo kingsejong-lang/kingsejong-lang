@@ -41,7 +41,7 @@
 - **표준 라이브러리**: 251개 함수 (14개 모듈 - math, string, array, json, http, db, crypto 등)
 - **개발 도구**: Linter (13개 규칙, `kingsejong lint`), Formatter (`kingsejong fmt`), Debugger (`--debug`), LSP (`--lsp`) + VS Code Extension
 - **보안 모드**: `--sandbox`, `--untrusted`, `--allow-path` 로 파일·네트워크 접근 제한
-- **실험적**: 바이트코드 VM 은 `kingsejong --vm 파일.ksj` 로 실행할 수 있지만 클로저·가져오기·예외·클래스 등 평가기 기능의 대부분이 없다 (`examples/expected/KNOWN_FAILURES_VM` 이 현황). JIT Tier 1/2 는 VM 안에서만 돌고, 패키지 관리자 `ksjpm` 은 저장소·다운로드가 없다
+- **실험적**: 바이트코드 VM 은 `kingsejong --vm 파일.ksj` 로 실행할 수 있지만 클로저·가져오기·예외·클래스 등 평가기 기능의 대부분이 없다 (`examples/expected/KNOWN_FAILURES_VM` 이 현황). JIT (Tier 1, 루프 단위) 는 VM 안에서만 돌고 기본으로 꺼져 있다
 
 ---
 

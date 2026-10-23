@@ -6,6 +6,7 @@
  */
 
 #include "Value.h"
+#include <algorithm>
 #include "../error/Error.h"
 #include "../types/Type.h"
 #include <sstream>
@@ -334,13 +335,21 @@ std::string Value::toString() const
         case types::TypeKind::DICTIONARY:
         {
             auto dict = std::get<std::shared_ptr<std::unordered_map<std::string, Value>>>(data_);
+            // unordered_map 의 순회 순서는 플랫폼마다 다르다. 출력은 키 순으로 고정한다.
+            std::vector<std::string> keys;
+            keys.reserve(dict->size());
+            for (const auto& [key, value] : *dict)
+            {
+                keys.push_back(key);
+            }
+            std::sort(keys.begin(), keys.end());
             std::string result = "{";
             bool first = true;
-            for (const auto& [key, value] : *dict)
+            for (const auto& key : keys)
             {
                 if (!first) result += ", ";
                 first = false;
-                result += "\"" + key + "\": " + value.toString();
+                result += "\"" + key + "\": " + dict->at(key).toString();
             }
             result += "}";
             return result;

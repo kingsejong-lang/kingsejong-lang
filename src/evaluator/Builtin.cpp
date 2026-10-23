@@ -230,6 +230,10 @@ static Value builtin_딕셔너리_키들(const std::vector<Value>& args)
         keys.push_back(Value::createString(pair.first));
     }
 
+    // unordered_map 순서는 플랫폼마다 다르므로 키 순으로 정렬해 돌려준다
+    std::sort(keys.begin(), keys.end(), [](const Value& a, const Value& b) {
+        return a.asString() < b.asString();
+    });
     return Value::createArray(keys);
 }
 

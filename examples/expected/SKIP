@@ -1,3 +1,4 @@
 # 출력이 실행마다 달라 종료 코드만 확인하는 예제. "<파일명> <이유>"
 stdlib_db.ksj SQLite 파일 상태에 따라 출력이 달라진다
 stdlib_time.ksj 현재 시각을 출력한다
+stdlib_os.ksj 운영체제·사용자·경로 정보를 출력한다

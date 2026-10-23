@@ -206,7 +206,7 @@ TEST_F(JSONTest, ShouldStringifyWithoutIndent)
 TEST_F(JSONTest, ShouldWriteAndReadJSONFile)
 {
     // Arrange
-    std::string filepath = (test_dir_ / "test.json").string();
+    std::string filepath = (test_dir_ / "test.json").generic_string();
     std::string write_code = R"(
         data = [["name", "Alice"], ["age", 30]]
         JSON_파일_쓰기(")" + filepath + R"(", data)
@@ -231,7 +231,7 @@ TEST_F(JSONTest, ShouldWriteAndReadJSONFile)
 TEST_F(JSONTest, ShouldWriteJSONArrayToFile)
 {
     // Arrange
-    std::string filepath = (test_dir_ / "array.json").string();
+    std::string filepath = (test_dir_ / "array.json").generic_string();
     std::string code = R"(
         arr = [1, 2, 3, 4, 5]
         JSON_파일_쓰기(")" + filepath + R"(", arr)
@@ -263,7 +263,7 @@ TEST_F(JSONTest, ShouldThrowOnReadNonExistentFile)
 TEST_F(JSONTest, ShouldThrowOnReadInvalidJSONFile)
 {
     // Arrange - 잘못된 JSON 파일 생성
-    std::string filepath = (test_dir_ / "invalid.json").string();
+    std::string filepath = (test_dir_ / "invalid.json").generic_string();
     std::ofstream file(filepath);
     file << "{invalid json content}";
     file.close();
@@ -281,7 +281,7 @@ TEST_F(JSONTest, ShouldThrowOnReadInvalidJSONFile)
 TEST_F(JSONTest, ShouldRoundTripSimpleData)
 {
     // Arrange - 간단한 라운드트립 테스트
-    std::string filepath = (test_dir_ / "roundtrip.json").string();
+    std::string filepath = (test_dir_ / "roundtrip.json").generic_string();
 
     // Act - 배열 생성 → JSON 파일 저장 → 읽기
     std::string code = "JSON_파일_쓰기(\"" + filepath + "\", [1, 2, 3, 4, 5])";
@@ -300,7 +300,7 @@ TEST_F(JSONTest, ShouldRoundTripSimpleData)
 TEST_F(JSONTest, ShouldRoundTripObjectData)
 {
     // Arrange - object 라운드트립 테스트
-    std::string filepath = (test_dir_ / "object.json").string();
+    std::string filepath = (test_dir_ / "object.json").generic_string();
 
     // Act - object 형태 배열 생성 → 저장 → 읽기
     evaluate("JSON_파일_쓰기(\"" + filepath + "\", [[\"x\", 10], [\"y\", 20]])");

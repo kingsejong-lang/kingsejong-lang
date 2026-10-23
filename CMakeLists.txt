@@ -249,10 +249,15 @@ endif()
 # 문서의 예제가 거짓이 되는 순간 빌드가 깨지게 하는 종단 테스트다.
 find_package(Python3 COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
+    # SQLite 가 없는 빌드(Windows 러너)에는 DB_* 내장 함수가 없어 stdlib_db 예제를 돌릴 수 없다.
+    set(EXAMPLES_EXCLUDE_ARGS)
+    if(NOT SQLite3_FOUND)
+        set(EXAMPLES_EXCLUDE_ARGS --exclude stdlib_db.ksj)
+    endif()
     add_test(
         NAME examples
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/examples/run_examples.py
-                --interpreter $<TARGET_FILE:kingsejong>
+                --interpreter $<TARGET_FILE:kingsejong> ${EXAMPLES_EXCLUDE_ARGS}
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     )
     # 같은 예제를 --vm 으로도 돌린다. 평가기와 달라야 정상인 예제는 KNOWN_FAILURES_VM 에 적는다.
@@ -261,6 +266,7 @@ if(Python3_Interpreter_FOUND)
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/examples/run_examples.py
                 --interpreter $<TARGET_FILE:kingsejong> --interpreter-flag=--vm
                 --known-failures ${CMAKE_SOURCE_DIR}/examples/expected/KNOWN_FAILURES_VM
+                ${EXAMPLES_EXCLUDE_ARGS}
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     )
 endif()

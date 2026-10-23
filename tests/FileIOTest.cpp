@@ -58,7 +58,7 @@ protected:
 TEST_F(FileIOTest, ShouldWriteAndReadFile)
 {
     // Arrange
-    std::string filepath = (test_dir_ / "test.txt").string();
+    std::string filepath = (test_dir_ / "test.txt").generic_string();
     std::string code = "파일_쓰기(\"" + filepath + "\", \"안녕하세요\")";
 
     // Act - 파일 쓰기
@@ -79,7 +79,7 @@ TEST_F(FileIOTest, ShouldWriteAndReadFile)
 TEST_F(FileIOTest, ShouldAppendToFile)
 {
     // Arrange
-    std::string filepath = (test_dir_ / "append_test.txt").string();
+    std::string filepath = (test_dir_ / "append_test.txt").generic_string();
 
     // Act - 첫 번째 쓰기
     evaluate("파일_쓰기(\"" + filepath + "\", \"첫 줄\\n\")");
@@ -96,7 +96,7 @@ TEST_F(FileIOTest, ShouldAppendToFile)
 TEST_F(FileIOTest, ShouldReadFileLineByLine)
 {
     // Arrange - 여러 줄 파일 생성
-    std::string filepath = (test_dir_ / "lines.txt").string();
+    std::string filepath = (test_dir_ / "lines.txt").generic_string();
     std::ofstream file(filepath);
     file << "첫 번째 줄\n";
     file << "두 번째 줄\n";
@@ -118,8 +118,8 @@ TEST_F(FileIOTest, ShouldReadFileLineByLine)
 TEST_F(FileIOTest, ShouldCheckFileExists)
 {
     // Arrange
-    std::string existing_file = (test_dir_ / "exists.txt").string();
-    std::string non_existing_file = (test_dir_ / "not_exists.txt").string();
+    std::string existing_file = (test_dir_ / "exists.txt").generic_string();
+    std::string non_existing_file = (test_dir_ / "not_exists.txt").generic_string();
 
     // 파일 생성
     std::ofstream file(existing_file);
@@ -140,7 +140,7 @@ TEST_F(FileIOTest, ShouldCheckFileExists)
 TEST_F(FileIOTest, ShouldDeleteFile)
 {
     // Arrange - 파일 생성
-    std::string filepath = (test_dir_ / "to_delete.txt").string();
+    std::string filepath = (test_dir_ / "to_delete.txt").generic_string();
     std::ofstream file(filepath);
     file << "delete me";
     file.close();
@@ -170,7 +170,7 @@ TEST_F(FileIOTest, ShouldThrowOnNonExistentFileRead)
 TEST_F(FileIOTest, ShouldCreateDirectory)
 {
     // Arrange
-    std::string dirpath = (test_dir_ / "new_dir").string();
+    std::string dirpath = (test_dir_ / "new_dir").generic_string();
 
     // Act
     evaluate("디렉토리_생성(\"" + dirpath + "\")");
@@ -183,7 +183,7 @@ TEST_F(FileIOTest, ShouldCreateDirectory)
 TEST_F(FileIOTest, ShouldCreateNestedDirectories)
 {
     // Arrange
-    std::string dirpath = (test_dir_ / "a" / "b" / "c").string();
+    std::string dirpath = (test_dir_ / "a" / "b" / "c").generic_string();
 
     // Act
     evaluate("디렉토리_생성(\"" + dirpath + "\")");
@@ -196,10 +196,10 @@ TEST_F(FileIOTest, ShouldCreateNestedDirectories)
 TEST_F(FileIOTest, ShouldDeleteDirectory)
 {
     // Arrange - 디렉토리 생성 및 파일 추가
-    std::string dirpath = (test_dir_ / "to_delete_dir").string();
+    std::string dirpath = (test_dir_ / "to_delete_dir").generic_string();
     std::filesystem::create_directories(dirpath);
 
-    std::string filepath = (test_dir_ / "to_delete_dir" / "file.txt").string();
+    std::string filepath = (test_dir_ / "to_delete_dir" / "file.txt").generic_string();
     std::ofstream file(filepath);
     file << "test";
     file.close();
@@ -216,15 +216,15 @@ TEST_F(FileIOTest, ShouldDeleteDirectory)
 TEST_F(FileIOTest, ShouldListDirectoryContents)
 {
     // Arrange - 디렉토리 생성 및 파일 추가
-    std::string dirpath = (test_dir_ / "list_test").string();
+    std::string dirpath = (test_dir_ / "list_test").generic_string();
     std::filesystem::create_directories(dirpath);
 
     // 파일 생성
-    std::ofstream file1((std::filesystem::path(dirpath) / "file1.txt").string());
+    std::ofstream file1((std::filesystem::path(dirpath) / "file1.txt").generic_string());
     file1 << "test1";
     file1.close();
 
-    std::ofstream file2((std::filesystem::path(dirpath) / "file2.txt").string());
+    std::ofstream file2((std::filesystem::path(dirpath) / "file2.txt").generic_string());
     file2 << "test2";
     file2.close();
 
@@ -298,7 +298,7 @@ TEST_F(FileIOTest, ShouldThrowOnListNonExistentDirectory)
 TEST_F(FileIOTest, ShouldThrowOnListNonDirectory)
 {
     // Arrange - 파일 생성
-    std::string filepath = (test_dir_ / "not_a_dir.txt").string();
+    std::string filepath = (test_dir_ / "not_a_dir.txt").generic_string();
     std::ofstream file(filepath);
     file << "test";
     file.close();
@@ -315,7 +315,7 @@ TEST_F(FileIOTest, ShouldThrowOnListNonDirectory)
 TEST_F(FileIOTest, ShouldWorkInComplexScenario)
 {
     // Arrange & Act - 복잡한 파일 I/O 시나리오
-    std::string dirpath = (test_dir_ / "complex").string();
+    std::string dirpath = (test_dir_ / "complex").generic_string();
 
     // Step 1: 디렉토리 생성
     evaluate("디렉토리_생성(\"" + dirpath + "\")");

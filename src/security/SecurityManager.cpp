@@ -142,11 +142,12 @@ std::string SecurityManager::normalizePath(const std::string& path)
         fs::path canonical = fs::weakly_canonical(p, ec);
         p = ec ? p.lexically_normal() : canonical;
 
-        // 문자열로 변환
-        std::string normalized = p.string();
+        // 문자열로 변환. Windows 에서도 구분자를 / 로 통일해야 접두 비교(pathStartsWith)가
+        // 화이트리스트·블랙리스트와 같은 모양으로 맞는다.
+        std::string normalized = p.generic_string();
 
         // 디렉토리 경로는 /로 끝나도록
-        if (path.back() == '/' && !normalized.empty() && normalized.back() != '/')
+        if ((path.back() == '/' || path.back() == '\\') && !normalized.empty() && normalized.back() != '/')
         {
             normalized += '/';
         }
@@ -213,12 +214,21 @@ bool SecurityManager::isSensitivePath(const std::string& normalizedPath)
         "/bin/",
         // macOS symlink 경로들
         "/private/etc/",
-        "/private/var/log/"
+        "/private/var/log/",
+        // Windows
+        "/Windows/",
+        "/Program Files/",
+        "/Program Files (x86)/",
+        "/ProgramData/"
     };
 
+    // 드라이브 문자(C:)를 뗀 루트 기준 경로로 비교한다. POSIX 에서는 그대로이고, Windows 에서는
+    // "C:/Windows/..." 가 "/Windows/..." 로 맞춰져 드라이브와 무관하게 걸린다.
+    fs::path p(normalizedPath);
+    std::string rootRelative = "/" + p.relative_path().generic_string();
     for (const auto& sensitivePath : sensitivePaths)
     {
-        if (pathStartsWith(normalizedPath, sensitivePath))
+        if (pathStartsWith(rootRelative, sensitivePath))
         {
             return true;
         }

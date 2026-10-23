@@ -152,8 +152,8 @@ jobs:
 
     - name: Generate coverage report
       run: |
-        lcov --directory build --capture --output-file coverage.info --ignore-errors mismatch,unexecuted,inconsistent
-        lcov --remove coverage.info '/usr/*' '*/tests/*' '*/googletest/*' --output-file coverage.info --ignore-errors mismatch,unexecuted,inconsistent
+        lcov --directory build --capture --output-file coverage.info --ignore-errors mismatch,inconsistent,gcov,unused,source
+        lcov --remove coverage.info '/usr/*' '*/tests/*' '*/googletest/*' --output-file coverage.info --ignore-errors mismatch,inconsistent,gcov,unused,source
         lcov --list coverage.info
 
     - name: Upload coverage report

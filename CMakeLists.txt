@@ -80,6 +80,7 @@ set(LIB_SOURCES
     src/linter/rules/FunctionComplexityRule.cpp
     src/linter/rules/UnusedImportRule.cpp
     src/linter/rules/ImportOrderRule.cpp
+    src/linter/rules/JosaAgreementRule.cpp
     src/formatter/Formatter.cpp
     src/profiler/Profiler.cpp
     src/config/ConfigLoader.cpp
@@ -227,6 +228,18 @@ if(TEST_SOURCES)
     # CTest에 테스트 추가
     include(GoogleTest)
     gtest_discover_tests(kingsejong_tests
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    )
+endif()
+
+# examples/*.ksj 를 실제 바이너리로 실행해 examples/expected/*.out 과 비교한다.
+# 문서의 예제가 거짓이 되는 순간 빌드가 깨지게 하는 종단 테스트다.
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
+    add_test(
+        NAME examples
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/examples/run_examples.py
+                --interpreter $<TARGET_FILE:kingsejong>
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     )
 endif()

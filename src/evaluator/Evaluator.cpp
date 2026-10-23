@@ -390,8 +390,8 @@ Value Evaluator::evalBinaryExpression(ast::BinaryExpression* expr)
         return applyComparisonOperation(left, op, right);
     }
 
-    // 논리 연산자
-    if (op == "&&" || op == "||")
+    // 논리 연산자 (그리고/또는 은 &&/|| 와 같다)
+    if (op == "&&" || op == "||" || op == "그리고" || op == "또는")
     {
         return applyLogicalOperation(left, op, right);
     }
@@ -424,6 +424,19 @@ Value Evaluator::evalBinaryExpression(ast::BinaryExpression* expr)
     if (op == "+" && left.isString() && right.isString())
     {
         return Value::createString(left.asString() + right.asString());
+    }
+
+    // 문자열 * 정수 (또는 정수 * 문자열): 반복. "=" * 60 은 구분선 그리기에 쓴다. 0 이하면 빈 문자열.
+    if (op == "*" && ((left.isString() && right.isInteger()) || (left.isInteger() && right.isString())))
+    {
+        const std::string& text = left.isString() ? left.asString() : right.asString();
+        int64_t count = left.isString() ? right.asInteger() : left.asInteger();
+        std::string repeated;
+        for (int64_t i = 0; i < count; ++i)
+        {
+            repeated += text;
+        }
+        return Value::createString(repeated);
     }
 
     throw error::RuntimeError("지원되지 않는 연산: " + left.toString() + " " + op + " " + right.toString());
@@ -1249,14 +1262,14 @@ Value Evaluator::applyComparisonOperation(const Value& left, const std::string& 
 
 Value Evaluator::applyLogicalOperation(const Value& left, const std::string& op, const Value& right)
 {
-    if (op == "&&")
+    if (op == "&&" || op == "그리고")
     {
         // 단축 평가: left가 거짓이면 right를 평가하지 않음
         if (!left.isTruthy()) return Value::createBoolean(false);
         return Value::createBoolean(right.isTruthy());
     }
 
-    if (op == "||")
+    if (op == "||" || op == "또는")
     {
         // 단축 평가: left가 참이면 right를 평가하지 않음
         if (left.isTruthy()) return Value::createBoolean(true);
@@ -1736,7 +1749,29 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
         }
     }
 
-    // 2. 메서드 이름이 사용자 함수나 내장 함수이면 객체를 첫 인자로 넘겨 호출한다
+    // 2. 변환 관용구: "값을 문자열로 변환한다" 는 "문자열(값)". 로/으로 뒤의 이름이 함수(내장·사용자)면
+    //    그 함수에 값을 넘긴다. 동사는 변환한다/바꾼다.
+    if (auto* inner = dynamic_cast<const ast::JosaExpression*>(expr->method()))
+    {
+        auto* verb = dynamic_cast<const ast::Identifier*>(inner->method());
+        auto* target = dynamic_cast<const ast::Identifier*>(inner->object());
+        if (inner->josaType() == lexer::JosaRecognizer::JosaType::RO_EURO && verb && target &&
+            (verb->name() == "변환한다" || verb->name() == "바꾼다"))
+        {
+            const std::string& name = target->name();
+            if (env_->existsInChain(name) || Builtin::hasBuiltin(name))
+            {
+                Value callee = env_->existsInChain(name) ? env_->get(name) : Builtin::getBuiltin(name);
+                return callValue(callee, {object}, name, expr->location());
+            }
+            throw error::NameError(
+                "'" + name + "' 로 변환하는 함수가 없습니다.\n"
+                "해결 방법: 문자열, 정수, 실수 중 하나이거나 정의한 함수 이름을 쓰세요."
+            );
+        }
+    }
+
+    // 3. 메서드 이름이 사용자 함수나 내장 함수이면 객체를 첫 인자로 넘겨 호출한다
     //    ("x를 f(a)" 는 "f(x, a)", "값을 출력" 은 "출력(값)")
     {
         std::string name;
@@ -1770,7 +1805,7 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
         }
     }
 
-    // 3. 내장 배열 메서드 (걸러낸다, 변환한다, 축약한다, 찾다, 정렬한다, 역순으로_나열한다)
+    // 4. 내장 배열 메서드 (걸러낸다, 변환한다, 축약한다, 찾다, 정렬한다, 역순으로_나열한다)
     if (!object.isArray())
     {
         throw error::TypeError(

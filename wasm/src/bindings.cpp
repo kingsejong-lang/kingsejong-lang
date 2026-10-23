@@ -10,6 +10,7 @@
 #include <emscripten/bind.h>
 #include <string>
 #include <sstream>
+#include <iostream>
 
 #include "lexer/Lexer.h"
 #include "parser/Parser.h"
@@ -72,16 +73,28 @@ public:
                 return "ERROR: 프로그램을 파싱할 수 없습니다.";
             }
 
-            // 평가
-            evaluator::Evaluator evaluator(env_);
-            evaluator::Value result = evaluator.eval(program.get());
-
-            // 결과 반환 (null 제외)
-            if (result.isNull()) {
-                return "";
+            // 평가. 출력() 은 std::cout 에 쓰므로, 브라우저에 보여 주려면 실행 중 cout 을 가로챈다.
+            // (emscripten 기본값은 cout 을 console.log 로 보내 페이지에는 나타나지 않는다.)
+            std::ostringstream captured;
+            std::streambuf* previous = std::cout.rdbuf(captured.rdbuf());
+            evaluator::Value result;
+            try {
+                evaluator::Evaluator evaluator(env_);
+                result = evaluator.eval(program.get());
+            } catch (...) {
+                std::cout.rdbuf(previous);
+                throw;
             }
+            std::cout.rdbuf(previous);
 
-            return result.toString();
+            // 출력된 내용 뒤에 마지막 식의 값(없음 제외)을 붙여 돌려준다
+            std::string text = captured.str();
+            if (!result.isNull()) {
+                text += result.toString();
+            } else if (!text.empty() && text.back() == '\n') {
+                text.pop_back();
+            }
+            return text;
 
         } catch (const std::exception& e) {
             return std::string("ERROR: ") + e.what();

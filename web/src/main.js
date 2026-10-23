@@ -212,8 +212,8 @@ function runCode() {
             // 반환값 없음
             appendOutput('(실행 완료 - 반환값 없음)', 'info');
         } else {
-            // 성공
-            appendOutput(result, 'success');
+            // 성공: 출력() 한 줄마다 한 행으로 보여 준다
+            result.split('\n').forEach(line => appendOutput(line, 'success'));
         }
 
     } catch (error) {

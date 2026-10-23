@@ -280,27 +280,12 @@ install(TARGETS kingsejong
 if(EMSCRIPTEN)
     message(STATUS "Building for WebAssembly with Emscripten")
 
-    # WASM용 라이브러리 소스 (웹에서 필요한 것만)
-    set(WASM_LIB_SOURCES
-        src/lexer/Token.cpp
-        src/lexer/JosaRecognizer.cpp
-        src/lexer/Lexer.cpp
-        src/ast/Node.cpp
-        src/parser/Parser.cpp
-        src/semantic/SemanticAnalyzer.cpp
-        src/types/Type.cpp
-        src/evaluator/Value.cpp
-        src/evaluator/Environment.cpp
-        src/evaluator/Evaluator.cpp
-        src/evaluator/Builtin.cpp
-        src/evaluator/EventLoop.cpp
-        src/error/ErrorReporter.cpp
-        src/bytecode/OpCode.cpp
-        src/bytecode/Chunk.cpp
-        src/bytecode/Compiler.cpp
-        src/bytecode/VM.cpp
-        src/memory/GC.cpp
-    )
+    # WASM 용 라이브러리 소스: 네이티브 라이브러리와 같은 목록에서 브라우저에 없는 것만 뺀다.
+    # jit(asmjit 네이티브 코드), lsp·debugger·repl(stdin/소켓 기반 도구), linter·formatter·profiler·config(CLI 전용).
+    set(WASM_LIB_SOURCES ${LIB_SOURCES})
+    list(FILTER WASM_LIB_SOURCES EXCLUDE REGEX "src/(jit|lsp|debugger|repl|linter|formatter|profiler|config)/")
+    # 핫 패스 감지기는 평가기가 부르는 카운터일 뿐 asmjit 을 쓰지 않으므로 남긴다.
+    list(APPEND WASM_LIB_SOURCES src/jit/HotPathDetector.cpp)
 
     # WASM 라이브러리 생성
     add_library(kingsejong_wasm_lib STATIC ${WASM_LIB_SOURCES})
@@ -308,6 +293,8 @@ if(EMSCRIPTEN)
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_SOURCE_DIR}/include
     )
+    target_link_libraries(kingsejong_wasm_lib PUBLIC nlohmann_json::nlohmann_json)
+    target_compile_definitions(kingsejong_wasm_lib PUBLIC KINGSEJONG_WASM=1)
 
     # WASM 바인딩 타겟
     add_executable(kingsejong_wasm

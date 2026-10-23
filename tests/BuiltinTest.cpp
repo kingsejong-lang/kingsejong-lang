@@ -241,3 +241,66 @@ TEST(BuiltinTest, ShouldCallBuiltinFromUserFunction)
     std::cout.rdbuf(old);
     EXPECT_EQ(buffer.str(), "안녕하세요, 철수 님!\n");
 }
+
+// ============================================================================
+// 문자열·부분문자열·포함·추가 (표준 라이브러리가 쓰는 기본 함수)
+// ============================================================================
+
+TEST(BuiltinTest, StringConversionBuiltin)
+{
+    EXPECT_EQ(evalInput("문자열(42)").asString(), "42");
+    EXPECT_EQ(evalInput("문자열(3.5)").asString(), "3.5");
+    EXPECT_EQ(evalInput("문자열(참)").asString(), "참");
+    EXPECT_EQ(evalInput("문자열(\"그대로\")").asString(), "그대로");
+    EXPECT_EQ(evalInput("문자열([1, 2])").asString(), "[1, 2]");
+}
+
+TEST(BuiltinTest, SubstringCountsUtf8Characters)
+{
+    EXPECT_EQ(evalInput("부분문자열(\"안녕하세요\", 1, 3)").asString(), "녕하");
+    EXPECT_EQ(evalInput("부분문자열(\"안녕하세요\", 3)").asString(), "세요");
+    EXPECT_EQ(evalInput("부분문자열(\"abc\", 2, 10)").asString(), "c");
+    EXPECT_EQ(evalInput("부분문자열(\"abc\", 2, 1)").asString(), "");
+    EXPECT_THROW(evalInput("부분문자열(\"abc\", -1, 1)"), std::exception);
+}
+
+TEST(BuiltinTest, ContainsWorksOnStringArrayAndDictionary)
+{
+    EXPECT_TRUE(evalInput("포함(\"안녕하세요\", \"녕하\")").asBoolean());
+    EXPECT_FALSE(evalInput("포함(\"abc\", \"z\")").asBoolean());
+    EXPECT_TRUE(evalInput("포함([1, 2, 3], 2)").asBoolean());
+    EXPECT_FALSE(evalInput("포함([\"a\"], \"b\")").asBoolean());
+    EXPECT_TRUE(evalInput("포함({\"a\": 1}, \"a\")").asBoolean());
+    EXPECT_THROW(evalInput("포함(42, 1)"), std::exception);
+}
+
+TEST(BuiltinTest, AppendReturnsNewArray)
+{
+    auto result = evalInput("목록 = [1]\n새목록 = 추가(목록, 2, 3)\n[길이(목록), 길이(새목록), 새목록[2]]");
+    ASSERT_TRUE(result.isArray());
+    EXPECT_EQ(result.asArray()[0].asInteger(), 1);
+    EXPECT_EQ(result.asArray()[1].asInteger(), 3);
+    EXPECT_EQ(result.asArray()[2].asInteger(), 3);
+}
+
+TEST(BuiltinTest, TypeNamesContainerValues)
+{
+    EXPECT_EQ(evalInput("타입([1])").asString(), "배열");
+    EXPECT_EQ(evalInput("타입({\"a\": 1})").asString(), "딕셔너리");
+}
+
+TEST(BuiltinTest, StringRepetitionOperator)
+{
+    EXPECT_EQ(evalInput("\"=\" * 3").asString(), "===");
+    EXPECT_EQ(evalInput("2 * \"ab\"").asString(), "abab");
+    EXPECT_EQ(evalInput("\"x\" * 0").asString(), "");
+    EXPECT_EQ(evalInput("\"x\" * -1").asString(), "");
+}
+
+TEST(BuiltinTest, KoreanLogicalOperators)
+{
+    EXPECT_TRUE(evalInput("참 그리고 참").asBoolean());
+    EXPECT_FALSE(evalInput("참 그리고 거짓").asBoolean());
+    EXPECT_TRUE(evalInput("거짓 또는 참").asBoolean());
+    EXPECT_FALSE(evalInput("거짓 또는 거짓").asBoolean());
+}

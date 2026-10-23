@@ -27,7 +27,10 @@
 #include <cstdio>
 
 // HTTP 클라이언트 라이브러리
+// cpp-httplib 은 32비트(wasm32)를 지원하지 않는다. 브라우저 빌드에서는 HTTP_* 내장 함수를 뺀다.
+#ifndef KINGSEJONG_WASM
 #include "third_party/httplib.h"
+#endif
 
 // Undefine DELETE macro from DNS headers to avoid conflict with FileOperation::DELETE
 #ifdef DELETE
@@ -161,8 +164,142 @@ static Value builtin_타입(const std::vector<Value>& args)
     if (arg.isNull()) return Value::createString("없음");
     if (arg.isFunction()) return Value::createString("함수");
     if (arg.isBuiltinFunction()) return Value::createString("내장함수");
+    if (arg.isArray()) return Value::createString("배열");
+    if (arg.isDictionary()) return Value::createString("딕셔너리");
+    if (arg.isClassInstance()) return Value::createString("클래스");
+    if (arg.isError()) return Value::createString("에러");
+    if (arg.isPromise()) return Value::createString("프로미스");
 
     return Value::createString("알 수 없음");
+}
+
+/**
+ * @brief 문자열(값) - 값을 문자열로 변환
+ *
+ * 정수(값)·실수(값) 과 짝을 이루는 변환 함수. "값을 문자열로 변환한다" 조사 구문도 이 함수를 부른다.
+ */
+static Value builtin_문자열(const std::vector<Value>& args)
+{
+    if (args.size() != 1)
+    {
+        throw std::runtime_error("문자열() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+    if (args[0].isString())
+    {
+        return args[0];
+    }
+    return Value::createString(args[0].toString());
+}
+
+/**
+ * @brief 부분문자열(문자열, 시작, [끝]) - UTF-8 문자 단위로 [시작, 끝) 구간을 잘라낸다
+ *
+ * 끝을 생략하면 문자열 끝까지. 범위는 문자열 길이로 잘라 맞추고, 시작이 끝보다 뒤면 빈 문자열.
+ */
+static Value builtin_부분문자열(const std::vector<Value>& args)
+{
+    if (args.size() < 2 || args.size() > 3)
+    {
+        throw std::runtime_error("부분문자열() 함수는 2개 또는 3개의 인자(문자열, 시작, [끝])가 필요합니다");
+    }
+    if (!args[0].isString())
+    {
+        throw std::runtime_error("부분문자열() 함수의 첫 번째 인자는 문자열이어야 합니다");
+    }
+    if (!args[1].isInteger() || (args.size() == 3 && !args[2].isInteger()))
+    {
+        throw std::runtime_error("부분문자열() 함수의 시작과 끝은 정수여야 합니다");
+    }
+
+    const std::string& str = args[0].asString();
+    const int64_t charCount = static_cast<int64_t>(common::countUTF8Characters(str));
+    int64_t start = args[1].asInteger();
+    int64_t end = args.size() == 3 ? args[2].asInteger() : charCount;
+    if (start < 0)
+    {
+        throw std::runtime_error("부분문자열() 함수의 시작은 0 이상이어야 합니다: " + std::to_string(start));
+    }
+    start = std::min(start, charCount);
+    end = std::max(start, std::min(end, charCount));
+
+    // 문자 인덱스를 바이트 오프셋으로 바꾼다
+    size_t byteStart = 0;
+    int64_t index = 0;
+    while (index < start && byteStart < str.size())
+    {
+        byteStart += common::getUTF8CharLength(static_cast<unsigned char>(str[byteStart]));
+        ++index;
+    }
+    size_t byteEnd = byteStart;
+    while (index < end && byteEnd < str.size())
+    {
+        byteEnd += common::getUTF8CharLength(static_cast<unsigned char>(str[byteEnd]));
+        ++index;
+    }
+    return Value::createString(str.substr(byteStart, byteEnd - byteStart));
+}
+
+/**
+ * @brief 추가(배열, 값, ...) - 값을 뒤에 붙인 새 배열을 돌려준다 (원본은 바꾸지 않는다)
+ *
+ * 표준 라이브러리(json.ksj 등)가 `목록 = 추가(목록, 값)` 꼴로 쓴다. `목록 + [값]` 과 같다.
+ */
+static Value builtin_추가(const std::vector<Value>& args)
+{
+    if (args.size() < 2)
+    {
+        throw std::runtime_error("추가() 함수는 2개 이상의 인자(배열, 값...)가 필요합니다");
+    }
+    if (!args[0].isArray())
+    {
+        throw std::runtime_error("추가() 함수의 첫 번째 인자는 배열이어야 합니다");
+    }
+    std::vector<Value> result = args[0].asArray();
+    result.insert(result.end(), args.begin() + 1, args.end());
+    return Value::createArray(std::move(result));
+}
+
+/**
+ * @brief 포함(컨테이너, 값) - 문자열은 부분 문자열, 배열은 요소, 딕셔너리는 키의 포함 여부
+ */
+static Value builtin_포함(const std::vector<Value>& args)
+{
+    if (args.size() != 2)
+    {
+        throw std::runtime_error("포함() 함수는 정확히 2개의 인자(컨테이너, 값)가 필요합니다");
+    }
+    const Value& container = args[0];
+    const Value& needle = args[1];
+
+    if (container.isString())
+    {
+        if (!needle.isString())
+        {
+            throw std::runtime_error("포함() 함수: 문자열 안에서는 문자열만 찾을 수 있습니다");
+        }
+        return Value::createBoolean(container.asString().find(needle.asString()) != std::string::npos);
+    }
+    if (container.isArray())
+    {
+        for (const auto& item : container.asArray())
+        {
+            if (item.equals(needle))
+            {
+                return Value::createBoolean(true);
+            }
+        }
+        return Value::createBoolean(false);
+    }
+    if (container.isDictionary())
+    {
+        if (!needle.isString())
+        {
+            throw std::runtime_error("포함() 함수: 딕셔너리의 키는 문자열이어야 합니다");
+        }
+        const auto& dict = container.asDictionary();
+        return Value::createBoolean(dict.find(needle.asString()) != dict.end());
+    }
+    throw std::runtime_error("포함() 함수의 첫 번째 인자는 문자열, 배열, 딕셔너리 중 하나여야 합니다");
 }
 
 /**
@@ -1163,6 +1300,9 @@ static Value builtin_디렉토리_목록(const std::vector<Value>& args)
     for (const auto& entry : std::filesystem::directory_iterator(dirpath)) {
         entries.push_back(Value::createString(entry.path().filename().string()));
     }
+    // 파일 시스템의 순회 순서는 플랫폼마다 다르므로 이름순으로 고정한다
+    std::sort(entries.begin(), entries.end(),
+              [](const Value& a, const Value& b) { return a.asString() < b.asString(); });
 
     return Value::createArray(entries);
 }
@@ -1956,8 +2096,9 @@ static Value builtin_해시_비교(const std::vector<Value>& args)
     if (args.size() != 2) {
         throw std::runtime_error("해시_비교(문자열1, 문자열2): 2개의 인자가 필요합니다");
     }
+    // 체크섬() 은 정수를, 문자열_해시() 는 문자열을 돌려주므로 둘 다 받는다.
     if (!args[0].isString() || !args[1].isString()) {
-        throw std::runtime_error("해시_비교(문자열1, 문자열2): 문자열 타입이어야 합니다");
+        return Value::createBoolean(args[0].equals(args[1]));
     }
 
     std::hash<std::string> hasher;
@@ -2137,6 +2278,7 @@ static Value builtin_랜덤_숫자(const std::vector<Value>& args)
     return Value::createInteger(dis(gen));
 }
 
+#ifndef KINGSEJONG_WASM
 // ============================================================================
 // HTTP 클라이언트 함수
 // ============================================================================
@@ -2422,6 +2564,8 @@ static Value builtin_HTTP_요청(const std::vector<Value>& args)
         throw std::runtime_error("HTTP_요청 에러: " + std::string(e.what()));
     }
 }
+
+#endif // KINGSEJONG_WASM
 
 // ============================================================================
 // SQLite 데이터베이스 함수
@@ -2936,6 +3080,8 @@ static Value builtin_디렉토리_나열(const std::vector<Value>& args)
         for (const auto& entry : std::filesystem::directory_iterator(path)) {
             entries.push_back(Value::createString(entry.path().filename().string()));
         }
+        std::sort(entries.begin(), entries.end(),
+                  [](const Value& a, const Value& b) { return a.asString() < b.asString(); });
         return Value::createArray(entries);
     } catch (const std::exception& e) {
         throw std::runtime_error("디렉토리를 나열할 수 없습니다: " + std::string(e.what()));
@@ -3327,6 +3473,9 @@ void Builtin::registerAllBuiltins()
     registerBuiltin("출력", builtin_출력);
     registerBuiltin("타입", builtin_타입);
     registerBuiltin("길이", builtin_길이);
+    registerBuiltin("부분문자열", builtin_부분문자열);
+    registerBuiltin("포함", builtin_포함);
+    registerBuiltin("추가", builtin_추가);
 
     // 딕셔너리 함수 (Phase 7.2)
     registerBuiltin("딕셔너리_키들", builtin_딕셔너리_키들);
@@ -3343,6 +3492,7 @@ void Builtin::registerAllBuiltins()
     // 타입 변환 함수
     registerBuiltin("정수", builtin_정수);
     registerBuiltin("실수", builtin_실수);
+    registerBuiltin("문자열", builtin_문자열);
 
     // 수학 함수
     registerBuiltin("반올림", builtin_반올림);
@@ -3438,9 +3588,11 @@ void Builtin::registerAllBuiltins()
     registerBuiltin("랜덤_숫자", builtin_랜덤_숫자);
 
     // ========== HTTP ==========
+#ifndef KINGSEJONG_WASM
     registerBuiltin("HTTP_GET", builtin_HTTP_GET);
     registerBuiltin("HTTP_POST", builtin_HTTP_POST);
     registerBuiltin("HTTP_요청", builtin_HTTP_요청);
+#endif
 
     // ========== SQLite 데이터베이스 ==========
 #ifdef KINGSEJONG_HAS_SQLITE

@@ -135,18 +135,38 @@ std::string NetworkSecurityManager::extractHost(const std::string& url)
         return "";
     }
 
-    // 호스트 부분 추출 (포트, 경로 제거)
-    size_t end = url.find(':', start);
-    if (end == std::string::npos)
+    // authority 부분 (첫 '/' 앞까지)
+    size_t authorityEnd = url.find('/', start);
+    if (authorityEnd == std::string::npos)
     {
-        end = url.find('/', start);
+        authorityEnd = url.length();
     }
-    if (end == std::string::npos)
+    std::string authority = url.substr(start, authorityEnd - start);
+
+    // userinfo 제거: http://user:pw@host/ 에서 host 만 남긴다.
+    // 이것을 빼면 "user@127.0.0.1" 전체가 호스트로 보여 SSRF 검사를 지나친다.
+    size_t at = authority.rfind('@');
+    if (at != std::string::npos)
     {
-        end = url.length();
+        authority = authority.substr(at + 1);
     }
 
-    host = url.substr(start, end - start);
+    if (!authority.empty() && authority[0] == '[')
+    {
+        // IPv6 리터럴: [::1]:8080 -> ::1
+        size_t close = authority.find(']');
+        if (close == std::string::npos)
+        {
+            return "";
+        }
+        host = authority.substr(1, close - 1);
+    }
+    else
+    {
+        // 포트 제거
+        size_t colon = authority.find(':');
+        host = (colon == std::string::npos) ? authority : authority.substr(0, colon);
+    }
 
     // 소문자로 변환 (도메인은 대소문자 구분 없음)
     std::transform(host.begin(), host.end(), host.begin(), ::tolower);
@@ -199,6 +219,24 @@ bool NetworkSecurityManager::isPrivateIP(const std::string& host)
 bool NetworkSecurityManager::isSensitiveHost(const std::string& host)
 {
     // localhost 변형
+    // IPv6 loopback/unspecified 와 IPv4 unspecified. 0.0.0.0 은 대부분의 OS 에서
+    // 로컬 인터페이스로 연결되므로 127.0.0.1 과 같이 취급한다.
+    if (host == "::1" || host == "::" || host == "0.0.0.0" || host == "0:0:0:0:0:0:0:1")
+    {
+        return true;
+    }
+    // IPv6 link-local(fe80::/10) 과 unique-local(fc00::/7). 문자열 접두 비교다.
+    if (host.find(':') != std::string::npos
+        && (host.rfind("fe80:", 0) == 0 || host.rfind("fc", 0) == 0 || host.rfind("fd", 0) == 0))
+    {
+        return true;
+    }
+    // IPv4-mapped IPv6 (::ffff:127.0.0.1) 는 안쪽 IPv4 로 다시 검사한다.
+    if (host.rfind("::ffff:", 0) == 0)
+    {
+        return isPrivateIP(host.substr(7)) || isSensitiveHost(host.substr(7));
+    }
+
     static const std::vector<std::string> sensitiveHosts = {
         "localhost",
         "localhost.localdomain",

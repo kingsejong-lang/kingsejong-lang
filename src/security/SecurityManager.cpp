@@ -98,6 +98,11 @@ bool SecurityManager::checkFileAccess(const std::string& path, FileOperation ope
     }
 }
 
+bool SecurityManager::checkEnvironmentWrite()
+{
+    return currentMode_ != SecurityMode::SANDBOX;
+}
+
 void SecurityManager::reset()
 {
     currentMode_ = SecurityMode::TRUSTED;

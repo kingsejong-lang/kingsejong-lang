@@ -6,6 +6,8 @@
  */
 
 #include <iostream>
+#include <vector>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -22,6 +24,7 @@
 #include "error/ErrorReporter.h"
 #include "module/ModuleLoader.h"
 #include "version/Version.h"
+#include "security/SecurityManager.h"
 #include "formatter/Formatter.h"
 #include "formatter/FormatterConfig.h"
 
@@ -256,6 +259,18 @@ int runFormatter(int argc, char* argv[])
         // 4. 포맷팅 실행
         std::string formatted = formatter.format(program.get());
 
+        // 포매터가 다루지 못한 노드가 있으면 원본을 건드리지 않는다.
+        // 그대로 쓰면 그 노드의 코드가 파일에서 사라진다.
+        if (formatter.hasUnsupportedNodes())
+        {
+            std::cerr << "에러: 포매터가 아직 지원하지 않는 구문이 있어 파일을 수정하지 않았습니다: " << filename << "\n";
+            for (const auto& node : formatter.unsupportedNodes())
+            {
+                std::cerr << "  - " << node << "\n";
+            }
+            return 1;
+        }
+
         // 5. 파일에 쓰기 (원본 덮어쓰기)
         std::ofstream outFile(filename);
         if (!outFile.is_open())
@@ -285,9 +300,12 @@ void printHelp()
     std::cout << "사용법: kingsejong [옵션] [파일명]\n";
     std::cout << "\n";
     std::cout << "옵션:\n";
-    std::cout << "  -h, --help      이 도움말 메시지 출력\n";
-    std::cout << "  -v, --version   버전 정보 출력\n";
-    std::cout << "  --lsp           LSP 서버 모드로 실행\n";
+    std::cout << "  -h, --help          이 도움말 메시지 출력\n";
+    std::cout << "  -v, --version       버전 정보 출력\n";
+    std::cout << "  --lsp               LSP 서버 모드로 실행\n";
+    std::cout << "  --sandbox           샌드박스 모드: 현재 디렉터리와 --allow-path 경로만 파일 접근 허용\n";
+    std::cout << "  --untrusted         비신뢰 모드: 시스템 경로(/etc, /sys, /proc ...) 접근 차단\n";
+    std::cout << "  --allow-path 경로   샌드박스에서 추가로 허용할 경로 (여러 번 지정 가능)\n";
     std::cout << "\n";
     std::cout << "서브커맨드:\n";
     std::cout << "  fmt             코드 포맷팅\n";
@@ -295,10 +313,39 @@ void printHelp()
     std::cout << "사용 예시:\n";
     std::cout << "  kingsejong                    REPL 모드로 실행\n";
     std::cout << "  kingsejong 파일.ksj            파일 실행\n";
+    std::cout << "  kingsejong --sandbox 파일.ksj  샌드박스에서 파일 실행\n";
     std::cout << "  kingsejong --version          버전 정보 출력\n";
     std::cout << "  kingsejong --lsp              LSP 서버 모드\n";
     std::cout << "  kingsejong fmt 파일.ksj        코드 포맷팅\n";
-    std::cout << "  kingsejong fmt --config .ksjfmtrc 파일.ksj\n";
+    std::cout << "  kingsejong fmt --config .ksjfmt.json 파일.ksj\n";
+}
+
+/**
+ * @brief 명령행에서 받은 보안 옵션을 SecurityManager 에 적용한다.
+ * @param mode "" (기본, TRUSTED) | "sandbox" | "untrusted"
+ * @param allowPaths --allow-path 로 받은 경로들
+ *
+ * 기본값은 TRUSTED 다. 플래그가 없으면 기존 동작과 같다.
+ */
+void applySecurityOptions(const std::string& mode, const std::vector<std::string>& allowPaths)
+{
+    using kingsejong::security::SecurityManager;
+    using kingsejong::security::SecurityMode;
+
+    if (mode == "sandbox")
+    {
+        SecurityManager::setMode(SecurityMode::SANDBOX);
+        // 스크립트가 자기 디렉터리의 파일은 다룰 수 있어야 쓸모가 있다.
+        SecurityManager::allowPath(std::filesystem::current_path().string());
+    }
+    else if (mode == "untrusted")
+    {
+        SecurityManager::setMode(SecurityMode::UNTRUSTED);
+    }
+    for (const auto& path : allowPaths)
+    {
+        SecurityManager::allowPath(path);
+    }
 }
 
 /**
@@ -312,56 +359,79 @@ int main(int argc, char* argv[])
     // 내장 함수 등록
     kingsejong::evaluator::Builtin::registerAllBuiltins();
 
-    // 인자가 1개 이상인 경우 옵션 확인
-    if (argc >= 2)
-    {
-        std::string arg = argv[1];
+    std::vector<std::string> args(argv + 1, argv + argc);
 
-        // --version 또는 -v
+    // 서브커맨드는 자기 인자를 직접 해석한다.
+    if (!args.empty() && args[0] == "fmt")
+    {
+        return runFormatter(argc, argv);
+    }
+
+    std::string filename;
+    std::string securityMode;
+    std::vector<std::string> allowPaths;
+
+    for (size_t i = 0; i < args.size(); ++i)
+    {
+        const std::string& arg = args[i];
+
         if (arg == "--version" || arg == "-v")
         {
             std::cout << kingsejong::version::getFullVersionString() << "\n";
             return 0;
         }
-
-        // --help 또는 -h
         if (arg == "--help" || arg == "-h")
         {
             printHelp();
             return 0;
         }
-
-        // --lsp 플래그
         if (arg == "--lsp")
         {
             return runLspServer();
         }
-
-        // fmt 서브커맨드
-        if (arg == "fmt")
+        if (arg == "--sandbox")
         {
-            return runFormatter(argc, argv);
+            securityMode = "sandbox";
+        }
+        else if (arg == "--untrusted")
+        {
+            securityMode = "untrusted";
+        }
+        else if (arg == "--allow-path")
+        {
+            if (i + 1 >= args.size())
+            {
+                std::cerr << "에러: --allow-path 뒤에 경로가 필요합니다.\n";
+                return 1;
+            }
+            allowPaths.push_back(args[++i]);
+        }
+        else if (!arg.empty() && arg[0] == '-')
+        {
+            std::cerr << "에러: 알 수 없는 옵션입니다: " << arg << "\n\n";
+            printHelp();
+            return 1;
+        }
+        else if (filename.empty())
+        {
+            filename = arg;
+        }
+        else
+        {
+            std::cerr << "에러: 파일은 하나만 지정할 수 있습니다: " << arg << "\n\n";
+            printHelp();
+            return 1;
         }
     }
 
-    if (argc == 1)
+    applySecurityOptions(securityMode, allowPaths);
+
+    if (filename.empty())
     {
         // REPL 모드
         kingsejong::repl::Repl repl;
         repl.start();
         return 0;
     }
-    else if (argc == 2)
-    {
-        // 파일 실행 모드
-        std::string filename = argv[1];
-        return executeFile(filename);
-    }
-    else
-    {
-        // 잘못된 사용법
-        std::cerr << "에러: 잘못된 인자입니다.\n\n";
-        printHelp();
-        return 1;
-    }
+    return executeFile(filename);
 }

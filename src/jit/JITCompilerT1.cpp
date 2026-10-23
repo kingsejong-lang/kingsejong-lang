@@ -137,7 +137,7 @@ NativeFunction* JITCompilerT1::compileRange(bytecode::Chunk* chunk, size_t start
     Error initErr = code.init(runtime_->runtime.environment());
     if (initErr != kErrorOk)
     {
-        Logger::error("CodeHolder init failed: " + std::string(DebugUtils::error_as_string(initErr)));
+        Logger::error("CodeHolder init failed: " + std::string(stringify_error(initErr)));
         return nullptr;
     }
     Logger::debug("[JIT] CodeHolder initialized");
@@ -684,7 +684,7 @@ epilogue:
 
     if (err != kErrorOk)
     {
-        std::cerr << "JIT compilation failed: " << DebugUtils::error_as_string(err) << "\n";
+        std::cerr << "JIT compilation failed: " << stringify_error(err) << "\n";
         return nullptr;
     }
 
@@ -1278,7 +1278,7 @@ epilogue:
 
     if (err != kErrorOk)
     {
-        std::cerr << "[JIT] ARM64 compilation failed: " << DebugUtils::error_as_string(err) << "\n";
+        std::cerr << "[JIT] ARM64 compilation failed: " << stringify_error(err) << "\n";
         return nullptr;
     }
 

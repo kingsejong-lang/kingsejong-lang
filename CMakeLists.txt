@@ -158,6 +158,22 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
+# 가져온 서드파티 헤더는 시스템 헤더로 취급한다. 우리 코드는 -Werror 로 빌드하지만
+# googletest 1.14 헤더가 Apple clang 21 의 -Wcharacter-conversion 에 걸려 빌드가 깨진다.
+foreach(_dep gtest gmock gtest_main gmock_main)
+    if(TARGET ${_dep})
+        get_target_property(_inc ${_dep} INTERFACE_INCLUDE_DIRECTORIES)
+        if(_inc)
+            set_target_properties(${_dep} PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_inc}")
+        endif()
+        # googletest 자체를 컴파일할 때도 위의 -Werror 가 적용된다. 서드파티 코드의 경고로
+        # 우리 빌드가 깨지지 않게 한다 (asmjit 과 같은 처리).
+        if(NOT MSVC)
+            target_compile_options(${_dep} PRIVATE -Wno-error)
+        endif()
+    endif()
+endforeach()
+
 # nlohmann/json 설정 (LSP용)
 FetchContent_Declare(
     json
@@ -170,7 +186,9 @@ FetchContent_MakeAvailable(json)
 FetchContent_Declare(
     asmjit
     GIT_REPOSITORY https://github.com/asmjit/asmjit.git
-    GIT_TAG master
+    # master 를 따라가면 API 변경(error_as_string -> stringify_error 등)으로 빌드가 깨진다.
+    # 2026-10-16 커밋에 고정한다. 올릴 때는 src/jit 의 호출을 함께 확인한다.
+    GIT_TAG 0464e1c8f1f43c861a0c73d4e59437fff255cdd9
 )
 set(ASMJIT_STATIC TRUE CACHE BOOL "" FORCE)
 set(ASMJIT_NO_CUSTOM_FLAGS TRUE CACHE BOOL "" FORCE)

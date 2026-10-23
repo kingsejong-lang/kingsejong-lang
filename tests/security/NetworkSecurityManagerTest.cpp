@@ -343,3 +343,29 @@ TEST_F(NetworkSecurityManagerTest, ShouldProtectAPIFromAbuse)
 
     EXPECT_EQ(successCount, 10);  // 정확히 10회만 허용
 }
+
+// ============================================================================
+// 호스트 추출 우회 차단
+// ============================================================================
+
+TEST_F(NetworkSecurityManagerTest, UserInfoDoesNotHideLoopback)
+{
+    // "user@127.0.0.1" 전체를 호스트로 보면 SSRF 검사를 지나친다.
+    EXPECT_FALSE(NetworkSecurityManager::checkHttpAccess("http://user:pw@127.0.0.1/admin"));
+    EXPECT_FALSE(NetworkSecurityManager::checkHttpAccess("http://evil@localhost:8080/"));
+}
+
+TEST_F(NetworkSecurityManagerTest, IPv6LoopbackAndUnspecifiedAreBlocked)
+{
+    EXPECT_FALSE(NetworkSecurityManager::checkHttpAccess("http://[::1]/"));
+    EXPECT_FALSE(NetworkSecurityManager::checkHttpAccess("http://[::1]:8080/path"));
+    EXPECT_FALSE(NetworkSecurityManager::checkHttpAccess("http://[::ffff:127.0.0.1]/"));
+    EXPECT_FALSE(NetworkSecurityManager::checkHttpAccess("http://0.0.0.0/"));
+    EXPECT_FALSE(NetworkSecurityManager::checkHttpAccess("http://[fe80::1]/"));
+}
+
+TEST_F(NetworkSecurityManagerTest, PublicHostWithUserInfoStillAllowed)
+{
+    EXPECT_TRUE(NetworkSecurityManager::checkHttpAccess("http://user@example.com/"));
+    EXPECT_TRUE(NetworkSecurityManager::checkHttpAccess("http://[2001:db8::1]:80/"));
+}

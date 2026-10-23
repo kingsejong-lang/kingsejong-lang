@@ -24,6 +24,7 @@ std::string Formatter::format(const Program* program)
     output_.str("");
     output_.clear();
     currentIndent_ = 0;
+    unsupported_.clear();
 
     const auto& statements = program->statements();
     for (size_t i = 0; i < statements.size(); ++i)
@@ -84,6 +85,21 @@ void Formatter::formatStatement(const Statement* stmt)
     {
         formatBlockStatement(blockStmt);
     }
+    else
+    {
+        // 분기가 없는 문장을 조용히 빼면 fmt 가 원본을 덮어쓸 때 코드가 사라진다.
+        markUnsupported(stmt);
+    }
+}
+
+void Formatter::markUnsupported(const Node* node)
+{
+    std::string entry = nodeTypeToString(node->type());
+    if (node->location().isValid())
+    {
+        entry += " (줄 " + std::to_string(node->location().line) + ")";
+    }
+    unsupported_.push_back(entry);
 }
 
 void Formatter::formatVarDeclaration(const VarDeclaration* stmt)
@@ -335,6 +351,10 @@ void Formatter::formatExpression(const Expression* expr)
     else if (auto boolLit = dynamic_cast<const BooleanLiteral*>(expr))
     {
         formatBooleanLiteral(boolLit);
+    }
+    else
+    {
+        markUnsupported(expr);
     }
 }
 

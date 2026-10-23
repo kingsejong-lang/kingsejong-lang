@@ -79,6 +79,69 @@ size_t lspCharacterToByteOffset(const std::string& text, int line, int character
     return characterToByteOffset(lines[line], character);
 }
 
+namespace {
+
+size_t utf8CharLength(unsigned char c)
+{
+    return (c < 0x80) ? 1 : (c >> 5) == 0x6 ? 2 : (c >> 4) == 0xE ? 3 : (c >> 3) == 0x1E ? 4 : 1;
+}
+
+} // namespace
+
+int byteColumnToUtf16(const std::string& line, int byteColumn)
+{
+    size_t bytes = byteColumn > 0 ? static_cast<size_t>(byteColumn - 1) : 0;
+    if (bytes > line.size()) bytes = line.size();
+    int units = 0;
+    for (size_t i = 0; i < bytes;) {
+        size_t len = utf8CharLength(static_cast<unsigned char>(line[i]));
+        units += (len == 4) ? 2 : 1;
+        i += len;
+    }
+    return units;
+}
+
+int utf16Length(const std::string& text)
+{
+    int units = 0;
+    for (size_t i = 0; i < text.size();) {
+        size_t len = utf8CharLength(static_cast<unsigned char>(text[i]));
+        units += (len == 4) ? 2 : 1;
+        i += len;
+    }
+    return units;
+}
+
+size_t wordStartOffset(const std::string& line, size_t byteOffset)
+{
+    if (byteOffset > line.length()) {
+        return byteOffset;
+    }
+    size_t start = byteOffset;
+    while (start > 0) {
+        unsigned char c = line[start - 1];
+        if (std::isalnum(c) || c == '_') {
+            start--;
+            continue;
+        }
+        if (c & common::UTF8_1BYTE_MASK) {
+            size_t temp = start - 1;
+            while (temp > 0 && common::isUTF8ContinuationByte(line[temp])) {
+                temp--;
+            }
+            unsigned char firstByte = line[temp];
+            if ((firstByte & common::UTF8_2BYTE_MASK) == common::UTF8_2BYTE_PATTERN ||
+                (firstByte & common::UTF8_3BYTE_MASK) == common::UTF8_3BYTE_PATTERN ||
+                (firstByte & common::UTF8_4BYTE_MASK) == common::UTF8_4BYTE_PATTERN) {
+                start = temp;
+                continue;
+            }
+        }
+        break;
+    }
+    return start;
+}
+
 std::string extractWordAtOffset(const std::string& line, size_t byteOffset)
 {
     if (byteOffset >= line.length()) {

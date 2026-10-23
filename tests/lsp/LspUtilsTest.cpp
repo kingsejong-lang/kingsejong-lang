@@ -100,3 +100,30 @@ TEST_F(LspUtilsTest, ExtractWordAtVariousPositions)
                   << word << "'" << std::endl;
     }
 }
+
+// ============================================================================
+// UTF-16 보조 함수 (심볼 위치와 rename 범위에 쓴다)
+// ============================================================================
+
+TEST(LspUtilsUtf16Test, ByteColumnToUtf16CountsKoreanAsOneUnit)
+{
+    // "정수 x" : 정수 = 6바이트, 공백 1, x 는 바이트 열 8 (1-based) = UTF-16 3 (0-based)
+    EXPECT_EQ(kingsejong::lsp::byteColumnToUtf16("정수 x = 10", 8), 3);
+    EXPECT_EQ(kingsejong::lsp::byteColumnToUtf16("abc", 1), 0);
+    EXPECT_EQ(kingsejong::lsp::byteColumnToUtf16("abc", 99), 3);
+}
+
+TEST(LspUtilsUtf16Test, Utf16LengthCountsSurrogatePairs)
+{
+    EXPECT_EQ(kingsejong::lsp::utf16Length("abc"), 3);
+    EXPECT_EQ(kingsejong::lsp::utf16Length("변수"), 2);
+    EXPECT_EQ(kingsejong::lsp::utf16Length("\xF0\x9F\x98\x80"), 2);  // 😀
+}
+
+TEST(LspUtilsUtf16Test, WordStartOffsetFindsIdentifierStart)
+{
+    std::string line = "정수 합계 = 1";
+    size_t inside = 7 + 3;  // "합계" 의 두 번째 글자 안
+    EXPECT_EQ(kingsejong::lsp::wordStartOffset(line, inside), 7u);
+    EXPECT_EQ(kingsejong::lsp::wordStartOffset("x = 1", 0), 0u);
+}

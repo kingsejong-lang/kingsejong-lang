@@ -303,3 +303,41 @@ TEST_F(SymbolCollectorTest, ShouldHandleEmptyProgram)
     EXPECT_NO_THROW(collector.collect(program.get(), "test.ksj"));
     EXPECT_EQ(symbolTable.size(), 0u);
 }
+
+// 같은 이름이 전역과 함수 안에 따로 있을 때, 참조는 보이는 쪽(안쪽) 심볼에만 붙는다.
+TEST_F(SymbolCollectorTest, ShouldAttachReferencesToTheVisibleSymbol)
+{
+    std::string source =
+        "정수 x = 10\n"
+        "함수 테스트() {\n"
+        "    정수 x = 20\n"
+        "    정수 y = x + 5\n"
+        "}\n"
+        "정수 z = x + 1";
+    auto program = parse(source);
+    collector.collect(program.get(), "test.ksj", source);
+
+    auto globalX = symbolTable.findSymbolInScope("x", "global");
+    auto localX = symbolTable.findSymbolInScope("x", "함수:테스트");
+    ASSERT_TRUE(globalX.has_value());
+    ASSERT_TRUE(localX.has_value());
+
+    auto lines = [](const std::vector<Location>& refs) {
+        std::vector<int> out;
+        for (const auto& r : refs) out.push_back(r.line);
+        return out;
+    };
+    EXPECT_EQ(lines(globalX->references), (std::vector<int>{6}));
+    EXPECT_EQ(lines(localX->references), (std::vector<int>{4}));
+
+    // 정의 위치는 변수 이름을 가리킨다 (열은 1-based UTF-16). "정수 x" 에서 x 는 4번째
+    EXPECT_EQ(globalX->definitionLocation.line, 1);
+    EXPECT_EQ(globalX->definitionLocation.column, 4);
+    EXPECT_EQ(localX->definitionLocation.line, 3);
+    EXPECT_EQ(localX->definitionLocation.column, 8);
+
+    // 정의 위치로 바로 그 심볼을 찾을 수 있다
+    auto atLocal = symbolTable.findSymbolAtLocation(Location(3, 8, "test.ksj"));
+    ASSERT_TRUE(atLocal.has_value());
+    EXPECT_EQ(atLocal->scope, "함수:테스트");
+}

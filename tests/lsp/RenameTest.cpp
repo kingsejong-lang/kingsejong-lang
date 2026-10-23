@@ -272,7 +272,7 @@ TEST_F(RenameTest, ShouldRenameOnlyLocalVariable)
 
 TEST_F(RenameTest, ShouldRenameOnlyGlobalVariable)
 {
-    GTEST_SKIP() << "SymbolCollector 가 실제 줄 번호 대신 문장 카운터를 쓴다. AST 위치를 쓰도록 바꾸면 켤 것";
+
     // Arrange
     std::string uri = "file:///test.ksj";
     std::string content =
@@ -397,4 +397,26 @@ TEST_F(RenameTest, ShouldReturnValidWorkspaceEdit)
         ASSERT_TRUE(range["end"].contains("line"));
         ASSERT_TRUE(range["end"].contains("character"));
     }
+}
+
+// 한글 이름은 UTF-16 단위로 범위를 잡아야 한다 (바이트 길이를 쓰면 끝이 세 배로 늘어난다)
+TEST_F(RenameTest, ShouldUseUtf16RangesForKoreanNames)
+{
+    std::string uri = "file:///test.ksj";
+    std::string content =
+        "정수 합계 = 1\n"
+        "정수 결과 = 합계 + 1";
+    openDocument(uri, content);
+
+    json response = requestRename(uri, 0, 3, "총합");
+    ASSERT_TRUE(response.contains("result"));
+    auto edits = response["result"]["changes"][uri];
+    ASSERT_EQ(edits.size(), 2u);
+    // 정의: "정수 합계" 에서 합계는 문자 3..5
+    EXPECT_EQ(edits[0]["range"]["start"]["character"], 3);
+    EXPECT_EQ(edits[0]["range"]["end"]["character"], 5);
+    // 참조: "정수 결과 = 합계 + 1" 에서 합계는 문자 8..10
+    EXPECT_EQ(edits[1]["range"]["start"]["line"], 1);
+    EXPECT_EQ(edits[1]["range"]["start"]["character"], 8);
+    EXPECT_EQ(edits[1]["range"]["end"]["character"], 10);
 }

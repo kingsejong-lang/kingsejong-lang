@@ -99,7 +99,17 @@ target_include_directories(kingsejong_lib PUBLIC
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/include
 )
-target_link_libraries(kingsejong_lib PUBLIC nlohmann_json::nlohmann_json sqlite3 asmjit::asmjit)
+target_link_libraries(kingsejong_lib PUBLIC nlohmann_json::nlohmann_json asmjit::asmjit)
+
+# SQLite 는 선택이다. 없으면 DB_* 내장 함수가 등록되지 않는다 (Windows 러너처럼 헤더가 없는 환경).
+find_package(SQLite3)
+if(SQLite3_FOUND)
+    target_link_libraries(kingsejong_lib PUBLIC SQLite::SQLite3)
+    target_compile_definitions(kingsejong_lib PUBLIC KINGSEJONG_HAS_SQLITE=1)
+    message(STATUS "SQLite3: ${SQLite3_VERSION}")
+else()
+    message(STATUS "SQLite3 not found: DB_* builtins disabled")
+endif()
 
 # 실행 파일 소스
 set(SOURCES

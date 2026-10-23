@@ -35,7 +35,9 @@
 #endif
 
 // SQLite 데이터베이스
+#ifdef KINGSEJONG_HAS_SQLITE
 #include <sqlite3.h>
+#endif
 #include <unordered_map>
 
 #ifdef _WIN32
@@ -259,9 +261,16 @@ static Value builtin_딕셔너리_값들(const std::vector<Value>& args)
     const auto& dict = args[0].asDictionary();
     std::vector<Value> values;
 
+    // unordered_map 순서는 플랫폼마다 다르므로 키 순으로 값을 돌려준다 (딕셔너리_키들 과 같은 순서)
+    std::vector<std::string> keys;
     for (const auto& pair : dict)
     {
-        values.push_back(pair.second);
+        keys.push_back(pair.first);
+    }
+    std::sort(keys.begin(), keys.end());
+    for (const auto& key : keys)
+    {
+        values.push_back(dict.at(key));
     }
 
     return Value::createArray(values);
@@ -2418,6 +2427,7 @@ static Value builtin_HTTP_요청(const std::vector<Value>& args)
 // SQLite 데이터베이스 함수
 // ============================================================================
 
+#ifdef KINGSEJONG_HAS_SQLITE
 // DB 연결 관리
 static std::unordered_map<int64_t, sqlite3*> db_connections;
 static int64_t next_db_id = 1;
@@ -2633,6 +2643,7 @@ static Value builtin_DB_영향받은_행수(const std::vector<Value>& args)
     int changes = sqlite3_changes(it->second);
     return Value::createInteger(changes);
 }
+#endif  // KINGSEJONG_HAS_SQLITE
 
 // ============================================================================
 // 테스트 프레임워크 - Assert 함수
@@ -3432,12 +3443,14 @@ void Builtin::registerAllBuiltins()
     registerBuiltin("HTTP_요청", builtin_HTTP_요청);
 
     // ========== SQLite 데이터베이스 ==========
+#ifdef KINGSEJONG_HAS_SQLITE
     registerBuiltin("DB_열기", builtin_DB_열기);
     registerBuiltin("DB_닫기", builtin_DB_닫기);
     registerBuiltin("DB_실행", builtin_DB_실행);
     registerBuiltin("DB_쿼리", builtin_DB_쿼리);
     registerBuiltin("DB_마지막_ID", builtin_DB_마지막_ID);
     registerBuiltin("DB_영향받은_행수", builtin_DB_영향받은_행수);
+#endif
 
     // ========== 테스트 프레임워크 ==========
     registerBuiltin("assert", builtin_assert);

@@ -13,11 +13,11 @@ KingSejong 언어는 코드 품질 향상을 위한 **Linter**와 **Formatter**�
 
 ---
 
-## 1. Linter 설정 (`.ksjlintrc`)
+## 1. Linter 설정 (`.ksjlint.json`)
 
 ### 1.1 기본 설정
 
-프로젝트 루트에 `.ksjlintrc` 파일을 생성하세요:
+프로젝트 루트에 `.ksjlint.json` 파일을 생성하세요:
 
 ```json
 {
@@ -173,19 +173,19 @@ KingSejong 언어는 코드 품질 향상을 위한 **Linter**와 **Formatter**�
 
 ```bash
 # Linter 실행
-kingsejong --lint myfile.ksj
+kingsejong lint myfile.ksj
 
 # 설정 파일 지정
-kingsejong --lint --config .ksjlintrc myfile.ksj
+kingsejong lint --config .ksjlint.json myfile.ksj
 ```
 
 ---
 
-## 2. Formatter 설정 (`.ksjfmtrc`)
+## 2. Formatter 설정 (`.ksjfmt.json`)
 
 ### 2.1 기본 설정
 
-프로젝트 루트에 `.ksjfmtrc` 파일을 생성하세요:
+프로젝트 루트에 `.ksjfmt.json` 파일을 생성하세요:
 
 ```json
 {
@@ -370,13 +370,13 @@ kingsejong --lint --config .ksjlintrc myfile.ksj
 
 ```bash
 # Formatter 실행 (표준 출력)
-kingsejong --format myfile.ksj
+kingsejong fmt myfile.ksj
 
 # 파일에 직접 적용 (in-place)
-kingsejong --format --write myfile.ksj
+kingsejong fmt myfile.ksj
 
 # 설정 파일 지정
-kingsejong --format --config .ksjfmtrc myfile.ksj
+kingsejong fmt --config .ksjfmt.json myfile.ksj
 ```
 
 ---
@@ -385,7 +385,7 @@ kingsejong --format --config .ksjfmtrc myfile.ksj
 
 ### 3.1 설정 파일 자동 인식
 
-KingSejong VS Code 확장은 프로젝트 루트의 `.ksjlintrc`와 `.ksjfmtrc`를 자동으로 인식합니다.
+KingSejong VS Code 확장은 프로젝트 루트의 `.ksjlint.json`와 `.ksjfmt.json`를 자동으로 인식합니다.
 
 ### 3.2 VS Code 설정 예제
 
@@ -394,9 +394,9 @@ KingSejong VS Code 확장은 프로젝트 루트의 `.ksjlintrc`와 `.ksjfmtrc`�
 ```json
 {
   "kingsejong.linter.enable": true,
-  "kingsejong.linter.configFile": "${workspaceFolder}/.ksjlintrc",
+  "kingsejong.linter.configFile": "${workspaceFolder}/.ksjlint.json",
   "kingsejong.formatter.enable": true,
-  "kingsejong.formatter.configFile": "${workspaceFolder}/.ksjfmtrc",
+  "kingsejong.formatter.configFile": "${workspaceFolder}/.ksjfmt.json",
   "editor.formatOnSave": true
 }
 ```
@@ -419,7 +419,7 @@ jobs:
       - uses: actions/checkout@v2
       - name: Run Linter
         run: |
-          kingsejong --lint --config .ksjlintrc **/*.ksj
+          kingsejong lint --config .ksjlint.json **/*.ksj
 ```
 
 ### 4.2 Pre-commit Hook
@@ -430,7 +430,7 @@ jobs:
 #!/bin/bash
 
 # Linter 실행
-kingsejong --lint --config .ksjlintrc $(git diff --cached --name-only --diff-filter=ACM | grep '\.ksj$')
+kingsejong lint --config .ksjlint.json $(git diff --cached --name-only --diff-filter=ACM | grep '\.ksj$')
 
 if [ $? -ne 0 ]; then
     echo "Linter에서 에러가 발견되었습니다. 수정 후 다시 커밋하세요."
@@ -438,7 +438,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Formatter 실행
-kingsejong --format --write --config .ksjfmtrc $(git diff --cached --name-only --diff-filter=ACM | grep '\.ksj$')
+kingsejong fmt --config .ksjfmt.json $(git diff --cached --name-only --diff-filter=ACM | grep '\.ksj$')
 
 git add $(git diff --cached --name-only --diff-filter=ACM | grep '\.ksj$')
 ```
@@ -452,14 +452,14 @@ git add $(git diff --cached --name-only --diff-filter=ACM | grep '\.ksj$')
 ```bash
 # 1. 프로젝트 루트에 기본 설정 파일 생성
 cd your-project
-cp path/to/kingsejonglang/.ksjlintrc .
-cp path/to/kingsejonglang/.ksjfmtrc .
+cp path/to/kingsejonglang/.ksjlint.json .
+cp path/to/kingsejonglang/.ksjfmt.json .
 
 # 2. 전체 프로젝트 포맷팅
-find . -name "*.ksj" -exec kingsejong --format --write {} \;
+find . -name "*.ksj" -exec kingsejong fmt {} \;
 
 # 3. Lint 검사
-find . -name "*.ksj" -exec kingsejong --lint {} \;
+find . -name "*.ksj" -exec kingsejong lint {} \;
 ```
 
 ### 5.2 팀 설정 공유
@@ -467,7 +467,7 @@ find . -name "*.ksj" -exec kingsejong --lint {} \;
 설정 파일을 Git에 커밋하여 팀 전체가 동일한 코딩 스타일을 사용하도록 합니다:
 
 ```bash
-git add .ksjlintrc .ksjfmtrc
+git add .ksjlint.json .ksjfmt.json
 git commit -m "feat: Linter 및 Formatter 설정 추가"
 git push
 ```
@@ -480,11 +480,11 @@ git push
 
 ```bash
 # 설정 파일 위치 확인
-ls -la .ksjlintrc .ksjfmtrc
+ls -la .ksjlint.json .ksjfmt.json
 
 # 설정 파일 문법 검증
-cat .ksjlintrc | jq .
-cat .ksjfmtrc | jq .
+cat .ksjlint.json | jq .
+cat .ksjfmt.json | jq .
 ```
 
 ### 6.2 특정 규칙만 비활성화

@@ -44,18 +44,17 @@ KingSejong 디버거는 GDB 스타일의 대화형 디버깅 도구입니다. �
 ```bash
 # 디버거 모드로 프로그램 실행
 ./bin/kingsejong --debug examples/fibonacci.ksj
-
-# 또는
-kingsejong -d examples/fibonacci.ksj
 ```
+
+프로그램은 파싱만 된 상태로 멈춰 있다. `break 파일:줄` 로 중단점을 건 뒤 `run` 으로 시작한다.
+중단점의 파일 이름은 명령행에 적은 경로와 같아야 한다 (예: `break examples/fibonacci.ksj:5`).
 
 ### 2.2 디버거 프롬프트
 
 디버거가 시작되면 다음과 같은 프롬프트가 표시됩니다:
 
 ```
-KingSejong Debugger v0.5.0
-Type 'help' for commands
+KingSejong 디버거. 중단점: break examples/fibonacci.ksj:<줄>, 시작: run, 도움말: help
 (ksj-debug)
 ```
 

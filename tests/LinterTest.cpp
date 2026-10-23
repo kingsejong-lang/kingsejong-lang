@@ -1355,3 +1355,72 @@ TEST(LinterTest, ShouldDetectUnorderedUserImports)
     // 사용자 import 그룹 내에서 알파벳 순서가 아님
     EXPECT_GE(linter.warningCount(), 1);
 }
+
+/**
+ * @test addDefaultRules 가 저장소의 규칙을 모두 등록한다
+ */
+TEST(LinterDefaultRulesTest, ShouldRegisterEveryRule)
+{
+    std::string code = "정수 unused_value = 1\n정수 used = 2\n출력(used)\n";
+    kingsejong::lexer::Lexer lexer(code);
+    kingsejong::parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    kingsejong::linter::Linter linter;
+    linter.addDefaultRules();
+    linter.analyze(program.get(), "default.ksj");
+
+    bool foundUnused = false;
+    for (const auto& issue : linter.issues())
+    {
+        if (issue.ruleId == "unused-variable") foundUnused = true;
+    }
+    EXPECT_TRUE(foundUnused) << "기본 규칙에 unused-variable 이 없다";
+}
+
+/**
+ * @test josa-agreement: 받침과 맞지 않는 조사는 경고, 맞으면 조용하다
+ */
+TEST(LinterJosaAgreementTest, ShouldWarnOnMismatchedParticle)
+{
+    std::string code = "목록 = [3, 1, 2]\n결과 = 목록를 정렬한다\n출력(결과)\n";
+    kingsejong::lexer::Lexer lexer(code);
+    kingsejong::parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_TRUE(parser.errors().empty()) << parser.errors()[0];
+
+    kingsejong::linter::Linter linter;
+    linter.addDefaultRules();
+    linter.analyze(program.get(), "josa.ksj");
+
+    bool found = false;
+    for (const auto& issue : linter.issues())
+    {
+        if (issue.ruleId == "josa-agreement")
+        {
+            found = true;
+            EXPECT_NE(issue.message.find("목록을"), std::string::npos) << issue.message;
+            EXPECT_EQ(issue.line, 2);
+        }
+    }
+    EXPECT_TRUE(found);
+}
+
+TEST(LinterJosaAgreementTest, ShouldStaySilentOnMatchingParticle)
+{
+    std::string code = "목록 = [3, 1, 2]\n결과 = 목록을 정렬한다\n출력(결과)\n";
+    kingsejong::lexer::Lexer lexer(code);
+    kingsejong::parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_TRUE(parser.errors().empty());
+
+    kingsejong::linter::Linter linter;
+    linter.addDefaultRules();
+    linter.analyze(program.get(), "josa.ksj");
+
+    for (const auto& issue : linter.issues())
+    {
+        EXPECT_NE(issue.ruleId, "josa-agreement") << issue.message;
+    }
+}

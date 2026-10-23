@@ -200,6 +200,18 @@ void Rule::visitExpression(Expression* expr)
             visitStatement(funcLit->body());
         }
     }
+    // JosaExpression: 객체와 메서드 양쪽을 방문한다
+    else if (auto josaExpr = dynamic_cast<JosaExpression*>(expr))
+    {
+        onJosaExpression(josaExpr);
+        visitExpression(const_cast<Expression*>(josaExpr->object()));
+        visitExpression(const_cast<Expression*>(josaExpr->method()));
+    }
+    // MemberAccessExpression: 객체를 방문한다
+    else if (auto memberExpr = dynamic_cast<MemberAccessExpression*>(expr))
+    {
+        visitExpression(const_cast<Expression*>(memberExpr->object()));
+    }
 }
 
 } // namespace linter

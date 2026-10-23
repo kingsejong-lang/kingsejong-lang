@@ -12,6 +12,7 @@
 #include "ast/Expression.h"
 #include <string>
 #include <sstream>
+#include <vector>
 #include <nlohmann/json.hpp>
 
 namespace kingsejong {
@@ -48,6 +49,19 @@ public:
      * @brief 프로그램 전체를 포맷팅
      */
     std::string format(const ast::Program* program);
+
+    /**
+     * @brief 직전 format() 에서 포매터가 다루지 못한 노드가 있었는지
+     *
+     * 포매터는 AST 를 텍스트로 다시 쓰므로, 분기가 없는 노드는 출력에서 사라진다.
+     * 호출자는 이 값이 참이면 결과를 파일에 쓰지 말아야 한다.
+     */
+    bool hasUnsupportedNodes() const { return !unsupported_.empty(); }
+
+    /**
+     * @brief 직전 format() 에서 만난 미지원 노드 목록 ("<노드 종류> (줄 N)")
+     */
+    const std::vector<std::string>& unsupportedNodes() const { return unsupported_; }
 
     /**
      * @brief 설정 파일 로드
@@ -116,6 +130,12 @@ private:
 
     FormatterOptions options_;
     std::stringstream output_;
+
+    /// 직전 format() 에서 분기가 없어 출력하지 못한 노드
+    std::vector<std::string> unsupported_;
+
+    /// 미지원 노드를 기록한다. 조용히 빼는 대신 호출자가 알 수 있게 한다.
+    void markUnsupported(const ast::Node* node);
     int currentIndent_;
 };
 

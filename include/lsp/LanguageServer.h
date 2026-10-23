@@ -143,6 +143,14 @@ public:
     nlohmann::json handleRequest(const nlohmann::json& request);
 
     /**
+     * @brief handleRequest 가 처리하는 동안 쌓인 서버→클라이언트 알림을 꺼낸다
+     *
+     * didOpen/didChange 뒤의 textDocument/publishDiagnostics 가 여기에 쌓인다.
+     * 전송 루프는 응답을 쓴 뒤 이 목록을 모두 써야 한다.
+     */
+    std::vector<nlohmann::json> takePendingNotifications();
+
+    /**
      * @brief 문서 조회
      * @param uri 문서 URI
      * @return Document 포인터 (없으면 nullptr)
@@ -463,6 +471,12 @@ private:
 
     /// 초기화 상태
     bool initialized_ = false;
+
+    /// 아직 전송하지 않은 서버→클라이언트 알림
+    std::vector<nlohmann::json> pendingNotifications_;
+
+    /// 문서의 진단을 계산해 publishDiagnostics 알림을 쌓는다
+    void queueDiagnostics(const std::string& uri);
 
     /// 종료 상태
     bool shutdown_ = false;

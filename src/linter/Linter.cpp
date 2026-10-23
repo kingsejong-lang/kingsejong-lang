@@ -6,6 +6,20 @@
  */
 
 #include "linter/Linter.h"
+#include "linter/rules/ConstantConditionRule.h"
+#include "linter/rules/DeadCodeRule.h"
+#include "linter/rules/EmptyBlockRule.h"
+#include "linter/rules/FunctionComplexityRule.h"
+#include "linter/rules/ImportOrderRule.h"
+#include "linter/rules/JosaAgreementRule.h"
+#include "linter/rules/NamingConventionRule.h"
+#include "linter/rules/NoMagicNumberRule.h"
+#include "linter/rules/NoSelfComparisonRule.h"
+#include "linter/rules/NoShadowingRule.h"
+#include "linter/rules/NoUnusedParameterRule.h"
+#include "linter/rules/UnusedImportRule.h"
+#include "linter/rules/UnusedVariableRule.h"
+#include <memory>
 #include "config/ConfigLoader.h"
 
 namespace kingsejong {
@@ -45,6 +59,23 @@ bool Linter::analyze(ast::Program* program, const std::string& filename)
 void Linter::addRule(std::unique_ptr<Rule> rule)
 {
     rules_.push_back(std::move(rule));
+}
+
+void Linter::addDefaultRules()
+{
+    addRule(std::make_unique<rules::ConstantConditionRule>());
+    addRule(std::make_unique<rules::DeadCodeRule>());
+    addRule(std::make_unique<rules::EmptyBlockRule>());
+    addRule(std::make_unique<rules::FunctionComplexityRule>());
+    addRule(std::make_unique<rules::ImportOrderRule>());
+    addRule(std::make_unique<rules::NamingConventionRule>());
+    addRule(std::make_unique<rules::NoMagicNumberRule>());
+    addRule(std::make_unique<rules::NoSelfComparisonRule>());
+    addRule(std::make_unique<rules::NoShadowingRule>());
+    addRule(std::make_unique<rules::NoUnusedParameterRule>());
+    addRule(std::make_unique<rules::UnusedImportRule>());
+    addRule(std::make_unique<rules::UnusedVariableRule>());
+    addRule(std::make_unique<rules::JosaAgreementRule>());
 }
 
 size_t Linter::errorCount() const

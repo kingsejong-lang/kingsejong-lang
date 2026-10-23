@@ -39,8 +39,9 @@
 - **조사 기반 메서드 체이닝**: 받침 자동 인식 (배열`을`, 데이터`를`)
 - **함수형 프로그래밍**: filter, map, reduce 지원
 - **표준 라이브러리**: 251개 함수 (14개 모듈 - math, string, array, json, http, db, crypto 등)
-- **JIT 컴파일러**: Tier 1 + Tier 2 함수 인라이닝
-- **개발 도구**: Linter (13개 규칙), Formatter, Debugger, VS Code Extension
+- **개발 도구**: Linter (13개 규칙, `kingsejong lint`), Formatter (`kingsejong fmt`), Debugger (`--debug`), LSP (`--lsp`) + VS Code Extension
+- **보안 모드**: `--sandbox`, `--untrusted`, `--allow-path` 로 파일·네트워크 접근 제한
+- **실험적**: 바이트코드 VM 은 `kingsejong --vm 파일.ksj` 로 실행할 수 있지만 클로저·가져오기·예외·클래스 등 평가기 기능의 대부분이 없다 (`examples/expected/KNOWN_FAILURES_VM` 이 현황). JIT Tier 1/2 는 VM 안에서만 돌고, 패키지 관리자 `ksjpm` 은 저장소·다운로드가 없다
 
 ---
 
@@ -124,14 +125,14 @@ make && ctest
 
 ## Linter 사용
 
-### 설정 파일 (.ksjlintrc)
+### 설정 파일 (.ksjlint.json)
 
 ```json
 {
   "rules": {
-    "no-unused-variables": "warn",
-    "no-undefined-variables": "error",
-    "no-reassignment": "off"
+    "unused-variable": "warning",
+    "no-magic-number": "off",
+    "josa-agreement": "warning"
   }
 }
 ```
@@ -139,15 +140,16 @@ make && ctest
 ### 실행
 
 ```bash
-# Lint 검사
-./bin/ksjlint script.ksj
+# Lint 검사 (오류 등급 이슈가 있으면 종료 코드 1)
+./bin/kingsejong lint script.ksj
 
-# 자동 수정
-./bin/ksjfmt script.ksj --write
+# 포맷 (원본을 덮어쓴다. 포매터가 모르는 구문이 있으면 파일을 건드리지 않는다)
+./bin/kingsejong fmt script.ksj
 ```
 
-**13개 규칙**: `no-unused-variables`, `no-undefined-variables`, `max-function-length`, `prefer-const` 등
-자세한 내용: [docs/LINTER_RULES.md](docs/LINTER_RULES.md)
+**13개 규칙**: `unused-variable`, `dead-code`, `no-self-comparison`, `constant-condition`, `empty-block`,
+`no-magic-number`, `no-shadowing`, `no-unused-parameter`, `naming-convention`, `function-complexity`,
+`unused-import`, `import-order`, `josa-agreement`. 자세한 내용: [docs/LINTER_RULES.md](docs/LINTER_RULES.md)
 
 ---
 

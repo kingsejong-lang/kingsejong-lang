@@ -72,3 +72,11 @@ package-lock.json
 # Claude local configuration
 CLAUDE.md
 CLAUDE.local.md
+
+# examples/stdlib_io.ksj 가 실행 중 만드는 파일
+search_test.txt
+test_output.txt
+test_dir/
+
+# 예제 기대 출력은 추적한다 (*.out 무시 규칙의 예외)
+!examples/expected/*.out

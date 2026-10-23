@@ -122,6 +122,9 @@ private:
      */
     bool isLetter(char c) const;
 
+    /// 식별자 뒤(공백 건너뜀)에 조사 표현식의 메서드나 범위의 숫자가 올 수 있는 글자가 있는가
+    bool josaMethodMayFollow() const;
+
     /**
      * @brief 현재 문자가 숫자인지 확인
      * @param c 확인할 문자

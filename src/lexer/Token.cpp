@@ -80,6 +80,8 @@ static const std::unordered_map<std::string, TokenType> keywords = {
 
     // 메서드 체이닝
     {"하고", TokenType::HAGO},
+    {"그리고", TokenType::AND},   // 논리 그리고 (&& 와 같다)
+    {"또는", TokenType::OR},      // 논리 또는 (|| 와 같다)
     {"하라", TokenType::HARA},
 
     // 패턴 매칭

@@ -1,0 +1,40 @@
+# --vm 으로 돌렸을 때 평가기와 달라야 정상인 예제. 자동 생성: run_examples.py --interpreter-flag=--vm 결과.
+# VM 은 클로저·가져오기·예외·클래스·조사 디스패치 등이 없다. 하나가 통과하기 시작하면 runner 가 알려 준다.
+array_methods.ksj 출력이 다릅니다
+array_slicing_test.ksj 종료 코드 1
+async_await.ksj 종료 코드 1
+closure.ksj 종료 코드 1
+dictionary_basic.ksj 종료 코드 1
+dictionary_methods_test.ksj 종료 코드 1
+exception_handling.ksj 종료 코드 1
+fibonacci.ksj 종료 코드 1
+function.ksj 종료 코드 1
+functional_array.ksj 종료 코드 1
+hot_path_detection.ksj 종료 코드 1
+jit_benchmark.ksj 출력이 다릅니다
+loop.ksj 출력이 다릅니다
+method_basic.ksj 종료 코드 1
+method_complete.ksj 종료 코드 1
+method_example.ksj 종료 코드 1
+nested_loops.ksj 종료 코드 1
+prime_finder.ksj 종료 코드 1
+recursion.ksj 종료 코드 1
+simple_loop_test.ksj 종료 코드 1
+sorting_demo.ksj 종료 코드 1
+statistics.ksj 종료 코드 1
+stdlib_array.ksj 종료 코드 1
+stdlib_collections.ksj 종료 코드 1
+stdlib_crypto.ksj 종료 코드 1
+stdlib_http.ksj 출력이 다릅니다
+stdlib_io.ksj 종료 코드 1
+stdlib_json.ksj 종료 코드 1
+stdlib_math.ksj 종료 코드 1
+stdlib_regex.ksj 종료 코드 1
+stdlib_string.ksj 종료 코드 1
+stdlib_utils.ksj 종료 코드 1
+string_interpolation_test.ksj 종료 코드 1
+text_rpg.ksj 종료 코드 1
+tutorial_corrected_test.ksj 종료 코드 1
+tutorial_simple_correct.ksj 종료 코드 1
+tutorial_test.ksj 종료 코드 1
+type_demo.ksj 종료 코드 1

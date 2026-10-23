@@ -1538,3 +1538,72 @@ TEST_F(ParserTest, ShouldParseCompleteClassExample)
     EXPECT_EQ(classStmt->methods()[2]->methodName(), "내부_검증");
     EXPECT_EQ(classStmt->methods()[2]->access(), AccessModifier::PRIVATE);
 }
+
+/**
+ * @test 파서 에러에 위치가 붙는다
+ */
+TEST(ParserErrorLocationTest, ShouldRecordErrorLocations)
+{
+    std::string code = "정수 x = 1\n정수 y = @\n";
+    kingsejong::lexer::Lexer lexer(code, "loc.ksj");
+    kingsejong::parser::Parser parser(lexer);
+    parser.parseProgram();
+
+    ASSERT_FALSE(parser.errorDetails().empty());
+    EXPECT_EQ(parser.errorDetails().size(), parser.errors().size());
+    EXPECT_EQ(parser.errorDetails()[0].location.line, 2);
+    EXPECT_EQ(parser.errorDetails()[0].location.filename, "loc.ksj");
+}
+
+/**
+ * @test 타입 키워드를 매개변수 이름으로, 또는 타입 있는 매개변수로 쓸 수 있다
+ */
+TEST(ParserParameterTest, AcceptsTypeKeywordParameters)
+{
+    std::string code = "버블정렬 = 함수(배열) { 반환 배열 }\n함수 합계(배열 arr, 정수 n) { 반환 n }\n";
+    kingsejong::lexer::Lexer lexer(code);
+    kingsejong::parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+    EXPECT_TRUE(parser.errors().empty()) << (parser.errors().empty() ? "" : parser.errors()[0]);
+    EXPECT_EQ(program->statements().size(), 2u);
+}
+
+/**
+ * @test 키워드와 겹치는 이름을 메서드·멤버·함수 이름으로 쓸 수 있고, 실패해도 크래시하지 않는다
+ */
+TEST(ParserParameterTest, AcceptsKeywordLikeNames)
+{
+    std::string code =
+        "클래스 저장소 {\n  비공개 문자열 데이터\n  공개 함수 가져오기() {\n    반환 자신.데이터\n  }\n}\n"
+        "저장소1 = 저장소()\n값 = 저장소1.가져오기()\n끝 = 마지막(값, 1)\n가져오기(\"stdlib/math\")\n";
+    kingsejong::lexer::Lexer lexer(code);
+    kingsejong::parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+    EXPECT_TRUE(parser.errors().empty()) << (parser.errors().empty() ? "" : parser.errors()[0]);
+}
+
+/**
+ * @test 잘못된 멤버 접근은 에러로 기록되고 null 역참조 없이 끝난다
+ */
+TEST(ParserParameterTest, BrokenMemberAccessDoesNotCrash)
+{
+    std::string code = "x = obj.(1)\ny = @.foo()\n";
+    kingsejong::lexer::Lexer lexer(code);
+    kingsejong::parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+    EXPECT_FALSE(parser.errors().empty());
+}
+
+/**
+ * @test 시작 식이 긴 범위 반복문도 반복문으로 읽는다
+ */
+TEST(ParserParameterTest, LongStartExpressionRangeFor)
+{
+    std::string code = "경로 = \"a/b\"\ni가 길이(경로) - 1부터 0 이상 {\n  출력(i)\n}\n";
+    kingsejong::lexer::Lexer lexer(code);
+    kingsejong::parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_TRUE(parser.errors().empty()) << parser.errors()[0];
+    ASSERT_EQ(program->statements().size(), 2u);
+    EXPECT_EQ(program->statements()[1]->type(), kingsejong::ast::NodeType::RANGE_FOR_STATEMENT);
+}

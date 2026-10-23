@@ -172,6 +172,7 @@ void Repl::evalAndPrint(const std::string& input)
 
         // Evaluator
         evaluator::Evaluator evaluator(env_);
+        evaluator.setModuleLoader(&moduleLoader_);
         auto result = evaluator.evalProgram(program.get());
 
         // 결과 출력 (null이 아니면)

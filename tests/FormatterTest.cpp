@@ -442,3 +442,48 @@ TEST(FormatterTest, ShouldFormatUnaryExpression)
 
     EXPECT_EQ(formatted, "정수 x = -10\n");
 }
+
+// ============================================================================
+// 미지원 노드 처리
+// ============================================================================
+
+/**
+ * @test 포매터가 다루지 못하는 문장이 있으면 조용히 빼지 않고 알린다.
+ * fmt 는 이 신호를 보고 파일을 덮어쓰지 않는다.
+ */
+TEST(FormatterTest, ShouldReportUnsupportedStatements)
+{
+    std::string code = "시도 {\n  출력(1)\n} 오류 (e) {\n  출력(2)\n}\n";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+    ASSERT_TRUE(parser.errors().empty());
+
+    Formatter formatter;
+    formatter.format(program.get());
+
+    EXPECT_TRUE(formatter.hasUnsupportedNodes());
+    ASSERT_FALSE(formatter.unsupportedNodes().empty());
+    EXPECT_NE(formatter.unsupportedNodes()[0].find("TRY"), std::string::npos)
+        << formatter.unsupportedNodes()[0];
+}
+
+/**
+ * @test 지원하는 노드만 있으면 미지원 목록이 비어 있다.
+ */
+TEST(FormatterTest, ShouldHaveNoUnsupportedNodesForPlainCode)
+{
+    std::string code = "정수 x = 1\n출력(x + 2)\n";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Formatter formatter;
+    formatter.format(program.get());
+
+    EXPECT_FALSE(formatter.hasUnsupportedNodes());
+}

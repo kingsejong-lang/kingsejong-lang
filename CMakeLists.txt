@@ -8,7 +8,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # 컴파일러 경고 설정
 if(MSVC)
-    add_compile_options(/W4 /WX)
+    # MSVC 는 경고를 에러로 올리지 않는다. 기존 코드에 MSVC 전용 경고(C4244 등)가 남아 있어
+    # /WX 를 켜면 Windows 빌드가 한 번도 통과하지 못했다. 경고를 없앤 뒤 /WX 를 다시 켠다.
+    # 소스는 UTF-8 이고 식별자에 한글이 있다(builtin_파일_읽기 등). /utf-8 이 없으면 MSVC 가 코드 페이지로 읽어 C3872 를 낸다.
+    add_compile_options(/W4 /utf-8)
 else()
     add_compile_options(-Wall -Wextra -Wpedantic -Werror)
 endif()
@@ -80,6 +83,7 @@ set(LIB_SOURCES
     src/linter/rules/FunctionComplexityRule.cpp
     src/linter/rules/UnusedImportRule.cpp
     src/linter/rules/ImportOrderRule.cpp
+    src/linter/rules/JosaAgreementRule.cpp
     src/formatter/Formatter.cpp
     src/profiler/Profiler.cpp
     src/config/ConfigLoader.cpp
@@ -96,7 +100,17 @@ target_include_directories(kingsejong_lib PUBLIC
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/include
 )
-target_link_libraries(kingsejong_lib PUBLIC nlohmann_json::nlohmann_json sqlite3 asmjit::asmjit)
+target_link_libraries(kingsejong_lib PUBLIC nlohmann_json::nlohmann_json asmjit::asmjit)
+
+# SQLite 는 선택이다. 없으면 DB_* 내장 함수가 등록되지 않는다 (Windows 러너처럼 헤더가 없는 환경).
+find_package(SQLite3)
+if(SQLite3_FOUND)
+    target_link_libraries(kingsejong_lib PUBLIC SQLite::SQLite3)
+    target_compile_definitions(kingsejong_lib PUBLIC KINGSEJONG_HAS_SQLITE=1)
+    message(STATUS "SQLite3: ${SQLite3_VERSION}")
+else()
+    message(STATUS "SQLite3 not found: DB_* builtins disabled")
+endif()
 
 # 실행 파일 소스
 set(SOURCES
@@ -158,6 +172,22 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
+# 가져온 서드파티 헤더는 시스템 헤더로 취급한다. 우리 코드는 -Werror 로 빌드하지만
+# googletest 1.14 헤더가 Apple clang 21 의 -Wcharacter-conversion 에 걸려 빌드가 깨진다.
+foreach(_dep gtest gmock gtest_main gmock_main)
+    if(TARGET ${_dep})
+        get_target_property(_inc ${_dep} INTERFACE_INCLUDE_DIRECTORIES)
+        if(_inc)
+            set_target_properties(${_dep} PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_inc}")
+        endif()
+        # googletest 자체를 컴파일할 때도 위의 -Werror 가 적용된다. 서드파티 코드의 경고로
+        # 우리 빌드가 깨지지 않게 한다 (asmjit 과 같은 처리).
+        if(NOT MSVC)
+            target_compile_options(${_dep} PRIVATE -Wno-error)
+        endif()
+    endif()
+endforeach()
+
 # nlohmann/json 설정 (LSP용)
 FetchContent_Declare(
     json
@@ -170,14 +200,16 @@ FetchContent_MakeAvailable(json)
 FetchContent_Declare(
     asmjit
     GIT_REPOSITORY https://github.com/asmjit/asmjit.git
-    GIT_TAG master
+    # master 를 따라가면 API 변경(error_as_string -> stringify_error 등)으로 빌드가 깨진다.
+    # 2026-10-16 커밋에 고정한다. 올릴 때는 src/jit 의 호출을 함께 확인한다.
+    GIT_TAG 0464e1c8f1f43c861a0c73d4e59437fff255cdd9
 )
 set(ASMJIT_STATIC TRUE CACHE BOOL "" FORCE)
 set(ASMJIT_NO_CUSTOM_FLAGS TRUE CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(asmjit)
 
 # asmjit의 엄격한 경고 비활성화
-if(TARGET asmjit)
+if(TARGET asmjit AND NOT MSVC)
     target_compile_options(asmjit PRIVATE -Wno-error -Wno-gnu-anonymous-struct -Wno-nested-anon-types)
 endif()
 
@@ -213,7 +245,31 @@ if(TEST_SOURCES)
     )
 endif()
 
+# examples/*.ksj 를 실제 바이너리로 실행해 examples/expected/*.out 과 비교한다.
+# 문서의 예제가 거짓이 되는 순간 빌드가 깨지게 하는 종단 테스트다.
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
+    add_test(
+        NAME examples
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/examples/run_examples.py
+                --interpreter $<TARGET_FILE:kingsejong>
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    )
+    # 같은 예제를 --vm 으로도 돌린다. 평가기와 달라야 정상인 예제는 KNOWN_FAILURES_VM 에 적는다.
+    add_test(
+        NAME examples-vm
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/examples/run_examples.py
+                --interpreter $<TARGET_FILE:kingsejong> --interpreter-flag=--vm
+                --known-failures ${CMAKE_SOURCE_DIR}/examples/expected/KNOWN_FAILURES_VM
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    )
+endif()
+
 # 설치 규칙
+# 설치된 바이너리가 stdlib 를 찾을 수 있게 위치를 컴파일 시점에 알려 준다
+target_compile_definitions(kingsejong_lib PUBLIC KINGSEJONG_STDLIB_DIR="${CMAKE_INSTALL_PREFIX}/share/kingsejong")
+install(DIRECTORY stdlib DESTINATION share/kingsejong)
+
 install(TARGETS kingsejong
     RUNTIME DESTINATION bin
 )

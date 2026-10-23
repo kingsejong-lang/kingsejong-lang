@@ -108,6 +108,14 @@ public:
     void addRule(std::unique_ptr<Rule> rule);
 
     /**
+     * @brief 저장소에 있는 모든 규칙을 등록한다 (CLI 와 LSP 가 쓰는 기본 묶음)
+     *
+     * 규칙을 새로 만들면 여기에 추가해야 사용자에게 닿는다. 개별 규칙의 켜고 끄기는
+     * .ksjlint.json 의 rules 로 한다.
+     */
+    void addDefaultRules();
+
+    /**
      * @brief 모든 이슈 반환
      * @return 이슈 벡터
      */

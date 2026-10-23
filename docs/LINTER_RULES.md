@@ -19,7 +19,7 @@
 
 ## 개요
 
-KingSejong Linter는 코드 품질을 향상시키기 위한 정적 분석 도구입니다. `.ksjlintrc` 파일로 규칙을 설정할 수 있습니다.
+KingSejong Linter는 코드 품질을 향상시키기 위한 정적 분석 도구입니다. `.ksjlint.json` 파일로 규칙을 설정할 수 있습니다.
 
 ### 심각도 레벨
 
@@ -42,13 +42,16 @@ KingSejong Linter는 코드 품질을 향상시키기 위한 정적 분석 도�
 7. `no-shadowing` - 변수 섀도잉 경고
 8. `no-unused-parameter` - 사용하지 않는 매개변수 경고
 
-### 추가 규칙 (구현 예정) 📝
+### 추가 규칙 (구현 완료) ✅
 
-9. `camelcase-naming` - camelCase 네이밍 컨벤션
-10. `max-line-length` - 최대 줄 길이 제한
-11. `no-trailing-spaces` - 행 끝 공백 제거
-12. `prefer-const` - 상수 선호 (재할당 없는 변수)
-13. `no-duplicate-imports` - 중복 임포트 금지
+9. `naming-convention` - 식별자 이름 규칙
+10. `function-complexity` - 함수 복잡도 상한
+11. `unused-import` - 사용하지 않는 가져오기
+12. `import-order` - 가져오기 순서
+13. `josa-agreement` - 조사가 앞 명사의 받침과 맞는지 (`배열를` → `배열을`). 실행기는 틀린 조사도 받아들이므로 린터가 알려 준다
+
+규칙은 `Linter::addDefaultRules()` 가 모두 등록하며 `kingsejong lint` 와 테스트가 이것을 쓴다.
+아래 상세 설명 중 9~13번은 예전 계획(camelcase-naming 등)을 적은 것이라 실제 규칙 이름과 다르다.
 
 ---
 
@@ -377,9 +380,9 @@ y = X * 2
 
 ## 설정 방법
 
-### .ksjlintrc 파일
+### .ksjlint.json 파일
 
-프로젝트 루트에 `.ksjlintrc` 파일을 생성합니다:
+프로젝트 루트에 `.ksjlint.json` 파일을 생성합니다:
 
 ```json
 {
@@ -409,14 +412,16 @@ y = X * 2
 
 ```bash
 # Lint 실행
-ksjlint myfile.ksj
+kingsejong lint myfile.ksj
 
-# 모든 파일 검사
-ksjlint src/**/*.ksj
+# 여러 파일 검사
+kingsejong lint src/*.ksj
 
-# 자동 수정
-ksjlint --fix myfile.ksj
+# 설정 파일 지정
+kingsejong lint --config .ksjlint.json myfile.ksj
 ```
+
+오류 등급 이슈가 하나라도 있으면 종료 코드 1, 경고만 있으면 0 입니다. 자동 수정(`--fix`)은 없습니다.
 
 ### CI/CD 통합
 
@@ -434,7 +439,7 @@ jobs:
       - uses: actions/checkout@v2
       - name: Run KingSejong Linter
         run: |
-          ksjlint src/**/*.ksj
+          kingsejong lint src/*.ksj
 ```
 
 #### Pre-commit Hook
@@ -444,7 +449,7 @@ jobs:
 #!/bin/bash
 
 echo "Running KingSejong Linter..."
-ksjlint src/**/*.ksj
+kingsejong lint src/*.ksj
 
 if [ $? -ne 0 ]; then
     echo "Linting failed. Please fix the issues before committing."
@@ -520,12 +525,14 @@ void MyCustomRule::check(const ast::Node* node, LintContext& context) {
 ```cpp
 #include "linter/rules/MyCustomRule.h"
 
-void Linter::registerDefaultRules() {
+void Linter::addDefaultRules()
+{
     // ... 기존 규칙들 ...
-
-    registerRule(std::make_unique<MyCustomRule>());
+    addRule(std::make_unique<rules::MyCustomRule>());
 }
 ```
+
+`CMakeLists.txt` 의 `LIB_SOURCES` 에 새 `.cpp` 를 추가해야 빌드됩니다.
 
 ---
 

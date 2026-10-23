@@ -88,6 +88,14 @@ public:
     static bool checkFileAccess(const std::string& path, FileOperation operation);
 
     /**
+     * @brief 프로세스 환경변수 변경(쓰기·삭제) 허용 여부
+     *
+     * SANDBOX 모드에서는 거부한다. 환경변수는 이후 실행되는 내장 함수의 동작
+     * (경로 해석, 라이브러리 설정)을 바꿀 수 있기 때문이다.
+     */
+    static bool checkEnvironmentWrite();
+
+    /**
      * @brief 보안 관리자 초기화 (모든 설정 리셋)
      */
     static void reset();

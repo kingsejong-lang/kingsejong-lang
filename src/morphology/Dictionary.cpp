@@ -59,6 +59,10 @@ void Dictionary::initializeDefaultDictionary()
 
     // 조사처럼 동작하는 접미사 (반복/범위 키워드)
     addJosa("번");  // "3번", "n번"처럼 사용됨
+    addJosa("미만");  // "크기미만", "끝미만"
+    addJosa("이상");
+    addJosa("이하");
+    addJosa("초과");
 
     // ========================================
     // 일반 명사 (특수 케이스)

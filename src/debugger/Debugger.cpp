@@ -119,12 +119,62 @@ void Debugger::repl(
             // 명령어 실행
             running = handleCommand(cmd, env, output);
 
+            // run/continue/step/next 는 실행을 다시 시작하라는 뜻이므로 프롬프트를 떠난다
+            if (attached_ && running && state_ != DebuggerState::PAUSED && state_ != DebuggerState::IDLE) {
+                return;
+            }
+
         } catch (const std::exception& e) {
             output << "오류: " << e.what() << "\n";
         }
     }
 
-    output << "디버거를 종료합니다.\n";
+    if (!attached_ || quitRequested_) {
+        output << "디버거를 종료합니다.\n";
+    }
+}
+
+void Debugger::onStatement(ast::Statement* stmt, const std::shared_ptr<evaluator::Environment>& env)
+{
+    if (!stmt || quitRequested_) {
+        return;
+    }
+    // 블록 자체에서 멈추면 첫 문장에서 한 번 더 멈추므로 건너뛴다
+    if (stmt->type() == ast::NodeType::BLOCK_STATEMENT) {
+        return;
+    }
+    const auto& loc = stmt->location();
+    if (!loc.isValid()) {
+        return;
+    }
+
+    // break <file>:<line> 은 열을 1로 저장하므로 같은 모양으로 비교한다
+    error::SourceLocation here(loc.filename, loc.line, 1);
+    if (!shouldPause(here, *env)) {
+        return;
+    }
+
+    *output_ << "\n중단: " << loc.filename << ":" << loc.line << "\n";
+    attached_ = true;
+    repl(nullptr, env, *input_, *output_);
+
+    if (quitRequested_) {
+        throw DebuggerExit();
+    }
+}
+
+void Debugger::onFunctionEnter(const std::string& name, const ast::SourceLocation& callSite,
+                               const std::shared_ptr<evaluator::Environment>& functionEnv)
+{
+    error::SourceLocation loc(callSite.filename, callSite.line, callSite.column);
+    callStack_->push(CallStack::StackFrame(name.empty() ? "<익명 함수>" : name, loc, functionEnv));
+}
+
+void Debugger::onFunctionExit()
+{
+    if (callStack_->depth() > 0) {
+        callStack_->pop();
+    }
 }
 
 // ============================================================================
@@ -320,10 +370,16 @@ bool Debugger::handleCommand(
             break;
 
         case CommandType::QUIT:
+            quitRequested_ = true;
             return false;  // 종료
 
         case CommandType::RUN:
-            output << "run 명령어는 아직 구현되지 않았습니다.\n";
+            if (state_ == DebuggerState::IDLE) {
+                state_ = DebuggerState::RUNNING;
+                output << "프로그램을 시작합니다.\n";
+            } else {
+                output << "프로그램이 이미 실행 중입니다. continue 를 사용하세요.\n";
+            }
             break;
 
         case CommandType::UNKNOWN:

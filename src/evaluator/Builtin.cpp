@@ -35,7 +35,9 @@
 #endif
 
 // SQLite 데이터베이스
+#ifdef KINGSEJONG_HAS_SQLITE
 #include <sqlite3.h>
+#endif
 #include <unordered_map>
 
 #ifdef _WIN32
@@ -230,6 +232,10 @@ static Value builtin_딕셔너리_키들(const std::vector<Value>& args)
         keys.push_back(Value::createString(pair.first));
     }
 
+    // unordered_map 순서는 플랫폼마다 다르므로 키 순으로 정렬해 돌려준다
+    std::sort(keys.begin(), keys.end(), [](const Value& a, const Value& b) {
+        return a.asString() < b.asString();
+    });
     return Value::createArray(keys);
 }
 
@@ -255,9 +261,16 @@ static Value builtin_딕셔너리_값들(const std::vector<Value>& args)
     const auto& dict = args[0].asDictionary();
     std::vector<Value> values;
 
+    // unordered_map 순서는 플랫폼마다 다르므로 키 순으로 값을 돌려준다 (딕셔너리_키들 과 같은 순서)
+    std::vector<std::string> keys;
     for (const auto& pair : dict)
     {
-        values.push_back(pair.second);
+        keys.push_back(pair.first);
+    }
+    std::sort(keys.begin(), keys.end());
+    for (const auto& key : keys)
+    {
+        values.push_back(dict.at(key));
     }
 
     return Value::createArray(values);
@@ -996,6 +1009,10 @@ static Value builtin_줄별_읽기(const std::vector<Value>& args)
     }
 
     std::string filepath = args[0].asString();
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(filepath, security::FileOperation::READ)) {
+        throw std::runtime_error("파일 읽기 권한이 거부되었습니다: " + filepath);
+    }
     std::ifstream file(filepath);
 
     if (!file.is_open()) {
@@ -1065,6 +1082,10 @@ static Value builtin_디렉토리_생성(const std::vector<Value>& args)
     }
 
     std::string dirpath = args[0].asString();
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(dirpath, security::FileOperation::WRITE)) {
+        throw std::runtime_error("디렉토리 생성 권한이 거부되었습니다: " + dirpath);
+    }
 
     if (!std::filesystem::create_directories(dirpath)) {
         // create_directories는 이미 존재하면 false 반환
@@ -1093,6 +1114,10 @@ static Value builtin_디렉토리_삭제(const std::vector<Value>& args)
     }
 
     std::string dirpath = args[0].asString();
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(dirpath, security::FileOperation::DELETE)) {
+        throw std::runtime_error("디렉토리 삭제 권한이 거부되었습니다: " + dirpath);
+    }
 
     if (!std::filesystem::exists(dirpath)) {
         throw std::runtime_error("디렉토리가 존재하지 않습니다: " + dirpath);
@@ -1120,6 +1145,10 @@ static Value builtin_디렉토리_목록(const std::vector<Value>& args)
     }
 
     std::string dirpath = args[0].asString();
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(dirpath, security::FileOperation::READ)) {
+        throw std::runtime_error("디렉토리 읽기 권한이 거부되었습니다: " + dirpath);
+    }
 
     if (!std::filesystem::exists(dirpath)) {
         throw std::runtime_error("디렉토리가 존재하지 않습니다: " + dirpath);
@@ -2113,6 +2142,81 @@ static Value builtin_랜덤_숫자(const std::vector<Value>& args)
 // ============================================================================
 
 /**
+ * @brief 보안 검사를 거치며 HTTP 요청을 보내고, 리다이렉트도 hop 마다 다시 검사한다.
+ *
+ * httplib 의 set_follow_location(true) 는 Location 헤더를 검사 없이 따라가므로,
+ * 공개 URL 이 사설 IP 로 리다이렉트되면 SSRF 차단이 무력화된다. 여기서는 직접
+ * 따라가며 매 hop 의 URL 을 NetworkSecurityManager 에 묻는다. 301/302 뒤의 POST 와
+ * 303 은 브라우저 관례대로 GET 으로 바뀐다.
+ */
+static httplib::Result performHttpRequest(std::string method, std::string url,
+                                          const httplib::Headers& headers, std::string body)
+{
+    constexpr int kMaxRedirects = 5;
+    for (int hop = 0;; ++hop) {
+        if (!security::NetworkSecurityManager::checkHttpAccess(url)) {
+            throw std::runtime_error("접근이 차단된 URL입니다: " + url);
+        }
+
+        // URL 파싱 (http://host[:port]/path 형식)
+        size_t scheme_pos = url.find("://");
+        if (scheme_pos == std::string::npos) {
+            throw std::runtime_error("잘못된 URL 형식입니다. http:// 또는 https://로 시작해야 합니다");
+        }
+        std::string scheme = url.substr(0, scheme_pos);
+        size_t path_pos = url.find('/', scheme_pos + 3);
+        std::string host = (path_pos == std::string::npos)
+            ? url.substr(scheme_pos + 3)
+            : url.substr(scheme_pos + 3, path_pos - (scheme_pos + 3));
+        std::string path = (path_pos == std::string::npos) ? "/" : url.substr(path_pos);
+
+        // HTTP 클라이언트 생성 (현재는 HTTP만 지원)
+        if (scheme != "http") {
+            throw std::runtime_error("현재는 HTTP만 지원합니다 (HTTPS는 향후 추가 예정)");
+        }
+        httplib::Client cli(host);
+        cli.set_follow_location(false);
+
+        httplib::Result res;
+        if (method == "GET") {
+            res = cli.Get(path, headers);
+        } else if (method == "POST") {
+            res = cli.Post(path, headers, body, "application/json");
+        } else if (method == "PUT") {
+            res = cli.Put(path, headers, body, "application/json");
+        } else if (method == "DELETE") {
+            res = cli.Delete(path, headers);
+        } else {
+            throw std::runtime_error("지원하지 않는 HTTP 메서드: " + method);
+        }
+        if (!res) {
+            throw std::runtime_error("HTTP 요청 실패");
+        }
+
+        int status = res->status;
+        bool redirect = status == 301 || status == 302 || status == 303 || status == 307 || status == 308;
+        if (!redirect || !res->has_header("Location")) {
+            return res;
+        }
+        if (hop >= kMaxRedirects) {
+            throw std::runtime_error("리다이렉트가 너무 많습니다: " + url);
+        }
+        std::string location = res->get_header_value("Location");
+        if (location.rfind("http://", 0) == 0 || location.rfind("https://", 0) == 0) {
+            url = location;
+        } else if (!location.empty() && location[0] == '/') {
+            url = scheme + "://" + host + location;
+        } else {
+            throw std::runtime_error("지원하지 않는 Location 헤더입니다: " + location);
+        }
+        if (status == 303 || ((status == 301 || status == 302) && method == "POST")) {
+            method = "GET";
+            body.clear();
+        }
+    }
+}
+
+/**
  * @brief HTTP_GET(URL) - HTTP GET 요청
  *
  * @param args[0] URL (문자열)
@@ -2135,35 +2239,7 @@ static Value builtin_HTTP_GET(const std::vector<Value>& args)
     }
 
     try {
-        // URL 파싱 (http://domain/path 형식)
-        std::string scheme, host, path;
-        size_t scheme_pos = url.find("://");
-        if (scheme_pos == std::string::npos) {
-            throw std::runtime_error("잘못된 URL 형식입니다. http:// 또는 https://로 시작해야 합니다");
-        }
-
-        scheme = url.substr(0, scheme_pos);
-        size_t path_pos = url.find('/', scheme_pos + 3);
-        if (path_pos == std::string::npos) {
-            host = url.substr(scheme_pos + 3);
-            path = "/";
-        } else {
-            host = url.substr(scheme_pos + 3, path_pos - (scheme_pos + 3));
-            path = url.substr(path_pos);
-        }
-
-        // HTTP 클라이언트 생성 (현재는 HTTP만 지원)
-        if (scheme != "http") {
-            throw std::runtime_error("현재는 HTTP만 지원합니다 (HTTPS는 향후 추가 예정)");
-        }
-        auto cli = std::make_unique<httplib::Client>(host);
-
-        cli->set_follow_location(true);
-        auto res = cli->Get(path);
-
-        if (!res) {
-            throw std::runtime_error("HTTP 요청 실패");
-        }
+        httplib::Result res = performHttpRequest("GET", url, httplib::Headers{}, "");
 
         // 결과를 [["key", value], ...] 형태로 생성
         std::vector<Value> result;
@@ -2225,35 +2301,7 @@ static Value builtin_HTTP_POST(const std::vector<Value>& args)
     }
 
     try {
-        // URL 파싱
-        std::string scheme, host, path;
-        size_t scheme_pos = url.find("://");
-        if (scheme_pos == std::string::npos) {
-            throw std::runtime_error("잘못된 URL 형식입니다");
-        }
-
-        scheme = url.substr(0, scheme_pos);
-        size_t path_pos = url.find('/', scheme_pos + 3);
-        if (path_pos == std::string::npos) {
-            host = url.substr(scheme_pos + 3);
-            path = "/";
-        } else {
-            host = url.substr(scheme_pos + 3, path_pos - (scheme_pos + 3));
-            path = url.substr(path_pos);
-        }
-
-        // HTTP 클라이언트 생성 (현재는 HTTP만 지원)
-        if (scheme != "http") {
-            throw std::runtime_error("현재는 HTTP만 지원합니다 (HTTPS는 향후 추가 예정)");
-        }
-        auto cli = std::make_unique<httplib::Client>(host);
-
-        cli->set_follow_location(true);
-        auto res = cli->Post(path, body, "application/json");
-
-        if (!res) {
-            throw std::runtime_error("HTTP 요청 실패");
-        }
+        httplib::Result res = performHttpRequest("POST", url, httplib::Headers{}, body);
 
         // 결과를 [["key", value], ...] 형태로 생성
         std::vector<Value> result;
@@ -2338,48 +2386,7 @@ static Value builtin_HTTP_요청(const std::vector<Value>& args)
     }
 
     try {
-        // URL 파싱
-        std::string scheme, host, path;
-        size_t scheme_pos = url.find("://");
-        if (scheme_pos == std::string::npos) {
-            throw std::runtime_error("잘못된 URL 형식입니다");
-        }
-
-        scheme = url.substr(0, scheme_pos);
-        size_t path_pos = url.find('/', scheme_pos + 3);
-        if (path_pos == std::string::npos) {
-            host = url.substr(scheme_pos + 3);
-            path = "/";
-        } else {
-            host = url.substr(scheme_pos + 3, path_pos - (scheme_pos + 3));
-            path = url.substr(path_pos);
-        }
-
-        // HTTP 클라이언트 생성 (현재는 HTTP만 지원)
-        if (scheme != "http") {
-            throw std::runtime_error("현재는 HTTP만 지원합니다 (HTTPS는 향후 추가 예정)");
-        }
-        auto cli = std::make_unique<httplib::Client>(host);
-
-        cli->set_follow_location(true);
-
-        // 메서드에 따라 요청
-        httplib::Result res;
-        if (method == "GET") {
-            res = cli->Get(path, headers);
-        } else if (method == "POST") {
-            res = cli->Post(path, headers, body, "application/json");
-        } else if (method == "PUT") {
-            res = cli->Put(path, headers, body, "application/json");
-        } else if (method == "DELETE") {
-            res = cli->Delete(path, headers);
-        } else {
-            throw std::runtime_error("지원하지 않는 HTTP 메서드: " + method);
-        }
-
-        if (!res) {
-            throw std::runtime_error("HTTP 요청 실패");
-        }
+        httplib::Result res = performHttpRequest(method, url, headers, body);
 
         // 결과를 [["key", value], ...] 형태로 생성
         std::vector<Value> result;
@@ -2420,6 +2427,7 @@ static Value builtin_HTTP_요청(const std::vector<Value>& args)
 // SQLite 데이터베이스 함수
 // ============================================================================
 
+#ifdef KINGSEJONG_HAS_SQLITE
 // DB 연결 관리
 static std::unordered_map<int64_t, sqlite3*> db_connections;
 static int64_t next_db_id = 1;
@@ -2440,6 +2448,10 @@ static Value builtin_DB_열기(const std::vector<Value>& args)
     }
 
     std::string path = args[0].asString();
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(path, security::FileOperation::WRITE)) {
+        throw std::runtime_error("데이터베이스 열기 권한이 거부되었습니다: " + path);
+    }
     sqlite3* db = nullptr;
 
     int rc = sqlite3_open(path.c_str(), &db);
@@ -2631,6 +2643,7 @@ static Value builtin_DB_영향받은_행수(const std::vector<Value>& args)
     int changes = sqlite3_changes(it->second);
     return Value::createInteger(changes);
 }
+#endif  // KINGSEJONG_HAS_SQLITE
 
 // ============================================================================
 // 테스트 프레임워크 - Assert 함수
@@ -2814,6 +2827,10 @@ static Value builtin_환경변수_쓰기(const std::vector<Value>& args)
     }
 
     std::string name = args[0].asString();
+    // 보안 검사
+    if (!security::SecurityManager::checkEnvironmentWrite()) {
+        throw std::runtime_error("환경변수_쓰기: 샌드박스 모드에서는 환경변수를 변경할 수 없습니다: " + name);
+    }
     std::string value = args[1].asString();
 
 #ifdef _WIN32
@@ -2856,6 +2873,10 @@ static Value builtin_환경변수_삭제(const std::vector<Value>& args)
     }
 
     std::string name = args[0].asString();
+    // 보안 검사
+    if (!security::SecurityManager::checkEnvironmentWrite()) {
+        throw std::runtime_error("환경변수_삭제: 샌드박스 모드에서는 환경변수를 변경할 수 없습니다: " + name);
+    }
 
 #ifdef _WIN32
     _putenv_s(name.c_str(), "");
@@ -2879,6 +2900,10 @@ static Value builtin_디렉토리_변경(const std::vector<Value>& args)
     }
 
     std::string path = args[0].asString();
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(path, security::FileOperation::READ)) {
+        throw std::runtime_error("디렉토리 변경 권한이 거부되었습니다: " + path);
+    }
 
     try {
         std::filesystem::current_path(path);
@@ -2901,6 +2926,10 @@ static Value builtin_디렉토리_나열(const std::vector<Value>& args)
     }
 
     std::string path = args[0].asString();
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(path, security::FileOperation::READ)) {
+        throw std::runtime_error("디렉토리 읽기 권한이 거부되었습니다: " + path);
+    }
 
     try {
         std::vector<Value> entries;
@@ -2926,6 +2955,10 @@ static Value builtin_디렉토리인가(const std::vector<Value>& args)
     }
 
     std::string path = args[0].asString();
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(path, security::FileOperation::READ)) {
+        throw std::runtime_error("경로 조회 권한이 거부되었습니다: " + path);
+    }
 
     try {
         return Value::createBoolean(std::filesystem::is_directory(path));
@@ -3079,6 +3112,10 @@ static Value builtin_파일인가(const std::vector<Value>& args)
     }
 
     std::string path = args[0].asString();
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(path, security::FileOperation::READ)) {
+        throw std::runtime_error("경로 조회 권한이 거부되었습니다: " + path);
+    }
 
     try {
         return Value::createBoolean(std::filesystem::is_regular_file(path));
@@ -3173,6 +3210,10 @@ static Value builtin_경로_존재하는가(const std::vector<Value>& args)
     }
 
     std::string path = args[0].asString();
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(path, security::FileOperation::READ)) {
+        throw std::runtime_error("경로 조회 권한이 거부되었습니다: " + path);
+    }
 
     try {
         return Value::createBoolean(std::filesystem::exists(path));
@@ -3402,12 +3443,14 @@ void Builtin::registerAllBuiltins()
     registerBuiltin("HTTP_요청", builtin_HTTP_요청);
 
     // ========== SQLite 데이터베이스 ==========
+#ifdef KINGSEJONG_HAS_SQLITE
     registerBuiltin("DB_열기", builtin_DB_열기);
     registerBuiltin("DB_닫기", builtin_DB_닫기);
     registerBuiltin("DB_실행", builtin_DB_실행);
     registerBuiltin("DB_쿼리", builtin_DB_쿼리);
     registerBuiltin("DB_마지막_ID", builtin_DB_마지막_ID);
     registerBuiltin("DB_영향받은_행수", builtin_DB_영향받은_행수);
+#endif
 
     // ========== 테스트 프레임워크 ==========
     registerBuiltin("assert", builtin_assert);

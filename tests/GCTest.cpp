@@ -173,7 +173,7 @@ TEST_F(GCTest, ShouldPreserveReachableObjects) {
 TEST_F(GCTest, ShouldHandleComplexObjectGraph) {
     // 복잡한 객체 그래프
     //     root
-    //     / \
+    //     / \ .
     //   A    B
     //   |    |
     //   C    D

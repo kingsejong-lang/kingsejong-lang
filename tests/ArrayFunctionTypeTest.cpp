@@ -57,21 +57,9 @@ TEST(ArrayFunctionTypeTest, ShouldDetectArrayElementTypeMismatch)
     SemanticAnalyzer analyzer;
     bool result = analyzer.analyze(program.get());
 
-    EXPECT_FALSE(result);  // 요소 타입 불일치
-    EXPECT_GT(analyzer.errors().size(), 0);
-
-    // 에러 메시지 확인
-    bool foundError = false;
-    for (const auto& err : analyzer.errors())
-    {
-        if (err.message.find("배열 요소") != std::string::npos &&
-            err.message.find("일치하지") != std::string::npos)
-        {
-            foundError = true;
-            break;
-        }
-    }
-    EXPECT_TRUE(foundError);
+    // 배열은 동적 타입이라 요소 타입이 섞여도 된다 (JSON, [["상태", 200]] 같은 쌍 배열)
+    EXPECT_TRUE(result);
+    EXPECT_EQ(analyzer.errors().size(), 0u);
 }
 
 /**

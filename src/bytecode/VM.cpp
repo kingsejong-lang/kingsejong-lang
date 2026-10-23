@@ -24,7 +24,7 @@ VM::VM()
       instructionCount_(0), maxInstructions_(VM_DEFAULT_MAX_INSTRUCTIONS),
       maxExecutionTime_(VM_DEFAULT_MAX_EXECUTION_TIME_MS),
       maxStackSize_(VM_DEFAULT_MAX_STACK_SIZE),
-      jitEnabled_(true) {  // JIT 기본 활성화
+      jitEnabled_(false) {  // JIT 는 기본 꺼짐. x86-64 Tier 1 이 스택을 깨뜨리므로 (CI 에서 double-free) 명시적으로 켠다
     globals_ = std::make_shared<evaluator::Environment>();
 
     // JIT 컴파일러 초기화

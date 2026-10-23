@@ -88,6 +88,13 @@ public:
     explicit Evaluator(std::shared_ptr<Environment> environment);
 
     /**
+     * @brief 소멸자
+     *
+     * 이 평가기만 쥐고 있던 환경이면 저장소를 비워 전역 함수·클래스가 만든 순환 참조를 끊는다.
+     */
+    ~Evaluator();
+
+    /**
      * @brief AST 노드를 평가
      * @param node 평가할 노드
      * @return 평가 결과 Value
@@ -154,6 +161,12 @@ public:
 
 private:
     std::shared_ptr<Environment> env_;  ///< 변수 저장 환경
+
+    /**
+     * @brief 스코프를 떠날 때 호출. 환경이 자기 안의 함수에만 붙잡혀 있으면 순환을 끊고 핸들을 놓는다
+     * @param scope 호출자가 쥔 마지막 핸들. 돌아오면 비어 있다.
+     */
+    static void leaveScope(std::shared_ptr<Environment>& scope);
     module::ModuleLoader* moduleLoader_ = nullptr;  ///< 모듈 로더
     jit::HotPathDetector* hotPathDetector_ = nullptr;  ///< 핫 패스 감지기
     ExecutionObserver* observer_ = nullptr;  ///< 실행 관찰자 (디버거)

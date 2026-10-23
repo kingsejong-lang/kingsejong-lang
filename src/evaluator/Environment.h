@@ -12,6 +12,8 @@
 #include <string>
 #include <memory>
 #include <stdexcept>
+#include <atomic>
+#include <vector>
 
 namespace kingsejong {
 namespace evaluator {
@@ -28,6 +30,7 @@ class Environment : public std::enable_shared_from_this<Environment>
 private:
     std::unordered_map<std::string, Value> store_;  ///< 변수 저장소
     std::shared_ptr<Environment> outer_;            ///< 외부(부모) 스코프
+    static std::atomic<size_t> liveCount_;          ///< 살아 있는 Environment 개수
 
 public:
     /**
@@ -44,6 +47,30 @@ public:
      * 중첩 스코프를 생성할 때 사용합니다.
      */
     explicit Environment(std::shared_ptr<Environment> outer);
+
+    ~Environment();
+
+    /**
+     * @brief 현재 살아 있는 Environment 개수
+     *
+     * 순환 참조 해제가 실제로 동작하는지 테스트에서 확인하는 용도다.
+     */
+    static size_t liveCount() { return liveCount_.load(); }
+
+    /**
+     * @brief 이 환경이 더 이상 바깥에서 닿을 수 없으면 저장소를 비워 순환 참조를 끊는다
+     * @param externalHandles 호출자가 들고 있는 이 환경의 shared_ptr 개수
+     * @return 저장소를 비웠으면 true
+     *
+     * 함수는 정의된 환경을 shared_ptr 로 강참조하고, 환경은 그 함수를 변수로 저장한다.
+     * 이름 붙은 함수(재귀 포함)를 선언한 스코프는 그래서 refcount 만으로는 영원히 해제되지
+     * 않는다. 스코프를 떠날 때 이 함수를 부르면, 이 환경을 붙잡고 있는 참조가 전부
+     * 저장소 안에서 출발한 것(저장소 → 함수 → closure → 이 환경)인지 참조 수를 대조한다.
+     * 그렇다면 호출자가 손을 놓는 순간 아무도 닿을 수 없는 쓰레기이므로 저장소를 비운다.
+     * 반환값, 바깥 변수, 다른 환경 등 어디서든 한 번이라도 더 참조되면 손대지 않는다
+     * (보수적: 잘못 비우는 일은 없고, 못 비우는 일만 있을 수 있다).
+     */
+    bool releaseIfUnreachable(size_t externalHandles);
 
     /**
      * @brief 변수 설정
@@ -110,7 +137,7 @@ public:
      * @brief 외부 스코프 반환
      * @return 외부 스코프 (없으면 nullptr)
      */
-    std::shared_ptr<Environment> outer() const { return outer_; }
+    const std::shared_ptr<Environment>& outer() const { return outer_; }
 
     /**
      * @brief 저장된 변수 개수 (현재 스코프만)

@@ -18,6 +18,14 @@ namespace repl {
 // 메인 REPL 루프
 // ============================================================================
 
+Repl::~Repl()
+{
+    if (env_)
+    {
+        env_->releaseIfUnreachable(1);
+    }
+}
+
 void Repl::start()
 {
     // 전역 환경 생성

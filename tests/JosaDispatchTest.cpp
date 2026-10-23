@@ -102,3 +102,24 @@ TEST(JosaDispatchTest, ArrayConcatenationAndNullLiteral)
     auto n = run("값 = 없음\n", "값");
     EXPECT_TRUE(n.isNull());
 }
+
+// "값을 문자열로 변환한다" 는 문자열(값). 로/으로 뒤의 이름이 내장·사용자 함수면 그 함수를 부른다.
+TEST(JosaDispatchTest, ConversionIdiomCallsNamedFunction)
+{
+    EXPECT_EQ(run("결과 = 5를 문자열로 변환한다\n", "결과").asString(), "5");
+    EXPECT_EQ(run("결과 = \"12\"를 정수로 변환한다\n", "결과").asInteger(), 12);
+    EXPECT_DOUBLE_EQ(run("결과 = \"2.5\"를 실수로 바꾼다\n", "결과").asFloat(), 2.5);
+    EXPECT_EQ(run("함수 두배(x) { 반환 x * 2 }\n결과 = 21을 두배로 변환한다\n", "결과").asInteger(), 42);
+    EXPECT_THROW(run("결과 = 5를 없는함수로 변환한다\n", "결과"), std::exception);
+}
+
+// 조사는 바로 뒤의 동사 하나에만 붙는다: "x를 f() + 1" 은 "(x를 f()) + 1".
+TEST(JosaDispatchTest, JosaBindsTighterThanBinaryOperators)
+{
+    EXPECT_EQ(run("결과 = 5를 문자열로 변환한다 + \"점\"\n", "결과").asString(), "5점");
+    EXPECT_EQ(run("결과 = \"a\" + 5를 문자열로 변환한다 + \"b\"\n", "결과").asString(), "a5b");
+    EXPECT_EQ(run("결과 = \"3\"을 정수로 변환한다 * 2 + 1\n", "결과").asInteger(), 7);
+    EXPECT_TRUE(run("결과 = [1, 2, 3]을 길이 == 3\n", "결과").asBoolean());
+    // 범위 반복은 그대로 동작한다
+    EXPECT_EQ(run("합 = 0\ni가 1부터 3까지 { 합 = 합 + i }\n", "합").asInteger(), 6);
+}

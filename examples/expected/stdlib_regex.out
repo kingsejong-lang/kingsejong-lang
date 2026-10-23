@@ -1,0 +1,119 @@
+=== stdlib/regex 모듈 예제 ===
+
+1. 기본 패턴 매칭
+텍스트: hello123
+  영문숫자인가? 참
+  영문인가? 거짓
+  숫자인가? 거짓
+
+텍스트: 12345
+  숫자인가? 참
+
+2. 정규표현식 검색
+문장: The price is 1000 won and 2000 won
+  숫자 포함? 참
+  'price' 포함? 참
+
+3. 모든 일치 항목 찾기
+  추출된 숫자들:
+[1000, 2000]
+
+4. 정규표현식 치환
+  원본: Hello World! Hello KingSejong!
+  치환 후: 안녕 World! 안녕 KingSejong!
+
+5. 정규표현식 분리
+  원본: apple,banana,orange,grape
+  분리 결과:
+[apple, banana, orange, grape]
+
+6. 이메일 검증
+  test@example.com -> 참
+  invalid-email -> 거짓
+
+7. URL 검증
+  https://example.com -> 참
+  http://test.org/path -> 참
+  not-a-url -> 거짓
+
+8. 전화번호 검증
+  010-1234-5678 -> 참
+  02-123-4567 -> 참
+  01012345678 -> 거짓
+
+9. 정규표현식 추출 (첫 번째 일치)
+  텍스트: Error code: 404, Warning code: 500
+  첫 번째 숫자: 404
+
+10. 정규표현식 개수
+  숫자 개수: 2
+
+11. 편의 함수 - 숫자 추출
+  텍스트: I have 3 apples and 5 oranges
+  추출된 숫자:
+[3, 5]
+
+12. 편의 함수 - 단어 추출
+  텍스트: Hello 세종 World 한글
+  추출된 단어:
+[Hello, 세종, World, 한글]
+
+13. 공백 처리
+  원본: '  Hello    World   '
+  공백 제거: 'HelloWorld'
+  연속 공백 정리: ' Hello World '
+
+14. 특수문자 제거
+  원본: Hello! @World# 123$%
+  제거 후: Hello World 123
+
+15. 이메일 추출
+  텍스트: Contact us at info@example.com or support@test.org
+  추출된 이메일:
+[info@example.com, support@test.org]
+
+16. URL 추출
+  텍스트: Visit https://example.com and http://test.org/page
+  추출된 URL:
+[https://example.com, http://test.org/page]
+
+17. 전화번호 추출
+  텍스트: Call 010-1234-5678 or 02-987-6543
+  추출된 전화번호:
+[010-1234-5678, 02-987-6543]
+
+18. 날짜/시간 형식 검증
+  2025-11-15 -> 참
+  2025/11/15 -> 거짓
+  14:30:00 -> 참
+  14:30 -> 거짓
+
+19. 비밀번호 강도 검사
+  password -> 강도: 0
+  Password123 -> 강도: 1
+  P@ssw0rd!2024 -> 강도: 2
+
+20. HTML 태그 제거
+  원본: <p>Hello <strong>World</strong>!</p>
+  태그 제거: Hello World!
+
+21. 실전 예제: 로그 파싱
+  로그: [2025-11-15 14:30:00] ERROR: Connection failed (code: 500)
+  날짜: 2025-11-15
+  시간: 14:30:00
+  레벨: ERROR
+  에러 코드: 500
+
+22. 실전 예제: 데이터 정제
+  원본 입력: '  John   Doe  ,  john@example.com  , 010-1234-5678  '
+  공백 정리: ' John Doe , john@example.com , 010-1234-5678 '
+  분리된 필드:
+    [0]  John Doe
+    [1] john@example.com
+    [2] 010-1234-5678 
+
+  검증 결과:
+    이메일 유효: 참
+    전화번호 유효: 거짓
+
+=== 완료 ===

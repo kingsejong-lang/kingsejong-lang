@@ -212,6 +212,11 @@ public:
     const Expression* left() const { return left_.get(); }
     const std::string& op() const { return operator_; }
     const Expression* right() const { return right_.get(); }
+
+    /// 파서가 "x를 f() + 1" 을 "(x를 f()) + 1" 로 다시 묶을 때 왼쪽 피연산자를 바꿔 끼운다
+    Expression* leftMutable() { return left_.get(); }
+    std::unique_ptr<Expression> releaseLeft() { return std::move(left_); }
+    void setLeft(std::unique_ptr<Expression> left) { left_ = std::move(left); }
 };
 
 /**

@@ -1542,8 +1542,27 @@ std::unique_ptr<Expression> Parser::parseJosaExpression(std::unique_ptr<Expressi
 
     nextToken(); // 조사 다음 토큰으로 이동 (메서드/명사)
 
-    // 메서드/명사 파싱
+    // 메서드/명사 파싱. 범위("1부터 10까지")가 올 수 있어 가장 낮은 우선순위로 읽는다.
     auto method = parseExpression(Precedence::LOWEST);
+    if (!method)
+    {
+        return nullptr;
+    }
+
+    // "x를 f() + 1" 은 method 가 (f() + 1) 로 읽힌다. 조사는 바로 뒤의 동사 하나에만 붙으므로
+    // 이항식의 가장 왼쪽 잎을 꺼내 조사 표현식으로 감싸고 제자리에 끼워 ((x를 f()) + 1) 로 만든다.
+    if (auto* binary = dynamic_cast<BinaryExpression*>(method.get()))
+    {
+        BinaryExpression* leftmost = binary;
+        while (auto* inner = dynamic_cast<BinaryExpression*>(leftmost->leftMutable()))
+        {
+            leftmost = inner;
+        }
+        auto josa = std::make_unique<JosaExpression>(std::move(left), josaType, leftmost->releaseLeft(), particle);
+        josa->setLocation(startLoc);
+        leftmost->setLeft(std::move(josa));
+        return method;
+    }
 
     auto expr = std::make_unique<JosaExpression>(std::move(left), josaType, std::move(method), particle);
     expr->setLocation(startLoc);

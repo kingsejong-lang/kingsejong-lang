@@ -1,0 +1,95 @@
+=== KingSejong JSON 예제 ===
+
+1. 기본 JSON 파싱과 문자열화
+JSON 문자열: {"name":"Alice","age":30,"city":"Seoul"}
+파싱 결과 (2D 배열):
+[[age, 30], [city, Seoul], [name, Alice]]
+
+예쁘게 출력:
+{
+  "age": 30,
+  "city": "Seoul",
+  "name": "Alice"
+}
+
+2. JSON object 다루기
+Person object:
+{
+  "age": 25,
+  "job": "Developer",
+  "name": "Bob"
+}
+
+이름: Bob
+나이: 정수
+
+3. JSON object 수정
+도시 추가:
+{
+  "age": 25,
+  "city": "Busan",
+  "job": "Developer",
+  "name": "Bob"
+}
+
+나이 제거:
+{
+  "city": "Busan",
+  "job": "Developer",
+  "name": "Bob"
+}
+
+4. JSON 키와 값 목록
+모든 키:
+[name, age, job]
+모든 값:
+[Bob, 25, Developer]
+
+5. JSON object 병합
+obj1과 obj2 병합:
+{
+  "a": 1,
+  "b": 3,
+  "c": 4
+}
+
+6. JSON 배열 처리
+사용자 목록:
+정수명
+
+7. JSON 파일 저장과 읽기
+JSON 파일 저장 완료: test_data.json
+파일에서 읽은 데이터:
+{
+  "features": [
+    "LSP",
+    "REPL",
+    "JSON"
+  ],
+  "title": "KingSejong 프로젝트",
+  "version": "0.3.2"
+}
+
+프로젝트 제목: KingSejong 프로젝트
+테스트 파일 삭제 완료
+
+8. JSON 키 존재 확인
+debug 키 존재: 논리
+timeout 키 존재: 논리
+
+9. 배열에서 JSON object로 변환
+변환 결과:
+{
+  "나이": 28,
+  "도시": "서울",
+  "이름": "김철수"
+}
+
+10. 실용적인 예제 - 설정 파일 관리
+설정 파일 생성 완료
+앱 이름: MyApp
+포트: 정수
+설정 업데이트 완료
+설정 파일 삭제 완료
+
+=== 완료 ===

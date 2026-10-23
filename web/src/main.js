@@ -74,8 +74,22 @@ async function loadWasmModule() {
 
     try {
         // WASM 모듈 로드 (public 디렉토리에서)
-        const createKingSejong = await import('/kingsejong.js');
-        const module = await createKingSejong.default();
+        // kingsejong.js 는 emscripten MODULARIZE 출력이라 ES 모듈이 아니다. import() 로는
+        // 기본 내보내기가 없고 Vite 빌드도 경로를 해석하지 못하므로, 페이지 URL 기준으로
+        // <script> 태그를 붙여 전역 createKingSejong 을 받는다. 상대 URL 이어야 프로젝트
+        // 페이지(/kingsejong-lang/)에서도 동작한다.
+        const scriptUrl = new URL('kingsejong.js', document.baseURI).href;
+        await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = scriptUrl;
+            script.onload = resolve;
+            script.onerror = () => reject(new Error(`스크립트를 불러오지 못했습니다: ${scriptUrl}`));
+            document.head.appendChild(script);
+        });
+        if (typeof window.createKingSejong !== 'function') {
+            throw new Error('createKingSejong 이 정의되지 않았습니다');
+        }
+        const module = await window.createKingSejong();
 
         // 인터프리터 생성
         interpreter = new module.KingSejongInterpreter();

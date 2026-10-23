@@ -38,7 +38,6 @@ namespace vm {
     constexpr std::string_view UNKNOWN_OPCODE = "알 수 없는 명령어";
     constexpr std::string_view DIVIDE_BY_ZERO = "0으로 나눌 수 없습니다";
     constexpr std::string_view UNKNOWN_BINARY_OP = "알 수 없는 이항 연산자";
-    constexpr std::string_view JIT_EXECUTION_EXCEPTION = "JIT 코드 실행 중 예외: {}";
     constexpr std::string_view STACK_SIZE_EXCEEDED = "최대 스택 크기 초과 ({} 초과). 재귀 호출 또는 메모리 폭주 의심.";
     constexpr std::string_view STACK_UNDERFLOW = "Stack underflow";
     constexpr std::string_view STACK_PEEK_OUT_OF_RANGE = "Stack peek out of range";

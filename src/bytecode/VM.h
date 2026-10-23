@@ -21,11 +21,6 @@
 namespace kingsejong {
 
 // Forward declarations
-namespace jit {
-    class JITCompilerT1;
-    class HotPathDetector;
-    struct NativeFunction;
-}
 
 namespace bytecode {
 
@@ -40,10 +35,6 @@ constexpr int VM_DEFAULT_MAX_EXECUTION_TIME_MS = 5000;      ///< 최대 실행 �
 constexpr size_t VM_DEFAULT_MAX_STACK_SIZE = 10000;         ///< 최대 스택 크기
 /// @}
 
-/// @name JIT 설정
-/// @{
-constexpr int JIT_LOOP_THRESHOLD = 100;                     ///< JIT 컴파일 루프 임계값
-/// @}
 
 /// @name OpCode 인코딩 상수
 /// @{
@@ -97,12 +88,6 @@ private:
     std::chrono::milliseconds maxExecutionTime_; ///< 최대 실행 시간 (기본: 5000ms)
     size_t maxStackSize_;                       ///< 최대 스택 크기 (기본: 10000)
 
-    // JIT 컴파일러
-    std::unique_ptr<jit::JITCompilerT1> jitCompiler_;  ///< JIT Tier 1 컴파일러
-    std::unique_ptr<jit::HotPathDetector> hotPathDetector_;  ///< 핫 패스 감지기
-    bool jitEnabled_;                           ///< JIT 활성화 여부 (기본: true)
-    std::unordered_map<size_t, jit::NativeFunction*> jitCache_;  ///< JIT 캐시 (ip -> NativeFunction)
-
     // Phase 7.1: 클래스 시스템
     std::unordered_map<std::string, std::shared_ptr<evaluator::ClassDefinition>> classes_;  ///< 클래스 정의 맵
     std::vector<std::shared_ptr<evaluator::ClassInstance>> thisStack_;  ///< this 스택 (메서드 호출 시)
@@ -141,23 +126,6 @@ public:
      * @param max 최대 스택 크기
      */
     void setMaxStackSize(size_t max) { maxStackSize_ = max; }
-
-    /**
-     * @brief JIT 활성화 설정
-     * @param enabled true면 JIT 활성화
-     */
-    void setJITEnabled(bool enabled) { jitEnabled_ = enabled; }
-
-    /**
-     * @brief JIT 활성화 여부 반환
-     * @return JIT 활성화 여부
-     */
-    bool isJITEnabled() const { return jitEnabled_; }
-
-    /**
-     * @brief JIT 통계 출력
-     */
-    void printJITStatistics() const;
 
     /**
      * @brief 청크 실행
@@ -304,19 +272,6 @@ private:
     // 산술 연산
     VMResult binaryOp(OpCode op);
 
-    // JIT 관련
-    /**
-     * @brief 루프 감지 및 JIT 컴파일 시도
-     * @param loopStart 루프 시작 주소
-     */
-    void tryJITCompileLoop(size_t loopStart);
-
-    /**
-     * @brief JIT 컴파일된 코드 실행
-     * @param nativeFunc 네이티브 함수
-     * @return 실행 결과
-     */
-    VMResult executeJITCode(jit::NativeFunction* nativeFunc);
 };
 
 } // namespace bytecode

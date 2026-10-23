@@ -6,8 +6,6 @@
  */
 
 #include "VM.h"
-#include "jit/JITCompilerT1.h"
-#include "jit/HotPathDetector.h"
 #include "evaluator/Evaluator.h"
 #include "evaluator/Builtin.h"
 #include "evaluator/Environment.h"
@@ -22,23 +20,11 @@ VM::VM()
     : chunk_(nullptr), ip_(0), traceExecution_(false),
       instructionCount_(0), maxInstructions_(VM_DEFAULT_MAX_INSTRUCTIONS),
       maxExecutionTime_(VM_DEFAULT_MAX_EXECUTION_TIME_MS),
-      maxStackSize_(VM_DEFAULT_MAX_STACK_SIZE),
-      jitEnabled_(false) {  // JIT 는 기본 꺼짐. x86-64 Tier 1 이 스택을 깨뜨리므로 (CI 에서 double-free) 명시적으로 켠다
+      maxStackSize_(VM_DEFAULT_MAX_STACK_SIZE) {
     globals_ = std::make_shared<evaluator::Environment>();
-
-    // JIT 컴파일러 초기화
-    jitCompiler_ = std::make_unique<jit::JITCompilerT1>();
-
-    // Hot Path Detector 초기화
-    hotPathDetector_ = std::make_unique<jit::HotPathDetector>();
-    hotPathDetector_->setLoopThreshold(JIT_LOOP_THRESHOLD);
 }
 
-VM::~VM() {
-    // JIT 캐시 정리 (NativeFunction은 JITCompiler가 관리)
-    jitCache_.clear();
-    // unique_ptr이 자동으로 JIT 컴파일러와 Hot Path Detector를 정리합니다
-}
+VM::~VM() = default;
 
 VMResult VM::run(Chunk* chunk) {
     chunk_ = chunk;
@@ -259,84 +245,6 @@ VMResult VM::binaryOp(OpCode op) {
     }
 
     return VMResult::OK;
-}
-
-void VM::tryJITCompileLoop(size_t loopStart) {
-    // 루프 끝 찾기 (현재 IP가 루프 끝)
-    size_t loopEnd = ip_;
-
-    // 루프 범위 검증
-    if (loopStart >= loopEnd || loopEnd > chunk_->size()) {
-        return;
-    }
-
-    // JIT 컴파일
-    jit::NativeFunction* nativeFunc = jitCompiler_->compileLoop(chunk_, loopStart, loopEnd);
-
-    if (nativeFunc) {
-        jitCache_[loopStart] = nativeFunc;
-        hotPathDetector_->markJITCompiled(loopStart, jit::HotPathType::LOOP, jit::JITTier::TIER_1);
-    }
-}
-
-VMResult VM::executeJITCode(jit::NativeFunction* nativeFunc) {
-    if (!nativeFunc || !nativeFunc->code) {
-        return VMResult::RUNTIME_ERROR;
-    }
-
-    try {
-        // 스택을 int64_t 배열로 변환
-        // JIT 실행 중 스택이 증가할 수 있으므로 최대 스택 크기만큼 할당
-        std::vector<int64_t> jitStack(maxStackSize_);
-        for (size_t i = 0; i < stack_.size(); i++) {
-            if (stack_[i].isInteger()) {
-                jitStack[i] = stack_[i].asInteger();
-            } else if (stack_[i].isFloat()) {
-                jitStack[i] = static_cast<int64_t>(stack_[i].asFloat());
-            } else if (stack_[i].isBoolean()) {
-                jitStack[i] = stack_[i].asBoolean() ? 1 : 0;
-            } else {
-                jitStack[i] = 0;
-            }
-        }
-
-        // JIT 코드 실행
-        // 첫 번째 인자: 스택 버퍼 포인터 (충분한 크기 확보됨)
-        // 두 번째 인자: 현재 스택의 유효 데이터 개수 (x9 초기값)
-        auto funcPtr = nativeFunc->getFunction();
-        int64_t result = funcPtr(jitStack.data(), stack_.size());
-
-        // 스택을 비우고 결과 + cleanup을 위한 dummy 값들 push
-        // 인터프리터 HALT 시: [i, sum] (스택 크기=2)
-        // JIT는 [result, dummy, dummy]로 push → POP 2번 → [result]
-        // 주의: 스택은 LIFO이므로 순서가 중요!
-        stack_.clear();
-        stack_.push_back(evaluator::Value::createInteger(result));  // sum (bottom)
-        stack_.push_back(evaluator::Value::createInteger(0));       // dummy (i)
-        stack_.push_back(evaluator::Value::createInteger(0));       // dummy (condition) (top)
-
-        nativeFunc->executionCount++;
-        return VMResult::OK;
-    } catch (const std::exception& e) {
-        Logger::error(Logger::formatString(std::string(error::vm::JIT_EXECUTION_EXCEPTION), e.what()));
-        return VMResult::RUNTIME_ERROR;
-    }
-}
-
-void VM::printJITStatistics() const {
-    Logger::info("\n=== VM JIT Statistics ===");
-    Logger::info("JIT Enabled: " + std::string(jitEnabled_ ? "Yes" : "No"));
-    Logger::info("JIT Cache Size: " + std::to_string(jitCache_.size()));
-
-    if (jitCompiler_) {
-        jitCompiler_->printStatistics();
-    }
-
-    if (hotPathDetector_) {
-        hotPathDetector_->printStatistics();
-    }
-
-    Logger::info("=========================\n");
 }
 
 // ============================================================================
@@ -569,33 +477,6 @@ VMResult VM::executeControlFlowOps(OpCode instruction) {
 
         case OpCode::LOOP: {
             uint8_t offset = readByte();
-            size_t loopStart = ip_ - offset;
-
-            // JIT 컴파일 및 실행
-            if (jitEnabled_) {
-                // 루프 백엣지 추적
-                hotPathDetector_->trackLoopBackedge(loopStart);
-
-                // JIT 캐시 확인
-                auto it = jitCache_.find(loopStart);
-
-                if (it != jitCache_.end()) {
-                    // JIT 코드 실행
-                    VMResult jitResult = executeJITCode(it->second);
-
-                    if (jitResult == VMResult::OK) {
-                        ip_ = it->second->exitOffset - 1;
-                        break;
-                    } else {
-                        Logger::warn("[VM] JIT 실행 실패, 인터프리터로 폴백");
-                    }
-                } else if (hotPathDetector_->isHot(loopStart, jit::HotPathType::LOOP)) {
-                    // 핫 루프 컴파일
-                    tryJITCompileLoop(loopStart);
-                }
-            }
-
-            // 인터프리터 폴백
             ip_ -= offset;
             break;
         }
@@ -638,11 +519,6 @@ VMResult VM::executeControlFlowOps(OpCode instruction) {
             int64_t encoded = funcVal.asInteger();
             size_t funcAddr = static_cast<size_t>((encoded >> 8) & FUNC_ADDR_MASK);
 
-            // Hot Function 추적 (JIT 활성화 시). 함수 단위 컴파일(옛 Tier 2)은 네이티브 코드를
-            // 만들지 못한 채 제거됐고, 지금은 루프 단위 Tier 1 만 있다.
-            if (jitEnabled_ && hotPathDetector_) {
-                hotPathDetector_->trackFunctionCall("func_" + std::to_string(funcAddr), funcAddr);
-            }
 
             // CallFrame 저장
             frames_.push_back({ip_, stack_.size() - argCount});

@@ -48,7 +48,6 @@ set(LIB_SOURCES
     src/bytecode/Compiler.cpp
     src/bytecode/VM.cpp
     src/jit/HotPathDetector.cpp
-    src/jit/JITCompilerT1.cpp
     src/security/SecurityManager.cpp
     src/security/NetworkSecurityManager.cpp
     src/error/ErrorReporter.cpp
@@ -95,7 +94,7 @@ target_include_directories(kingsejong_lib PUBLIC
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/include
 )
-target_link_libraries(kingsejong_lib PUBLIC nlohmann_json::nlohmann_json asmjit::asmjit)
+target_link_libraries(kingsejong_lib PUBLIC nlohmann_json::nlohmann_json)
 
 # SQLite 는 선택이다. 없으면 DB_* 내장 함수가 등록되지 않는다 (Windows 러너처럼 헤더가 없는 환경).
 find_package(SQLite3)
@@ -159,7 +158,7 @@ foreach(_dep gtest gmock gtest_main gmock_main)
             set_target_properties(${_dep} PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_inc}")
         endif()
         # googletest 자체를 컴파일할 때도 위의 -Werror 가 적용된다. 서드파티 코드의 경고로
-        # 우리 빌드가 깨지지 않게 한다 (asmjit 과 같은 처리).
+        # 우리 빌드가 깨지지 않게 한다.
         if(NOT MSVC)
             target_compile_options(${_dep} PRIVATE -Wno-error)
         endif()
@@ -174,28 +173,10 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(json)
 
-# asmjit 설정 (JIT 컴파일러용)
-FetchContent_Declare(
-    asmjit
-    GIT_REPOSITORY https://github.com/asmjit/asmjit.git
-    # master 를 따라가면 API 변경(error_as_string -> stringify_error 등)으로 빌드가 깨진다.
-    # 2026-10-16 커밋에 고정한다. 올릴 때는 src/jit 의 호출을 함께 확인한다.
-    GIT_TAG 0464e1c8f1f43c861a0c73d4e59437fff255cdd9
-)
-set(ASMJIT_STATIC TRUE CACHE BOOL "" FORCE)
-set(ASMJIT_NO_CUSTOM_FLAGS TRUE CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(asmjit)
-
-# asmjit의 엄격한 경고 비활성화
-if(TARGET asmjit AND NOT MSVC)
-    target_compile_options(asmjit PRIVATE -Wno-error -Wno-gnu-anonymous-struct -Wno-nested-anon-types)
-endif()
-
 # 테스트 파일 수집
 file(GLOB_RECURSE TEST_SOURCES "tests/*.cpp")
-# manual_lexer_test.cpp, SimpleJITTest.cpp는 main 함수가 있으므로 제외
+# manual_lexer_test.cpp 는 main 함수가 있으므로 제외
 list(FILTER TEST_SOURCES EXCLUDE REGEX "manual_lexer_test\\.cpp$")
-list(FILTER TEST_SOURCES EXCLUDE REGEX "SimpleJITTest\\.cpp$")
 
 if(TEST_SOURCES)
     # 테스트 실행 파일 생성
@@ -265,10 +246,10 @@ if(EMSCRIPTEN)
     message(STATUS "Building for WebAssembly with Emscripten")
 
     # WASM 용 라이브러리 소스: 네이티브 라이브러리와 같은 목록에서 브라우저에 없는 것만 뺀다.
-    # jit(asmjit 네이티브 코드), lsp·debugger·repl(stdin/소켓 기반 도구), linter·formatter·profiler·config(CLI 전용).
+    # lsp·debugger·repl(stdin/소켓 기반 도구), linter·formatter·profiler·config(CLI 전용).
     set(WASM_LIB_SOURCES ${LIB_SOURCES})
     list(FILTER WASM_LIB_SOURCES EXCLUDE REGEX "src/(jit|lsp|debugger|repl|linter|formatter|profiler|config)/")
-    # 핫 패스 감지기는 평가기가 부르는 카운터일 뿐 asmjit 을 쓰지 않으므로 남긴다.
+    # 핫 패스 감지기는 평가기가 부르는 카운터라 남긴다.
     list(APPEND WASM_LIB_SOURCES src/jit/HotPathDetector.cpp)
 
     # WASM 라이브러리 생성

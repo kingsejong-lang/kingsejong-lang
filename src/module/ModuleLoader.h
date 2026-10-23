@@ -97,6 +97,11 @@ public:
     void clearCache();
 
     /**
+     * @brief 소멸자. 캐시된 모듈 환경의 순환 참조를 끊고 비운다
+     */
+    ~ModuleLoader();
+
+    /**
      * @brief 모듈이 캐시되어 있는지 확인
      * @param modulePath 모듈 경로
      * @return 캐시 여부

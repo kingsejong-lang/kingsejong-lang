@@ -73,10 +73,10 @@ public:
 
     const std::vector<std::string>& parameters() const { return parameters_; }
     ast::Statement* body() const { return body_; }
-    std::shared_ptr<Environment> closure() const { return closure_; }
+    const std::shared_ptr<Environment>& closure() const { return closure_; }
     bool isBuiltin() const { return isBuiltin_; }
     bool isAsync() const { return isAsync_; }
-    std::shared_ptr<ClassDefinition> classDef() const { return classDef_; }
+    const std::shared_ptr<ClassDefinition>& classDef() const { return classDef_; }
 
     void setClassDef(std::shared_ptr<ClassDefinition> classDef) { classDef_ = classDef; }
 };
@@ -150,7 +150,7 @@ public:
     const std::string& className() const { return className_; }
     const std::vector<std::string>& fieldNames() const { return fieldNames_; }
     const std::unordered_map<std::string, std::shared_ptr<Function>>& methods() const { return methods_; }
-    std::shared_ptr<Function> constructor() const { return constructor_; }
+    const std::shared_ptr<Function>& constructor() const { return constructor_; }
     const std::string& superClass() const { return superClass_; }
 
     /**
@@ -341,6 +341,13 @@ private:
     ValueData data_;        ///< 실제 데이터
 
 public:
+    /**
+     * @brief 내부 데이터 접근 (복사 없음)
+     *
+     * 참조 수를 바꾸지 않고 안에 든 shared_ptr 를 들여다봐야 하는 곳(순환 참조 해제)에서 쓴다.
+     */
+    const ValueData& data() const { return data_; }
+
     /**
      * @brief 기본 생성자
      *

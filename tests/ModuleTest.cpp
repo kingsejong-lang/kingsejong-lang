@@ -268,16 +268,19 @@ TEST_F(ModuleTestFixture, ShouldLoadModuleWithFunctions)
 
     EXPECT_TRUE(parser.errors().empty());
 
-    auto env = std::make_shared<Environment>();
-    Evaluator evaluator(env);
-
+    // 로더가 모듈 환경을 풀려면 가져온 함수를 쥔 이 환경이 먼저 비워져야 한다:
+    // 로더 → 환경 → 평가기 순으로 만들어 역순으로 정리되게 한다.
     ModuleLoader loader(testModulePath_);
-    evaluator.setModuleLoader(&loader);
+    auto env = std::make_shared<Environment>();
+    {
+        Evaluator evaluator(env);
+        evaluator.setModuleLoader(&loader);
+        evaluator.evalProgram(program.get());
 
-    evaluator.evalProgram(program.get());
-
-    EXPECT_EQ(env->get("sum").asInteger(), 7);
-    EXPECT_EQ(env->get("product").asInteger(), 30);
+        EXPECT_EQ(env->get("sum").asInteger(), 7);
+        EXPECT_EQ(env->get("product").asInteger(), 30);
+    }
+    env->releaseIfUnreachable(1);
 }
 
 /**

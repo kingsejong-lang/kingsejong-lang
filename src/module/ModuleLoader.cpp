@@ -224,7 +224,26 @@ std::string ModuleLoader::resolvePath(const std::string& modulePath, const std::
 
 void ModuleLoader::clearCache()
 {
+    // 모듈 환경은 자기 함수들에 붙잡혀 있어 그냥 지우면 남는다. 모듈 A 가 B 의 함수를
+    // 들고 있으면 B 는 A 가 비워진 뒤에야 풀리므로, 더 풀리는 것이 없을 때까지 반복한다.
+    bool progressed = true;
+    while (progressed)
+    {
+        progressed = false;
+        for (auto& [key, entry] : cache_)
+        {
+            if (entry.env && entry.env->releaseIfUnreachable(1))
+            {
+                progressed = true;
+            }
+        }
+    }
     cache_.clear();
+}
+
+ModuleLoader::~ModuleLoader()
+{
+    clearCache();
 }
 
 bool ModuleLoader::isCached(const std::string& modulePath) const

@@ -23,9 +23,15 @@ evaluator::Value run(const std::string& code, const std::string& var)
         throw std::runtime_error("parse: " + parser.errors()[0]);
     }
     auto env = std::make_shared<evaluator::Environment>();
-    evaluator::Evaluator ev(env);
-    ev.evalProgram(program.get());
-    return env->get(var);
+    evaluator::Value result;
+    {
+        evaluator::Evaluator ev(env);
+        ev.evalProgram(program.get());
+        result = env->get(var);
+    }
+    // 환경을 평가기와 같이 들고 있었으므로 소유자가 직접 순환 참조를 끊는다.
+    env->releaseIfUnreachable(1);
+    return result;
 }
 
 } // namespace

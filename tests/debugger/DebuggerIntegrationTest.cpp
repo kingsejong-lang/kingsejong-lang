@@ -33,8 +33,7 @@ std::string runWithDebugger(const std::string& code, int breakLine, const std::s
     dbg.getBreakpoints().add(error::SourceLocation("dbg.ksj", breakLine, 1));
     dbg.continueExecution();  // run 과 같은 상태
 
-    auto env = std::make_shared<evaluator::Environment>();
-    evaluator::Evaluator ev(env);
+    evaluator::Evaluator ev(std::make_shared<evaluator::Environment>());
     ev.setObserver(&dbg);
     try {
         ev.evalProgram(program.get());

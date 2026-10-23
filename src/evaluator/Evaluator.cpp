@@ -33,6 +33,21 @@ Evaluator::Evaluator(std::shared_ptr<Environment> environment)
 {
 }
 
+Evaluator::~Evaluator()
+{
+    // 환경을 바깥과 같이 쓰는 경우(REPL, 모듈 로더)는 use_count 가 맞지 않아 손대지 않는다.
+    leaveScope(env_);
+}
+
+void Evaluator::leaveScope(std::shared_ptr<Environment>& scope)
+{
+    if (scope)
+    {
+        scope->releaseIfUnreachable(1);
+        scope.reset();
+    }
+}
+
 // ============================================================================
 // 메인 평가 함수
 // ============================================================================
@@ -590,6 +605,7 @@ Value Evaluator::evalPromiseMethodCall(
 
         // 환경 복원
         env_ = previousEnv;
+        leaveScope(funcEnv);
 
         return result;
     };
@@ -705,6 +721,7 @@ Value Evaluator::evalClassMethodCall(
 
     // 환경 복원
     env_ = previousEnv;
+    leaveScope(methodEnv);
 
     return result;
 }
@@ -764,6 +781,7 @@ Value Evaluator::evalConstructorCall(
 
         // 환경 복원
         env_ = previousEnv;
+        leaveScope(ctorEnv);
     }
 
     return Value::createClassInstance(instance);
@@ -832,11 +850,13 @@ Value Evaluator::evalRegularFunctionCall(
     catch (...)
     {
         env_ = previousEnv;
+        leaveScope(funcEnv);
         throw;
     }
 
     // 환경 복원
     env_ = previousEnv;
+    leaveScope(funcEnv);
 
     // Hot Path Tracking: 실행 시간 기록
     if (hotPathDetector_)
@@ -1566,10 +1586,20 @@ Value Evaluator::evalTryStatement(ast::TryStatement* stmt)
                  Value::createString(caughtError.toString()));
 
         // Catch 블록 실행
-        result = eval(const_cast<ast::BlockStatement*>(catchClause->body()));
+        try
+        {
+            result = eval(const_cast<ast::BlockStatement*>(catchClause->body()));
+        }
+        catch (...)
+        {
+            env_ = prevEnv;
+            leaveScope(catchEnv);
+            throw;
+        }
 
         // 환경 복원
         env_ = prevEnv;
+        leaveScope(catchEnv);
 
         errorCaught = true;  // 에러가 처리됨
     }
@@ -1650,9 +1680,11 @@ Value Evaluator::callValue(const Value& callee, const std::vector<Value>& args,
     catch (...)
     {
         env_ = previousEnv;
+        leaveScope(funcEnv);
         throw;
     }
     env_ = previousEnv;
+    leaveScope(funcEnv);
 
     if (func->isAsync())
     {
@@ -2168,8 +2200,19 @@ Value Evaluator::evalMatchExpression(ast::MatchExpression* node)
 
             auto prevEnv = env_;
             env_ = caseEnv;
-            Value result = eval(const_cast<ast::Expression*>(matchCase.body()));
+            Value result;
+            try
+            {
+                result = eval(const_cast<ast::Expression*>(matchCase.body()));
+            }
+            catch (...)
+            {
+                env_ = prevEnv;
+                leaveScope(caseEnv);
+                throw;
+            }
             env_ = prevEnv;
+            leaveScope(caseEnv);
             return result;
         }
     }

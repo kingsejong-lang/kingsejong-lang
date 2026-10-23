@@ -182,7 +182,7 @@ TEST_F(ModuleTestFixture, ShouldSearchAdditionalPaths)
 
     auto candidates = loader.candidatePaths("extra");
     ASSERT_GE(candidates.size(), 2u);
-    EXPECT_EQ(candidates[0], (std::filesystem::path(testModulePath_) / "lib" / "extra.ksj").lexically_normal().string());
+    EXPECT_EQ(candidates[0], (std::filesystem::path(testModulePath_) / "lib" / "extra.ksj").lexically_normal().generic_string());
 }
 
 /**

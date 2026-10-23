@@ -180,7 +180,7 @@ TEST_F(OSTest, ShouldGetAbsolutePath)
 TEST_F(OSTest, ShouldCheckPathExists)
 {
     // Arrange - 테스트 파일 생성
-    std::string test_file = (test_dir_ / "test_path.txt").string();
+    std::string test_file = (test_dir_ / "test_path.txt").generic_string();
     std::ofstream file(test_file);
     file << "test";
     file.close();
@@ -226,10 +226,10 @@ TEST_F(OSTest, ShouldGetTemporaryDirectory)
 TEST_F(OSTest, ShouldCheckIsDirectory)
 {
     // Arrange - 테스트 디렉토리와 파일 생성
-    std::string test_subdir = (test_dir_ / "subdir").string();
+    std::string test_subdir = (test_dir_ / "subdir").generic_string();
     std::filesystem::create_directories(test_subdir);
 
-    std::string test_file = (test_dir_ / "file.txt").string();
+    std::string test_file = (test_dir_ / "file.txt").generic_string();
     std::ofstream file(test_file);
     file << "test";
     file.close();
@@ -257,7 +257,7 @@ TEST_F(OSTest, ShouldCheckIsDirectory)
 TEST_F(OSTest, ShouldCheckFileExists)
 {
     // Arrange - 테스트 파일 생성
-    std::string test_file = (test_dir_ / "exists_test.txt").string();
+    std::string test_file = (test_dir_ / "exists_test.txt").generic_string();
     std::ofstream file(test_file);
     file << "test";
     file.close();
@@ -276,12 +276,12 @@ TEST_F(OSTest, ShouldCheckFileExists)
 TEST_F(OSTest, ShouldCheckIsFile)
 {
     // Arrange
-    std::string test_file = (test_dir_ / "file_test.txt").string();
+    std::string test_file = (test_dir_ / "file_test.txt").generic_string();
     std::ofstream file(test_file);
     file << "test";
     file.close();
 
-    std::string test_subdir = (test_dir_ / "subdir_test").string();
+    std::string test_subdir = (test_dir_ / "subdir_test").generic_string();
     std::filesystem::create_directories(test_subdir);
 
     // Act & Assert - 파일
@@ -298,7 +298,7 @@ TEST_F(OSTest, ShouldCheckIsFile)
 TEST_F(OSTest, ShouldGetFileSize)
 {
     // Arrange - 특정 크기의 파일 생성
-    std::string test_file = (test_dir_ / "size_test.txt").string();
+    std::string test_file = (test_dir_ / "size_test.txt").generic_string();
     std::ofstream file(test_file);
     std::string content = "Hello, World!"; // 13 bytes (ASCII)
     file << content;
@@ -315,12 +315,12 @@ TEST_F(OSTest, ShouldGetFileSize)
 TEST_F(OSTest, ShouldCopyFile)
 {
     // Arrange - 원본 파일 생성
-    std::string src_file = (test_dir_ / "source.txt").string();
+    std::string src_file = (test_dir_ / "source.txt").generic_string();
     std::ofstream file(src_file);
     file << "원본 내용";
     file.close();
 
-    std::string dest_file = (test_dir_ / "destination.txt").string();
+    std::string dest_file = (test_dir_ / "destination.txt").generic_string();
 
     // Act
     evaluate("파일_복사(\"" + src_file + "\", \"" + dest_file + "\")");
@@ -339,12 +339,12 @@ TEST_F(OSTest, ShouldCopyFile)
 TEST_F(OSTest, ShouldMoveFile)
 {
     // Arrange - 원본 파일 생성
-    std::string src_file = (test_dir_ / "move_source.txt").string();
+    std::string src_file = (test_dir_ / "move_source.txt").generic_string();
     std::ofstream file(src_file);
     file << "이동할 내용";
     file.close();
 
-    std::string dest_file = (test_dir_ / "move_destination.txt").string();
+    std::string dest_file = (test_dir_ / "move_destination.txt").generic_string();
 
     // Act
     evaluate("파일_이동(\"" + src_file + "\", \"" + dest_file + "\")");

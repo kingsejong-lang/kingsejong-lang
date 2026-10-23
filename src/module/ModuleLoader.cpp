@@ -135,7 +135,8 @@ std::vector<std::string> ModuleLoader::candidatePaths(const std::string& moduleP
 
     std::vector<std::string> out;
     auto push = [&out](const fs::path& candidate) {
-        std::string s = candidate.lexically_normal().string();
+        // 구분자는 / 로 통일한다 (Windows 에서도 "dir/mod.ksj" 꼴). 파일 API 는 둘 다 받는다.
+        std::string s = candidate.lexically_normal().generic_string();
         if (std::find(out.begin(), out.end(), s) == out.end())
         {
             out.push_back(s);
@@ -259,7 +260,7 @@ std::string ModuleLoader::cacheKey(const std::string& resolvedPath) const
     {
         return resolvedPath;
     }
-    return canonical.string();
+    return canonical.generic_string();
 }
 
 bool ModuleLoader::fileExists(const std::string& path) const

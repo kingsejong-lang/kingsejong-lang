@@ -51,6 +51,8 @@ def main() -> int:
                     help="인터프리터에 넘길 플래그 (예: --interpreter-flag=--vm)")
     ap.add_argument("--known-failures", type=Path, default=None,
                     help="기대 실패 목록 파일 (기본 <expected-dir>/KNOWN_FAILURES)")
+    ap.add_argument("--exclude", action="append", default=[],
+                    help="이 빌드에서 돌릴 수 없는 예제 파일 이름 (예: SQLite 없는 빌드의 stdlib_db.ksj)")
     args = ap.parse_args()
 
     if not args.interpreter.is_file():
@@ -70,6 +72,9 @@ def main() -> int:
     passed = 0
     for example in examples:
         name = example.name
+        if name in args.exclude:
+            print(f"EXCLUDED {name} (이 빌드에서는 돌리지 않는다)")
+            continue
         expected_path = args.expected_dir / (example.stem + ".out")
         try:
             code, out, err = run_one(args.interpreter, args.interpreter_flag, example, args.timeout)

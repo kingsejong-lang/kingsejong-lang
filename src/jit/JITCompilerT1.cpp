@@ -180,7 +180,12 @@ NativeFunction* JITCompilerT1::compileRange_x64(void* codePtr, bytecode::Chunk* 
     // rsi: stack size (size_t)
     std::cerr << "[JIT] Emitting prologue\n";
 
+    // System V x86-64: rbp, rbx, r12 는 callee-saved 다. 저장하지 않고 쓰면 호출자(VM)의 레지스터가
+    // 깨져 세그폴트가 난다 (Linux CI 에서 재현). push 3개 + 반환 주소 = 32바이트라 정렬도 맞는다.
+    a.push(rbp);
     a.mov(rbp, rsp);
+    a.push(r12);
+    a.push(rbx);
     a.mov(r12, rsi);  // 가상 스택 포인터를 현재 스택 크기로 초기화 (r12 = rsi)
 
     Logger::debug("[JIT] Prologue emitted");
@@ -671,6 +676,8 @@ epilogue:
 
     // 함수 에필로그
     std::cerr << "[JIT] Emitting epilogue\n";
+    a.pop(rbx);
+    a.pop(r12);
     a.pop(rbp);
     a.ret();
 

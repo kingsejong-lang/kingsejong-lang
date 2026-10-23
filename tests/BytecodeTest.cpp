@@ -876,87 +876,10 @@ TEST(OptimizationTest, ShouldFoldNestedConstantExpression) {
 // ============================================================================
 
 // ============================================================================
-// JIT 테스트
+// VM 루프 테스트
 // ============================================================================
 
-TEST(VMJITTest, ShouldTriggerJITOnHotLoop) {
-#if !defined(__aarch64__) && !defined(_M_ARM64)
-    GTEST_SKIP() << "x86-64 Tier 1 JIT 는 아직 올바르지 않다 (레지스터 저장 뒤에도 VM 스택을 깨뜨린다). ARM64 에서만 돌린다";
-#endif
-    // 간단한 덧셈을 200번 반복하는 루프
-    // sum = 0
-    // for 200 times:
-    //     sum = sum + 1
-    Chunk chunk;
-    
-    // sum = 0 (스택에 직접 푸시)
-    chunk.addConstant(Value::createInteger(0));
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(0, 1);
-    
-    // 루프 카운터: i = 0
-    chunk.addConstant(Value::createInteger(0));
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(1, 1);
-    
-    // 루프 시작
-    size_t loopStart = chunk.size();
-    
-    // 루프 종료 조건 확인: i < 200?
-    chunk.writeOpCode(OpCode::DUP, 1);  // i 복사
-    chunk.addConstant(Value::createInteger(200));
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(2, 1);
-    chunk.writeOpCode(OpCode::LT, 1);  // i < 200
-    
-    // 조건이 false면 종료 (12 바이트 점프)
-    chunk.writeOpCode(OpCode::JUMP_IF_FALSE, 1);
-    chunk.write(12, 1);
-    chunk.writeOpCode(OpCode::POP, 1);  // 조건 값 제거
-    
-    // sum = sum + 1 (스택: [sum, i])
-    chunk.writeOpCode(OpCode::SWAP, 1);  // [i, sum]
-    chunk.addConstant(Value::createInteger(1));
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(3, 1);
-    chunk.writeOpCode(OpCode::ADD, 1);  // [i, sum+1]
-    chunk.writeOpCode(OpCode::SWAP, 1);  // [sum+1, i]
-    
-    // i = i + 1
-    chunk.addConstant(Value::createInteger(1));
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(3, 1);
-    chunk.writeOpCode(OpCode::ADD, 1);  // [sum+1, i+1]
-    
-    // 루프 백점프
-    size_t offset = chunk.size() - loopStart + 2;
-    chunk.writeOpCode(OpCode::LOOP, 1);
-    chunk.write(static_cast<uint8_t>(offset), 1);
-    
-    // 루프 종료 (스택: [sum, i, condition])
-    chunk.writeOpCode(OpCode::POP, 1);  // 조건 제거
-    chunk.writeOpCode(OpCode::POP, 1);  // i 제거
-    // 스택에 sum만 남음
-    chunk.writeOpCode(OpCode::HALT, 1);
-    
-    // VM 실행 (JIT 활성화 - 200회 반복)
-    VM vm;
-    vm.setJITEnabled(true);  // JIT 는 기본 꺼짐
-    std::cerr << "[TEST] VM 실행 (200회 반복, JIT 활성화)\n";
-    VMResult result = vm.run(&chunk);
-
-    std::cerr << "[TEST] VM 종료\n";
-    std::cerr << "[TEST] VM top() 타입 확인 전\n";
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_EQ(vm.top().asInteger(), 200);  // sum should be 200
-    
-    // JIT 통계 출력
-    std::cerr << "\n========== JIT Test Statistics ==========\n";
-    vm.printJITStatistics();
-}
-
-TEST(VMJITTest, ShouldWorkWithJITDisabled) {
-    // JIT 비활성화 상태에서도 정상 동작해야 함
+TEST(VMLoopTest, ShouldRunSimpleProgram) {
     Chunk chunk;
 
     // sum = 0
@@ -1007,17 +930,15 @@ TEST(VMJITTest, ShouldWorkWithJITDisabled) {
     chunk.writeOpCode(OpCode::POP, 1);
     chunk.writeOpCode(OpCode::HALT, 1);
 
-    // JIT 비활성화
     VM vm;
-    vm.setJITEnabled(false);
     VMResult result = vm.run(&chunk);
 
     EXPECT_EQ(result, VMResult::OK);
     EXPECT_EQ(vm.top().asInteger(), 50);
 }
 
-TEST(VMJITTest, ShouldHandleHighIterationCount) {
-    // 많은 반복 테스트 (100회 반복으로 JIT 트리거 확인)
+TEST(VMLoopTest, ShouldHandleHighIterationCount) {
+    // 많은 반복 테스트 (100회 반복)
     Chunk chunk;
 
     // sum = 0, counter = 0
@@ -1073,9 +994,8 @@ TEST(VMJITTest, ShouldHandleHighIterationCount) {
     EXPECT_EQ(vm.top().asInteger(), 100);
 }
 
-TEST(VMJITTest, ShouldRespectMaxInstructions) {
+TEST(VMLoopTest, ShouldRespectMaxInstructions) {
     // 최대 명령어 수 제한 테스트
-    // JIT 비활성화하여 인터프리터 모드에서 명령어 제한 테스트
     Chunk chunk;
 
     // 무한 루프 (sum = sum + 1)
@@ -1096,7 +1016,6 @@ TEST(VMJITTest, ShouldRespectMaxInstructions) {
     chunk.writeOpCode(OpCode::HALT, 1);
 
     VM vm;
-    vm.setJITEnabled(false);  // JIT 비활성화 (인터프리터 모드에서만 명령어 제한 적용)
     vm.setMaxInstructions(1000);  // 1000개 명령어 제한
     VMResult result = vm.run(&chunk);
 

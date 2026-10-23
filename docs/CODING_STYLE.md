@@ -101,7 +101,7 @@ private:
 constexpr size_t VM_DEFAULT_MAX_INSTRUCTIONS = 10000000;
 constexpr int VM_DEFAULT_MAX_EXECUTION_TIME_MS = 5000;
 constexpr size_t VM_DEFAULT_MAX_STACK_SIZE = 10000;
-constexpr int JIT_LOOP_THRESHOLD = 100;
+constexpr size_t VM_DEFAULT_MAX_STACK_SIZE = 10000;
 constexpr uint8_t NO_CONSTRUCTOR_FLAG = 0xFF;
 
 // Bad

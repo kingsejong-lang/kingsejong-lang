@@ -1024,8 +1024,26 @@ TEST(VMAsyncTest, ShouldAwaitRejectedPromiseAsItsReason) {
     EXPECT_EQ(vm.top().asString(), "에러");
 }
 
+TEST(VMAsyncTest, ShouldRunEventLoopUntilAwaitedPromiseSettles) {
+    // 아직 끝나지 않은 Promise 는 미뤄 둔 작업을 돌려 끝날 때까지 기다린다 (평가기와 같다)
+    auto promise = std::make_shared<Promise>();
+    getGlobalEventLoop().enqueueMicrotask([promise]() { promise->resolve(Value::createInteger(7)); });
+
+    Chunk chunk;
+    chunk.writeOpCode(OpCode::LOAD_NAME, 1);
+    chunk.write16(static_cast<uint16_t>(chunk.addName("p")), 1);
+    chunk.writeOpCode(OpCode::AWAIT, 1);
+    chunk.writeOpCode(OpCode::HALT, 1);
+
+    VM vm;
+    vm.globals()->set("p", Value::createPromise(promise));
+    EXPECT_EQ(vm.run(&chunk), VMResult::OK);
+    EXPECT_EQ(vm.top().asInteger(), 7);
+    EXPECT_TRUE(getGlobalEventLoop().isEmpty());
+}
+
 TEST(VMAsyncTest, ShouldAwaitPendingPromiseAsPromise) {
-    // 평가기와 같다: 아직 끝나지 않은 Promise 는 그대로 돌려준다
+    // 끝낼 작업이 하나도 없는 Promise 는 기다릴 길이 없으므로 그대로 돌려준다 (평가기와 같다)
     Chunk chunk;
     chunk.writeOpCode(OpCode::BUILD_PROMISE, 1);
     chunk.writeOpCode(OpCode::AWAIT, 1);

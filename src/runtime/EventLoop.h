@@ -61,6 +61,14 @@ public:
     void run();
 
     /**
+     * @brief 조건이 참이 되거나 큐가 빌 때까지 실행
+     *
+     * microtask 를 먼저, 없으면 task 를 하나씩 돌리며 매 작업 뒤에 done() 을 확인한다.
+     * `대기` 가 미완료 Promise 를 끝날 때까지 기다릴 때 쓴다.
+     */
+    void runUntil(const std::function<bool()>& done);
+
+    /**
      * @brief 단일 틱 실행
      *
      * microtask queue만 비웁니다.

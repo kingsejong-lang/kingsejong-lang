@@ -51,6 +51,23 @@ void EventLoop::run()
     running_ = false;
 }
 
+void EventLoop::runUntil(const std::function<bool()>& done)
+{
+    while (!done() && !isEmpty())
+    {
+        if (!microtaskQueue_.empty())
+        {
+            auto task = std::move(microtaskQueue_.front());
+            microtaskQueue_.pop();
+            task();
+            continue;
+        }
+        auto task = std::move(taskQueue_.front());
+        taskQueue_.pop();
+        task();
+    }
+}
+
 void EventLoop::tick()
 {
     // microtask queue만 실행

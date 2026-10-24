@@ -489,44 +489,37 @@ Value Evaluator::evalAsyncFunctionLiteral(ast::AsyncFunctionLiteral* lit)
 }
 
 /**
- * @brief await 표현식 평가 (Phase 7.3)
+ * @brief await 표현식 평가
  *
- * await 표현식을 평가합니다.
- * 현재 구현에서는 표현식을 즉시 평가하여 반환합니다.
- * 완전한 비동기 대기 처리는 향후 구현됩니다.
- *
- * TODO: Promise 대기 및 Event Loop 통합
+ * Promise 가 아직 끝나지 않았으면 이벤트 루프를 돌려 끝날 때까지 기다린다 (awaitValue).
  */
 Value Evaluator::evalAwaitExpression(ast::AwaitExpression* expr)
 {
-    // 대기할 표현식 평가
     Value value = eval(const_cast<ast::Expression*>(expr->argument()));
-
-    // 에러 체크
     if (value.isError())
     {
         return value;
     }
+    return awaitValue(value);
+}
 
-    // Promise인 경우 값 추출
-    if (value.isPromise())
+Value Evaluator::awaitValue(const Value& value)
+{
+    if (!value.isPromise())
     {
-        auto promise = value.asPromise();
-
-        // Promise가 이미 완료된 경우 값 반환
-        if (promise->isSettled())
-        {
-            return promise->value();
-        }
-        else
-        {
-            // TODO: Event Loop에서 Promise 완료 대기
-            // 현재는 pending Promise를 그대로 반환
-            return value;
-        }
+        return value;
     }
 
-    // Promise가 아닌 경우 그대로 반환
+    auto promise = value.asPromise();
+    if (!promise->isSettled())
+    {
+        // 미뤄 둔 작업(then 콜백 등)을 돌리면 이 Promise 가 끝날 수 있다
+        getGlobalEventLoop().runUntil([&promise]() { return promise->isSettled(); });
+    }
+    if (promise->isSettled())
+    {
+        return promise->value();
+    }
     return value;
 }
 

@@ -28,6 +28,26 @@ TEST(EventLoopTest, ShouldInitializeEmpty)
     EXPECT_FALSE(eventLoop.isRunning());
 }
 
+TEST(EventLoopTest, ShouldRunUntilConditionHolds)
+{
+    kingsejong::evaluator::EventLoop loop;
+    std::vector<int> order;
+    bool done = false;
+    loop.enqueueTask([&]() { order.push_back(3); });
+    loop.enqueueMicrotask([&]() { order.push_back(1); });
+    loop.enqueueMicrotask([&]() { order.push_back(2); done = true; });
+
+    // microtask 둘을 돌린 뒤 조건이 참이 되어 task 는 남는다
+    loop.runUntil([&]() { return done; });
+    EXPECT_EQ(order, (std::vector<int>{1, 2}));
+    EXPECT_TRUE(loop.hasTasks());
+
+    // 조건이 영영 거짓이면 큐가 빌 때까지만 돈다
+    loop.runUntil([]() { return false; });
+    EXPECT_EQ(order, (std::vector<int>{1, 2, 3}));
+    EXPECT_TRUE(loop.isEmpty());
+}
+
 TEST(EventLoopTest, ShouldEnqueueMicrotask)
 {
     EventLoop eventLoop;

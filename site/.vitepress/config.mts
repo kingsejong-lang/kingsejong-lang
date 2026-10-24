@@ -10,6 +10,16 @@ import type MarkdownIt from 'markdown-it'
 const REPO = 'https://github.com/kingsejong-lang/kingsejong-lang'
 const vueDir = dirname(createRequire(import.meta.url).resolve('vue/package.json'))
 const PLAYGROUND = 'https://kingsejong-lang.github.io/kingsejong-lang/'
+const SITE = PLAYGROUND + 'docs/'
+/** 파비콘: 세종의 첫 자음 ㅅ 을 그린 SVG. 파일 없이 data URI 로 심어 플레이그라운드와 같은 그림을 쓴다 */
+const FAVICON =
+  'data:image/svg+xml,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
+      '<rect width="64" height="64" rx="14" fill="#3451b2"/>' +
+      '<path d="M32 13 L13 52 M32 13 L51 52" stroke="#fff" stroke-width="8" stroke-linecap="round" fill="none"/>' +
+      '</svg>',
+  )
 
 /** VS Code 확장의 TextMate 문법으로 ```ksj 코드 블록을 강조한다 */
 const ksjGrammar = JSON.parse(
@@ -69,6 +79,30 @@ export default defineConfig({
   srcDir: '../docs',
   srcExclude: ['research/**'],
   base: '/kingsejong-lang/docs/',
+
+  head: [
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: FAVICON }],
+    ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { property: 'og:site_name', content: 'KingSejong' }],
+    ['meta', { property: 'og:locale', content: 'ko_KR' }],
+    ['meta', { name: 'twitter:card', content: 'summary' }],
+  ],
+
+  /** 페이지마다 공유 미리보기(Open Graph)와 canonical 주소를 넣는다. 제목·설명은 각 문서의 것을 쓴다 */
+  transformPageData(pageData) {
+    const isHome = pageData.frontmatter.layout === 'home'
+    const title = isHome || !pageData.title ? 'KingSejong 문서' : `${pageData.title} | KingSejong`
+    const description =
+      pageData.description || pageData.frontmatter.description || '한글 문법으로 쓰는 프로그래밍 언어 KingSejong 의 문서'
+    const url = SITE + pageData.relativePath.replace(/index\.md$/, '').replace(/\.md$/, '.html')
+    pageData.frontmatter.head ??= []
+    pageData.frontmatter.head.push(
+      ['meta', { property: 'og:title', content: title }],
+      ['meta', { property: 'og:description', content: description }],
+      ['meta', { property: 'og:url', content: url }],
+      ['link', { rel: 'canonical', href: url }],
+    )
+  },
 
   // srcDir 이 프로젝트 루트 밖(../docs)이라, 마크다운에서 나오는 vue 가져오기를 루트의 node_modules 에서 해석하게 한다
   vite: {

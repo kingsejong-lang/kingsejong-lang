@@ -11,6 +11,7 @@
 #include "Chunk.h"
 #include "runtime/Value.h"
 #include "runtime/Environment.h"
+#include "error/Error.h"
 #include <vector>
 #include <memory>
 #include <chrono>
@@ -38,6 +39,7 @@ enum class VMResult {
 
 /// 함수 호출 프레임
 struct CallFrame {
+    std::string name;                                ///< 호출 스택에 보일 이름 (호출식의 식별자, "클래스.메서드", "클래스.생성자")
     size_t returnIp;                                 ///< 복귀 주소
     std::shared_ptr<evaluator::Environment> savedEnv; ///< 호출 전 환경
     std::shared_ptr<evaluator::Environment> frameEnv; ///< 이 호출의 환경 (끝나면 놓는다)
@@ -83,6 +85,9 @@ public:
     /// 스택 맨 위 값 (비어 있으면 null)
     evaluator::Value top() const;
 
+    /// 마지막 run 이 RUNTIME_ERROR 로 끝났을 때 그 에러 (호출 스택 포함). 그 외에는 nullptr
+    const error::KingSejongError* lastError() const { return lastError_.get(); }
+
     std::shared_ptr<evaluator::Environment> globals() const { return globals_; }
 
 private:
@@ -97,6 +102,7 @@ private:
     std::shared_ptr<evaluator::Environment> globals_;
     std::shared_ptr<evaluator::Environment> env_;   ///< 현재 환경
     module::ModuleLoader* moduleLoader_ = nullptr;
+    std::unique_ptr<error::KingSejongError> lastError_;   ///< 마지막 run 의 잡히지 않은 에러
 
     bool traceExecution_;
     size_t instructionCount_;
@@ -126,20 +132,28 @@ private:
     void runModule(ast::Program& program, const std::shared_ptr<evaluator::Environment>& moduleEnv);
     Step executeInstruction();
     void checkLimits();
-    void callValue(uint8_t argCount);
+    void callValue(uint8_t argCount, const std::string& name);
     void callMethod(const std::string& name, uint8_t argCount);
     void enterFunction(const std::shared_ptr<evaluator::Function>& func, size_t entry,
                        std::shared_ptr<evaluator::Environment> funcEnv, size_t stackBase,
-                       bool isConstructor, const evaluator::Value& instance);
+                       bool isConstructor, const evaluator::Value& instance, std::string name);
     Step doReturn(evaluator::Value result);
     void raise(const evaluator::Value& error);
+    /// 지금 상태에서 에러를 받아 줄 곳(시도 블록 핸들러 또는 거부시킬 비동기 프레임)이 있는지.
+    /// 없으면 unwindToHandler 가 프레임을 모두 걷어 내고 실패하므로, 그 전에 호출 스택을 붙여야 한다
+    bool canHandle() const;
     bool unwindToHandler(const evaluator::Value& error);
     bool rejectAsyncFrame(const evaluator::Value& error, size_t frameDepth);
     void dropFrame(const CallFrame& frame);
     static void releaseScope(std::shared_ptr<evaluator::Environment>& scope);
 
     // ---- 보고 ----
-    void runtimeError(const std::string& message);
+    /// 이 오프셋 명령의 소스 위치 (파일·줄). 열은 모른다
+    error::SourceLocation locationAt(size_t offset) const;
+    /// 쌓여 있는 프레임을 안쪽부터 호출 스택으로 붙인다. 가장 안쪽은 지금 명령, 바깥 프레임은 각 CALL 명령의 위치
+    void attachStackTrace(error::KingSejongError& error) const;
+    /// 잡히지 않은 에러를 lastError 로 남기고 RUNTIME_ERROR 를 돌려준다
+    VMResult fail(const error::KingSejongError& error);
     void printStack() const;
 };
 

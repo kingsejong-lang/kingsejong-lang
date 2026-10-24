@@ -21,6 +21,12 @@ struct LineInfo {
     int line;
 };
 
+/// 명령어 오프셋 → 소스 파일 (런-렝스). 가져온 모듈이 같은 청크 끝에 컴파일되므로 파일이 바뀌는 자리를 적는다
+struct FileInfo {
+    size_t offset;
+    std::string filename;
+};
+
 /**
  * @brief 컴파일된 함수 하나의 정보
  *
@@ -44,6 +50,8 @@ private:
     std::vector<const ast::Node*> nodes_;
     std::unordered_map<const ast::Statement*, size_t> entries_;   ///< 함수 본문 노드 → 코드 진입점
     std::vector<LineInfo> lines_;
+    std::vector<FileInfo> files_;
+    std::unordered_map<size_t, uint16_t> callSites_;   ///< CALL 명령 오프셋 → 호출식에 적힌 함수 이름 (names_ 색인)
 
 public:
     // ---- 쓰기 ----
@@ -58,6 +66,10 @@ public:
     size_t addProto(FunctionProto proto);
     size_t addNode(const ast::Node* node);
     void registerEntry(const ast::Statement* body, size_t entry);
+    /// 이 오프셋부터 나오는 코드가 어느 소스 파일에서 왔는지 적는다 (직전 파일과 같으면 무시)
+    void setFile(const std::string& filename);
+    /// CALL 명령이 부르는 함수의 이름(호출식에 적힌 식별자)을 적는다. 호출 스택에 보일 이름이다
+    void setCallSiteName(size_t offset, const std::string& name);
 
     // ---- 읽기 ----
     uint8_t read(size_t offset) const;
@@ -72,6 +84,10 @@ public:
     size_t size() const { return code_.size(); }
     size_t constantCount() const { return constants_.size(); }
     int getLine(size_t offset) const;
+    /// 이 오프셋의 코드가 온 소스 파일. 적힌 것이 없으면 빈 문자열
+    const std::string& getFile(size_t offset) const;
+    /// 이 오프셋의 CALL 명령에 적힌 함수 이름. 없으면 빈 문자열
+    const std::string& getCallSiteName(size_t offset) const;
     const std::vector<uint8_t>& getCode() const { return code_; }
 
     void clear();

@@ -48,7 +48,7 @@ void JosaAgreementRule::onJosaExpression(JosaExpression* expr)
 {
     if (!expr || expr->particle().empty()) return;
 
-    auto ident = dynamic_cast<const Identifier*>(expr->object());
+    auto ident = node_cast<Identifier>(expr->object());
     if (!ident) return;  // 식(호출 결과 등) 뒤의 조사는 명사를 알 수 없다
 
     using JosaType = lexer::JosaRecognizer::JosaType;

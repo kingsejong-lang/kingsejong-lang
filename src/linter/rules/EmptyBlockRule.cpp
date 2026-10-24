@@ -30,7 +30,7 @@ void EmptyBlockRule::onIfStatement(IfStatement* stmt)
     if (!stmt) return;
 
     // then 분기가 비어있는지 확인
-    if (auto thenBlock = dynamic_cast<const BlockStatement*>(stmt->thenBranch()))
+    if (auto thenBlock = node_cast<BlockStatement>(stmt->thenBranch()))
     {
         if (isEmpty(thenBlock))
         {
@@ -46,7 +46,7 @@ void EmptyBlockRule::onIfStatement(IfStatement* stmt)
     // else 분기가 비어있는지 확인
     if (stmt->elseBranch())
     {
-        if (auto elseBlock = dynamic_cast<const BlockStatement*>(stmt->elseBranch()))
+        if (auto elseBlock = node_cast<BlockStatement>(stmt->elseBranch()))
         {
             if (isEmpty(elseBlock))
             {
@@ -65,7 +65,7 @@ void EmptyBlockRule::onWhileStatement(WhileStatement* stmt)
 {
     if (!stmt) return;
 
-    if (auto bodyBlock = dynamic_cast<const BlockStatement*>(stmt->body()))
+    if (auto bodyBlock = node_cast<BlockStatement>(stmt->body()))
     {
         if (isEmpty(bodyBlock))
         {
@@ -83,7 +83,7 @@ void EmptyBlockRule::onRangeForStatement(RangeForStatement* stmt)
 {
     if (!stmt) return;
 
-    if (auto bodyBlock = dynamic_cast<const BlockStatement*>(stmt->body()))
+    if (auto bodyBlock = node_cast<BlockStatement>(stmt->body()))
     {
         if (isEmpty(bodyBlock))
         {
@@ -101,7 +101,7 @@ void EmptyBlockRule::onRepeatStatement(RepeatStatement* stmt)
 {
     if (!stmt) return;
 
-    if (auto bodyBlock = dynamic_cast<const BlockStatement*>(stmt->body()))
+    if (auto bodyBlock = node_cast<BlockStatement>(stmt->body()))
     {
         if (isEmpty(bodyBlock))
         {
@@ -119,7 +119,7 @@ void EmptyBlockRule::onFunctionLiteral(FunctionLiteral* expr)
 {
     if (!expr) return;
 
-    if (auto bodyBlock = dynamic_cast<const BlockStatement*>(expr->body()))
+    if (auto bodyBlock = node_cast<BlockStatement>(expr->body()))
     {
         if (isEmpty(bodyBlock))
         {

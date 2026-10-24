@@ -67,7 +67,7 @@ Value Evaluator::eval(ast::Node* node)
     // 디버거 등 관찰자에게 문장 단위로 알린다
     if (observer_)
     {
-        if (auto* stmt = dynamic_cast<ast::Statement*>(node))
+        if (auto* stmt = ast::node_cast<ast::Statement>(node))
         {
             observer_->onStatement(stmt, env_);
         }
@@ -325,20 +325,20 @@ Value Evaluator::evalBinaryExpression(ast::BinaryExpression* expr)
         Value value = eval(const_cast<ast::Expression*>(expr->right()));
 
         // 좌변이 MemberAccessExpression이면 필드 할당
-        if (auto* memberAccess = dynamic_cast<const ast::MemberAccessExpression*>(expr->left()))
+        if (auto* memberAccess = ast::node_cast<ast::MemberAccessExpression>(expr->left()))
         {
             Value obj = eval(const_cast<ast::Expression*>(memberAccess->object()));
             assignMember(obj, memberAccess->memberName(), value);
             return value;
         }
         // 좌변이 Identifier이면 변수 할당
-        if (auto* ident = dynamic_cast<const ast::Identifier*>(expr->left()))
+        if (auto* ident = ast::node_cast<ast::Identifier>(expr->left()))
         {
             env_->set(ident->name(), value);
             return value;
         }
         // 좌변이 IndexExpression이면 배열 요소·사전 키 할당 (배열[i] = 값, 사전["키"] = 값)
-        if (auto* indexExpr = dynamic_cast<const ast::IndexExpression*>(expr->left()))
+        if (auto* indexExpr = ast::node_cast<ast::IndexExpression>(expr->left()))
         {
             Value container = eval(const_cast<ast::Expression*>(indexExpr->array()));
             Value key = eval(const_cast<ast::Expression*>(indexExpr->index()));
@@ -800,7 +800,7 @@ Value Evaluator::evalRegularFunctionCall(
     size_t functionId = reinterpret_cast<size_t>(func.get());
 
     // 함수 이름 추출 시도 (Identifier인 경우)
-    if (auto* identExpr = dynamic_cast<ast::Identifier*>(const_cast<ast::Expression*>(expr->function())))
+    if (auto* identExpr = ast::node_cast<ast::Identifier>(const_cast<ast::Expression*>(expr->function())))
     {
         functionName = identExpr->name();
     }
@@ -914,7 +914,7 @@ Value Evaluator::evalRegularFunctionCall(
 Value Evaluator::evalCallExpression(ast::CallExpression* expr)
 {
     // 1. 메서드 호출인지 확인 (MemberAccessExpression)
-    if (auto* memberAccess = dynamic_cast<ast::MemberAccessExpression*>(
+    if (auto* memberAccess = ast::node_cast<ast::MemberAccessExpression>(
         const_cast<ast::Expression*>(expr->function())))
     {
         Value obj = eval(const_cast<ast::Expression*>(memberAccess->object()));
@@ -1828,7 +1828,7 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
     // 1. '의' 는 소유격: 클래스 인스턴스의 필드나 사전의 키를 읽는다 ("사용자의 이름")
     if (expr->josaType() == lexer::JosaRecognizer::JosaType::UI)
     {
-        if (auto* member = dynamic_cast<const ast::Identifier*>(expr->method()))
+        if (auto* member = ast::node_cast<ast::Identifier>(expr->method()))
         {
             return applyJosaMethod(object, expr->josaType(), member->name(), false, {}, env_);
         }
@@ -1836,10 +1836,10 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
 
     // 2. 변환 관용구: "값을 문자열로 변환한다" 는 "문자열(값)". 로/으로 뒤의 이름이 함수(내장·사용자)면
     //    그 함수에 값을 넘긴다. 동사는 변환한다/바꾼다.
-    if (auto* inner = dynamic_cast<const ast::JosaExpression*>(expr->method()))
+    if (auto* inner = ast::node_cast<ast::JosaExpression>(expr->method()))
     {
-        auto* verb = dynamic_cast<const ast::Identifier*>(inner->method());
-        auto* target = dynamic_cast<const ast::Identifier*>(inner->object());
+        auto* verb = ast::node_cast<ast::Identifier>(inner->method());
+        auto* target = ast::node_cast<ast::Identifier>(inner->object());
         if (inner->josaType() == lexer::JosaRecognizer::JosaType::RO_EURO && verb && target &&
             (verb->name() == "변환한다" || verb->name() == "바꾼다"))
         {
@@ -1851,10 +1851,10 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
     std::string name;
     bool isCall = false;
     std::vector<Value> args;
-    if (auto* call = dynamic_cast<const ast::CallExpression*>(expr->method()))
+    if (auto* call = ast::node_cast<ast::CallExpression>(expr->method()))
     {
         isCall = true;
-        if (auto* fn = dynamic_cast<const ast::Identifier*>(call->function()))
+        if (auto* fn = ast::node_cast<ast::Identifier>(call->function()))
         {
             name = fn->name();
             for (const auto& arg : call->arguments())
@@ -1863,7 +1863,7 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
             }
         }
     }
-    else if (auto* ident = dynamic_cast<const ast::Identifier*>(expr->method()))
+    else if (auto* ident = ast::node_cast<ast::Identifier>(expr->method()))
     {
         name = ident->name();
     }

@@ -52,8 +52,8 @@ bool NoSelfComparisonRule::isSameIdentifier(const Expression* left, const Expres
     if (!left || !right) return false;
 
     // 둘 다 Identifier인지 확인
-    auto leftId = dynamic_cast<const Identifier*>(left);
-    auto rightId = dynamic_cast<const Identifier*>(right);
+    auto leftId = node_cast<Identifier>(left);
+    auto rightId = node_cast<Identifier>(right);
 
     if (!leftId || !rightId) return false;
 

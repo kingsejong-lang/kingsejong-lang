@@ -200,8 +200,11 @@ if(TEST_SOURCES)
 
     # CTest에 테스트 추가
     include(GoogleTest)
+    # 테스트 목록 탐색은 테스트 실행 파일을 한 번 띄운다. Windows Debug 빌드는 뜨는 데
+    # 기본 제한(5초)을 넘기기도 하므로 넉넉히 둔다.
     gtest_discover_tests(kingsejong_tests
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        DISCOVERY_TIMEOUT 120
     )
 endif()
 

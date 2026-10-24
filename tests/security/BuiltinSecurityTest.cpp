@@ -7,6 +7,7 @@
  */
 
 #include <gtest/gtest.h>
+#include "support/TestTempDir.h"
 #include <filesystem>
 #include <cstdlib>
 #include "evaluator/Builtin.h"
@@ -25,14 +26,14 @@ protected:
     void SetUp() override {
         Builtin::registerAllBuiltins();
         SecurityManager::reset();
-        probe = fs::temp_directory_path() / "ksj-builtin-security-probe";
-        fs::remove_all(probe);
+        // 테스트마다 고유한 상위 디렉터리 아래에 probe 를 둔다 (병렬 ctest 격리)
+        probe = kingsejong::test::uniqueTestDir("ksj-builtin-security") / "probe";
         SecurityManager::setMode(SecurityMode::SANDBOX);
     }
 
     void TearDown() override {
         SecurityManager::reset();
-        fs::remove_all(probe);
+        fs::remove_all(probe.parent_path());
     }
 
     static Value call(const std::string& name, const std::vector<Value>& args) {

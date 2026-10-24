@@ -8,6 +8,7 @@
  */
 
 #include <gtest/gtest.h>
+#include "support/TestTempDir.h"
 #include "lexer/Lexer.h"
 #include "parser/Parser.h"
 #include "evaluator/Evaluator.h"
@@ -27,8 +28,7 @@ protected:
         Builtin::registerAllBuiltins();
 
         // 테스트용 임시 디렉토리 생성
-        test_dir_ = std::filesystem::temp_directory_path() / "kingsejong_os_test";
-        std::filesystem::create_directories(test_dir_);
+        test_dir_ = kingsejong::test::uniqueTestDir("kingsejong_os_test");
     }
 
     void TearDown() override

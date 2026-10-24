@@ -49,46 +49,68 @@ void Formatter::formatStatement(const Statement* stmt)
 {
     if (!stmt) return;
 
-    if (auto varDecl = dynamic_cast<const VarDeclaration*>(stmt))
+    switch (stmt->type())
     {
-        formatVarDeclaration(varDecl);
-    }
-    else if (auto assignStmt = dynamic_cast<const AssignmentStatement*>(stmt))
-    {
-        formatAssignmentStatement(assignStmt);
-    }
-    else if (auto exprStmt = dynamic_cast<const ExpressionStatement*>(stmt))
-    {
-        formatExpressionStatement(exprStmt);
-    }
-    else if (auto retStmt = dynamic_cast<const ReturnStatement*>(stmt))
-    {
-        formatReturnStatement(retStmt);
-    }
-    else if (auto ifStmt = dynamic_cast<const IfStatement*>(stmt))
-    {
-        formatIfStatement(ifStmt);
-    }
-    else if (auto whileStmt = dynamic_cast<const WhileStatement*>(stmt))
-    {
-        formatWhileStatement(whileStmt);
-    }
-    else if (auto forStmt = dynamic_cast<const RangeForStatement*>(stmt))
-    {
-        formatRangeForStatement(forStmt);
-    }
-    else if (auto repeatStmt = dynamic_cast<const RepeatStatement*>(stmt))
-    {
-        formatRepeatStatement(repeatStmt);
-    }
-    else if (auto blockStmt = dynamic_cast<const BlockStatement*>(stmt))
-    {
-        formatBlockStatement(blockStmt);
-    }
-    else
-    {
-        // 분기가 없는 문장을 조용히 빼면 fmt 가 원본을 덮어쓸 때 코드가 사라진다.
-        markUnsupported(stmt);
+        case NodeType::VAR_DECLARATION:
+        {
+            auto varDecl = static_cast<const VarDeclaration*>(stmt);
+            formatVarDeclaration(varDecl);
+            break;
+        }
+        case NodeType::ASSIGNMENT_STATEMENT:
+        {
+            auto assignStmt = static_cast<const AssignmentStatement*>(stmt);
+            formatAssignmentStatement(assignStmt);
+            break;
+        }
+        case NodeType::EXPRESSION_STATEMENT:
+        {
+            auto exprStmt = static_cast<const ExpressionStatement*>(stmt);
+            formatExpressionStatement(exprStmt);
+            break;
+        }
+        case NodeType::RETURN_STATEMENT:
+        {
+            auto retStmt = static_cast<const ReturnStatement*>(stmt);
+            formatReturnStatement(retStmt);
+            break;
+        }
+        case NodeType::IF_STATEMENT:
+        {
+            auto ifStmt = static_cast<const IfStatement*>(stmt);
+            formatIfStatement(ifStmt);
+            break;
+        }
+        case NodeType::WHILE_STATEMENT:
+        {
+            auto whileStmt = static_cast<const WhileStatement*>(stmt);
+            formatWhileStatement(whileStmt);
+            break;
+        }
+        case NodeType::RANGE_FOR_STATEMENT:
+        {
+            auto forStmt = static_cast<const RangeForStatement*>(stmt);
+            formatRangeForStatement(forStmt);
+            break;
+        }
+        case NodeType::REPEAT_STATEMENT:
+        {
+            auto repeatStmt = static_cast<const RepeatStatement*>(stmt);
+            formatRepeatStatement(repeatStmt);
+            break;
+        }
+        case NodeType::BLOCK_STATEMENT:
+        {
+            auto blockStmt = static_cast<const BlockStatement*>(stmt);
+            formatBlockStatement(blockStmt);
+            break;
+        }
+        default:
+        {
+            // 분기가 없는 문장을 조용히 빼면 fmt 가 원본을 덮어쓸 때 코드가 사라진다.
+            markUnsupported(stmt);
+            break;
+        }
     }
 }
 
@@ -175,7 +197,7 @@ void Formatter::formatIfStatement(const IfStatement* stmt)
     writeLine("{");
 
     increaseIndent();
-    if (auto thenBlock = dynamic_cast<const BlockStatement*>(stmt->thenBranch()))
+    if (auto thenBlock = node_cast<BlockStatement>(stmt->thenBranch()))
     {
         for (const auto& s : thenBlock->statements())
         {
@@ -193,7 +215,7 @@ void Formatter::formatIfStatement(const IfStatement* stmt)
         writeLine("아니면 {");
 
         increaseIndent();
-        if (auto elseBlock = dynamic_cast<const BlockStatement*>(stmt->elseBranch()))
+        if (auto elseBlock = node_cast<BlockStatement>(stmt->elseBranch()))
         {
             for (const auto& s : elseBlock->statements())
             {
@@ -221,7 +243,7 @@ void Formatter::formatWhileStatement(const WhileStatement* stmt)
     writeLine("{");
 
     increaseIndent();
-    if (auto bodyBlock = dynamic_cast<const BlockStatement*>(stmt->body()))
+    if (auto bodyBlock = node_cast<BlockStatement>(stmt->body()))
     {
         for (const auto& s : bodyBlock->statements())
         {
@@ -248,7 +270,7 @@ void Formatter::formatRangeForStatement(const RangeForStatement* stmt)
     writeLine("{");
 
     increaseIndent();
-    if (auto bodyBlock = dynamic_cast<const BlockStatement*>(stmt->body()))
+    if (auto bodyBlock = node_cast<BlockStatement>(stmt->body()))
     {
         for (const auto& s : bodyBlock->statements())
         {
@@ -271,7 +293,7 @@ void Formatter::formatRepeatStatement(const RepeatStatement* stmt)
     writeLine("{");
 
     increaseIndent();
-    if (auto bodyBlock = dynamic_cast<const BlockStatement*>(stmt->body()))
+    if (auto bodyBlock = node_cast<BlockStatement>(stmt->body()))
     {
         for (const auto& s : bodyBlock->statements())
         {
@@ -308,53 +330,79 @@ void Formatter::formatExpression(const Expression* expr)
 {
     if (!expr) return;
 
-    if (auto binExpr = dynamic_cast<const BinaryExpression*>(expr))
+    switch (expr->type())
     {
-        formatBinaryExpression(binExpr);
-    }
-    else if (auto unaryExpr = dynamic_cast<const UnaryExpression*>(expr))
-    {
-        formatUnaryExpression(unaryExpr);
-    }
-    else if (auto callExpr = dynamic_cast<const CallExpression*>(expr))
-    {
-        formatCallExpression(callExpr);
-    }
-    else if (auto indexExpr = dynamic_cast<const IndexExpression*>(expr))
-    {
-        formatIndexExpression(indexExpr);
-    }
-    else if (auto arrayLit = dynamic_cast<const ArrayLiteral*>(expr))
-    {
-        formatArrayLiteral(arrayLit);
-    }
-    else if (auto funcLit = dynamic_cast<const FunctionLiteral*>(expr))
-    {
-        formatFunctionLiteral(funcLit);
-    }
-    else if (auto ident = dynamic_cast<const Identifier*>(expr))
-    {
-        formatIdentifier(ident);
-    }
-    else if (auto intLit = dynamic_cast<const IntegerLiteral*>(expr))
-    {
-        formatIntegerLiteral(intLit);
-    }
-    else if (auto floatLit = dynamic_cast<const FloatLiteral*>(expr))
-    {
-        formatFloatLiteral(floatLit);
-    }
-    else if (auto strLit = dynamic_cast<const StringLiteral*>(expr))
-    {
-        formatStringLiteral(strLit);
-    }
-    else if (auto boolLit = dynamic_cast<const BooleanLiteral*>(expr))
-    {
-        formatBooleanLiteral(boolLit);
-    }
-    else
-    {
-        markUnsupported(expr);
+        case NodeType::BINARY_EXPRESSION:
+        {
+            auto binExpr = static_cast<const BinaryExpression*>(expr);
+            formatBinaryExpression(binExpr);
+            break;
+        }
+        case NodeType::UNARY_EXPRESSION:
+        {
+            auto unaryExpr = static_cast<const UnaryExpression*>(expr);
+            formatUnaryExpression(unaryExpr);
+            break;
+        }
+        case NodeType::CALL_EXPRESSION:
+        {
+            auto callExpr = static_cast<const CallExpression*>(expr);
+            formatCallExpression(callExpr);
+            break;
+        }
+        case NodeType::INDEX_EXPRESSION:
+        {
+            auto indexExpr = static_cast<const IndexExpression*>(expr);
+            formatIndexExpression(indexExpr);
+            break;
+        }
+        case NodeType::ARRAY_LITERAL:
+        {
+            auto arrayLit = static_cast<const ArrayLiteral*>(expr);
+            formatArrayLiteral(arrayLit);
+            break;
+        }
+        case NodeType::FUNCTION_LITERAL:
+        {
+            auto funcLit = static_cast<const FunctionLiteral*>(expr);
+            formatFunctionLiteral(funcLit);
+            break;
+        }
+        case NodeType::IDENTIFIER:
+        {
+            auto ident = static_cast<const Identifier*>(expr);
+            formatIdentifier(ident);
+            break;
+        }
+        case NodeType::INTEGER_LITERAL:
+        {
+            auto intLit = static_cast<const IntegerLiteral*>(expr);
+            formatIntegerLiteral(intLit);
+            break;
+        }
+        case NodeType::FLOAT_LITERAL:
+        {
+            auto floatLit = static_cast<const FloatLiteral*>(expr);
+            formatFloatLiteral(floatLit);
+            break;
+        }
+        case NodeType::STRING_LITERAL:
+        {
+            auto strLit = static_cast<const StringLiteral*>(expr);
+            formatStringLiteral(strLit);
+            break;
+        }
+        case NodeType::BOOLEAN_LITERAL:
+        {
+            auto boolLit = static_cast<const BooleanLiteral*>(expr);
+            formatBooleanLiteral(boolLit);
+            break;
+        }
+        default:
+        {
+            markUnsupported(expr);
+            break;
+        }
     }
 }
 
@@ -452,7 +500,7 @@ void Formatter::formatFunctionLiteral(const FunctionLiteral* expr)
     writeLine("{");
 
     increaseIndent();
-    if (auto body = dynamic_cast<const BlockStatement*>(expr->body()))
+    if (auto body = node_cast<BlockStatement>(expr->body()))
     {
         for (const auto& stmt : body->statements())
         {

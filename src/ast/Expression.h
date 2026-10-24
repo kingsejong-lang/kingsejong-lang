@@ -36,7 +36,8 @@ private:
 public:
     explicit Identifier(const std::string& name) : name_(name) {}
 
-    NodeType type() const override { return NodeType::IDENTIFIER; }
+    static constexpr NodeType kType = NodeType::IDENTIFIER;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override { return name_; }
 
@@ -57,7 +58,8 @@ private:
 public:
     explicit IntegerLiteral(int64_t value) : value_(value) {}
 
-    NodeType type() const override { return NodeType::INTEGER_LITERAL; }
+    static constexpr NodeType kType = NodeType::INTEGER_LITERAL;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override { return std::to_string(value_); }
 
@@ -78,7 +80,8 @@ private:
 public:
     explicit FloatLiteral(double value) : value_(value) {}
 
-    NodeType type() const override { return NodeType::FLOAT_LITERAL; }
+    static constexpr NodeType kType = NodeType::FLOAT_LITERAL;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override { return std::to_string(value_); }
 
@@ -99,7 +102,8 @@ private:
 public:
     explicit StringLiteral(const std::string& value) : value_(value) {}
 
-    NodeType type() const override { return NodeType::STRING_LITERAL; }
+    static constexpr NodeType kType = NodeType::STRING_LITERAL;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override { return "\"" + value_ + "\""; }
 
@@ -132,7 +136,8 @@ public:
         , expressions_(std::move(expressions))
     {}
 
-    NodeType type() const override { return NodeType::INTERPOLATED_STRING; }
+    static constexpr NodeType kType = NodeType::INTERPOLATED_STRING;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -167,7 +172,8 @@ private:
 public:
     explicit BooleanLiteral(bool value) : value_(value) {}
 
-    NodeType type() const override { return NodeType::BOOLEAN_LITERAL; }
+    static constexpr NodeType kType = NodeType::BOOLEAN_LITERAL;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override { return value_ ? "참" : "거짓"; }
 
@@ -202,7 +208,8 @@ public:
         , right_(std::move(right))
     {}
 
-    NodeType type() const override { return NodeType::BINARY_EXPRESSION; }
+    static constexpr NodeType kType = NodeType::BINARY_EXPRESSION;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -237,7 +244,8 @@ public:
         , operand_(std::move(operand))
     {}
 
-    NodeType type() const override { return NodeType::UNARY_EXPRESSION; }
+    static constexpr NodeType kType = NodeType::UNARY_EXPRESSION;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -294,7 +302,8 @@ public:
         , particle_(std::move(particle))
     {}
 
-    NodeType type() const override { return NodeType::JOSA_EXPRESSION; }
+    static constexpr NodeType kType = NodeType::JOSA_EXPRESSION;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -375,7 +384,8 @@ public:
         , step_(std::move(step))
     {}
 
-    NodeType type() const override { return NodeType::RANGE_EXPRESSION; }
+    static constexpr NodeType kType = NodeType::RANGE_EXPRESSION;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -426,7 +436,8 @@ public:
         , body_(std::move(body))
     {}
 
-    NodeType type() const override { return NodeType::FUNCTION_LITERAL; }
+    static constexpr NodeType kType = NodeType::FUNCTION_LITERAL;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -465,7 +476,8 @@ public:
         , arguments_(std::move(arguments))
     {}
 
-    NodeType type() const override { return NodeType::CALL_EXPRESSION; }
+    static constexpr NodeType kType = NodeType::CALL_EXPRESSION;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -505,7 +517,8 @@ public:
         : elements_(std::move(elements))
     {}
 
-    NodeType type() const override { return NodeType::ARRAY_LITERAL; }
+    static constexpr NodeType kType = NodeType::ARRAY_LITERAL;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -545,7 +558,8 @@ public:
         , index_(std::move(index))
     {}
 
-    NodeType type() const override { return NodeType::INDEX_EXPRESSION; }
+    static constexpr NodeType kType = NodeType::INDEX_EXPRESSION;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -578,7 +592,8 @@ public:
         : pairs_(std::move(pairs))
     {}
 
-    NodeType type() const override { return NodeType::DICTIONARY_LITERAL; }
+    static constexpr NodeType kType = NodeType::DICTIONARY_LITERAL;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -638,7 +653,8 @@ public:
         : value_(std::move(value))
     {}
 
-    NodeType type() const override { return NodeType::LITERAL_PATTERN; }
+    static constexpr NodeType kType = NodeType::LITERAL_PATTERN;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -662,7 +678,8 @@ class WildcardPattern : public Pattern
 public:
     WildcardPattern() = default;
 
-    NodeType type() const override { return NodeType::WILDCARD_PATTERN; }
+    static constexpr NodeType kType = NodeType::WILDCARD_PATTERN;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override { return "_"; }
 };
@@ -687,7 +704,8 @@ public:
         : name_(name)
     {}
 
-    NodeType type() const override { return NodeType::BINDING_PATTERN; }
+    static constexpr NodeType kType = NodeType::BINDING_PATTERN;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override { return name_; }
 
@@ -721,7 +739,8 @@ public:
         , rest_(rest)
     {}
 
-    NodeType type() const override { return NodeType::ARRAY_PATTERN; }
+    static constexpr NodeType kType = NodeType::ARRAY_PATTERN;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -816,7 +835,8 @@ public:
         , cases_(std::move(cases))
     {}
 
-    NodeType type() const override { return NodeType::MATCH_EXPRESSION; }
+    static constexpr NodeType kType = NodeType::MATCH_EXPRESSION;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -859,7 +879,8 @@ public:
         , memberName_(memberName)
     {}
 
-    NodeType type() const override { return NodeType::MEMBER_ACCESS_EXPRESSION; }
+    static constexpr NodeType kType = NodeType::MEMBER_ACCESS_EXPRESSION;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -886,7 +907,8 @@ class ThisExpression : public Expression
 public:
     ThisExpression() = default;
 
-    NodeType type() const override { return NodeType::THIS_EXPRESSION; }
+    static constexpr NodeType kType = NodeType::THIS_EXPRESSION;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -921,7 +943,8 @@ public:
         , arguments_(std::move(arguments))
     {}
 
-    NodeType type() const override { return NodeType::NEW_EXPRESSION; }
+    static constexpr NodeType kType = NodeType::NEW_EXPRESSION;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -971,7 +994,8 @@ public:
         , body_(std::move(body))
     {}
 
-    NodeType type() const override { return NodeType::ASYNC_FUNCTION_LITERAL; }
+    static constexpr NodeType kType = NodeType::ASYNC_FUNCTION_LITERAL;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -1012,7 +1036,8 @@ public:
         : argument_(std::move(argument))
     {}
 
-    NodeType type() const override { return NodeType::AWAIT_EXPRESSION; }
+    static constexpr NodeType kType = NodeType::AWAIT_EXPRESSION;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {

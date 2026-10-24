@@ -225,289 +225,316 @@ void SemanticAnalyzer::analyzeAndResolveStatement(const Statement* stmt)
     if (!stmt) return;
 
     // 변수 선언: 현재 스코프에 등록
-    if (auto varDecl = dynamic_cast<const VarDeclaration*>(stmt))
+    switch (stmt->type())
     {
-        // 변수를 현재 스코프에 등록
-        symbolTable_.define(varDecl->varName(), SymbolKind::VARIABLE, varDecl->varType());
-
-        // 초기화 표현식이 있으면 이름 해석
-        if (varDecl->initializer())
+        case NodeType::VAR_DECLARATION:
         {
-            analyzeAndResolveExpression(varDecl->initializer());
-        }
-    }
-    // 할당문 (함수 선언도 포함)
-    else if (auto assignStmt = dynamic_cast<const AssignmentStatement*>(stmt))
-    {
-        // 함수 리터럴 할당인지 확인
-        if (auto funcLit = dynamic_cast<const FunctionLiteral*>(assignStmt->value()))
-        {
-            // 함수 이름을 현재 스코프에 등록
-            symbolTable_.define(assignStmt->varName(), SymbolKind::FUNCTION,
-                              nullptr);
+            auto varDecl = static_cast<const VarDeclaration*>(stmt);
+            // 변수를 현재 스코프에 등록
+            symbolTable_.define(varDecl->varName(), SymbolKind::VARIABLE, varDecl->varType());
 
-            // 함수 body를 새로운 스코프에서 분석
-            symbolTable_.enterScope();
-
-            // 매개변수를 함수 스코프에 등록
-            for (const auto& param : funcLit->parameters())
+            // 초기화 표현식이 있으면 이름 해석
+            if (varDecl->initializer())
             {
-                symbolTable_.define(param, SymbolKind::VARIABLE,
-                                  nullptr);  // 타입 추론 미지원
+                analyzeAndResolveExpression(varDecl->initializer());
             }
-
-            // 일반 함수 컨텍스트 설정 (await 검사용)
-            bool prevInFunction = inFunction_;
-            inFunction_ = true;
-
-            // 함수 body 분석
-            if (funcLit->body())
-            {
-                analyzeAndResolveStatement(funcLit->body());
-            }
-
-            // 컨텍스트 복원
-            inFunction_ = prevInFunction;
-
-            symbolTable_.exitScope();
+            break;
         }
-        // Phase 7.3: 비동기 함수 리터럴 할당
-        else if (auto asyncFuncLit = dynamic_cast<const AsyncFunctionLiteral*>(assignStmt->value()))
+        // 할당문 (함수 선언도 포함)
+        case NodeType::ASSIGNMENT_STATEMENT:
         {
-            // 함수 이름을 현재 스코프에 등록
-            symbolTable_.define(assignStmt->varName(), SymbolKind::FUNCTION,
-                              nullptr);
-
-            // 함수 body를 새로운 스코프에서 분석
-            symbolTable_.enterScope();
-
-            // 매개변수를 함수 스코프에 등록
-            for (const auto& param : asyncFuncLit->parameters())
+            auto assignStmt = static_cast<const AssignmentStatement*>(stmt);
+            // 함수 리터럴 할당인지 확인
+            if (auto funcLit = node_cast<FunctionLiteral>(assignStmt->value()))
             {
-                symbolTable_.define(param, SymbolKind::VARIABLE,
+                // 함수 이름을 현재 스코프에 등록
+                symbolTable_.define(assignStmt->varName(), SymbolKind::FUNCTION,
                                   nullptr);
+
+                // 함수 body를 새로운 스코프에서 분석
+                symbolTable_.enterScope();
+
+                // 매개변수를 함수 스코프에 등록
+                for (const auto& param : funcLit->parameters())
+                {
+                    symbolTable_.define(param, SymbolKind::VARIABLE,
+                                      nullptr);  // 타입 추론 미지원
+                }
+
+                // 일반 함수 컨텍스트 설정 (await 검사용)
+                bool prevInFunction = inFunction_;
+                inFunction_ = true;
+
+                // 함수 body 분석
+                if (funcLit->body())
+                {
+                    analyzeAndResolveStatement(funcLit->body());
+                }
+
+                // 컨텍스트 복원
+                inFunction_ = prevInFunction;
+
+                symbolTable_.exitScope();
             }
-
-            // 비동기 함수 컨텍스트 설정
-            bool prevInFunction = inFunction_;
-            bool prevInAsyncFunction = inAsyncFunction_;
-            inFunction_ = true;
-            inAsyncFunction_ = true;
-
-            // 함수 body 분석
-            if (asyncFuncLit->body())
+            // Phase 7.3: 비동기 함수 리터럴 할당
+            else if (auto asyncFuncLit = node_cast<AsyncFunctionLiteral>(assignStmt->value()))
             {
-                analyzeAndResolveStatement(asyncFuncLit->body());
+                // 함수 이름을 현재 스코프에 등록
+                symbolTable_.define(assignStmt->varName(), SymbolKind::FUNCTION,
+                                  nullptr);
+
+                // 함수 body를 새로운 스코프에서 분석
+                symbolTable_.enterScope();
+
+                // 매개변수를 함수 스코프에 등록
+                for (const auto& param : asyncFuncLit->parameters())
+                {
+                    symbolTable_.define(param, SymbolKind::VARIABLE,
+                                      nullptr);
+                }
+
+                // 비동기 함수 컨텍스트 설정
+                bool prevInFunction = inFunction_;
+                bool prevInAsyncFunction = inAsyncFunction_;
+                inFunction_ = true;
+                inAsyncFunction_ = true;
+
+                // 함수 body 분석
+                if (asyncFuncLit->body())
+                {
+                    analyzeAndResolveStatement(asyncFuncLit->body());
+                }
+
+                // 컨텍스트 복원
+                inFunction_ = prevInFunction;
+                inAsyncFunction_ = prevInAsyncFunction;
+
+                symbolTable_.exitScope();
             }
-
-            // 컨텍스트 복원
-            inFunction_ = prevInFunction;
-            inAsyncFunction_ = prevInAsyncFunction;
-
-            symbolTable_.exitScope();
-        }
-        else
-        {
-            // 일반 할당문: 변수가 정의되어 있지 않으면 현재 스코프에 등록 (동적 타이핑)
-            if (!symbolTable_.lookup(assignStmt->varName()))
+            else
             {
-                symbolTable_.define(assignStmt->varName(), SymbolKind::VARIABLE, nullptr);
+                // 일반 할당문: 변수가 정의되어 있지 않으면 현재 스코프에 등록 (동적 타이핑)
+                if (!symbolTable_.lookup(assignStmt->varName()))
+                {
+                    symbolTable_.define(assignStmt->varName(), SymbolKind::VARIABLE, nullptr);
+                }
+
+                // 할당 값 표현식 분석
+                if (assignStmt->value())
+                {
+                    analyzeAndResolveExpression(assignStmt->value());
+                }
             }
-
-            // 할당 값 표현식 분석
-            if (assignStmt->value())
-            {
-                analyzeAndResolveExpression(assignStmt->value());
-            }
+            break;
         }
-    }
-    // 블록문: 새로운 스코프 생성
-    else if (auto blockStmt = dynamic_cast<const BlockStatement*>(stmt))
-    {
-        symbolTable_.enterScope();
-
-        for (const auto& s : blockStmt->statements())
+        // 블록문: 새로운 스코프 생성
+        case NodeType::BLOCK_STATEMENT:
         {
-            analyzeAndResolveStatement(s.get());
-        }
-
-        symbolTable_.exitScope();
-    }
-    // if문: then/else 각각 새로운 스코프
-    else if (auto ifStmt = dynamic_cast<const IfStatement*>(stmt))
-    {
-        // 조건 표현식 분석
-        if (ifStmt->condition())
-        {
-            analyzeAndResolveExpression(ifStmt->condition());
-        }
-
-        // then 블록
-        if (ifStmt->thenBranch())
-        {
-            symbolTable_.enterScope();
-            analyzeAndResolveStatement(ifStmt->thenBranch());
-            symbolTable_.exitScope();
-        }
-
-        // else 블록
-        if (ifStmt->elseBranch())
-        {
-            symbolTable_.enterScope();
-            analyzeAndResolveStatement(ifStmt->elseBranch());
-            symbolTable_.exitScope();
-        }
-    }
-    // while문: body를 새로운 스코프에서 분석
-    else if (auto whileStmt = dynamic_cast<const WhileStatement*>(stmt))
-    {
-        // 조건 표현식 분석
-        if (whileStmt->condition())
-        {
-            analyzeAndResolveExpression(whileStmt->condition());
-        }
-
-        // body
-        if (whileStmt->body())
-        {
-            symbolTable_.enterScope();
-            analyzeAndResolveStatement(whileStmt->body());
-            symbolTable_.exitScope();
-        }
-    }
-    // 범위 for문: 루프 변수를 블록 스코프에 등록
-    else if (auto forStmt = dynamic_cast<const RangeForStatement*>(stmt))
-    {
-        symbolTable_.enterScope();
-
-        // 루프 변수 등록
-        symbolTable_.define(forStmt->varName(), SymbolKind::VARIABLE,
-                          types::Type::integerType());
-
-        // start, end 표현식 분석
-        if (forStmt->start())
-        {
-            analyzeAndResolveExpression(forStmt->start());
-        }
-        if (forStmt->end())
-        {
-            analyzeAndResolveExpression(forStmt->end());
-        }
-
-        // body 분석
-        if (forStmt->body())
-        {
-            analyzeAndResolveStatement(forStmt->body());
-        }
-
-        symbolTable_.exitScope();
-    }
-    // repeat문: body를 새로운 스코프에서 분석
-    else if (auto repeatStmt = dynamic_cast<const RepeatStatement*>(stmt))
-    {
-        // 반복 횟수 표현식 분석
-        if (repeatStmt->count())
-        {
-            analyzeAndResolveExpression(repeatStmt->count());
-        }
-
-        // body
-        if (repeatStmt->body())
-        {
-            symbolTable_.enterScope();
-            analyzeAndResolveStatement(repeatStmt->body());
-            symbolTable_.exitScope();
-        }
-    }
-    // return문
-    else if (auto returnStmt = dynamic_cast<const ReturnStatement*>(stmt))
-    {
-        if (returnStmt->returnValue())
-        {
-            analyzeAndResolveExpression(returnStmt->returnValue());
-        }
-    }
-    // 표현식문
-    else if (auto exprStmt = dynamic_cast<const ExpressionStatement*>(stmt))
-    {
-        if (exprStmt->expression())
-        {
-            analyzeAndResolveExpression(exprStmt->expression());
-        }
-    }
-    // import문: 모듈의 최상위 이름을 선언한다 (해석기가 있을 때만)
-    else if (auto importStmt = dynamic_cast<const ImportStatement*>(stmt))
-    {
-        declareModuleSymbols(importStmt->modulePath(), importStmt->location().filename);
-    }
-    // Phase 7.1: 클래스 정의문
-    else if (auto classStmt = dynamic_cast<const ClassStatement*>(stmt))
-    {
-        // 클래스 이름을 현재 스코프에 등록
-        symbolTable_.define(classStmt->className(), SymbolKind::CLASS, nullptr);
-
-        // 필드 검증 (중복 필드 이름 확인)
-        std::unordered_set<std::string> fieldNames;
-        for (const auto& field : classStmt->fields())
-        {
-            if (fieldNames.count(field->fieldName()))
-            {
-                addError("중복된 필드 이름: " + field->fieldName(),
-                        stmt->location().line, stmt->location().column);
-            }
-            fieldNames.insert(field->fieldName());
-        }
-
-        // 메서드 검증 (중복 메서드 이름 확인)
-        std::unordered_set<std::string> methodNames;
-        for (const auto& method : classStmt->methods())
-        {
-            if (methodNames.count(method->methodName()))
-            {
-                addError("중복된 메서드 이름: " + method->methodName(),
-                        stmt->location().line, stmt->location().column);
-            }
-            methodNames.insert(method->methodName());
-
-            // 메서드 본문 분석 (새 스코프에서)
+            auto blockStmt = static_cast<const BlockStatement*>(stmt);
             symbolTable_.enterScope();
 
-            // 매개변수 등록
-            for (const auto& param : method->parameters())
+            for (const auto& s : blockStmt->statements())
             {
-                symbolTable_.define(param.name, SymbolKind::VARIABLE, nullptr);
-            }
-
-            // 메서드 본문 분석
-            if (method->body())
-            {
-                analyzeAndResolveStatement(method->body());
+                analyzeAndResolveStatement(s.get());
             }
 
             symbolTable_.exitScope();
+            break;
         }
-
-        // 생성자 분석 (있으면)
-        if (classStmt->constructor())
+        // if문: then/else 각각 새로운 스코프
+        case NodeType::IF_STATEMENT:
         {
-            auto ctor = classStmt->constructor();
+            auto ifStmt = static_cast<const IfStatement*>(stmt);
+            // 조건 표현식 분석
+            if (ifStmt->condition())
+            {
+                analyzeAndResolveExpression(ifStmt->condition());
+            }
 
+            // then 블록
+            if (ifStmt->thenBranch())
+            {
+                symbolTable_.enterScope();
+                analyzeAndResolveStatement(ifStmt->thenBranch());
+                symbolTable_.exitScope();
+            }
+
+            // else 블록
+            if (ifStmt->elseBranch())
+            {
+                symbolTable_.enterScope();
+                analyzeAndResolveStatement(ifStmt->elseBranch());
+                symbolTable_.exitScope();
+            }
+            break;
+        }
+        // while문: body를 새로운 스코프에서 분석
+        case NodeType::WHILE_STATEMENT:
+        {
+            auto whileStmt = static_cast<const WhileStatement*>(stmt);
+            // 조건 표현식 분석
+            if (whileStmt->condition())
+            {
+                analyzeAndResolveExpression(whileStmt->condition());
+            }
+
+            // body
+            if (whileStmt->body())
+            {
+                symbolTable_.enterScope();
+                analyzeAndResolveStatement(whileStmt->body());
+                symbolTable_.exitScope();
+            }
+            break;
+        }
+        // 범위 for문: 루프 변수를 블록 스코프에 등록
+        case NodeType::RANGE_FOR_STATEMENT:
+        {
+            auto forStmt = static_cast<const RangeForStatement*>(stmt);
             symbolTable_.enterScope();
 
-            // 생성자 매개변수 등록
-            for (const auto& param : ctor->parameters())
+            // 루프 변수 등록
+            symbolTable_.define(forStmt->varName(), SymbolKind::VARIABLE,
+                              types::Type::integerType());
+
+            // start, end 표현식 분석
+            if (forStmt->start())
             {
-                symbolTable_.define(param.name, SymbolKind::VARIABLE, nullptr);
+                analyzeAndResolveExpression(forStmt->start());
+            }
+            if (forStmt->end())
+            {
+                analyzeAndResolveExpression(forStmt->end());
             }
 
-            // 생성자 본문 분석
-            if (ctor->body())
+            // body 분석
+            if (forStmt->body())
             {
-                analyzeAndResolveStatement(ctor->body());
+                analyzeAndResolveStatement(forStmt->body());
             }
 
             symbolTable_.exitScope();
+            break;
         }
+        // repeat문: body를 새로운 스코프에서 분석
+        case NodeType::REPEAT_STATEMENT:
+        {
+            auto repeatStmt = static_cast<const RepeatStatement*>(stmt);
+            // 반복 횟수 표현식 분석
+            if (repeatStmt->count())
+            {
+                analyzeAndResolveExpression(repeatStmt->count());
+            }
+
+            // body
+            if (repeatStmt->body())
+            {
+                symbolTable_.enterScope();
+                analyzeAndResolveStatement(repeatStmt->body());
+                symbolTable_.exitScope();
+            }
+            break;
+        }
+        // return문
+        case NodeType::RETURN_STATEMENT:
+        {
+            auto returnStmt = static_cast<const ReturnStatement*>(stmt);
+            if (returnStmt->returnValue())
+            {
+                analyzeAndResolveExpression(returnStmt->returnValue());
+            }
+            break;
+        }
+        // 표현식문
+        case NodeType::EXPRESSION_STATEMENT:
+        {
+            auto exprStmt = static_cast<const ExpressionStatement*>(stmt);
+            if (exprStmt->expression())
+            {
+                analyzeAndResolveExpression(exprStmt->expression());
+            }
+            break;
+        }
+        // import문: 모듈의 최상위 이름을 선언한다 (해석기가 있을 때만)
+        case NodeType::IMPORT_STATEMENT:
+        {
+            auto importStmt = static_cast<const ImportStatement*>(stmt);
+            declareModuleSymbols(importStmt->modulePath(), importStmt->location().filename);
+            break;
+        }
+        // Phase 7.1: 클래스 정의문
+        case NodeType::CLASS_STATEMENT:
+        {
+            auto classStmt = static_cast<const ClassStatement*>(stmt);
+            // 클래스 이름을 현재 스코프에 등록
+            symbolTable_.define(classStmt->className(), SymbolKind::CLASS, nullptr);
+
+            // 필드 검증 (중복 필드 이름 확인)
+            std::unordered_set<std::string> fieldNames;
+            for (const auto& field : classStmt->fields())
+            {
+                if (fieldNames.count(field->fieldName()))
+                {
+                    addError("중복된 필드 이름: " + field->fieldName(),
+                            stmt->location().line, stmt->location().column);
+                }
+                fieldNames.insert(field->fieldName());
+            }
+
+            // 메서드 검증 (중복 메서드 이름 확인)
+            std::unordered_set<std::string> methodNames;
+            for (const auto& method : classStmt->methods())
+            {
+                if (methodNames.count(method->methodName()))
+                {
+                    addError("중복된 메서드 이름: " + method->methodName(),
+                            stmt->location().line, stmt->location().column);
+                }
+                methodNames.insert(method->methodName());
+
+                // 메서드 본문 분석 (새 스코프에서)
+                symbolTable_.enterScope();
+
+                // 매개변수 등록
+                for (const auto& param : method->parameters())
+                {
+                    symbolTable_.define(param.name, SymbolKind::VARIABLE, nullptr);
+                }
+
+                // 메서드 본문 분석
+                if (method->body())
+                {
+                    analyzeAndResolveStatement(method->body());
+                }
+
+                symbolTable_.exitScope();
+            }
+
+            // 생성자 분석 (있으면)
+            if (classStmt->constructor())
+            {
+                auto ctor = classStmt->constructor();
+
+                symbolTable_.enterScope();
+
+                // 생성자 매개변수 등록
+                for (const auto& param : ctor->parameters())
+                {
+                    symbolTable_.define(param.name, SymbolKind::VARIABLE, nullptr);
+                }
+
+                // 생성자 본문 분석
+                if (ctor->body())
+                {
+                    analyzeAndResolveStatement(ctor->body());
+                }
+
+                symbolTable_.exitScope();
+            }
+            break;
+        }
+        default:
+            break;
     }
 }
 
@@ -543,24 +570,37 @@ void SemanticAnalyzer::declareModuleSymbols(const std::string& modulePath, const
 
     for (const auto& stmt : program->statements())
     {
-        if (auto assign = dynamic_cast<const AssignmentStatement*>(stmt.get()))
+        switch (stmt->type())
         {
-            bool isFunction = dynamic_cast<const FunctionLiteral*>(assign->value()) != nullptr ||
-                              dynamic_cast<const AsyncFunctionLiteral*>(assign->value()) != nullptr;
-            symbolTable_.define(assign->varName(), isFunction ? SymbolKind::FUNCTION : SymbolKind::VARIABLE, nullptr);
-        }
-        else if (auto varDecl = dynamic_cast<const VarDeclaration*>(stmt.get()))
-        {
-            symbolTable_.define(varDecl->varName(), SymbolKind::VARIABLE, nullptr);
-        }
-        else if (auto classStmt = dynamic_cast<const ClassStatement*>(stmt.get()))
-        {
-            symbolTable_.define(classStmt->className(), SymbolKind::CLASS, nullptr);
-        }
-        else if (auto nested = dynamic_cast<const ImportStatement*>(stmt.get()))
-        {
-            // 모듈이 가져온 이름도 가져오기 문으로 넘어온다 (평가기가 환경 전체를 복사한다)
-            declareModuleSymbols(nested->modulePath(), path);
+            case NodeType::ASSIGNMENT_STATEMENT:
+            {
+                auto assign = static_cast<const AssignmentStatement*>(stmt.get());
+                bool isFunction = node_cast<FunctionLiteral>(assign->value()) != nullptr ||
+                                  node_cast<AsyncFunctionLiteral>(assign->value()) != nullptr;
+                symbolTable_.define(assign->varName(), isFunction ? SymbolKind::FUNCTION : SymbolKind::VARIABLE, nullptr);
+                break;
+            }
+            case NodeType::VAR_DECLARATION:
+            {
+                auto varDecl = static_cast<const VarDeclaration*>(stmt.get());
+                symbolTable_.define(varDecl->varName(), SymbolKind::VARIABLE, nullptr);
+                break;
+            }
+            case NodeType::CLASS_STATEMENT:
+            {
+                auto classStmt = static_cast<const ClassStatement*>(stmt.get());
+                symbolTable_.define(classStmt->className(), SymbolKind::CLASS, nullptr);
+                break;
+            }
+            case NodeType::IMPORT_STATEMENT:
+            {
+                auto nested = static_cast<const ImportStatement*>(stmt.get());
+                // 모듈이 가져온 이름도 가져오기 문으로 넘어온다 (평가기가 환경 전체를 복사한다)
+                declareModuleSymbols(nested->modulePath(), path);
+                break;
+            }
+            default:
+                break;
         }
     }
 }
@@ -570,128 +610,160 @@ void SemanticAnalyzer::analyzeAndResolveExpression(const Expression* expr)
     if (!expr) return;
 
     // 식별자: 정의되어 있는지 확인
-    if (auto ident = dynamic_cast<const Identifier*>(expr))
+    switch (expr->type())
     {
-        if (!symbolTable_.lookup(ident->name()) &&
-            !isBuiltinFunction(ident->name()))
+        case NodeType::IDENTIFIER:
         {
-            addError("정의되지 않은 식별자: " + ident->name(),
-                    expr->location().line, expr->location().column);
+            auto ident = static_cast<const Identifier*>(expr);
+            if (!symbolTable_.lookup(ident->name()) &&
+                !isBuiltinFunction(ident->name()))
+            {
+                addError("정의되지 않은 식별자: " + ident->name(),
+                        expr->location().line, expr->location().column);
+            }
+            break;
         }
-    }
-    // 이항 표현식: 양쪽 피연산자 분석
-    else if (auto binary = dynamic_cast<const BinaryExpression*>(expr))
-    {
-        analyzeAndResolveExpression(binary->left());
-        analyzeAndResolveExpression(binary->right());
-    }
-    // 단항 표현식: 피연산자 분석
-    else if (auto unary = dynamic_cast<const UnaryExpression*>(expr))
-    {
-        analyzeAndResolveExpression(unary->operand());
-    }
-    // 함수 호출: 함수명과 인자들 분석
-    else if (auto call = dynamic_cast<const CallExpression*>(expr))
-    {
-        analyzeAndResolveExpression(call->function());
+        // 이항 표현식: 양쪽 피연산자 분석
+        case NodeType::BINARY_EXPRESSION:
+        {
+            auto binary = static_cast<const BinaryExpression*>(expr);
+            analyzeAndResolveExpression(binary->left());
+            analyzeAndResolveExpression(binary->right());
+            break;
+        }
+        // 단항 표현식: 피연산자 분석
+        case NodeType::UNARY_EXPRESSION:
+        {
+            auto unary = static_cast<const UnaryExpression*>(expr);
+            analyzeAndResolveExpression(unary->operand());
+            break;
+        }
+        // 함수 호출: 함수명과 인자들 분석
+        case NodeType::CALL_EXPRESSION:
+        {
+            auto call = static_cast<const CallExpression*>(expr);
+            analyzeAndResolveExpression(call->function());
 
-        for (const auto& arg : call->arguments())
-        {
-            analyzeAndResolveExpression(arg.get());
+            for (const auto& arg : call->arguments())
+            {
+                analyzeAndResolveExpression(arg.get());
+            }
+            break;
         }
-    }
-    // 조사 표현식: 객체 분석
-    else if (auto josa = dynamic_cast<const JosaExpression*>(expr))
-    {
-        analyzeAndResolveExpression(josa->object());
-    }
-    // 인덱스 표현식: 배열과 인덱스 분석
-    else if (auto index = dynamic_cast<const IndexExpression*>(expr))
-    {
-        analyzeAndResolveExpression(index->array());
-        analyzeAndResolveExpression(index->index());
-    }
-    // 배열 리터럴: 각 요소 분석
-    else if (auto arrayLit = dynamic_cast<const ArrayLiteral*>(expr))
-    {
-        for (const auto& elem : arrayLit->elements())
+        // 조사 표현식: 객체 분석
+        case NodeType::JOSA_EXPRESSION:
         {
-            analyzeAndResolveExpression(elem.get());
+            auto josa = static_cast<const JosaExpression*>(expr);
+            analyzeAndResolveExpression(josa->object());
+            break;
         }
-    }
-    // 딕셔너리 리터럴: 각 key-value 쌍 분석 (Phase 7.2)
-    else if (auto dictLit = dynamic_cast<const DictionaryLiteral*>(expr))
-    {
-        for (const auto& [keyExpr, valueExpr] : dictLit->pairs())
+        // 인덱스 표현식: 배열과 인덱스 분석
+        case NodeType::INDEX_EXPRESSION:
         {
-            analyzeAndResolveExpression(keyExpr.get());
-            analyzeAndResolveExpression(valueExpr.get());
+            auto index = static_cast<const IndexExpression*>(expr);
+            analyzeAndResolveExpression(index->array());
+            analyzeAndResolveExpression(index->index());
+            break;
         }
-    }
-    // Range 표현식: start, end 분석
-    else if (auto range = dynamic_cast<const RangeExpression*>(expr))
-    {
-        analyzeAndResolveExpression(range->start());
-        analyzeAndResolveExpression(range->end());
-    }
-    // Phase 7.1: 객체 생성 표현식
-    else if (auto newExpr = dynamic_cast<const NewExpression*>(expr))
-    {
-        // 클래스 이름이 정의되어 있는지 확인
-        if (!symbolTable_.lookup(newExpr->className()))
+        // 배열 리터럴: 각 요소 분석
+        case NodeType::ARRAY_LITERAL:
         {
-            addError("정의되지 않은 클래스: " + newExpr->className(),
-                    expr->location().line, expr->location().column);
+            auto arrayLit = static_cast<const ArrayLiteral*>(expr);
+            for (const auto& elem : arrayLit->elements())
+            {
+                analyzeAndResolveExpression(elem.get());
+            }
+            break;
         }
+        // 딕셔너리 리터럴: 각 key-value 쌍 분석 (Phase 7.2)
+        case NodeType::DICTIONARY_LITERAL:
+        {
+            auto dictLit = static_cast<const DictionaryLiteral*>(expr);
+            for (const auto& [keyExpr, valueExpr] : dictLit->pairs())
+            {
+                analyzeAndResolveExpression(keyExpr.get());
+                analyzeAndResolveExpression(valueExpr.get());
+            }
+            break;
+        }
+        // Range 표현식: start, end 분석
+        case NodeType::RANGE_EXPRESSION:
+        {
+            auto range = static_cast<const RangeExpression*>(expr);
+            analyzeAndResolveExpression(range->start());
+            analyzeAndResolveExpression(range->end());
+            break;
+        }
+        // Phase 7.1: 객체 생성 표현식
+        case NodeType::NEW_EXPRESSION:
+        {
+            auto newExpr = static_cast<const NewExpression*>(expr);
+            // 클래스 이름이 정의되어 있는지 확인
+            if (!symbolTable_.lookup(newExpr->className()))
+            {
+                addError("정의되지 않은 클래스: " + newExpr->className(),
+                        expr->location().line, expr->location().column);
+            }
 
-        // 생성자 인자들 분석
-        for (const auto& arg : newExpr->arguments())
-        {
-            analyzeAndResolveExpression(arg.get());
+            // 생성자 인자들 분석
+            for (const auto& arg : newExpr->arguments())
+            {
+                analyzeAndResolveExpression(arg.get());
+            }
+            break;
         }
-    }
-    // Phase 7.1: 멤버 접근 표현식
-    else if (auto memberAccess = dynamic_cast<const MemberAccessExpression*>(expr))
-    {
-        // 객체 표현식 분석
-        analyzeAndResolveExpression(memberAccess->object());
-        // 멤버 이름은 런타임에 검증 (클래스 정의를 알아야 함)
-    }
-    // Phase 7.1: this 표현식
-    else if (dynamic_cast<const ThisExpression*>(expr))
-    {
-        // this는 메서드나 생성자 내부에서만 사용 가능
-        // 현재는 스코프 체크 없이 허용 (TODO: 향후 메서드/생성자 스코프 추적 추가)
-    }
-    // Phase 7.3: 비동기 함수 리터럴
-    else if (auto asyncFunc = dynamic_cast<const AsyncFunctionLiteral*>(expr))
-    {
-        // 비동기 함수의 본문을 분석 (함수 본문 내의 식별자 등)
-        if (asyncFunc->body())
+        // Phase 7.1: 멤버 접근 표현식
+        case NodeType::MEMBER_ACCESS_EXPRESSION:
         {
-            // 비동기 함수 컨텍스트 설정
-            bool prevInAsyncFunction = inAsyncFunction_;
-            inAsyncFunction_ = true;
-
-            analyzeAndResolveStatement(asyncFunc->body());
-
-            // 컨텍스트 복원
-            inAsyncFunction_ = prevInAsyncFunction;
+            auto memberAccess = static_cast<const MemberAccessExpression*>(expr);
+            // 객체 표현식 분석
+            analyzeAndResolveExpression(memberAccess->object());
+            // 멤버 이름은 런타임에 검증 (클래스 정의를 알아야 함)
+            break;
         }
-    }
-    // Phase 7.3: await 표현식
-    else if (auto awaitExpr = dynamic_cast<const AwaitExpression*>(expr))
-    {
-        // await는 async 함수 내부 또는 top-level에서만 사용 가능
-        // 일반 함수 내부에서는 사용 불가
-        if (inFunction_ && !inAsyncFunction_)
+        // Phase 7.1: this 표현식
+        case NodeType::THIS_EXPRESSION:
         {
-            addError("'대기'는 비동기 함수 내부에서만 사용할 수 있습니다",
-                    expr->location().line, expr->location().column);
+            // this는 메서드나 생성자 내부에서만 사용 가능
+            // 현재는 스코프 체크 없이 허용 (TODO: 향후 메서드/생성자 스코프 추적 추가)
+            break;
         }
+        // Phase 7.3: 비동기 함수 리터럴
+        case NodeType::ASYNC_FUNCTION_LITERAL:
+        {
+            auto asyncFunc = static_cast<const AsyncFunctionLiteral*>(expr);
+            // 비동기 함수의 본문을 분석 (함수 본문 내의 식별자 등)
+            if (asyncFunc->body())
+            {
+                // 비동기 함수 컨텍스트 설정
+                bool prevInAsyncFunction = inAsyncFunction_;
+                inAsyncFunction_ = true;
 
-        // 대기할 표현식 분석
-        analyzeAndResolveExpression(awaitExpr->argument());
+                analyzeAndResolveStatement(asyncFunc->body());
+
+                // 컨텍스트 복원
+                inAsyncFunction_ = prevInAsyncFunction;
+            }
+            break;
+        }
+        // Phase 7.3: await 표현식
+        case NodeType::AWAIT_EXPRESSION:
+        {
+            auto awaitExpr = static_cast<const AwaitExpression*>(expr);
+            // await는 async 함수 내부 또는 top-level에서만 사용 가능
+            // 일반 함수 내부에서는 사용 불가
+            if (inFunction_ && !inAsyncFunction_)
+            {
+                addError("'대기'는 비동기 함수 내부에서만 사용할 수 있습니다",
+                        expr->location().line, expr->location().column);
+            }
+
+            // 대기할 표현식 분석
+            analyzeAndResolveExpression(awaitExpr->argument());
+            break;
+        }
+        default:
+            break;
     }
     // 리터럴 (정수, 실수, 문자열, 불린): 아무것도 안 함
     // 함수 리터럴: 별도 처리 필요 없음 (AssignmentStatement에서 처리)
@@ -714,62 +786,81 @@ void SemanticAnalyzer::registerSymbolFromStatement(const Statement* stmt)
     if (!stmt) return;
 
     // 변수 선언
-    if (auto varDecl = dynamic_cast<const VarDeclaration*>(stmt))
+    switch (stmt->type())
     {
-        registerVariable(const_cast<VarDeclaration*>(varDecl));
-    }
-    // 할당문 (함수 선언도 할당문으로 변환됨)
-    else if (auto assignStmt = dynamic_cast<const AssignmentStatement*>(stmt))
-    {
-        // 함수 리터럴 할당인지 확인
-        if (auto funcLit = dynamic_cast<const FunctionLiteral*>(assignStmt->value()))
+        case NodeType::VAR_DECLARATION:
         {
-            registerFunction(assignStmt->varName(), const_cast<FunctionLiteral*>(funcLit));
+            auto varDecl = static_cast<const VarDeclaration*>(stmt);
+            registerVariable(const_cast<VarDeclaration*>(varDecl));
+            break;
         }
-    }
-    // BlockStatement: 블록 내 모든 문장 등록 (Scope는 resolveNames에서 처리)
-    else if (auto blockStmt = dynamic_cast<const BlockStatement*>(stmt))
-    {
-        for (const auto& s : blockStmt->statements())
+        // 할당문 (함수 선언도 할당문으로 변환됨)
+        case NodeType::ASSIGNMENT_STATEMENT:
         {
-            registerSymbolFromStatement(s.get());
+            auto assignStmt = static_cast<const AssignmentStatement*>(stmt);
+            // 함수 리터럴 할당인지 확인
+            if (auto funcLit = node_cast<FunctionLiteral>(assignStmt->value()))
+            {
+                registerFunction(assignStmt->varName(), const_cast<FunctionLiteral*>(funcLit));
+            }
+            break;
         }
-    }
-    // IfStatement: then과 else 블록 등록 (Scope는 resolveNames에서 처리)
-    else if (auto ifStmt = dynamic_cast<const IfStatement*>(stmt))
-    {
-        if (ifStmt->thenBranch())
+        // BlockStatement: 블록 내 모든 문장 등록 (Scope는 resolveNames에서 처리)
+        case NodeType::BLOCK_STATEMENT:
         {
-            registerSymbolFromStatement(ifStmt->thenBranch());
+            auto blockStmt = static_cast<const BlockStatement*>(stmt);
+            for (const auto& s : blockStmt->statements())
+            {
+                registerSymbolFromStatement(s.get());
+            }
+            break;
         }
-        if (ifStmt->elseBranch())
+        // IfStatement: then과 else 블록 등록 (Scope는 resolveNames에서 처리)
+        case NodeType::IF_STATEMENT:
         {
-            registerSymbolFromStatement(ifStmt->elseBranch());
+            auto ifStmt = static_cast<const IfStatement*>(stmt);
+            if (ifStmt->thenBranch())
+            {
+                registerSymbolFromStatement(ifStmt->thenBranch());
+            }
+            if (ifStmt->elseBranch())
+            {
+                registerSymbolFromStatement(ifStmt->elseBranch());
+            }
+            break;
         }
-    }
-    // WhileStatement: body 등록 (Scope는 resolveNames에서 처리)
-    else if (auto whileStmt = dynamic_cast<const WhileStatement*>(stmt))
-    {
-        if (whileStmt->body())
+        // WhileStatement: body 등록 (Scope는 resolveNames에서 처리)
+        case NodeType::WHILE_STATEMENT:
         {
-            registerSymbolFromStatement(whileStmt->body());
+            auto whileStmt = static_cast<const WhileStatement*>(stmt);
+            if (whileStmt->body())
+            {
+                registerSymbolFromStatement(whileStmt->body());
+            }
+            break;
         }
-    }
-    // RangeForStatement: body 등록 (루프 변수와 Scope는 resolveNames에서 처리)
-    else if (auto forStmt = dynamic_cast<const RangeForStatement*>(stmt))
-    {
-        if (forStmt->body())
+        // RangeForStatement: body 등록 (루프 변수와 Scope는 resolveNames에서 처리)
+        case NodeType::RANGE_FOR_STATEMENT:
         {
-            registerSymbolFromStatement(forStmt->body());
+            auto forStmt = static_cast<const RangeForStatement*>(stmt);
+            if (forStmt->body())
+            {
+                registerSymbolFromStatement(forStmt->body());
+            }
+            break;
         }
-    }
-    // RepeatStatement: 반복 본문 등록 (Scope는 resolveNames에서 처리)
-    else if (auto repeatStmt = dynamic_cast<const RepeatStatement*>(stmt))
-    {
-        if (repeatStmt->body())
+        // RepeatStatement: 반복 본문 등록 (Scope는 resolveNames에서 처리)
+        case NodeType::REPEAT_STATEMENT:
         {
-            registerSymbolFromStatement(repeatStmt->body());
+            auto repeatStmt = static_cast<const RepeatStatement*>(stmt);
+            if (repeatStmt->body())
+            {
+                registerSymbolFromStatement(repeatStmt->body());
+            }
+            break;
         }
+        default:
+            break;
     }
 }
 
@@ -835,119 +926,134 @@ void SemanticAnalyzer::resolveNamesInStatement(const Statement* stmt)
     if (!stmt) return;
 
     // VarDeclaration: 초기화 값 검증
-    if (auto varDecl = dynamic_cast<const VarDeclaration*>(stmt))
+    switch (stmt->type())
     {
-        if (varDecl->initializer())
+        case NodeType::VAR_DECLARATION:
         {
-            resolveNamesInExpression(varDecl->initializer());
+            auto varDecl = static_cast<const VarDeclaration*>(stmt);
+            if (varDecl->initializer())
+            {
+                resolveNamesInExpression(varDecl->initializer());
+            }
+            break;
         }
-    }
-
-    // AssignmentStatement: 할당 값 검증 (변수명은 이미 정의되어 있어야 함)
-    else if (auto assignStmt = dynamic_cast<const AssignmentStatement*>(stmt))
-    {
-        const std::string& varName = assignStmt->varName();
-
-        // 할당 대상 변수가 정의되어 있는지 확인 (타입 검사 단계에서도 확인하지만 여기서도 체크)
-        if (!symbolTable_.isDefined(varName))
+        // AssignmentStatement: 할당 값 검증 (변수명은 이미 정의되어 있어야 함)
+        case NodeType::ASSIGNMENT_STATEMENT:
         {
-            addError("정의되지 않은 변수에 할당 시도: " + varName);
+            auto assignStmt = static_cast<const AssignmentStatement*>(stmt);
+            const std::string& varName = assignStmt->varName();
+
+            // 할당 대상 변수가 정의되어 있는지 확인 (타입 검사 단계에서도 확인하지만 여기서도 체크)
+            if (!symbolTable_.isDefined(varName))
+            {
+                addError("정의되지 않은 변수에 할당 시도: " + varName);
+            }
+
+            // 할당 값 검증
+            resolveNamesInExpression(assignStmt->value());
+            break;
         }
-
-        // 할당 값 검증
-        resolveNamesInExpression(assignStmt->value());
-    }
-
-    // ExpressionStatement: 표현식 검증
-    else if (auto exprStmt = dynamic_cast<const ExpressionStatement*>(stmt))
-    {
-        resolveNamesInExpression(exprStmt->expression());
-    }
-
-    // ReturnStatement: 반환 값 검증
-    else if (auto retStmt = dynamic_cast<const ReturnStatement*>(stmt))
-    {
-        if (retStmt->returnValue())
+        // ExpressionStatement: 표현식 검증
+        case NodeType::EXPRESSION_STATEMENT:
         {
-            resolveNamesInExpression(retStmt->returnValue());
+            auto exprStmt = static_cast<const ExpressionStatement*>(stmt);
+            resolveNamesInExpression(exprStmt->expression());
+            break;
         }
-    }
-
-    // IfStatement: 조건과 블록들 검증
-    else if (auto ifStmt = dynamic_cast<const IfStatement*>(stmt))
-    {
-        resolveNamesInExpression(ifStmt->condition());
-
-        if (ifStmt->thenBranch())
+        // ReturnStatement: 반환 값 검증
+        case NodeType::RETURN_STATEMENT:
         {
-            symbolTable_.enterScope();  // then 블록 스코프 진입
-            resolveNamesInStatement(ifStmt->thenBranch());
-            symbolTable_.exitScope();   // then 블록 스코프 탈출
+            auto retStmt = static_cast<const ReturnStatement*>(stmt);
+            if (retStmt->returnValue())
+            {
+                resolveNamesInExpression(retStmt->returnValue());
+            }
+            break;
         }
-
-        if (ifStmt->elseBranch())
+        // IfStatement: 조건과 블록들 검증
+        case NodeType::IF_STATEMENT:
         {
-            symbolTable_.enterScope();  // else 블록 스코프 진입
-            resolveNamesInStatement(ifStmt->elseBranch());
-            symbolTable_.exitScope();   // else 블록 스코프 탈출
+            auto ifStmt = static_cast<const IfStatement*>(stmt);
+            resolveNamesInExpression(ifStmt->condition());
+
+            if (ifStmt->thenBranch())
+            {
+                symbolTable_.enterScope();  // then 블록 스코프 진입
+                resolveNamesInStatement(ifStmt->thenBranch());
+                symbolTable_.exitScope();   // then 블록 스코프 탈출
+            }
+
+            if (ifStmt->elseBranch())
+            {
+                symbolTable_.enterScope();  // else 블록 스코프 진입
+                resolveNamesInStatement(ifStmt->elseBranch());
+                symbolTable_.exitScope();   // else 블록 스코프 탈출
+            }
+            break;
         }
-    }
-
-    // WhileStatement: 조건과 본문 검증
-    else if (auto whileStmt = dynamic_cast<const WhileStatement*>(stmt))
-    {
-        resolveNamesInExpression(whileStmt->condition());
-
-        if (whileStmt->body())
+        // WhileStatement: 조건과 본문 검증
+        case NodeType::WHILE_STATEMENT:
         {
-            symbolTable_.enterScope();  // while 본문 스코프 진입
-            resolveNamesInStatement(whileStmt->body());
-            symbolTable_.exitScope();   // while 본문 스코프 탈출
+            auto whileStmt = static_cast<const WhileStatement*>(stmt);
+            resolveNamesInExpression(whileStmt->condition());
+
+            if (whileStmt->body())
+            {
+                symbolTable_.enterScope();  // while 본문 스코프 진입
+                resolveNamesInStatement(whileStmt->body());
+                symbolTable_.exitScope();   // while 본문 스코프 탈출
+            }
+            break;
         }
-    }
-
-    // BlockStatement: 모든 문장 검증
-    else if (auto blockStmt = dynamic_cast<const BlockStatement*>(stmt))
-    {
-        symbolTable_.enterScope();  // 블록 스코프 진입
-
-        for (const auto& s : blockStmt->statements())
+        // BlockStatement: 모든 문장 검증
+        case NodeType::BLOCK_STATEMENT:
         {
-            resolveNamesInStatement(s.get());
+            auto blockStmt = static_cast<const BlockStatement*>(stmt);
+            symbolTable_.enterScope();  // 블록 스코프 진입
+
+            for (const auto& s : blockStmt->statements())
+            {
+                resolveNamesInStatement(s.get());
+            }
+
+            symbolTable_.exitScope();  // 블록 스코프 탈출
+            break;
         }
-
-        symbolTable_.exitScope();  // 블록 스코프 탈출
-    }
-
-    // RangeForStatement: 범위와 본문 검증
-    else if (auto forStmt = dynamic_cast<const RangeForStatement*>(stmt))
-    {
-        resolveNamesInExpression(forStmt->start());
-        resolveNamesInExpression(forStmt->end());
-
-        if (forStmt->body())
+        // RangeForStatement: 범위와 본문 검증
+        case NodeType::RANGE_FOR_STATEMENT:
         {
-            symbolTable_.enterScope();  // for 본문 스코프 진입
+            auto forStmt = static_cast<const RangeForStatement*>(stmt);
+            resolveNamesInExpression(forStmt->start());
+            resolveNamesInExpression(forStmt->end());
 
-            // 루프 변수를 스코프에 등록 (타입은 범위의 타입과 동일하게 정수로 가정)
-            symbolTable_.define(forStmt->varName(), SymbolKind::VARIABLE, types::Type::integerType());
+            if (forStmt->body())
+            {
+                symbolTable_.enterScope();  // for 본문 스코프 진입
 
-            resolveNamesInStatement(forStmt->body());
-            symbolTable_.exitScope();   // for 본문 스코프 탈출
+                // 루프 변수를 스코프에 등록 (타입은 범위의 타입과 동일하게 정수로 가정)
+                symbolTable_.define(forStmt->varName(), SymbolKind::VARIABLE, types::Type::integerType());
+
+                resolveNamesInStatement(forStmt->body());
+                symbolTable_.exitScope();   // for 본문 스코프 탈출
+            }
+            break;
         }
-    }
-
-    // RepeatStatement: 횟수와 본문 검증
-    else if (auto repeatStmt = dynamic_cast<const RepeatStatement*>(stmt))
-    {
-        resolveNamesInExpression(repeatStmt->count());
-
-        if (repeatStmt->body())
+        // RepeatStatement: 횟수와 본문 검증
+        case NodeType::REPEAT_STATEMENT:
         {
-            symbolTable_.enterScope();  // repeat 본문 스코프 진입
-            resolveNamesInStatement(repeatStmt->body());
-            symbolTable_.exitScope();   // repeat 본문 스코프 탈출
+            auto repeatStmt = static_cast<const RepeatStatement*>(stmt);
+            resolveNamesInExpression(repeatStmt->count());
+
+            if (repeatStmt->body())
+            {
+                symbolTable_.enterScope();  // repeat 본문 스코프 진입
+                resolveNamesInStatement(repeatStmt->body());
+                symbolTable_.exitScope();   // repeat 본문 스코프 탈출
+            }
+            break;
         }
+        default:
+            break;
     }
 }
 
@@ -956,116 +1062,132 @@ void SemanticAnalyzer::resolveNamesInExpression(const Expression* expr)
     if (!expr) return;
 
     // Identifier: 변수나 함수가 정의되었는지 확인
-    if (auto ident = dynamic_cast<const Identifier*>(expr))
+    switch (expr->type())
     {
-        const std::string& name = ident->name();
-
-        // builtin 함수나 정의된 심볼이 아니면 에러
-        if (!isBuiltinFunction(name) && !symbolTable_.isDefined(name))
+        case NodeType::IDENTIFIER:
         {
-            const auto& loc = ident->location();
-            addError("정의되지 않은 식별자: " + name, loc.line, loc.column);
-        }
-    }
+            auto ident = static_cast<const Identifier*>(expr);
+            const std::string& name = ident->name();
 
-    // BinaryExpression: 좌변과 우변 검증
-    else if (auto binExpr = dynamic_cast<const BinaryExpression*>(expr))
-    {
-        resolveNamesInExpression(binExpr->left());
-        resolveNamesInExpression(binExpr->right());
-    }
-
-    // UnaryExpression: 피연산자 검증
-    else if (auto unaryExpr = dynamic_cast<const UnaryExpression*>(expr))
-    {
-        resolveNamesInExpression(unaryExpr->operand());
-    }
-
-    // CallExpression: 함수와 인자들 검증
-    else if (auto callExpr = dynamic_cast<const CallExpression*>(expr))
-    {
-        resolveNamesInExpression(callExpr->function());
-        for (const auto& arg : callExpr->arguments())
-        {
-            resolveNamesInExpression(arg.get());
-        }
-    }
-
-    // IndexExpression: 배열과 인덱스 검증
-    else if (auto indexExpr = dynamic_cast<const IndexExpression*>(expr))
-    {
-        resolveNamesInExpression(indexExpr->array());
-        resolveNamesInExpression(indexExpr->index());
-    }
-
-    // ArrayLiteral: 모든 요소 검증
-    else if (auto arrayLit = dynamic_cast<const ArrayLiteral*>(expr))
-    {
-        for (const auto& elem : arrayLit->elements())
-        {
-            resolveNamesInExpression(elem.get());
-        }
-    }
-
-    // DictionaryLiteral: 모든 key-value 쌍 검증 (Phase 7.2)
-    else if (auto dictLit = dynamic_cast<const DictionaryLiteral*>(expr))
-    {
-        for (const auto& [keyExpr, valueExpr] : dictLit->pairs())
-        {
-            resolveNamesInExpression(keyExpr.get());
-            resolveNamesInExpression(valueExpr.get());
-        }
-    }
-
-    // FunctionLiteral: 함수 본문 검증 (매개변수는 함수 스코프에서 처리)
-    else if (auto funcLit = dynamic_cast<const FunctionLiteral*>(expr))
-    {
-        symbolTable_.enterScope();  // 함수 스코프 진입
-
-        // 매개변수들을 함수 스코프에 등록
-        for (const auto& param : funcLit->parameters())
-        {
-            // 매개변수 타입은 현재 알 수 없으므로 nullptr
-            symbolTable_.define(param, SymbolKind::VARIABLE, nullptr);
-        }
-
-        // 함수 본문 검증
-        if (funcLit->body())
-        {
-            resolveNamesInStatement(funcLit->body());
-        }
-
-        symbolTable_.exitScope();  // 함수 스코프 탈출
-    }
-
-    // JosaExpression: 대상 표현식과 메서드 검증
-    else if (auto josaExpr = dynamic_cast<const JosaExpression*>(expr))
-    {
-        resolveNamesInExpression(josaExpr->object());
-        resolveNamesInExpression(josaExpr->method());
-    }
-
-    // MatchExpression: 패턴 매칭 표현식 검증
-    else if (auto matchExpr = dynamic_cast<const MatchExpression*>(expr))
-    {
-        // 매칭 대상 표현식 검증
-        resolveNamesInExpression(matchExpr->value());
-
-        // 각 케이스의 결과 표현식 검증
-        for (const auto& matchCase : matchExpr->cases())
-        {
-            // 가드 조건 검증
-            if (matchCase.guard())
+            // builtin 함수나 정의된 심볼이 아니면 에러
+            if (!isBuiltinFunction(name) && !symbolTable_.isDefined(name))
             {
-                resolveNamesInExpression(matchCase.guard());
+                const auto& loc = ident->location();
+                addError("정의되지 않은 식별자: " + name, loc.line, loc.column);
+            }
+            break;
+        }
+        // BinaryExpression: 좌변과 우변 검증
+        case NodeType::BINARY_EXPRESSION:
+        {
+            auto binExpr = static_cast<const BinaryExpression*>(expr);
+            resolveNamesInExpression(binExpr->left());
+            resolveNamesInExpression(binExpr->right());
+            break;
+        }
+        // UnaryExpression: 피연산자 검증
+        case NodeType::UNARY_EXPRESSION:
+        {
+            auto unaryExpr = static_cast<const UnaryExpression*>(expr);
+            resolveNamesInExpression(unaryExpr->operand());
+            break;
+        }
+        // CallExpression: 함수와 인자들 검증
+        case NodeType::CALL_EXPRESSION:
+        {
+            auto callExpr = static_cast<const CallExpression*>(expr);
+            resolveNamesInExpression(callExpr->function());
+            for (const auto& arg : callExpr->arguments())
+            {
+                resolveNamesInExpression(arg.get());
+            }
+            break;
+        }
+        // IndexExpression: 배열과 인덱스 검증
+        case NodeType::INDEX_EXPRESSION:
+        {
+            auto indexExpr = static_cast<const IndexExpression*>(expr);
+            resolveNamesInExpression(indexExpr->array());
+            resolveNamesInExpression(indexExpr->index());
+            break;
+        }
+        // ArrayLiteral: 모든 요소 검증
+        case NodeType::ARRAY_LITERAL:
+        {
+            auto arrayLit = static_cast<const ArrayLiteral*>(expr);
+            for (const auto& elem : arrayLit->elements())
+            {
+                resolveNamesInExpression(elem.get());
+            }
+            break;
+        }
+        // DictionaryLiteral: 모든 key-value 쌍 검증 (Phase 7.2)
+        case NodeType::DICTIONARY_LITERAL:
+        {
+            auto dictLit = static_cast<const DictionaryLiteral*>(expr);
+            for (const auto& [keyExpr, valueExpr] : dictLit->pairs())
+            {
+                resolveNamesInExpression(keyExpr.get());
+                resolveNamesInExpression(valueExpr.get());
+            }
+            break;
+        }
+        // FunctionLiteral: 함수 본문 검증 (매개변수는 함수 스코프에서 처리)
+        case NodeType::FUNCTION_LITERAL:
+        {
+            auto funcLit = static_cast<const FunctionLiteral*>(expr);
+            symbolTable_.enterScope();  // 함수 스코프 진입
+
+            // 매개변수들을 함수 스코프에 등록
+            for (const auto& param : funcLit->parameters())
+            {
+                // 매개변수 타입은 현재 알 수 없으므로 nullptr
+                symbolTable_.define(param, SymbolKind::VARIABLE, nullptr);
             }
 
-            // 결과 표현식 검증
-            if (matchCase.body())
+            // 함수 본문 검증
+            if (funcLit->body())
             {
-                resolveNamesInExpression(matchCase.body());
+                resolveNamesInStatement(funcLit->body());
             }
+
+            symbolTable_.exitScope();  // 함수 스코프 탈출
+            break;
         }
+        // JosaExpression: 대상 표현식과 메서드 검증
+        case NodeType::JOSA_EXPRESSION:
+        {
+            auto josaExpr = static_cast<const JosaExpression*>(expr);
+            resolveNamesInExpression(josaExpr->object());
+            resolveNamesInExpression(josaExpr->method());
+            break;
+        }
+        // MatchExpression: 패턴 매칭 표현식 검증
+        case NodeType::MATCH_EXPRESSION:
+        {
+            auto matchExpr = static_cast<const MatchExpression*>(expr);
+            // 매칭 대상 표현식 검증
+            resolveNamesInExpression(matchExpr->value());
+
+            // 각 케이스의 결과 표현식 검증
+            for (const auto& matchCase : matchExpr->cases())
+            {
+                // 가드 조건 검증
+                if (matchCase.guard())
+                {
+                    resolveNamesInExpression(matchCase.guard());
+                }
+
+                // 결과 표현식 검증
+                if (matchCase.body())
+                {
+                    resolveNamesInExpression(matchCase.body());
+                }
+            }
+            break;
+        }
+        default:
+            break;
     }
 
     // 리터럴들은 검증 불필요 (IntegerLiteral, FloatLiteral, StringLiteral, BooleanLiteral)
@@ -1090,211 +1212,224 @@ void SemanticAnalyzer::checkTypesInStatement(const Statement* stmt)
     if (!stmt) return;
 
     // VarDeclaration: 변수 선언 시 초기화 값의 타입 검사
-    if (auto varDecl = dynamic_cast<const VarDeclaration*>(stmt))
+    switch (stmt->type())
     {
-        if (varDecl->initializer())
+        case NodeType::VAR_DECLARATION:
         {
-            Type* initType = inferType(varDecl->initializer());
-            Type* varType = varDecl->varType();
-
-            if (initType && varType && !isTypeCompatible(varType, initType))
+            auto varDecl = static_cast<const VarDeclaration*>(stmt);
+            if (varDecl->initializer())
             {
-                addError("타입 불일치: " + varType->koreanName() + " 변수에 " +
-                        initType->koreanName() + " 값을 할당할 수 없습니다");
-            }
-        }
-    }
+                Type* initType = inferType(varDecl->initializer());
+                Type* varType = varDecl->varType();
 
-    // AssignmentStatement: 할당문의 타입 검사
-    else if (auto assignStmt = dynamic_cast<const AssignmentStatement*>(stmt))
-    {
-        const std::string& varName = assignStmt->varName();
-        Symbol* symbol = symbolTable_.lookup(varName);
-
-        // 변수가 정의되어 있지 않으면 현재 스코프에 등록 (동적 타이핑)
-        if (!symbol)
-        {
-            symbolTable_.define(varName, SymbolKind::VARIABLE, nullptr);
-            symbol = symbolTable_.lookup(varName);
-        }
-
-        // 함수 리터럴인 경우 함수 컨텍스트 설정
-        if (auto funcLit = dynamic_cast<const FunctionLiteral*>(assignStmt->value()))
-        {
-            // 함수 컨텍스트 진입
-            bool prevInFunction = inFunction_;
-            std::string prevFunctionName = currentFunctionName_;
-            Type* prevReturnType = expectedReturnType_;
-
-            inFunction_ = true;
-            currentFunctionName_ = varName;
-            expectedReturnType_ = nullptr;  // 첫 return에서 추론
-
-            // 함수 스코프 생성 및 매개변수 등록
-            symbolTable_.enterScope();
-            for (const auto& param : funcLit->parameters())
-            {
-                symbolTable_.define(param, SymbolKind::VARIABLE, nullptr);
-            }
-
-            // 함수 본문 검사
-            checkTypesInStatement(funcLit->body());
-
-            // 함수 스코프 종료
-            symbolTable_.exitScope();
-
-            // 함수 컨텍스트 복원
-            inFunction_ = prevInFunction;
-            currentFunctionName_ = prevFunctionName;
-            expectedReturnType_ = prevReturnType;
-        }
-        // Phase 7.3: 비동기 함수 리터럴인 경우
-        else if (auto asyncFuncLit = dynamic_cast<const AsyncFunctionLiteral*>(assignStmt->value()))
-        {
-            // 함수 컨텍스트 진입
-            bool prevInFunction = inFunction_;
-            bool prevInAsyncFunction = inAsyncFunction_;
-            std::string prevFunctionName = currentFunctionName_;
-            Type* prevReturnType = expectedReturnType_;
-
-            inFunction_ = true;
-            inAsyncFunction_ = true;  // 비동기 함수 컨텍스트
-            currentFunctionName_ = varName;
-            expectedReturnType_ = nullptr;
-
-            // 함수 스코프 생성 및 매개변수 등록
-            symbolTable_.enterScope();
-            for (const auto& param : asyncFuncLit->parameters())
-            {
-                symbolTable_.define(param, SymbolKind::VARIABLE, nullptr);
-            }
-
-            // 함수 본문 검사
-            checkTypesInStatement(asyncFuncLit->body());
-
-            // 함수 스코프 종료
-            symbolTable_.exitScope();
-
-            // 함수 컨텍스트 복원
-            inFunction_ = prevInFunction;
-            inAsyncFunction_ = prevInAsyncFunction;
-            currentFunctionName_ = prevFunctionName;
-            expectedReturnType_ = prevReturnType;
-        }
-        else
-        {
-            Type* valueType = inferType(assignStmt->value());
-            Type* varType = symbol->type;
-
-            if (valueType && varType && !isTypeCompatible(varType, valueType))
-            {
-                addError("타입 불일치: " + varType->koreanName() + " 변수 '" + varName +
-                        "'에 " + valueType->koreanName() + " 값을 할당할 수 없습니다");
-            }
-        }
-    }
-
-    // ExpressionStatement: 표현식 문장의 타입 검사
-    else if (auto exprStmt = dynamic_cast<const ExpressionStatement*>(stmt))
-    {
-        // 표현식 자체의 타입을 검사 (부작용 확인용)
-        inferType(exprStmt->expression());
-    }
-
-    // ReturnStatement: 반환문의 타입 검사
-    else if (auto retStmt = dynamic_cast<const ReturnStatement*>(stmt))
-    {
-        // 함수 밖에서 return 사용 검사
-        if (!inFunction_)
-        {
-            addError("'반환'문은 함수 내부에서만 사용할 수 있습니다");
-            return;
-        }
-
-        if (retStmt->returnValue())
-        {
-            Type* returnType = inferType(retStmt->returnValue());
-
-            if (returnType)
-            {
-                // 첫 번째 return문: 기대 타입 설정
-                if (!expectedReturnType_)
+                if (initType && varType && !isTypeCompatible(varType, initType))
                 {
-                    expectedReturnType_ = returnType;
-                }
-                // 이후 return문: 타입 일치 검사
-                else if (!isTypeCompatible(expectedReturnType_, returnType))
-                {
-                    addError("함수 '" + currentFunctionName_ + "'의 반환 타입 불일치: " +
-                            "예상 " + expectedReturnType_->koreanName() + ", " +
-                            "실제 " + returnType->koreanName());
+                    addError("타입 불일치: " + varType->koreanName() + " 변수에 " +
+                            initType->koreanName() + " 값을 할당할 수 없습니다");
                 }
             }
+            break;
         }
-        else
+        // AssignmentStatement: 할당문의 타입 검사
+        case NodeType::ASSIGNMENT_STATEMENT:
         {
-            // return 값 없음: void 타입
-            if (expectedReturnType_)
+            auto assignStmt = static_cast<const AssignmentStatement*>(stmt);
+            const std::string& varName = assignStmt->varName();
+            Symbol* symbol = symbolTable_.lookup(varName);
+
+            // 변수가 정의되어 있지 않으면 현재 스코프에 등록 (동적 타이핑)
+            if (!symbol)
             {
-                addError("함수 '" + currentFunctionName_ + "'는 " +
-                        expectedReturnType_->koreanName() + " 타입을 반환해야 하지만, " +
-                        "값 없이 반환하고 있습니다");
+                symbolTable_.define(varName, SymbolKind::VARIABLE, nullptr);
+                symbol = symbolTable_.lookup(varName);
             }
+
+            // 함수 리터럴인 경우 함수 컨텍스트 설정
+            if (auto funcLit = node_cast<FunctionLiteral>(assignStmt->value()))
+            {
+                // 함수 컨텍스트 진입
+                bool prevInFunction = inFunction_;
+                std::string prevFunctionName = currentFunctionName_;
+                Type* prevReturnType = expectedReturnType_;
+
+                inFunction_ = true;
+                currentFunctionName_ = varName;
+                expectedReturnType_ = nullptr;  // 첫 return에서 추론
+
+                // 함수 스코프 생성 및 매개변수 등록
+                symbolTable_.enterScope();
+                for (const auto& param : funcLit->parameters())
+                {
+                    symbolTable_.define(param, SymbolKind::VARIABLE, nullptr);
+                }
+
+                // 함수 본문 검사
+                checkTypesInStatement(funcLit->body());
+
+                // 함수 스코프 종료
+                symbolTable_.exitScope();
+
+                // 함수 컨텍스트 복원
+                inFunction_ = prevInFunction;
+                currentFunctionName_ = prevFunctionName;
+                expectedReturnType_ = prevReturnType;
+            }
+            // Phase 7.3: 비동기 함수 리터럴인 경우
+            else if (auto asyncFuncLit = node_cast<AsyncFunctionLiteral>(assignStmt->value()))
+            {
+                // 함수 컨텍스트 진입
+                bool prevInFunction = inFunction_;
+                bool prevInAsyncFunction = inAsyncFunction_;
+                std::string prevFunctionName = currentFunctionName_;
+                Type* prevReturnType = expectedReturnType_;
+
+                inFunction_ = true;
+                inAsyncFunction_ = true;  // 비동기 함수 컨텍스트
+                currentFunctionName_ = varName;
+                expectedReturnType_ = nullptr;
+
+                // 함수 스코프 생성 및 매개변수 등록
+                symbolTable_.enterScope();
+                for (const auto& param : asyncFuncLit->parameters())
+                {
+                    symbolTable_.define(param, SymbolKind::VARIABLE, nullptr);
+                }
+
+                // 함수 본문 검사
+                checkTypesInStatement(asyncFuncLit->body());
+
+                // 함수 스코프 종료
+                symbolTable_.exitScope();
+
+                // 함수 컨텍스트 복원
+                inFunction_ = prevInFunction;
+                inAsyncFunction_ = prevInAsyncFunction;
+                currentFunctionName_ = prevFunctionName;
+                expectedReturnType_ = prevReturnType;
+            }
+            else
+            {
+                Type* valueType = inferType(assignStmt->value());
+                Type* varType = symbol->type;
+
+                if (valueType && varType && !isTypeCompatible(varType, valueType))
+                {
+                    addError("타입 불일치: " + varType->koreanName() + " 변수 '" + varName +
+                            "'에 " + valueType->koreanName() + " 값을 할당할 수 없습니다");
+                }
+            }
+            break;
         }
-    }
-
-    // IfStatement: if문의 조건 타입 검사
-    else if (auto ifStmt = dynamic_cast<const IfStatement*>(stmt))
-    {
-        Type* condType = inferType(ifStmt->condition());
-
-        if (condType && condType->koreanName() != "논리")
+        // ExpressionStatement: 표현식 문장의 타입 검사
+        case NodeType::EXPRESSION_STATEMENT:
         {
-            addError("if문의 조건은 논리 타입이어야 합니다 (현재: " +
-                    condType->koreanName() + ")");
+            auto exprStmt = static_cast<const ExpressionStatement*>(stmt);
+            // 표현식 자체의 타입을 검사 (부작용 확인용)
+            inferType(exprStmt->expression());
+            break;
         }
-
-        // then과 else 블록의 타입 검사
-        if (ifStmt->thenBranch())
+        // ReturnStatement: 반환문의 타입 검사
+        case NodeType::RETURN_STATEMENT:
         {
-            checkTypesInStatement(ifStmt->thenBranch());
+            auto retStmt = static_cast<const ReturnStatement*>(stmt);
+            // 함수 밖에서 return 사용 검사
+            if (!inFunction_)
+            {
+                addError("'반환'문은 함수 내부에서만 사용할 수 있습니다");
+                return;
+            }
+
+            if (retStmt->returnValue())
+            {
+                Type* returnType = inferType(retStmt->returnValue());
+
+                if (returnType)
+                {
+                    // 첫 번째 return문: 기대 타입 설정
+                    if (!expectedReturnType_)
+                    {
+                        expectedReturnType_ = returnType;
+                    }
+                    // 이후 return문: 타입 일치 검사
+                    else if (!isTypeCompatible(expectedReturnType_, returnType))
+                    {
+                        addError("함수 '" + currentFunctionName_ + "'의 반환 타입 불일치: " +
+                                "예상 " + expectedReturnType_->koreanName() + ", " +
+                                "실제 " + returnType->koreanName());
+                    }
+                }
+            }
+            else
+            {
+                // return 값 없음: void 타입
+                if (expectedReturnType_)
+                {
+                    addError("함수 '" + currentFunctionName_ + "'는 " +
+                            expectedReturnType_->koreanName() + " 타입을 반환해야 하지만, " +
+                            "값 없이 반환하고 있습니다");
+                }
+            }
+            break;
         }
-        if (ifStmt->elseBranch())
+        // IfStatement: if문의 조건 타입 검사
+        case NodeType::IF_STATEMENT:
         {
-            checkTypesInStatement(ifStmt->elseBranch());
+            auto ifStmt = static_cast<const IfStatement*>(stmt);
+            Type* condType = inferType(ifStmt->condition());
+
+            if (condType && condType->koreanName() != "논리")
+            {
+                addError("if문의 조건은 논리 타입이어야 합니다 (현재: " +
+                        condType->koreanName() + ")");
+            }
+
+            // then과 else 블록의 타입 검사
+            if (ifStmt->thenBranch())
+            {
+                checkTypesInStatement(ifStmt->thenBranch());
+            }
+            if (ifStmt->elseBranch())
+            {
+                checkTypesInStatement(ifStmt->elseBranch());
+            }
+            break;
         }
-    }
-
-    // BlockStatement: 블록 내 모든 문장 검사
-    else if (auto blockStmt = dynamic_cast<const BlockStatement*>(stmt))
-    {
-        // 블록 스코프 생성
-        symbolTable_.enterScope();
-
-        for (const auto& s : blockStmt->statements())
+        // BlockStatement: 블록 내 모든 문장 검사
+        case NodeType::BLOCK_STATEMENT:
         {
-            checkTypesInStatement(s.get());
+            auto blockStmt = static_cast<const BlockStatement*>(stmt);
+            // 블록 스코프 생성
+            symbolTable_.enterScope();
+
+            for (const auto& s : blockStmt->statements())
+            {
+                checkTypesInStatement(s.get());
+            }
+
+            // 블록 스코프 종료
+            symbolTable_.exitScope();
+            break;
         }
-
-        // 블록 스코프 종료
-        symbolTable_.exitScope();
-    }
-
-    // WhileStatement: while문의 조건 타입 검사
-    else if (auto whileStmt = dynamic_cast<const WhileStatement*>(stmt))
-    {
-        Type* condType = inferType(whileStmt->condition());
-
-        if (condType && condType->koreanName() != "논리")
+        // WhileStatement: while문의 조건 타입 검사
+        case NodeType::WHILE_STATEMENT:
         {
-            addError("while문의 조건은 논리 타입이어야 합니다 (현재: " +
-                    condType->koreanName() + ")");
-        }
+            auto whileStmt = static_cast<const WhileStatement*>(stmt);
+            Type* condType = inferType(whileStmt->condition());
 
-        if (whileStmt->body())
-        {
-            checkTypesInStatement(whileStmt->body());
+            if (condType && condType->koreanName() != "논리")
+            {
+                addError("while문의 조건은 논리 타입이어야 합니다 (현재: " +
+                        condType->koreanName() + ")");
+            }
+
+            if (whileStmt->body())
+            {
+                checkTypesInStatement(whileStmt->body());
+            }
+            break;
         }
+        default:
+            break;
     }
 }
 
@@ -1303,222 +1438,229 @@ Type* SemanticAnalyzer::inferType(const Expression* expr)
     if (!expr) return nullptr;
 
     // 리터럴 타입 추론
-    if (dynamic_cast<const IntegerLiteral*>(expr))
+    switch (expr->type())
     {
-        return Type::getBuiltin("정수");
-    }
-    else if (dynamic_cast<const FloatLiteral*>(expr))
-    {
-        return Type::getBuiltin("실수");
-    }
-    else if (dynamic_cast<const StringLiteral*>(expr))
-    {
-        return Type::getBuiltin("문자열");
-    }
-    else if (dynamic_cast<const BooleanLiteral*>(expr))
-    {
-        return Type::getBuiltin("논리");
-    }
-
-    // 식별자 타입 추론
-    else if (auto ident = dynamic_cast<const Identifier*>(expr))
-    {
-        Symbol* symbol = symbolTable_.lookup(ident->name());
-        return symbol ? symbol->type : nullptr;
-    }
-
-    // 이항 연산 타입 추론
-    else if (auto binExpr = dynamic_cast<const BinaryExpression*>(expr))
-    {
-        Type* leftType = inferType(binExpr->left());
-        Type* rightType = inferType(binExpr->right());
-
-        if (!leftType || !rightType) return nullptr;
-
-        const std::string& op = binExpr->op();
-
-        // 산술 연산자 (+, -, *, /, %)
-        if (op == "+" || op == "-" || op == "*" || op == "/" || op == "%")
+        case NodeType::INTEGER_LITERAL:
         {
-            // 정수 + 정수 = 정수
-            if (leftType->koreanName() == "정수" && rightType->koreanName() == "정수")
-            {
-                return Type::getBuiltin("정수");
-            }
-            // 실수가 하나라도 있으면 실수
-            else if (leftType->koreanName() == "실수" || rightType->koreanName() == "실수")
-            {
-                return Type::getBuiltin("실수");
-            }
-            // 문자열 + 문자열 = 문자열 (연결)
-            else if (op == "+" && leftType->koreanName() == "문자열" && rightType->koreanName() == "문자열")
-            {
-                return Type::getBuiltin("문자열");
-            }
+            return Type::getBuiltin("정수");
         }
-
-        // 비교 연산자 (<, >, <=, >=, ==, !=)
-        else if (op == "<" || op == ">" || op == "<=" || op == ">=" || op == "==" || op == "!=")
+        case NodeType::FLOAT_LITERAL:
         {
-            return Type::getBuiltin("논리");
+            return Type::getBuiltin("실수");
         }
-
-        // 논리 연산자 (&&, ||)
-        else if (op == "&&" || op == "||")
-        {
-            return Type::getBuiltin("논리");
-        }
-    }
-
-    // 단항 연산 타입 추론
-    else if (auto unaryExpr = dynamic_cast<const UnaryExpression*>(expr))
-    {
-        Type* operandType = inferType(unaryExpr->operand());
-
-        if (!operandType) return nullptr;
-
-        const std::string& op = unaryExpr->op();
-
-        // 부정 연산자 (!)
-        if (op == "!")
-        {
-            return Type::getBuiltin("논리");
-        }
-        // 부호 연산자 (-, +)
-        else if (op == "-" || op == "+")
-        {
-            return operandType;  // 같은 타입 반환
-        }
-    }
-
-    // 배열 리터럴 타입 추론
-    else if (auto arrayLit = dynamic_cast<const ArrayLiteral*>(expr))
-    {
-        // 배열은 동적 타입이라 요소 타입이 달라도 된다 (JSON, [["상태", 200], ...] 같은 쌍 배열).
-        // 요소는 각각 검사만 하고 타입 불일치는 에러로 보지 않는다.
-        for (const auto& elem : arrayLit->elements())
-        {
-            inferType(elem.get());
-        }
-
-        return Type::getBuiltin("배열");
-    }
-
-    // 딕셔너리 리터럴 타입 추론 (Phase 7.2)
-    else if (auto dictLit = dynamic_cast<const DictionaryLiteral*>(expr))
-    {
-        // 딕셔너리 키-값 쌍 검증
-        for (const auto& [keyExpr, valueExpr] : dictLit->pairs())
-        {
-            Type* keyType = inferType(keyExpr.get());
-            // 키는 문자열이어야 함
-            if (keyType && keyType->koreanName() != "문자열")
-            {
-                addError("딕셔너리 키는 문자열이어야 합니다 (현재: " + keyType->koreanName() + ")");
-            }
-
-            // 값 타입 검증 (값은 어떤 타입이든 가능)
-            inferType(valueExpr.get());
-        }
-
-        return Type::getBuiltin("딕셔너리");
-    }
-
-    // 배열 인덱스 접근 타입 추론
-    else if (auto indexExpr = dynamic_cast<const IndexExpression*>(expr))
-    {
-        Type* arrayType = inferType(indexExpr->array());
-        Type* indexType = inferType(indexExpr->index());
-
-        // 딕셔너리 인덱스 접근 (Phase 7.2)
-        if (arrayType && arrayType->koreanName() == "딕셔너리")
-        {
-            // 딕셔너리 키는 문자열이어야 함
-            if (indexType && indexType->koreanName() != "문자열")
-            {
-                addError("딕셔너리 키는 문자열이어야 합니다 (현재: " +
-                        indexType->koreanName() + ")");
-            }
-            // 딕셔너리 값 타입은 현재 추론 불가
-            return nullptr;
-        }
-
-        // 배열이 실제로 배열 타입인지 확인
-        if (arrayType && arrayType->koreanName() != "배열" &&
-            arrayType->koreanName() != "문자열")  // 문자열도 인덱스 접근 가능
-        {
-            addError("인덱스 접근은 배열, 딕셔너리 또는 문자열에만 사용할 수 있습니다 (현재: " +
-                    arrayType->koreanName() + ")");
-        }
-
-        // 배열과 문자열은 정수 인덱스만 허용 (딕셔너리는 위에서 이미 처리함)
-        if (arrayType && (arrayType->koreanName() == "배열" || arrayType->koreanName() == "문자열"))
-        {
-            if (indexType && indexType->koreanName() != "정수")
-            {
-                addError("배열 인덱스는 정수여야 합니다 (현재: " +
-                        indexType->koreanName() + ")");
-            }
-        }
-
-        // 문자열 인덱스 접근은 문자열 반환
-        if (arrayType && arrayType->koreanName() == "문자열")
+        case NodeType::STRING_LITERAL:
         {
             return Type::getBuiltin("문자열");
         }
-
-        // 배열 요소 타입은 현재 추론 불가 (나중에 제네릭 타입으로 확장)
-        // 일단 nullptr 반환
-        return nullptr;
-    }
-
-    // 함수 호출 타입 추론
-    else if (auto callExpr = dynamic_cast<const CallExpression*>(expr))
-    {
-        // 함수가 정의되어 있는지 확인
-        if (auto funcIdent = dynamic_cast<const Identifier*>(callExpr->function()))
+        case NodeType::BOOLEAN_LITERAL:
         {
-            const std::string& funcName = funcIdent->name();
-
-            // Phase 7.1: 클래스 인스턴스화인지 확인
-            if (symbolTable_.isClass(funcName))
-            {
-                // 클래스 인스턴스화 - 타입 검사는 생략 (생성자 인자 검증은 나중에)
-                return nullptr;  // 클래스 인스턴스 타입은 아직 정의되지 않음
-            }
-
-            // builtin 함수가 아니고 정의되지 않았으면 에러 (Name Resolution에서 이미 체크했지만)
-            if (!isBuiltinFunction(funcName) && !symbolTable_.isDefined(funcName))
-            {
-                addError("정의되지 않은 함수 또는 클래스: " + funcName);
-            }
-
-            // builtin 함수들의 반환 타입 (알려진 것들만)
-            if (funcName == "길이")
-            {
-                return Type::getBuiltin("정수");
-            }
-            else if (funcName == "정수")
-            {
-                return Type::getBuiltin("정수");
-            }
-            else if (funcName == "실수")
-            {
-                return Type::getBuiltin("실수");
-            }
-            else if (funcName == "문자열")
-            {
-                return Type::getBuiltin("문자열");
-            }
-            else if (funcName == "타입")
-            {
-                return Type::getBuiltin("문자열");
-            }
-            // 그 외 builtin 함수나 사용자 정의 함수는 반환 타입 알 수 없음
+            return Type::getBuiltin("논리");
         }
+        // 식별자 타입 추론
+        case NodeType::IDENTIFIER:
+        {
+            auto ident = static_cast<const Identifier*>(expr);
+            Symbol* symbol = symbolTable_.lookup(ident->name());
+            return symbol ? symbol->type : nullptr;
+        }
+        // 이항 연산 타입 추론
+        case NodeType::BINARY_EXPRESSION:
+        {
+            auto binExpr = static_cast<const BinaryExpression*>(expr);
+            Type* leftType = inferType(binExpr->left());
+            Type* rightType = inferType(binExpr->right());
 
-        // 함수 반환 타입을 알 수 없는 경우
-        return nullptr;
+            if (!leftType || !rightType) return nullptr;
+
+            const std::string& op = binExpr->op();
+
+            // 산술 연산자 (+, -, *, /, %)
+            if (op == "+" || op == "-" || op == "*" || op == "/" || op == "%")
+            {
+                // 정수 + 정수 = 정수
+                if (leftType->koreanName() == "정수" && rightType->koreanName() == "정수")
+                {
+                    return Type::getBuiltin("정수");
+                }
+                // 실수가 하나라도 있으면 실수
+                else if (leftType->koreanName() == "실수" || rightType->koreanName() == "실수")
+                {
+                    return Type::getBuiltin("실수");
+                }
+                // 문자열 + 문자열 = 문자열 (연결)
+                else if (op == "+" && leftType->koreanName() == "문자열" && rightType->koreanName() == "문자열")
+                {
+                    return Type::getBuiltin("문자열");
+                }
+            }
+
+            // 비교 연산자 (<, >, <=, >=, ==, !=)
+            else if (op == "<" || op == ">" || op == "<=" || op == ">=" || op == "==" || op == "!=")
+            {
+                return Type::getBuiltin("논리");
+            }
+
+            // 논리 연산자 (&&, ||)
+            else if (op == "&&" || op == "||")
+            {
+                return Type::getBuiltin("논리");
+            }
+            break;
+        }
+        // 단항 연산 타입 추론
+        case NodeType::UNARY_EXPRESSION:
+        {
+            auto unaryExpr = static_cast<const UnaryExpression*>(expr);
+            Type* operandType = inferType(unaryExpr->operand());
+
+            if (!operandType) return nullptr;
+
+            const std::string& op = unaryExpr->op();
+
+            // 부정 연산자 (!)
+            if (op == "!")
+            {
+                return Type::getBuiltin("논리");
+            }
+            // 부호 연산자 (-, +)
+            else if (op == "-" || op == "+")
+            {
+                return operandType;  // 같은 타입 반환
+            }
+            break;
+        }
+        // 배열 리터럴 타입 추론
+        case NodeType::ARRAY_LITERAL:
+        {
+            auto arrayLit = static_cast<const ArrayLiteral*>(expr);
+            // 배열은 동적 타입이라 요소 타입이 달라도 된다 (JSON, [["상태", 200], ...] 같은 쌍 배열).
+            // 요소는 각각 검사만 하고 타입 불일치는 에러로 보지 않는다.
+            for (const auto& elem : arrayLit->elements())
+            {
+                inferType(elem.get());
+            }
+
+            return Type::getBuiltin("배열");
+        }
+        // 딕셔너리 리터럴 타입 추론 (Phase 7.2)
+        case NodeType::DICTIONARY_LITERAL:
+        {
+            auto dictLit = static_cast<const DictionaryLiteral*>(expr);
+            // 딕셔너리 키-값 쌍 검증
+            for (const auto& [keyExpr, valueExpr] : dictLit->pairs())
+            {
+                Type* keyType = inferType(keyExpr.get());
+                // 키는 문자열이어야 함
+                if (keyType && keyType->koreanName() != "문자열")
+                {
+                    addError("딕셔너리 키는 문자열이어야 합니다 (현재: " + keyType->koreanName() + ")");
+                }
+
+                // 값 타입 검증 (값은 어떤 타입이든 가능)
+                inferType(valueExpr.get());
+            }
+
+            return Type::getBuiltin("딕셔너리");
+        }
+        // 배열 인덱스 접근 타입 추론
+        case NodeType::INDEX_EXPRESSION:
+        {
+            auto indexExpr = static_cast<const IndexExpression*>(expr);
+            Type* arrayType = inferType(indexExpr->array());
+            Type* indexType = inferType(indexExpr->index());
+
+            // 딕셔너리 인덱스 접근 (Phase 7.2)
+            if (arrayType && arrayType->koreanName() == "딕셔너리")
+            {
+                // 딕셔너리 키는 문자열이어야 함
+                if (indexType && indexType->koreanName() != "문자열")
+                {
+                    addError("딕셔너리 키는 문자열이어야 합니다 (현재: " +
+                            indexType->koreanName() + ")");
+                }
+                // 딕셔너리 값 타입은 현재 추론 불가
+                return nullptr;
+            }
+
+            // 배열이 실제로 배열 타입인지 확인
+            if (arrayType && arrayType->koreanName() != "배열" &&
+                arrayType->koreanName() != "문자열")  // 문자열도 인덱스 접근 가능
+            {
+                addError("인덱스 접근은 배열, 딕셔너리 또는 문자열에만 사용할 수 있습니다 (현재: " +
+                        arrayType->koreanName() + ")");
+            }
+
+            // 배열과 문자열은 정수 인덱스만 허용 (딕셔너리는 위에서 이미 처리함)
+            if (arrayType && (arrayType->koreanName() == "배열" || arrayType->koreanName() == "문자열"))
+            {
+                if (indexType && indexType->koreanName() != "정수")
+                {
+                    addError("배열 인덱스는 정수여야 합니다 (현재: " +
+                            indexType->koreanName() + ")");
+                }
+            }
+
+            // 문자열 인덱스 접근은 문자열 반환
+            if (arrayType && arrayType->koreanName() == "문자열")
+            {
+                return Type::getBuiltin("문자열");
+            }
+
+            // 배열 요소 타입은 현재 추론 불가 (나중에 제네릭 타입으로 확장)
+            // 일단 nullptr 반환
+            return nullptr;
+        }
+        // 함수 호출 타입 추론
+        case NodeType::CALL_EXPRESSION:
+        {
+            auto callExpr = static_cast<const CallExpression*>(expr);
+            // 함수가 정의되어 있는지 확인
+            if (auto funcIdent = node_cast<Identifier>(callExpr->function()))
+            {
+                const std::string& funcName = funcIdent->name();
+
+                // Phase 7.1: 클래스 인스턴스화인지 확인
+                if (symbolTable_.isClass(funcName))
+                {
+                    // 클래스 인스턴스화 - 타입 검사는 생략 (생성자 인자 검증은 나중에)
+                    return nullptr;  // 클래스 인스턴스 타입은 아직 정의되지 않음
+                }
+
+                // builtin 함수가 아니고 정의되지 않았으면 에러 (Name Resolution에서 이미 체크했지만)
+                if (!isBuiltinFunction(funcName) && !symbolTable_.isDefined(funcName))
+                {
+                    addError("정의되지 않은 함수 또는 클래스: " + funcName);
+                }
+
+                // builtin 함수들의 반환 타입 (알려진 것들만)
+                if (funcName == "길이")
+                {
+                    return Type::getBuiltin("정수");
+                }
+                else if (funcName == "정수")
+                {
+                    return Type::getBuiltin("정수");
+                }
+                else if (funcName == "실수")
+                {
+                    return Type::getBuiltin("실수");
+                }
+                else if (funcName == "문자열")
+                {
+                    return Type::getBuiltin("문자열");
+                }
+                else if (funcName == "타입")
+                {
+                    return Type::getBuiltin("문자열");
+                }
+                // 그 외 builtin 함수나 사용자 정의 함수는 반환 타입 알 수 없음
+            }
+
+            // 함수 반환 타입을 알 수 없는 경우
+            return nullptr;
+        }
+        default:
+            break;
     }
 
     return nullptr;

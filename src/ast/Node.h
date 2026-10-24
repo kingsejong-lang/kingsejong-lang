@@ -194,5 +194,24 @@ public:
     virtual ~Statement() = default;
 };
 
+
+/**
+ * @brief dynamic_cast 대신 쓰는 노드 형 변환
+ *
+ * 구체 노드 클래스는 서로 상속하지 않으므로 NodeType 비교 한 번으로 정확히 판별된다.
+ * node 가 nullptr 이거나 다른 종류면 nullptr 을 돌려준다.
+ */
+template <typename T>
+const T* node_cast(const Node* node)
+{
+    return (node != nullptr && node->type() == T::kType) ? static_cast<const T*>(node) : nullptr;
+}
+
+template <typename T>
+T* node_cast(Node* node)
+{
+    return (node != nullptr && node->type() == T::kType) ? static_cast<T*>(node) : nullptr;
+}
+
 } // namespace ast
 } // namespace kingsejong

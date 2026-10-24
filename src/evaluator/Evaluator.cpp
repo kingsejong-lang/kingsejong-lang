@@ -1098,6 +1098,8 @@ Value Evaluator::evalWhileStatement(ast::WhileStatement* stmt)
     Value result = Value::createNull();
     while (true)
     {
+        // 본문을 돌고 나면 현재 문장이 본문의 마지막 문장이므로, 조건식의 에러 위치를 반복문으로 되돌린다
+        currentStatement_ = stmt;
         Value condition = eval(const_cast<ast::Expression*>(stmt->condition()));
         if (!condition.isTruthy())
         {

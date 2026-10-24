@@ -394,14 +394,101 @@ TEST(EvaluatorTest, ShouldEvaluateTruthiness)
  */
 TEST(EvaluatorTest, ShouldThrowError)
 {
+    // 잡는 시도 블록이 없으면 ThrowSignal 이 바깥으로 나간다 (main 이 실행 에러로 보고한다)
+    try
+    {
+        evalInput(R"(
+            던지다 "에러 발생"
+        )");
+        FAIL() << "던지다 가 예외로 전파되어야 한다";
+    }
+    catch (const evaluator::ThrowSignal& signal)
+    {
+        ASSERT_TRUE(signal.value().isError());
+        auto err = signal.value().asError();
+        EXPECT_EQ(err->message(), "에러 발생");
+        EXPECT_EQ(err->type(), "Error");
+        EXPECT_STREQ(signal.what(), "Error: 에러 발생");
+    }
+}
+
+/**
+ * @brief 던지다 뒤의 문장은 실행되지 않는다
+ */
+TEST(EvaluatorTest, ShouldSkipStatementsAfterThrow)
+{
     auto result = evalInput(R"(
-        던지다 "에러 발생"
+        정수 기록 = 0
+        시도 {
+            던지다 "문제"
+            기록 = 1
+        } 오류 (e) {
+            기록 = 2
+        }
+        기록
     )");
 
-    EXPECT_TRUE(result.isError());
-    auto err = result.asError();
-    EXPECT_EQ(err->message(), "에러 발생");
-    EXPECT_EQ(err->type(), "Error");
+    EXPECT_EQ(result.asInteger(), 2);
+}
+
+/**
+ * @brief 함수 안에서 던진 에러는 호출한 쪽의 시도 블록이 잡는다
+ */
+TEST(EvaluatorTest, ShouldPropagateThrowOutOfFunctions)
+{
+    auto result = evalInput(R"(
+        정수 기록 = 0
+        함수 위험() {
+            던지다 "깊은 문제"
+            기록 = 100
+        }
+        시도 {
+            위험()
+            기록 = 기록 + 10
+        } 오류 (e) {
+            기록 = 기록 + 1
+        }
+        기록
+    )");
+
+    EXPECT_EQ(result.asInteger(), 1);
+}
+
+/**
+ * @brief 비동기 함수 안에서 던진 에러는 Promise 거부가 된다
+ */
+TEST(EvaluatorTest, ShouldRejectPromiseWhenAsyncFunctionThrows)
+{
+    auto result = evalInput(R"(
+        실패 = 비동기 함수() {
+            던지다 "실패함"
+        }
+        실패()
+    )");
+
+    ASSERT_TRUE(result.isPromise());
+    EXPECT_EQ(result.asPromise()->state(), evaluator::Promise::State::REJECTED);
+    EXPECT_EQ(result.asPromise()->value().toString(), "Error: 실패함");
+}
+
+/**
+ * @brief 내장 연산의 런타임 에러도 오류 블록이 메시지와 함께 잡는다
+ */
+TEST(EvaluatorTest, ShouldCatchRuntimeErrorsWithMessage)
+{
+    auto result = evalInput(R"(
+        문자열 메시지 = ""
+        시도 {
+            정수 x = 10 / 0
+        } 오류 (e) {
+            메시지 = e
+        }
+        메시지
+    )");
+
+    ASSERT_TRUE(result.isString());
+    EXPECT_NE(result.asString().find("RuntimeError: "), std::string::npos);
+    EXPECT_NE(result.asString().find("0으로 나눌 수 없습니다"), std::string::npos);
 }
 
 /**
@@ -530,15 +617,21 @@ TEST(EvaluatorTest, ShouldExecuteTryBlockWithoutError)
  */
 TEST(EvaluatorTest, ShouldPropagateUncaughtError)
 {
-    auto result = evalInput(R"(
-        시도 {
-            던지다 "잡히지 않은 에러"
-        } 마지막 {
-            정수 x = 1
-        }
-    )");
-
-    EXPECT_TRUE(result.isError());
-    auto err = result.asError();
-    EXPECT_EQ(err->message(), "잡히지 않은 에러");
+    // 오류 절이 없으면 마지막 블록을 돌린 뒤 에러가 바깥으로 전파된다
+    try
+    {
+        evalInput(R"(
+            시도 {
+                던지다 "잡히지 않은 에러"
+            } 마지막 {
+                정수 x = 1
+            }
+        )");
+        FAIL() << "잡지 않은 에러는 전파되어야 한다";
+    }
+    catch (const evaluator::ThrowSignal& signal)
+    {
+        ASSERT_TRUE(signal.value().isError());
+        EXPECT_EQ(signal.value().asError()->message(), "잡히지 않은 에러");
+    }
 }

@@ -223,7 +223,7 @@ for (int i = 0; i < 10000; i++) {
 
 ### ✅ Step 2: ValuePool 래퍼 (완료)
 - [x] ValuePool.h 싱글톤 구현 (125줄)
-- [x] ObjectPool<Value> 래퍼
+- [x] `ObjectPool<Value>` 래퍼
 - [x] 테스트 작성 (8개 테스트)
 - [x] 커밋: 09a5805
 

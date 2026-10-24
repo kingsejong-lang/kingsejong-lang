@@ -502,7 +502,7 @@ call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build
 
 ## 추가 리소스
 
-- **공식 문서**: [docs/](.)
+- **공식 문서**: [문서 사이트](https://kingsejong-lang.github.io/kingsejong-lang/docs/) (저장소의 `docs/`)
 - **튜토리얼**: [TUTORIAL.md](TUTORIAL.md)
 - **예제**: [../examples/](../examples/)
 - **문제 보고**: [GitHub Issues](https://github.com/0xmhha/kingsejonglang/issues)

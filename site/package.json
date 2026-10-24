@@ -1,0 +1,14 @@
+{
+  "name": "kingsejong-docs",
+  "private": true,
+  "description": "KingSejong 문서 사이트 (docs/ 를 VitePress 로 빌드한다)",
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "1.6.4"
+  }
+}

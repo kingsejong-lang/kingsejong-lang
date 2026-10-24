@@ -213,5 +213,27 @@ T* node_cast(Node* node)
     return (node != nullptr && node->type() == T::kType) ? static_cast<T*>(node) : nullptr;
 }
 
+/**
+ * @brief 문장 노드 종류인지 판별한다
+ *
+ * Statement 를 상속하는 구체 노드의 NodeType 이면 true. Program, 클래스 멤버 선언,
+ * 표현식은 false.
+ */
+bool isStatementType(NodeType type);
+
+/// Statement 기반 클래스로의 node_cast. 구체 종류 대신 isStatementType 으로 판별한다.
+template <>
+inline const Statement* node_cast<Statement>(const Node* node)
+{
+    return (node != nullptr && isStatementType(node->type())) ? static_cast<const Statement*>(node)
+                                                               : nullptr;
+}
+
+template <>
+inline Statement* node_cast<Statement>(Node* node)
+{
+    return (node != nullptr && isStatementType(node->type())) ? static_cast<Statement*>(node) : nullptr;
+}
+
 } // namespace ast
 } // namespace kingsejong

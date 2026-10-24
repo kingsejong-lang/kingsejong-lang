@@ -158,7 +158,7 @@ bool BreakpointManager::evaluateCondition(
         }
 
         // 첫 번째 문장을 표현식 문장으로 캐스팅
-        auto* exprStmt = dynamic_cast<ast::ExpressionStatement*>(
+        auto* exprStmt = ast::node_cast<ast::ExpressionStatement>(
             program->statements()[0].get()
         );
 

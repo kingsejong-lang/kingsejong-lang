@@ -15,6 +15,7 @@
 ### 바꿈
 - 바이트코드 VM(`--vm`)을 평가기와 동치가 되게 다시 만들었다. 변수는 평가기와 같은 환경(Environment) 체인에 이름으로 두고, 함수는 평가기와 같은 `Function` 객체(클로저 환경 포함)라 클로저·재귀·콜백·모듈 함수가 평가기와 같이 동작한다. 이항 연산·인덱스·슬라이스·조사 메서드·멤버 접근·호출·클래스·Promise 의 의미는 Evaluator 의 정적 함수를 그대로 쓴다. 사전·문자열 보간·시도/오류/마지막·던지다·가져오기·배열 요소 대입·메서드 호출·비동기 함수를 새로 지원하고, 점프 피연산자는 16비트, 재귀 깊이는 값 스택과 무관해졌다. 예제 51개가 모두 평가기와 같은 결과를 내며 `examples/expected/KNOWN_FAILURES_VM` 은 비었다. 함수 호출이 많은 코드(피보나치 25)는 평가기보다 20배쯤 빠르다.
 - 포매터와 의미 분석기의 문장·표현식 분기가 `dynamic_cast` 를 차례로 시도하는 if/else 사슬(각 26개·81개) 대신 `switch (node->type())` 로 바로 간다. 구체 노드 클래스는 서로 상속하지 않으므로 동작은 같고, RTTI 조회가 사라진다. 자식 노드 하나의 종류만 보는 자리에는 같은 원리의 `ast::node_cast<T>()` 를 쓴다 (각 노드 클래스에 `kType` 상수 추가).
+- 평가기·파서·린터 규칙·디버거에 남아 있던 `dynamic_cast` 44곳도 `ast::node_cast<T>()` 로 바꿨다. 기반 클래스 `Statement` 로의 변환은 `isStatementType()` 으로 판별하는 특수화를 거친다. 소스 트리에서 AST 노드에 대한 `dynamic_cast` 는 더 없다.
 - `Value`, `Environment`, `EventLoop` 를 `src/evaluator/` 에서 `src/runtime/` 으로 옮겼다. 셋은 평가기뿐 아니라 VM·내장 함수·모듈 로더·REPL 이 함께 쓰는 실행 시점 자료형이어서, 평가기 디렉터리에 두면 의존 방향이 거꾸로 보였다. 네임스페이스(`kingsejong::evaluator`)는 그대로이고 include 경로만 `runtime/Value.h` 식으로 바뀐다.
 - AST 순회를 `ast::walk` / `ast::Visitor` 한 곳에 모았다 (`src/ast/Visitor.h`). 노드마다 자식이 무엇인지는 여기에만 적고, 린터 규칙(`linter::Rule`)과 LSP 심볼 수집기는 그 위에서 `enter`/`leave` 로 관심 있는 노드만 고른다. 규칙이 초기식·함수 본문을 직접 다시 걷던 코드와 `NoUnusedParameterRule` 의 자체 순회를 걷어냈고, 노드 안에서만 켜 두는 상태를 되돌릴 `onVarDeclarationEnd`/`onArrayLiteralEnd` 훅을 더했다. 순회가 전에 빠뜨리던 문장(시도/오류, 클래스, 패턴 매칭, 조사식 등) 안도 이제 걷는다.
 

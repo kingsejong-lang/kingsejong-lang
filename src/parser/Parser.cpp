@@ -526,10 +526,10 @@ std::unique_ptr<Statement> Parser::parseStatement()
 
     // "i가 길이(경로) - 1부터 0 이상 {" 처럼 시작 식이 길어 LL(4) 로 잡지 못한 범위 반복문:
     // JosaExpression(i, 이/가, RangeExpression) 로 파싱되었으면 범위 반복문으로 다시 조립한다.
-    if (auto* josa = dynamic_cast<JosaExpression*>(expr.get()))
+    if (auto* josa = node_cast<JosaExpression>(expr.get()))
     {
-        auto* loopVar = dynamic_cast<const Identifier*>(josa->object());
-        auto* range = dynamic_cast<const RangeExpression*>(josa->method());
+        auto* loopVar = node_cast<Identifier>(josa->object());
+        auto* range = node_cast<RangeExpression>(josa->method());
         bool loopFollows = peekTokenIs(TokenType::LBRACE) || peekTokenIs(TokenType::BANBOKHANDA) ||
                            peekTokenIs(TokenType::BANBOKK);
         if (loopVar && range && josa->josaType() == lexer::JosaRecognizer::JosaType::I_GA && loopFollows)
@@ -1551,10 +1551,10 @@ std::unique_ptr<Expression> Parser::parseJosaExpression(std::unique_ptr<Expressi
 
     // "x를 f() + 1" 은 method 가 (f() + 1) 로 읽힌다. 조사는 바로 뒤의 동사 하나에만 붙으므로
     // 이항식의 가장 왼쪽 잎을 꺼내 조사 표현식으로 감싸고 제자리에 끼워 ((x를 f()) + 1) 로 만든다.
-    if (auto* binary = dynamic_cast<BinaryExpression*>(method.get()))
+    if (auto* binary = node_cast<BinaryExpression>(method.get()))
     {
         BinaryExpression* leftmost = binary;
-        while (auto* inner = dynamic_cast<BinaryExpression*>(leftmost->leftMutable()))
+        while (auto* inner = node_cast<BinaryExpression>(leftmost->leftMutable()))
         {
             leftmost = inner;
         }

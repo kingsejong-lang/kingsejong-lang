@@ -10,6 +10,30 @@
 namespace kingsejong {
 namespace ast {
 
+bool isStatementType(NodeType type)
+{
+    switch (type)
+    {
+        case NodeType::EXPRESSION_STATEMENT:
+        case NodeType::VAR_DECLARATION:
+        case NodeType::ASSIGNMENT_STATEMENT:
+        case NodeType::RETURN_STATEMENT:
+        case NodeType::IF_STATEMENT:
+        case NodeType::WHILE_STATEMENT:
+        case NodeType::FOR_STATEMENT:
+        case NodeType::REPEAT_STATEMENT:
+        case NodeType::RANGE_FOR_STATEMENT:
+        case NodeType::BLOCK_STATEMENT:
+        case NodeType::IMPORT_STATEMENT:
+        case NodeType::TRY_STATEMENT:
+        case NodeType::THROW_STATEMENT:
+        case NodeType::CLASS_STATEMENT:
+            return true;
+        default:
+            return false;
+    }
+}
+
 std::string nodeTypeToString(NodeType type)
 {
     switch (type)

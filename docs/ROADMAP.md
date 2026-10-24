@@ -5,7 +5,7 @@
 **최종 업데이트**: 2025-11-26
 **현재 버전**: v0.6.0-rc
 **Production Readiness**: 9.0/10
-**중요 문서**: [아키텍처 분석](./ARCHITECTURE_ANALYSIS.md) | [VM 분석](./KINGSEJONG_VM_ANALYSIS.md) | [언어 분석](./KINGSEJONG_LANGUAGE_ANALYSIS.md) | [성능 분석](./PERFORMANCE_ANALYSIS.md)
+**중요 문서**: [프로젝트 개요](./design/PROJECT_OVERVIEW.md) | [기능 명세](./design/FEATURES.md) | [구현 상태](./design/IMPLEMENTATION.md) | [설계 철학](./design/LANGUAGE_DESIGN_PHILOSOPHY.md)
 
 ---
 
@@ -252,10 +252,10 @@ GUI, 네트워크, 머신러닝 라이브러리를 추가하여 실용성을 높
 - [사용자 가이드](./USER_GUIDE.md) - 시작하기 및 레퍼런스
 - [튜토리얼](./TUTORIAL.md) - 단계별 학습 가이드
 - [설정 가이드](./CONFIG_GUIDE.md) - Linter/Formatter 설정
-- [아키텍처 분석](./ARCHITECTURE_ANALYSIS.md) - 시스템 구조
-- [VM 분석](./KINGSEJONG_VM_ANALYSIS.md) - 가상 머신 상세
-- [언어 분석](./KINGSEJONG_LANGUAGE_ANALYSIS.md) - 언어 스펙
-- [성능 분석](./PERFORMANCE_ANALYSIS.md) - 벤치마크 및 최적화
+- [프로젝트 개요](./design/PROJECT_OVERVIEW.md) - 목표와 전체 구조
+- [기능 명세](./design/FEATURES.md) - 언어 기능 명세
+- [구현 상태](./design/IMPLEMENTATION.md) - 구현된 것과 남은 것
+- [설계 철학](./design/LANGUAGE_DESIGN_PHILOSOPHY.md) - 한글 문법을 택한 이유
 - [Phase 9 리팩토링 계획](./PHASE9_REFACTORING_PLAN.md) - 코드 품질 개선 계획
 
 ---

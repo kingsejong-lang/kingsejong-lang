@@ -675,6 +675,9 @@ inline void Promise::resolve(const Value& value)
         });
     }
     thenCallbacks_.clear();
+    // 이행된 Promise 의 catch 콜백은 영영 실행되지 않는다. 콜백이 클로저 환경을, 환경이 이 Promise 를
+    // 쥐는 순환이 남지 않게 여기서 놓는다
+    catchCallbacks_.clear();
 }
 
 inline void Promise::reject(const Value& reason)
@@ -697,6 +700,8 @@ inline void Promise::reject(const Value& reason)
         });
     }
     catchCallbacks_.clear();
+    // 거부된 Promise 의 then 콜백도 같은 이유로 놓는다
+    thenCallbacks_.clear();
 }
 
 inline void Promise::then(Continuation callback)

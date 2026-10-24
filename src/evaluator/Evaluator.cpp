@@ -574,57 +574,83 @@ Value Evaluator::promiseMethod(const Value& promiseObj, const std::string& metho
 
     auto callbackFunc = args[0].asFunction();
 
-    // Continuation 생성: 값을 첫 매개변수에 묶어 콜백 본문을 실행한다
-    auto continuation = [callbackFunc](const Value& value) -> Value {
-        auto funcEnv = std::make_shared<Environment>(callbackFunc->closure());
-        if (!callbackFunc->parameters().empty())
+    // then/catch 는 콜백의 결과로 끝나는 새 Promise 를 돌려준다 (체이닝)
+    auto newPromise = std::make_shared<Promise>();
+
+    // Continuation: 값을 첫 매개변수에 묶어 콜백 본문을 실행하고, 그 결과로 새 Promise 를 끝낸다.
+    // 콜백이 던진 에러는 새 Promise 의 거부가 된다.
+    auto continuation = [callbackFunc, newPromise](const Value& value) -> Value {
+        try
         {
-            funcEnv->set(callbackFunc->parameters()[0], value);
+            auto funcEnv = std::make_shared<Environment>(callbackFunc->closure());
+            if (!callbackFunc->parameters().empty())
+            {
+                funcEnv->set(callbackFunc->parameters()[0], value);
+            }
+            Value result = runBody(callbackFunc->body(), std::move(funcEnv));
+            if (result.isError())
+            {
+                newPromise->reject(result);
+            }
+            else
+            {
+                newPromise->resolve(result);
+            }
+            return result;
         }
-        return runBody(callbackFunc->body(), std::move(funcEnv));
+        catch (const ThrowSignal& signal)
+        {
+            newPromise->reject(signal.value());
+            return signal.value();
+        }
     };
 
     // 메서드에 따라 콜백 등록
     if (methodName == "then" || methodName == "그러면")
     {
-        // 이미 이행된 경우 즉시 실행
         if (promise->state() == Promise::State::FULFILLED)
         {
-            Value result = continuation(promise->value());
-            // 결과를 새 Promise로 감싸서 반환 (체이닝 지원)
-            auto newPromise = std::make_shared<Promise>();
-            newPromise->resolve(result);
+            // 이미 이행된 경우 즉시 실행
+            continuation(promise->value());
             return Value::createPromise(newPromise);
         }
-        else if (promise->state() == Promise::State::PENDING)
+        if (promise->state() == Promise::State::PENDING)
         {
             promise->then(continuation);
+            // 원래 Promise 가 거부되면 새 Promise 도 같은 이유로 거부된다 (뒤의 catch 로 전달)
+            promise->catchError([newPromise](const Value& reason) -> Value {
+                newPromise->reject(reason);
+                return reason;
+            });
+            return Value::createPromise(newPromise);
         }
-        // rejected인 경우 아무것도 하지 않음
+        // 이미 거부된 경우: 거부가 그대로 전달되므로 원래 Promise 를 돌려준다
     }
     else if (methodName == "catch" || methodName == "오류시")
     {
-        // 이미 거부된 경우 즉시 실행
         if (promise->state() == Promise::State::REJECTED)
         {
-            Value result = continuation(promise->value());
-            // 결과를 새 Promise로 감싸서 반환
-            auto newPromise = std::make_shared<Promise>();
-            newPromise->resolve(result);
+            // 이미 거부된 경우 즉시 실행
+            continuation(promise->value());
             return Value::createPromise(newPromise);
         }
-        else if (promise->state() == Promise::State::PENDING)
+        if (promise->state() == Promise::State::PENDING)
         {
             promise->catchError(continuation);
+            // 원래 Promise 가 이행되면 새 Promise 도 같은 값으로 이행된다 (뒤의 then 으로 전달)
+            promise->then([newPromise](const Value& value) -> Value {
+                newPromise->resolve(value);
+                return value;
+            });
+            return Value::createPromise(newPromise);
         }
-        // fulfilled인 경우 아무것도 하지 않음
+        // 이미 이행된 경우: 값이 그대로 전달되므로 원래 Promise 를 돌려준다
     }
     else
     {
         throw error::RuntimeError("Promise에 '" + methodName + "' 메서드가 없습니다");
     }
 
-    // 체이닝을 위해 원래 Promise 반환
     return promiseObj;
 }
 

@@ -30,7 +30,7 @@ KingSejong 프로젝트에 관심을 가져주셔서 감사합니다! 이 문서
 ### 기여 전 확인사항
 
 - [ ] [CODING_STYLE.md](CODING_STYLE.md) 읽기
-- [ ] [TODOLIST.md](TODOLIST.md)에서 작업할 항목 확인
+- [ ] [로드맵](ROADMAP.md)과 [구현 상태](design/IMPLEMENTATION.md)에서 작업할 항목 확인
 - [ ] 중복 작업 방지를 위해 기존 이슈/PR 검색
 - [ ] 큰 변경사항은 먼저 이슈로 논의
 

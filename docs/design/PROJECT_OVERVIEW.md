@@ -440,7 +440,7 @@ kingsejonglang/
 }
 
 # 4학년 - 구구단
-단 = 입력("몇 단?")을_정수로()
+단 = 정수(입력("몇 단?"))
 i가 1부터 9까지 반복한다 {
     출력(단 + " x " + i + " = " + (단 * i))
 }
@@ -606,7 +606,7 @@ KingSejong 프로젝트의 상세 문서:
 | [LANGUAGE_DESIGN_PHILOSOPHY.md](./LANGUAGE_DESIGN_PHILOSOPHY.md) | 언어 설계 철학 및 핵심 아이디어 | ✅   |
 | [FEATURES.md](./FEATURES.md)                                     | KingSejong 기능 명세            | ✅   |
 | [IMPLEMENTATION.md](./IMPLEMENTATION.md)                         | KingSejong 구현 계획            | ✅   |
-| [STARTER_GUIDE.md](./STARTER_GUIDE.md)                           | 개발 및 기여 가이드             | ✅   |
+| [../CONTRIBUTING.md](../CONTRIBUTING.md)                         | 개발 및 기여 가이드             | ✅   |
 | [../ROADMAP.md](../ROADMAP.md)                                   | 개발 로드맵 및 진행 상황        | ✅   |
 | [../TUTORIAL.md](../TUTORIAL.md)                                 | 초보자 튜토리얼                 | ✅   |
 | [../USER_GUIDE.md](../USER_GUIDE.md)                             | 사용자 가이드                   | ✅   |

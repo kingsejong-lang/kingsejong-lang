@@ -154,6 +154,7 @@ void Dictionary::initializeDefaultDictionary()
     // ========================================
     // 기본 함수
     addBuiltinFunc("출력");
+    addBuiltinFunc("입력");
     addBuiltinFunc("타입");
     addBuiltinFunc("길이");
 

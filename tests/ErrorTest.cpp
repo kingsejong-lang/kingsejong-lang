@@ -33,6 +33,21 @@ TEST(ErrorTest, ShouldCreateErrorWithLocation)
     EXPECT_EQ(err.getLocation()->column, 5);
 }
 
+TEST(ErrorTest, ShouldCollectStackFramesInnermostFirst)
+{
+    KingSejongError err(ErrorType::RUNTIME_ERROR, "실패");
+    EXPECT_TRUE(err.stackTrace().empty());
+
+    err.addStackFrame("나누기", SourceLocation("calc.ksj", 2, 5));
+    err.addStackFrame("<최상위>", SourceLocation("calc.ksj", 7, 1));
+
+    ASSERT_EQ(err.stackTrace().size(), 2u);
+    EXPECT_EQ(err.stackTrace()[0].function, "나누기");
+    EXPECT_EQ(err.stackTrace()[0].location.line, 2);
+    EXPECT_EQ(err.stackTrace()[1].function, "<최상위>");
+    EXPECT_EQ(err.stackTrace()[1].location.line, 7);
+}
+
 // ============================================================================
 // SourceLocation 테스트
 // ============================================================================

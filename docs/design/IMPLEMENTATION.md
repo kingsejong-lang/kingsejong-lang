@@ -668,7 +668,7 @@ Value Evaluator::evalFunctionCall(CallExpression* expr) {
 
 **기능**:
 - ✅ 구조화된 에러 클래스
-- ☐ 스택 트레이스
+- ✅ 스택 트레이스 (잡히지 않은 실행 에러에 호출 스택 출력)
 - ✅ 한글 에러 메시지
 - ✅ 해결 방법 제안
 

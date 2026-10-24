@@ -10,6 +10,7 @@
 #include <string>
 #include <stdexcept>
 #include <optional>
+#include <vector>
 
 namespace kingsejong {
 namespace error {
@@ -113,6 +114,16 @@ struct SourceLocation
 };
 
 /**
+ * @struct StackFrame
+ * @brief 에러가 지나온 호출 한 단계: 함수 이름과 그 함수 안에서 실행 중이던 문장의 위치
+ */
+struct StackFrame
+{
+    std::string function;     ///< 함수 이름 ("클래스.메서드", "<익명 함수>", 파일 최상위는 "<최상위>")
+    SourceLocation location;  ///< 그 함수 안에서 실행 중이던 문장의 위치 (line 0 이면 알 수 없음)
+};
+
+/**
  * @class KingSejongError
  * @brief KingSejong 언어의 기본 에러 클래스
  *
@@ -123,6 +134,7 @@ class KingSejongError : public std::runtime_error
 private:
     ErrorType type_;                        ///< 에러 타입
     std::optional<SourceLocation> location_; ///< 소스 위치 (optional)
+    std::vector<StackFrame> stackTrace_;     ///< 호출 스택 (가장 안쪽 프레임이 먼저)
 
 public:
     /**
@@ -159,6 +171,23 @@ public:
      * @return optional<SourceLocation>
      */
     const std::optional<SourceLocation>& getLocation() const { return location_; }
+
+    /**
+     * @brief 호출 스택에 한 단계를 더한다
+     *
+     * 평가기가 에러가 함수 호출 경계를 거슬러 올라갈 때마다 안쪽부터 차례로 부른다.
+     * @param function 함수 이름
+     * @param location 그 함수 안에서 실행 중이던 문장의 위치
+     */
+    void addStackFrame(const std::string& function, const SourceLocation& location)
+    {
+        stackTrace_.push_back(StackFrame{function, location});
+    }
+
+    /**
+     * @brief 호출 스택 (가장 안쪽 프레임이 먼저). 함수 밖에서 난 에러는 "<최상위>" 하나뿐이다
+     */
+    const std::vector<StackFrame>& stackTrace() const { return stackTrace_; }
 
     /**
      * @brief 에러 타입을 한글 문자열로 변환

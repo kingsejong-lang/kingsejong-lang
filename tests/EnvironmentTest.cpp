@@ -6,8 +6,8 @@
  */
 
 #include <gtest/gtest.h>
-#include "evaluator/Environment.h"
-#include "evaluator/Value.h"
+#include "runtime/Environment.h"
+#include "runtime/Value.h"
 
 using namespace kingsejong::evaluator;
 

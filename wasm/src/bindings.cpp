@@ -15,7 +15,7 @@
 #include "lexer/Lexer.h"
 #include "parser/Parser.h"
 #include "evaluator/Evaluator.h"
-#include "evaluator/Environment.h"
+#include "runtime/Environment.h"
 #include "evaluator/Builtin.h"
 
 using namespace emscripten;

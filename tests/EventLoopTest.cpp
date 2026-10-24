@@ -8,8 +8,8 @@
  */
 
 #include <gtest/gtest.h>
-#include "evaluator/EventLoop.h"
-#include "evaluator/Value.h"
+#include "runtime/EventLoop.h"
+#include "runtime/Value.h"
 #include <vector>
 
 using namespace kingsejong::evaluator;

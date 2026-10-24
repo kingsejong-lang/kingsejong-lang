@@ -8,7 +8,7 @@
 #include "VM.h"
 #include "evaluator/Evaluator.h"
 #include "evaluator/Builtin.h"
-#include "evaluator/Environment.h"
+#include "runtime/Environment.h"
 #include <algorithm>
 #include "common/Logger.h"
 #include "error/ErrorMessages.h"

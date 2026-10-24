@@ -11,7 +11,7 @@
  */
 
 #include "error/Error.h"
-#include "evaluator/Environment.h"
+#include "runtime/Environment.h"
 #include <map>
 #include <optional>
 #include <string>

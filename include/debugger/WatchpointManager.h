@@ -9,8 +9,8 @@
  * 변수 값 변경을 감지하여 자동으로 중단합니다.
  */
 
-#include "evaluator/Environment.h"
-#include "evaluator/Value.h"
+#include "runtime/Environment.h"
+#include "runtime/Value.h"
 #include <map>
 #include <string>
 #include <vector>

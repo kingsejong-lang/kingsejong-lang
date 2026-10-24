@@ -8,7 +8,7 @@
  */
 
 #include "Type.h"
-#include "../evaluator/Value.h"
+#include "runtime/Value.h"
 #include "../error/Error.h"
 #include <string>
 

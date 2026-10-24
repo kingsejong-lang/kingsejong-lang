@@ -7,7 +7,7 @@
 
 #include "Evaluator.h"
 #include "Builtin.h"
-#include "EventLoop.h"
+#include "runtime/EventLoop.h"
 #include "../error/Error.h"
 #include "../module/ModuleLoader.h"
 #include "jit/HotPathDetector.h"

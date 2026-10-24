@@ -9,8 +9,8 @@
 
 #include <gtest/gtest.h>
 #include "debugger/Debugger.h"
-#include "evaluator/Environment.h"
-#include "evaluator/Value.h"
+#include "runtime/Environment.h"
+#include "runtime/Value.h"
 #include "ast/Node.h"
 #include <sstream>
 

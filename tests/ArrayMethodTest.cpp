@@ -9,7 +9,7 @@
 #include "lexer/Lexer.h"
 #include "parser/Parser.h"
 #include "evaluator/Evaluator.h"
-#include "evaluator/Value.h"
+#include "runtime/Value.h"
 
 using namespace kingsejong;
 

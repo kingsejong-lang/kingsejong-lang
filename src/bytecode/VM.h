@@ -10,8 +10,8 @@
  */
 
 #include "Chunk.h"
-#include "evaluator/Value.h"
-#include "evaluator/Environment.h"
+#include "runtime/Value.h"
+#include "runtime/Environment.h"
 #include <vector>
 #include <memory>
 #include <chrono>

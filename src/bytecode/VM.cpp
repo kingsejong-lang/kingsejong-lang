@@ -89,6 +89,7 @@ void VM::resetFor(Chunk* chunk, size_t entry, std::shared_ptr<Environment> env) 
     handlers_.clear();
     pending_.clear();
     env_ = std::move(env);
+    lastError_.reset();
     instructionCount_ = 0;
     startTime_ = std::chrono::steady_clock::now();
 }
@@ -135,21 +136,25 @@ VMResult VM::runLoop(bool propagate) {
         } catch (const evaluator::ReturnValue& ret) {
             // 평가기로 해석한 본문에서 새어 나온 반환 (정상 경로에서는 일어나지 않는다)
             push(ret.getValue());
-        } catch (const evaluator::ThrowSignal& signal) {
-            // 평가기로 해석한 콜백·하위 VM(모듈)이 던진 에러
-            if (!unwindToHandler(signal.value())) {
+        } catch (error::KingSejongError& e) {
+            // 실행 에러와 던지다(ThrowSignal). 시도 블록 안이면 오류 블록으로, 아니면 호출 스택을 붙여
+            // 가져온 쪽(하위 VM)으로 올리거나 lastError 로 남기고 끝낸다. 프레임은 아직 그대로다
+            if (!canHandle()) {
+                attachStackTrace(e);
                 if (propagate) throw;
-                runtimeError(signal.what());
-                return VMResult::RUNTIME_ERROR;
+                return fail(e);
             }
+            auto* signal = dynamic_cast<evaluator::ThrowSignal*>(&e);
+            unwindToHandler(signal ? signal->value() : Value::createError(e.what(), "RuntimeError"));
         } catch (const std::exception& e) {
-            // 런타임 에러: 시도 블록 안이면 오류 블록으로, 아니면 보고하고 끝낸다
-            Value error = Value::createError(e.what(), "RuntimeError");
-            if (!unwindToHandler(error)) {
-                if (propagate) throw;
-                runtimeError(e.what());
-                return VMResult::RUNTIME_ERROR;
+            // 내장 함수·값 연산이 던진 일반 예외는 실행 에러로 다룬다
+            if (!canHandle()) {
+                error::KingSejongError converted = error::RuntimeError(e.what());
+                attachStackTrace(converted);
+                if (propagate) throw converted;
+                return fail(converted);
             }
+            unwindToHandler(Value::createError(e.what(), "RuntimeError"));
         }
     }
 }
@@ -382,9 +387,12 @@ VM::Step VM::executeInstruction() {
             push(Value::createFunction(func));
             break;
         }
-        case OpCode::CALL:
-            callValue(readByte());
+        case OpCode::CALL: {
+            size_t at = ip_ - 1;
+            uint8_t argCount = readByte();
+            callValue(argCount, chunk_->getCallSiteName(at));
             break;
+        }
         case OpCode::CALL_METHOD: {
             const std::string& name = readName();
             uint8_t argCount = readByte();
@@ -599,7 +607,7 @@ VM::Step VM::executeInstruction() {
 // 호출·복귀
 // ============================================================================
 
-void VM::callValue(uint8_t argCount) {
+void VM::callValue(uint8_t argCount, const std::string& name) {
     Value callee = peek(argCount);
 
     // 내장 함수
@@ -647,7 +655,7 @@ void VM::callValue(uint8_t argCount) {
             ctorEnv->set(ctor->parameters()[i], stack_[stackBase + 1 + i]);
         }
         ctorEnv->set("자신", instance);
-        enterFunction(ctor, entry, std::move(ctorEnv), stackBase, true, instance);
+        enterFunction(ctor, entry, std::move(ctorEnv), stackBase, true, instance, classDef->className() + ".생성자");
         return;
     }
 
@@ -663,7 +671,7 @@ void VM::callValue(uint8_t argCount) {
         // 이 청크에 없는 함수 (모듈·평가기가 만든 함수): 평가기로 본문을 해석한다
         std::vector<Value> args = popArguments(argCount);
         pop();
-        push(Evaluator::invokeFunction(callee, args, "함수"));
+        push(Evaluator::invokeFunction(callee, args, name.empty() ? std::string("<익명 함수>") : name));
         return;
     }
 
@@ -671,7 +679,8 @@ void VM::callValue(uint8_t argCount) {
     for (size_t i = 0; i < func->parameters().size(); ++i) {
         funcEnv->set(func->parameters()[i], stack_[stackBase + 1 + i]);
     }
-    enterFunction(func, entry, std::move(funcEnv), stackBase, false, Value());
+    enterFunction(func, entry, std::move(funcEnv), stackBase, false, Value(),
+                  name.empty() ? std::string("<익명 함수>") : name);
 }
 
 void VM::callMethod(const std::string& name, uint8_t argCount) {
@@ -712,17 +721,19 @@ void VM::callMethod(const std::string& name, uint8_t argCount) {
         push(Evaluator::runBody(method->body(), std::move(methodEnv)));
         return;
     }
-    enterFunction(method, entry, std::move(methodEnv), stackBase, false, Value());
+    enterFunction(method, entry, std::move(methodEnv), stackBase, false, Value(),
+                  instance->classDef()->className() + "." + name);
 }
 
 void VM::enterFunction(const std::shared_ptr<evaluator::Function>& func, size_t entry,
                        std::shared_ptr<Environment> funcEnv, size_t stackBase,
-                       bool isConstructor, const Value& instance) {
+                       bool isConstructor, const Value& instance, std::string name) {
     if (frames_.size() >= maxFrames_) {
         throw error::RuntimeError(
             "함수 호출 깊이가 너무 깊습니다 (" + std::to_string(maxFrames_) + " 초과). 끝나지 않는 재귀 호출인지 확인하세요.");
     }
     CallFrame frame;
+    frame.name = std::move(name);
     frame.returnIp = ip_;
     frame.savedEnv = env_;
     frame.frameEnv = funcEnv;
@@ -785,11 +796,22 @@ void VM::dropFrame(const CallFrame& frame) {
 // ============================================================================
 
 void VM::raise(const Value& error) {
-    if (!unwindToHandler(error)) {
-        // 처리되지 않은 에러: 에러 값을 그대로 실은 예외로 바꿔 실행 루프가 보고하게 한다.
-        // 하위 VM(모듈)에서 새어 나오면 가져온 쪽의 시도 블록이 같은 값을 잡는다 (평가기와 같다)
+    if (!canHandle()) {
+        // 처리되지 않은 에러: 프레임을 걷어 내기 전에 에러 값을 그대로 실은 예외로 바꿔 실행 루프가
+        // 호출 스택을 붙여 보고하게 한다. 하위 VM(모듈)에서 새어 나오면 가져온 쪽의 시도 블록이 같은 값을 잡는다
         throw evaluator::ThrowSignal(error);
     }
+    unwindToHandler(error);
+}
+
+bool VM::canHandle() const {
+    if (!handlers_.empty()) {
+        return true;
+    }
+    for (const auto& frame : frames_) {
+        if (frame.isAsync) return true;
+    }
+    return false;
 }
 
 bool VM::rejectAsyncFrame(const Value& error, size_t frameDepth) {
@@ -846,11 +868,27 @@ bool VM::unwindToHandler(const Value& error) {
 // 보고
 // ============================================================================
 
-void VM::runtimeError(const std::string& message) {
-    Logger::error("[런타임 오류] " + message);
-    if (chunk_ && ip_ > 0) {
-        Logger::error("[라인 " + std::to_string(chunk_->getLine(ip_ - 1)) + "]");
+error::SourceLocation VM::locationAt(size_t offset) const {
+    if (!chunk_ || chunk_->size() == 0) {
+        return error::SourceLocation();   // 줄 0: 알 수 없음
     }
+    return error::SourceLocation(chunk_->getFile(offset), chunk_->getLine(offset), 0);
+}
+
+void VM::attachStackTrace(error::KingSejongError& error) const {
+    // 명령 하나의 바이트는 모두 같은 줄로 적히므로, 마지막으로 읽은 바이트(ip_-1)가 지금 명령의 위치다.
+    // 프레임의 복귀 주소 바로 앞 바이트는 그 프레임을 만든 CALL 명령에 속한다
+    size_t at = ip_ > 0 ? ip_ - 1 : 0;
+    for (size_t i = frames_.size(); i-- > 0;) {
+        error.addStackFrame(frames_[i].name, locationAt(at));
+        at = frames_[i].returnIp > 0 ? frames_[i].returnIp - 1 : 0;
+    }
+    error.addStackFrame("<최상위>", locationAt(at));
+}
+
+VMResult VM::fail(const error::KingSejongError& error) {
+    lastError_ = std::make_unique<error::KingSejongError>(error);
+    return VMResult::RUNTIME_ERROR;
 }
 
 void VM::printStack() const {

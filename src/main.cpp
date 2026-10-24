@@ -169,6 +169,11 @@ int executeFile(const std::string& filename, bool useVm = false)
             auto result = vm.run(&chunk);
             if (result != kingsejong::bytecode::VMResult::OK && result != kingsejong::bytecode::VMResult::HALT)
             {
+                // 잡히지 않은 에러는 평가기와 같은 리포터로 출력한다 (오류 위치·소스 문맥·호출 스택)
+                if (vm.lastError())
+                {
+                    errorReporter.report(*vm.lastError());
+                }
                 return 1;
             }
             return 0;

@@ -17,6 +17,7 @@
 #include <memory>
 #include <stdexcept>
 #include <chrono>
+#include <functional>
 
 namespace kingsejong {
 
@@ -230,6 +231,17 @@ public:
     static Value constructInstance(const std::shared_ptr<Function>& func, const std::vector<Value>& args);
     /// 비동기 함수의 결과를 Promise 로 감싼다 (에러 값이면 reject)
     static Value wrapAsync(const Value& result);
+
+    /// 리터럴 패턴의 표현식을 값으로 바꾸는 함수 (평가기는 eval, VM 은 상수 변환)
+    using PatternLiteral = std::function<Value(const ast::Expression*)>;
+    /// 값이 패턴에 맞으면 바인딩 변수를 bindings 에 넣고 true. 배열 패턴은 요소마다 재귀하며
+    /// ...나머지 가 있으면 남은 요소를 배열로 묶는다. 리터럴은 종류가 같고 값이 같아야 한다.
+    static bool matchPattern(const ast::Pattern* pattern, const Value& value, Environment& bindings,
+                             const PatternLiteral& literal);
+    /// 정수·실수·문자열·불리언 리터럴 노드를 값으로 바꾼다. 리터럴이 아니면 RuntimeError
+    static Value literalValue(const ast::Expression* expr);
+    /// 표현식이 리터럴 노드인지 (패턴을 VM 이 상수로 비교할 수 있는지)
+    static bool isLiteralNode(const ast::Expression* expr);
 
 private:
     std::shared_ptr<Environment> env_;  ///< 변수 저장 환경

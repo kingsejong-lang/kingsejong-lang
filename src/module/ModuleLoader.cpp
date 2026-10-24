@@ -24,7 +24,8 @@ ModuleLoader::ModuleLoader(const std::string& basePath)
 {
 }
 
-std::shared_ptr<evaluator::Environment> ModuleLoader::loadModule(const std::string& modulePath, const std::string& fromFile)
+std::shared_ptr<evaluator::Environment> ModuleLoader::loadModule(const std::string& modulePath, const std::string& fromFile,
+                                                                 const Executor& executor)
 {
     // 경로 해석. 캐시와 순환 검사는 정규화한 경로를 키로 쓴다 ("./x.ksj" 와 "x.ksj" 는 같은 모듈).
     std::string resolvedPath = resolvePath(modulePath, fromFile);
@@ -87,10 +88,17 @@ std::shared_ptr<evaluator::Environment> ModuleLoader::loadModule(const std::stri
             );
         }
 
-        // 모듈 안의 가져오기가 동작하려면 모듈 평가기도 같은 로더를 알아야 한다.
-        evaluator::Evaluator evaluator(moduleEnv);
-        evaluator.setModuleLoader(this);
-        evaluator.evalProgram(program.get());
+        if (executor)
+        {
+            executor(*program, moduleEnv);
+        }
+        else
+        {
+            // 모듈 안의 가져오기가 동작하려면 모듈 평가기도 같은 로더를 알아야 한다.
+            evaluator::Evaluator evaluator(moduleEnv);
+            evaluator.setModuleLoader(this);
+            evaluator.evalProgram(program.get());
+        }
 
         // 캐시에 저장 (AST와 Environment 모두 저장)
         // Function 객체가 AST 노드에 대한 raw pointer를 가지므로

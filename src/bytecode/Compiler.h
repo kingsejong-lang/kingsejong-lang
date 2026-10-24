@@ -24,6 +24,9 @@ public:
 
     /// 프로그램을 청크로 컴파일한다. 실패하면 false (메시지는 errors()).
     bool compile(ast::Program* program, Chunk* chunk);
+    /// 모듈 프로그램을 청크 끝에 덧붙여 컴파일한다 (마지막 표현식 값을 남기지 않는다).
+    /// 돌아오면 entry 에 모듈 코드의 시작 위치가 들어 있다.
+    bool compileModule(ast::Program* program, Chunk* chunk, size_t& entry);
 
     void compileStatement(ast::Statement* stmt);
     void compileExpression(ast::Expression* expr);
@@ -58,6 +61,9 @@ private:
     void compileCallExpression(ast::CallExpression* expr);
     void compileIndexExpression(ast::IndexExpression* expr);
     void compileJosaExpression(ast::JosaExpression* expr);
+    void compileMatchExpression(ast::MatchExpression* expr);
+    /// 패턴의 리터럴이 모두 리터럴 노드여서 VM 이 상수로 비교할 수 있는지
+    static bool isNativePattern(const ast::Pattern* pattern);
     void compileArguments(const std::vector<std::unique_ptr<ast::Expression>>& args);
 
     /// 함수 본문을 인라인으로 컴파일하고 프로토타입 인덱스를 돌려준다
@@ -70,6 +76,7 @@ private:
     bool isConstantCondition(const ast::Expression* expr, bool& result);
 
     // ---- 코드 생성 ----
+    bool compileProgram(ast::Program* program, Chunk* chunk, bool keepLastValue);
     void emit(OpCode op);
     void emitByte(uint8_t byte);
     void emit16(uint16_t value);

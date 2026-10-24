@@ -2087,139 +2087,122 @@ Value Evaluator::applyJosaMethod(const Value& object, lexer::JosaRecognizer::Jos
     );
 }
 
-Value Evaluator::evalMatchExpression(ast::MatchExpression* node)
+bool Evaluator::isLiteralNode(const ast::Expression* expr)
 {
-    Value matchValue = eval(const_cast<ast::Expression*>(node->value()));
-
-    for (const auto& matchCase : node->cases())
+    if (!expr) return false;
+    switch (expr->type())
     {
-        bool matched = false;
-        auto caseEnv = std::make_shared<Environment>(env_);
+        case ast::NodeType::INTEGER_LITERAL:
+        case ast::NodeType::FLOAT_LITERAL:
+        case ast::NodeType::STRING_LITERAL:
+        case ast::NodeType::BOOLEAN_LITERAL:
+            return true;
+        default:
+            return false;
+    }
+}
 
-        auto pattern = matchCase.pattern();
-        if (!pattern)
+Value Evaluator::literalValue(const ast::Expression* expr)
+{
+    if (expr)
+    {
+        switch (expr->type())
         {
-            continue;
-        }
-
-        switch (pattern->type())
-        {
-            case ast::NodeType::LITERAL_PATTERN:
-            {
-                auto literalPattern = static_cast<const ast::LiteralPattern*>(pattern);
-                Value patternValue = eval(const_cast<ast::Expression*>(literalPattern->value()));
-
-                if (matchValue.getType() != patternValue.getType())
-                {
-                    break;
-                }
-
-                if (matchValue.getType() == types::TypeKind::INTEGER &&
-                    matchValue.asInteger() == patternValue.asInteger())
-                {
-                    matched = true;
-                }
-                else if (matchValue.getType() == types::TypeKind::STRING &&
-                         matchValue.asString() == patternValue.asString())
-                {
-                    matched = true;
-                }
-                else if (matchValue.getType() == types::TypeKind::BOOLEAN &&
-                         matchValue.asBoolean() == patternValue.asBoolean())
-                {
-                    matched = true;
-                }
-                break;
-            }
-
-            case ast::NodeType::WILDCARD_PATTERN:
-            {
-                matched = true;
-                break;
-            }
-
-            case ast::NodeType::BINDING_PATTERN:
-            {
-                auto bindingPattern = static_cast<const ast::BindingPattern*>(pattern);
-                std::string name = bindingPattern->name();
-                caseEnv->set(name, matchValue);
-                matched = true;
-                break;
-            }
-
-            case ast::NodeType::ARRAY_PATTERN:
-            {
-                if (matchValue.getType() != types::TypeKind::ARRAY)
-                {
-                    break;
-                }
-
-                auto arrayPattern = static_cast<const ast::ArrayPattern*>(pattern);
-                const auto& elements = arrayPattern->elements();
-                const auto& matchArray = matchValue.asArray();
-
-                if (elements.size() != matchArray.size())
-                {
-                    break;
-                }
-
-                matched = true;
-                for (size_t i = 0; i < elements.size(); i++)
-                {
-                    auto elemPattern = elements[i].get();
-                    Value elemValue = matchArray[i];
-
-                    if (elemPattern->type() == ast::NodeType::LITERAL_PATTERN)
-                    {
-                        auto literalPattern = static_cast<const ast::LiteralPattern*>(elemPattern);
-                        Value patternValue = eval(const_cast<ast::Expression*>(literalPattern->value()));
-
-                        if (elemValue.getType() != patternValue.getType())
-                        {
-                            matched = false;
-                            break;
-                        }
-
-                        if (elemValue.getType() == types::TypeKind::INTEGER &&
-                            elemValue.asInteger() != patternValue.asInteger())
-                        {
-                            matched = false;
-                            break;
-                        }
-                        else if (elemValue.getType() == types::TypeKind::STRING &&
-                                 elemValue.asString() != patternValue.asString())
-                        {
-                            matched = false;
-                            break;
-                        }
-                        else if (elemValue.getType() == types::TypeKind::BOOLEAN &&
-                                 elemValue.asBoolean() != patternValue.asBoolean())
-                        {
-                            matched = false;
-                            break;
-                        }
-                    }
-                    else if (elemPattern->type() == ast::NodeType::WILDCARD_PATTERN)
-                    {
-                        continue;
-                    }
-                    else if (elemPattern->type() == ast::NodeType::BINDING_PATTERN)
-                    {
-                        auto bindingPattern = static_cast<const ast::BindingPattern*>(elemPattern);
-                        caseEnv->set(bindingPattern->name(), elemValue);
-                    }
-                    else
-                    {
-                        matched = false;
-                        break;
-                    }
-                }
-                break;
-            }
-
+            case ast::NodeType::INTEGER_LITERAL:
+                return Value::createInteger(static_cast<const ast::IntegerLiteral*>(expr)->value());
+            case ast::NodeType::FLOAT_LITERAL:
+                return Value::createFloat(static_cast<const ast::FloatLiteral*>(expr)->value());
+            case ast::NodeType::STRING_LITERAL:
+                return Value::createString(static_cast<const ast::StringLiteral*>(expr)->value());
+            case ast::NodeType::BOOLEAN_LITERAL:
+                return Value::createBoolean(static_cast<const ast::BooleanLiteral*>(expr)->value());
             default:
                 break;
         }
+    }
+    throw error::RuntimeError("패턴 리터럴이 아닙니다: " + (expr ? expr->toString() : std::string("(없음)")));
+}
+
+bool Evaluator::matchPattern(const ast::Pattern* pattern, const Value& value, Environment& bindings,
+                             const PatternLiteral& literal)
+{
+    if (!pattern)
+    {
+        return false;
+    }
+
+    switch (pattern->type())
+    {
+        case ast::NodeType::LITERAL_PATTERN:
+        {
+            Value expected = literal(static_cast<const ast::LiteralPattern*>(pattern)->value());
+            if (value.getType() != expected.getType())
+            {
+                return false;
+            }
+            switch (value.getType())
+            {
+                case types::TypeKind::INTEGER: return value.asInteger() == expected.asInteger();
+                case types::TypeKind::FLOAT:   return value.asFloat() == expected.asFloat();
+                case types::TypeKind::STRING:  return value.asString() == expected.asString();
+                case types::TypeKind::BOOLEAN: return value.asBoolean() == expected.asBoolean();
+                default:                       return false;
+            }
+        }
+
+        case ast::NodeType::WILDCARD_PATTERN:
+            return true;
+
+        case ast::NodeType::BINDING_PATTERN:
+            bindings.set(static_cast<const ast::BindingPattern*>(pattern)->name(), value);
+            return true;
+
+        case ast::NodeType::ARRAY_PATTERN:
+        {
+            if (!value.isArray())
+            {
+                return false;
+            }
+            auto arrayPattern = static_cast<const ast::ArrayPattern*>(pattern);
+            const auto& elements = arrayPattern->elements();
+            const auto& array = value.asArray();
+            bool hasRest = !arrayPattern->rest().empty();
+
+            if (hasRest ? array.size() < elements.size() : array.size() != elements.size())
+            {
+                return false;
+            }
+            for (size_t i = 0; i < elements.size(); i++)
+            {
+                if (!matchPattern(elements[i].get(), array[i], bindings, literal))
+                {
+                    return false;
+                }
+            }
+            if (hasRest)
+            {
+                std::vector<Value> rest(array.begin() + static_cast<std::ptrdiff_t>(elements.size()), array.end());
+                bindings.set(arrayPattern->rest(), Value::createArray(rest));
+            }
+            return true;
+        }
+
+        default:
+            return false;
+    }
+}
+
+Value Evaluator::evalMatchExpression(ast::MatchExpression* node)
+{
+    Value matchValue = eval(const_cast<ast::Expression*>(node->value()));
+    PatternLiteral literal = [this](const ast::Expression* expr) {
+        return eval(const_cast<ast::Expression*>(expr));
+    };
+
+    for (const auto& matchCase : node->cases())
+    {
+        auto caseEnv = std::make_shared<Environment>(env_);
+        bool matched = matchPattern(matchCase.pattern(), matchValue, *caseEnv, literal);
 
         if (matched)
         {

@@ -4,6 +4,7 @@
  */
 
 #include "VM.h"
+#include "Compiler.h"
 #include "evaluator/Evaluator.h"
 #include "evaluator/Builtin.h"
 #include "runtime/EventLoop.h"
@@ -76,16 +77,47 @@ void VM::releaseScope(std::shared_ptr<Environment>& scope) {
 // ============================================================================
 
 VMResult VM::run(Chunk* chunk) {
+    resetFor(chunk, 0, globals_);
+    return runLoop(false);
+}
+
+void VM::resetFor(Chunk* chunk, size_t entry, std::shared_ptr<Environment> env) {
     chunk_ = chunk;
-    ip_ = 0;
+    ip_ = entry;
     stack_.clear();
     frames_.clear();
     handlers_.clear();
     pending_.clear();
-    env_ = globals_;
+    env_ = std::move(env);
     instructionCount_ = 0;
     startTime_ = std::chrono::steady_clock::now();
+}
 
+void VM::runModule(ast::Program& program, const std::shared_ptr<Environment>& moduleEnv) {
+    // 모듈 코드를 이 청크 끝에 덧붙인다. 모듈 함수의 본문 진입점이 같은 청크에 등록되므로
+    // 가져온 쪽이 그 함수를 부를 때도 바이트코드로 돈다. 모듈 AST 는 로더 캐시가 쥐고 있다.
+    Compiler compiler;
+    size_t entry = 0;
+    if (!compiler.compileModule(&program, chunk_, entry)) {
+        throw error::RuntimeError("모듈 컴파일 오류: " +
+                                  (compiler.errors().empty() ? std::string("알 수 없는 오류") : compiler.errors()[0]));
+    }
+
+    // 모듈은 자기 환경에서 별도 VM 으로 돈다 (평가기가 모듈마다 새 Evaluator 를 만드는 것과 같다).
+    // 잡히지 않은 에러는 예외로 올라와 가져오기 문 자리에서 던져진 것처럼 처리된다.
+    VM moduleVm;
+    moduleVm.moduleLoader_ = moduleLoader_;
+    moduleVm.traceExecution_ = traceExecution_;
+    moduleVm.maxInstructions_ = maxInstructions_;
+    moduleVm.maxExecutionTime_ = maxExecutionTime_;
+    moduleVm.maxStackSize_ = maxStackSize_;
+    moduleVm.maxFrames_ = maxFrames_;
+    moduleVm.globals_ = moduleEnv;
+    moduleVm.resetFor(chunk_, entry, moduleEnv);
+    moduleVm.runLoop(true);
+}
+
+VMResult VM::runLoop(bool propagate) {
     while (true) {
         try {
             checkLimits();
@@ -104,8 +136,9 @@ VMResult VM::run(Chunk* chunk) {
             // 평가기로 해석한 본문에서 새어 나온 반환 (정상 경로에서는 일어나지 않는다)
             push(ret.getValue());
         } catch (const evaluator::ThrowSignal& signal) {
-            // 평가기로 해석한 콜백·모듈 함수가 던진 에러
+            // 평가기로 해석한 콜백·하위 VM(모듈)이 던진 에러
             if (!unwindToHandler(signal.value())) {
+                if (propagate) throw;
                 runtimeError(signal.what());
                 return VMResult::RUNTIME_ERROR;
             }
@@ -113,6 +146,7 @@ VMResult VM::run(Chunk* chunk) {
             // 런타임 에러: 시도 블록 안이면 오류 블록으로, 아니면 보고하고 끝낸다
             Value error = Value::createError(e.what(), "RuntimeError");
             if (!unwindToHandler(error)) {
+                if (propagate) throw;
                 runtimeError(e.what());
                 return VMResult::RUNTIME_ERROR;
             }
@@ -458,14 +492,17 @@ VM::Step VM::executeInstruction() {
             break;
         }
         case OpCode::IMPORT: {
-            const std::string& modulePath = readName();
-            const std::string& fromFile = readName();
+            // 모듈 컴파일이 청크의 이름 표를 늘려 참조를 무효화할 수 있으므로 복사해 둔다
+            std::string modulePath = readName();
+            std::string fromFile = readName();
             if (!moduleLoader_) {
                 throw error::RuntimeError(
                     std::string("모듈 로더가 설정되지 않았습니다.\n") +
                     "해결 방법: Evaluator에 ModuleLoader를 설정해야 합니다.");
             }
-            auto moduleEnv = moduleLoader_->loadModule(modulePath, fromFile);
+            auto moduleEnv = moduleLoader_->loadModule(
+                modulePath, fromFile,
+                [this](ast::Program& program, const std::shared_ptr<Environment>& env) { runModule(program, env); });
             for (const auto& [name, value] : moduleEnv->getAllBindings()) {
                 env_->set(name, value);
             }
@@ -529,6 +566,16 @@ VM::Step VM::executeInstruction() {
             if (promise.isPromise()) promise.asPromise()->reject(reason);
             break;
         }
+
+        // ---- 패턴 매칭 ----
+        case OpCode::MATCH_PATTERN: {
+            const auto* pattern = static_cast<const ast::Pattern*>(chunk_->getNode(readShort()));
+            Value value = pop();
+            push(Value::createBoolean(Evaluator::matchPattern(pattern, value, *env_, Evaluator::literalValue)));
+            break;
+        }
+        case OpCode::MATCH_FAIL:
+            throw error::RuntimeError("매칭되는 패턴이 없습니다");
 
         // ---- 기타 ----
         case OpCode::EVAL_NODE: {
@@ -745,8 +792,9 @@ void VM::dropFrame(const CallFrame& frame) {
 
 void VM::raise(const Value& error) {
     if (!unwindToHandler(error)) {
-        // 처리되지 않은 에러: 메시지를 담아 C++ 예외로 바꿔 실행 루프가 보고하게 한다
-        throw error::RuntimeError(error.toString());
+        // 처리되지 않은 에러: 에러 값을 그대로 실은 예외로 바꿔 실행 루프가 보고하게 한다.
+        // 하위 VM(모듈)에서 새어 나오면 가져온 쪽의 시도 블록이 같은 값을 잡는다 (평가기와 같다)
+        throw evaluator::ThrowSignal(error);
     }
 }
 

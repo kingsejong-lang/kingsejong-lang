@@ -4,6 +4,7 @@
  */
 
 #include "Compiler.h"
+#include "evaluator/Evaluator.h"
 #include "lexer/JosaRecognizer.h"
 #include <iostream>
 
@@ -25,6 +26,15 @@ Compiler::Compiler()
     : chunk_(nullptr), hadError_(false), currentLine_(1) {}
 
 bool Compiler::compile(ast::Program* program, Chunk* chunk) {
+    return compileProgram(program, chunk, true);
+}
+
+bool Compiler::compileModule(ast::Program* program, Chunk* chunk, size_t& entry) {
+    entry = chunk->size();
+    return compileProgram(program, chunk, false);
+}
+
+bool Compiler::compileProgram(ast::Program* program, Chunk* chunk, bool keepLastValue) {
     chunk_ = chunk;
     hadError_ = false;
     errors_.clear();
@@ -36,7 +46,7 @@ bool Compiler::compile(ast::Program* program, Chunk* chunk) {
         for (size_t i = 0; i < count; i++) {
             bool isLast = (i == count - 1);
             // 마지막 문장이 표현식 문장이면 값을 스택에 남긴다 (REPL 스타일, vm.top())
-            if (isLast && statements[i]->type() == ast::NodeType::EXPRESSION_STATEMENT) {
+            if (keepLastValue && isLast && statements[i]->type() == ast::NodeType::EXPRESSION_STATEMENT) {
                 auto* exprStmt = static_cast<ast::ExpressionStatement*>(statements[i].get());
                 setLine(exprStmt);
                 compileExpression(const_cast<ast::Expression*>(exprStmt->expression()));
@@ -389,9 +399,7 @@ void Compiler::compileExpression(ast::Expression* expr) {
             emit(OpCode::AWAIT);
             break;
         case ast::NodeType::MATCH_EXPRESSION:
-            // 패턴 매칭은 평가기의 규칙을 그대로 쓴다 (현재 환경에서 노드를 평가)
-            emit(OpCode::EVAL_NODE);
-            emit16(toU16(chunk_->addNode(expr), "AST 노드 수"));
+            compileMatchExpression(static_cast<ast::MatchExpression*>(expr));
             break;
         default:
             // 평가기도 값으로 평가하지 않는 표현식 (단독 범위 표현식 등)
@@ -484,6 +492,68 @@ void Compiler::compileUnaryExpression(ast::UnaryExpression* expr) {
     if (op == "-")      emit(OpCode::NEG);
     else if (op == "!") emit(OpCode::NOT);
     else error("지원되지 않는 단항 연산자: " + op);
+}
+
+bool Compiler::isNativePattern(const ast::Pattern* pattern) {
+    if (!pattern) return false;
+    switch (pattern->type()) {
+        case ast::NodeType::LITERAL_PATTERN:
+            return evaluator::Evaluator::isLiteralNode(static_cast<const ast::LiteralPattern*>(pattern)->value());
+        case ast::NodeType::ARRAY_PATTERN:
+            for (const auto& element : static_cast<const ast::ArrayPattern*>(pattern)->elements()) {
+                if (!isNativePattern(element.get())) return false;
+            }
+            return true;
+        default:
+            return true;
+    }
+}
+
+void Compiler::compileMatchExpression(ast::MatchExpression* expr) {
+    // 리터럴 자리에 일반 표현식이 온 패턴(예: `1 + 2 ->`)은 환경이 있어야 값이 정해지므로
+    // 그 매칭 전체를 평가기 규칙으로 돌린다. 파서가 만드는 패턴은 모두 리터럴 노드다.
+    for (const auto& matchCase : expr->cases()) {
+        if (!isNativePattern(matchCase.pattern())) {
+            emit(OpCode::EVAL_NODE);
+            emit16(toU16(chunk_->addNode(expr), "AST 노드 수"));
+            return;
+        }
+    }
+
+    // 스택: [값] 을 두고 사례마다 복사해 검사한다. 사례 환경은 PUSH_SCOPE 로 열어
+    // 바인딩·가드·본문이 거기서 돌고, 맞지 않으면 POP_SCOPE 로 버린다.
+    compileExpression(const_cast<ast::Expression*>(expr->value()));
+    std::vector<size_t> endJumps;
+
+    for (const auto& matchCase : expr->cases()) {
+        emit(OpCode::PUSH_SCOPE);
+        emit(OpCode::DUP);                                  // [값 값]
+        emit(OpCode::MATCH_PATTERN);                        // [값 참/거짓]
+        emit16(toU16(chunk_->addNode(matchCase.pattern()), "AST 노드 수"));
+        size_t patternFail = emitJump(OpCode::JUMP_IF_FALSE);   // [값]
+
+        size_t guardFail = 0;
+        bool hasGuard = matchCase.guard() != nullptr;
+        if (hasGuard) {
+            compileExpression(const_cast<ast::Expression*>(matchCase.guard()));
+            guardFail = emitJump(OpCode::JUMP_IF_FALSE);    // [값]
+        }
+
+        emit(OpCode::POP);                                  // []
+        compileExpression(const_cast<ast::Expression*>(matchCase.body()));   // [결과]
+        emit(OpCode::POP_SCOPE);
+        endJumps.push_back(emitJump(OpCode::JUMP));
+
+        patchJump(patternFail);
+        if (hasGuard) patchJump(guardFail);
+        emit(OpCode::POP_SCOPE);                            // [값]
+    }
+
+    emit(OpCode::POP);                                      // []
+    emit(OpCode::MATCH_FAIL);
+    for (size_t jump : endJumps) {
+        patchJump(jump);
+    }
 }
 
 void Compiler::compileArguments(const std::vector<std::unique_ptr<ast::Expression>>& args) {

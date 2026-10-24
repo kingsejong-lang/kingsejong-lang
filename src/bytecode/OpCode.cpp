@@ -66,6 +66,8 @@ std::string opCodeToString(OpCode op) {
         case OpCode::BUILD_PROMISE:   return "BUILD_PROMISE";
         case OpCode::PROMISE_RESOLVE: return "PROMISE_RESOLVE";
         case OpCode::PROMISE_REJECT:  return "PROMISE_REJECT";
+        case OpCode::MATCH_PATTERN:   return "MATCH_PATTERN";
+        case OpCode::MATCH_FAIL:      return "MATCH_FAIL";
         case OpCode::EVAL_NODE:       return "EVAL_NODE";
         case OpCode::POP:             return "POP";
         case OpCode::DUP:             return "DUP";
@@ -102,6 +104,7 @@ const std::vector<uint8_t>& opCodeOperandWidths(OpCode op) {
         case OpCode::STORE_FIELD:
         case OpCode::CONVERT:
         case OpCode::CLASS_DEF:
+        case OpCode::MATCH_PATTERN:
         case OpCode::EVAL_NODE:
             return u16;
         case OpCode::CALL:

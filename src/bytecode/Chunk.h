@@ -1,12 +1,7 @@
 #pragma once
-
 /**
  * @file Chunk.h
- * @brief 바이트코드 청크
- * @author KingSejong Team
- * @date 2025-11-10
- *
- * 바이트코드 명령어와 상수 풀을 관리하는 청크입니다.
+ * @brief 바이트코드 청크: 코드, 상수 풀, 이름 표, 함수 프로토타입, AST 참조, 줄 정보
  */
 
 #include "OpCode.h"
@@ -14,142 +9,77 @@
 #include <vector>
 #include <string>
 #include <cstdint>
+#include <unordered_map>
 
 namespace kingsejong {
+namespace ast { class Node; class Statement; }
 namespace bytecode {
 
-/**
- * @struct LineInfo
- * @brief 소스 코드 라인 정보
- *
- * 디버깅을 위한 라인 번호 정보입니다.
- */
+/// 명령어 오프셋 → 소스 줄 (런-렝스)
 struct LineInfo {
-    size_t offset;      ///< 명령어 오프셋
-    int line;           ///< 소스 코드 라인 번호
+    size_t offset;
+    int line;
 };
 
 /**
- * @class Chunk
- * @brief 바이트코드 청크
+ * @brief 컴파일된 함수 하나의 정보
  *
- * 바이트코드 명령어 시퀀스와 상수 풀을 관리합니다.
+ * 본문 코드는 같은 청크 안의 entry 오프셋에서 시작한다. body 는 평가기가 같은 함수를
+ * AST 로 해석할 수 있게 남겨 두는 원본 노드다 (콜백·모듈 함수 호환).
  */
+struct FunctionProto {
+    std::vector<std::string> parameters;
+    ast::Statement* body = nullptr;
+    size_t entry = 0;
+    bool isAsync = false;
+    std::string name;
+};
+
 class Chunk {
 private:
-    std::vector<uint8_t> code_;                     ///< 바이트코드 배열
-    std::vector<evaluator::Value> constants_;       ///< 상수 풀
-    std::vector<std::string> names_;                ///< 이름 테이블 (변수명, 함수명 등)
-    std::vector<LineInfo> lines_;                   ///< 라인 정보
+    std::vector<uint8_t> code_;
+    std::vector<evaluator::Value> constants_;
+    std::vector<std::string> names_;
+    std::vector<FunctionProto> protos_;
+    std::vector<const ast::Node*> nodes_;
+    std::unordered_map<const ast::Statement*, size_t> entries_;   ///< 함수 본문 노드 → 코드 진입점
+    std::vector<LineInfo> lines_;
 
 public:
-    /**
-     * @brief 명령어 작성
-     * @param byte 바이트 (OpCode 또는 피연산자)
-     * @param line 소스 코드 라인 번호
-     */
+    // ---- 쓰기 ----
     void write(uint8_t byte, int line);
-
-    /**
-     * @brief OpCode 작성
-     * @param op OpCode
-     * @param line 소스 코드 라인 번호
-     */
+    void write16(uint16_t value, int line);
     void writeOpCode(OpCode op, int line);
+    void patch(size_t offset, uint8_t byte);
+    void patch16(size_t offset, uint16_t value);
 
-    /**
-     * @brief 상수 추가
-     * @param value 상수 값
-     * @return 상수 풀 인덱스
-     */
     size_t addConstant(const evaluator::Value& value);
-
-    /**
-     * @brief 이름 추가
-     * @param name 이름 (변수명, 함수명 등)
-     * @return 이름 테이블 인덱스
-     */
     size_t addName(const std::string& name);
+    size_t addProto(FunctionProto proto);
+    size_t addNode(const ast::Node* node);
+    void registerEntry(const ast::Statement* body, size_t entry);
 
-    /**
-     * @brief 바이트코드 읽기
-     * @param offset 오프셋
-     * @return 바이트
-     */
+    // ---- 읽기 ----
     uint8_t read(size_t offset) const;
-
-    /**
-     * @brief 상수 가져오기
-     * @param index 상수 풀 인덱스
-     * @return 상수 값
-     */
+    uint16_t read16(size_t offset) const;
     const evaluator::Value& getConstant(size_t index) const;
-
-    /**
-     * @brief 이름 가져오기
-     * @param index 이름 테이블 인덱스
-     * @return 이름
-     */
     const std::string& getName(size_t index) const;
+    const FunctionProto& getProto(size_t index) const;
+    const ast::Node* getNode(size_t index) const;
+    /// 함수 본문 노드가 이 청크에 컴파일되어 있으면 진입점을 돌려준다
+    bool findEntry(const ast::Statement* body, size_t& entry) const;
 
-    /**
-     * @brief 현재 오프셋 반환
-     * @return 바이트코드 크기
-     */
     size_t size() const { return code_.size(); }
-
-    /**
-     * @brief 라인 번호 가져오기
-     * @param offset 명령어 오프셋
-     * @return 라인 번호
-     */
+    size_t constantCount() const { return constants_.size(); }
     int getLine(size_t offset) const;
-
-    /**
-     * @brief 바이트코드 디스어셈블 (디버깅용)
-     * @param name 청크 이름
-     * @return 디스어셈블된 문자열
-     */
-    std::string disassemble(const std::string& name) const;
-
-    /**
-     * @brief 명령어 디스어셈블
-     * @param offset 명령어 오프셋
-     * @return 다음 명령어 오프셋
-     */
-    size_t disassembleInstruction(size_t offset) const;
-
-    /**
-     * @brief 바이트코드 배열 직접 접근 (VM용)
-     * @return 바이트코드 배열
-     */
     const std::vector<uint8_t>& getCode() const { return code_; }
 
-    /**
-     * @brief 청크 초기화
-     */
     void clear();
 
-    /**
-     * @brief 특정 위치의 바이트 수정
-     * @param offset 오프셋
-     * @param byte 새 바이트 값
-     */
-    void patch(size_t offset, uint8_t byte);
-
-    /**
-     * @brief 16비트 피연산자 작성
-     * @param value 16비트 값
-     * @param line 라인 번호
-     */
-    void write16(uint16_t value, int line);
-
-    /**
-     * @brief 16비트 피연산자 읽기
-     * @param offset 오프셋
-     * @return 16비트 값
-     */
-    uint16_t read16(size_t offset) const;
+    // ---- 디스어셈블 ----
+    std::string disassemble(const std::string& name) const;
+    /// 한 명령을 문자열로 풀고 다음 오프셋을 돌려준다 (out 이 nullptr 이면 표준 출력)
+    size_t disassembleInstruction(size_t offset, std::string* out = nullptr) const;
 };
 
 } // namespace bytecode

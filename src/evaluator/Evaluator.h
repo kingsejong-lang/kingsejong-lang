@@ -12,6 +12,7 @@
 #include "../ast/Node.h"
 #include "../ast/Expression.h"
 #include "../ast/Statement.h"
+#include "lexer/JosaRecognizer.h"
 #include <memory>
 #include <stdexcept>
 #include <chrono>
@@ -158,6 +159,56 @@ public:
      * @param ms 최대 실행 시간
      */
     void setMaxExecutionTime(size_t ms) { maxExecutionTime_ = std::chrono::milliseconds(ms); }
+
+    // ------------------------------------------------------------------
+    // 값 의미 (value semantics)
+    //
+    // AST 평가기와 바이트코드 VM 이 같은 규칙으로 값을 다루도록, 노드가 아닌 값만 받는
+    // 정적 함수로 두었다. 위의 eval* 멤버는 피연산자를 평가한 뒤 이 함수들을 부른다.
+    // ------------------------------------------------------------------
+
+    /// 이름 조회: "없음" → null, 환경 체인, 내장 함수 순. 없으면 NameError
+    static Value lookupName(const Environment& env, const std::string& name);
+    /// 이항 연산 (비교·논리·산술·문자열 연결·배열 연결·문자열 반복)
+    static Value binaryOperation(const Value& left, const std::string& op, const Value& right);
+    /// 단항 연산 (-, !)
+    static Value unaryOperation(const std::string& op, const Value& operand);
+    /// 배열[정수] / 사전["키"] 읽기
+    static Value indexValue(const Value& container, const Value& index);
+    /// 배열 슬라이싱 (step 은 없으면 nullptr)
+    static Value sliceValue(const Value& container, const Value& start, const Value& end,
+                            bool startInclusive, bool endInclusive, const Value* step);
+    /// 배열[정수] = 값 / 사전["키"] = 값 (배열·사전은 공유되므로 제자리에서 바뀐다)
+    static void assignIndex(Value& container, const Value& key, const Value& value);
+    /// 클래스 인스턴스의 필드 읽기 / 쓰기
+    static Value memberValue(const Value& object, const std::string& name);
+    static void assignMember(const Value& object, const std::string& name, const Value& value);
+    /// 문자열 보간에서 값이 글자로 바뀌는 규칙
+    static std::string interpolationText(const Value& value);
+    /// 던지다 의 값 → 에러 값
+    static Value throwValue(const Value& value);
+    /// 값을 함수로 호출한다 (내장 함수, 사용자 함수, 클래스 생성자, 비동기 함수). 본문은 AST 로 해석한다
+    static Value invokeFunction(const Value& callee, const std::vector<Value>& args, const std::string& name);
+    /// 조사 표현식 "객체<조사> 이름(인자...)" 의 런타임 규칙 ('의' 멤버 읽기 → 함수 호출 → 배열 메서드)
+    static Value applyJosaMethod(const Value& object, lexer::JosaRecognizer::JosaType josa,
+                                 const std::string& name, bool isCall, const std::vector<Value>& args,
+                                 const std::shared_ptr<Environment>& env);
+    /// 변환 관용구 "값을 <이름>으로 변환한다": 이름이 함수면 값을 넘겨 부른다
+    static Value convertWith(const Value& object, const std::string& targetName,
+                             const std::shared_ptr<Environment>& env);
+    /// Promise 의 then/catch (그러면/오류시)
+    static Value promiseMethod(const Value& promise, const std::string& methodName, const std::vector<Value>& args);
+    /// 클래스 문장으로 클래스 정의를 만들고, 환경에 등록할 생성자 함수 값을 돌려준다
+    static Value makeClass(const ast::ClassStatement* stmt, const std::shared_ptr<Environment>& env);
+
+    /// 함수 본문을 주어진 환경에서 실행한다. 반환문은 값으로 바꾸고, 끝나면 환경을 놓는다.
+    static Value runBody(ast::Statement* body, std::shared_ptr<Environment> env);
+    /// 콜백 함수를 인자로 부른다 (매개변수 개수 검사는 호출자가 한다)
+    static Value runCallback(const Value& callback, const std::vector<Value>& args);
+    /// 클래스 생성자 함수(classDef 가 붙은 Function)로 인스턴스를 만든다
+    static Value constructInstance(const std::shared_ptr<Function>& func, const std::vector<Value>& args);
+    /// 비동기 함수의 결과를 Promise 로 감싼다 (에러 값이면 reject)
+    static Value wrapAsync(const Value& result);
 
 private:
     std::shared_ptr<Environment> env_;  ///< 변수 저장 환경
@@ -472,7 +523,7 @@ private:
      * @param right 오른쪽 피연산자
      * @return 연산 결과
      */
-    Value applyIntegerOperation(int64_t left, const std::string& op, int64_t right);
+    static Value applyIntegerOperation(int64_t left, const std::string& op, int64_t right);
 
     /**
      * @brief 두 실수 값에 대한 산술 연산 수행
@@ -481,7 +532,7 @@ private:
      * @param right 오른쪽 피연산자
      * @return 연산 결과
      */
-    Value applyFloatOperation(double left, const std::string& op, double right);
+    static Value applyFloatOperation(double left, const std::string& op, double right);
 
     /**
      * @brief 두 값의 비교 연산 수행
@@ -490,7 +541,7 @@ private:
      * @param right 오른쪽 피연산자
      * @return 비교 결과 (불리언)
      */
-    Value applyComparisonOperation(const Value& left, const std::string& op, const Value& right);
+    static Value applyComparisonOperation(const Value& left, const std::string& op, const Value& right);
 
     /**
      * @brief 논리 연산 수행
@@ -499,7 +550,7 @@ private:
      * @param right 오른쪽 피연산자
      * @return 논리 연산 결과 (불리언)
      */
-    Value applyLogicalOperation(const Value& left, const std::string& op, const Value& right);
+    static Value applyLogicalOperation(const Value& left, const std::string& op, const Value& right);
 
     /**
      * @brief 안전 장치 체크 (무한 루프 방지)

@@ -28,7 +28,7 @@
 2. ✅ 자연어 수준의 가독성
 3. ✅ Python/JavaScript의 단점 개선
 4. ✅ 교육에 최적화된 설계
-5. ✅ 고성능 바이트코드 VM + JIT 컴파일러
+5. ✅ 평가기와 동치인 바이트코드 VM (`--vm`)
 6. ✅ LSP, 디버거, VS Code 확장
 
 ---
@@ -331,7 +331,7 @@ i가 1부터 5까지 반복한다 {
 
 - **언어**: C++23
 - **빌드**: CMake 3.21+
-- **아키텍처**: ✅ Bytecode VM + JIT Compiler Tier 1 (asmjit)
+- **아키텍처**: ✅ tree-walking 평가기 + Bytecode VM (값 의미 공유)
 - **GC**: ✅ 세대별 가비지 컬렉터 (Young/Old Generation)
 - **테스트**: GoogleTest (1,503개 테스트, 100% 통과)
 
@@ -424,7 +424,7 @@ kingsejonglang/
 | **값 없음**     | null/undefined/None   | `없음`                  | 단일 개념        | ✅   |
 | **반복**        | `for in range`        | `10번`, `1부터 10까지`  | 자연어           | ✅   |
 | **에러**        | try/except            | `시도`, `에러나면`      | 간결함           | ✅   |
-| **VM**          | CPython (느림)        | Bytecode VM + JIT       | 고성능           | ✅   |
+| **VM**          | CPython (느림)        | Bytecode VM (`--vm`)    | 고성능           | ✅   |
 | **도구**        | 별도 설치             | LSP, 디버거 내장        | 통합 개발 환경   | ✅   |
 
 ---
@@ -579,7 +579,7 @@ in the Software without restriction...
 8. ✅ **Evaluator**: 실행 엔진 완성
 9. ✅ **타입 시스템**: `정수 나이` 완성
 10. ✅ **범위 표현**: `1부터 10까지` 완성
-11. ✅ **Bytecode VM + JIT**: 고성능 실행 환경
+11. ✅ **Bytecode VM**: 평가기와 같은 결과를 내는 두 번째 실행 엔진
 12. ✅ **LSP + 디버거 + VS Code**: 통합 개발 환경
 
 ### 📝 다음 Phase (9 이후)
@@ -626,7 +626,7 @@ KingSejong 언어는 **한글의 언어적 장점을 활용하여**
 - ✅ 1,503개 테스트 (100% 통과)
 - ✅ 14개 표준 라이브러리 모듈 (182개 함수)
 - ✅ LSP, 디버거, VS Code 확장
-- ✅ Bytecode VM + JIT Compiler
+- ✅ Bytecode VM (평가기와 동치)
 
 **"백성을 가르치는 바른 코드"** - KingSejong Programming Language
 

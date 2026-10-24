@@ -1,31 +1,44 @@
 /**
  * @file Chunk.cpp
  * @brief Chunk 구현
- * @author KingSejong Team
- * @date 2025-11-10
  */
 
 #include "Chunk.h"
+#include "error/ErrorMessages.h"
 #include <sstream>
 #include <iomanip>
 #include <stdexcept>
 #include <iostream>
-#include "error/ErrorMessages.h"
 
 namespace kingsejong {
 namespace bytecode {
 
 void Chunk::write(uint8_t byte, int line) {
     code_.push_back(byte);
-
-    // 라인 정보 추가 (런-렝스 인코딩)
     if (lines_.empty() || lines_.back().line != line) {
         lines_.push_back({code_.size() - 1, line});
     }
 }
 
+void Chunk::write16(uint16_t value, int line) {
+    write(static_cast<uint8_t>((value >> 8) & 0xFF), line);
+    write(static_cast<uint8_t>(value & 0xFF), line);
+}
+
 void Chunk::writeOpCode(OpCode op, int line) {
     write(static_cast<uint8_t>(op), line);
+}
+
+void Chunk::patch(size_t offset, uint8_t byte) {
+    if (offset >= code_.size()) {
+        throw std::runtime_error(std::string(error::chunk::PATCH_OFFSET_OUT_OF_BOUNDS));
+    }
+    code_[offset] = byte;
+}
+
+void Chunk::patch16(size_t offset, uint16_t value) {
+    patch(offset, static_cast<uint8_t>((value >> 8) & 0xFF));
+    patch(offset + 1, static_cast<uint8_t>(value & 0xFF));
 }
 
 size_t Chunk::addConstant(const evaluator::Value& value) {
@@ -34,15 +47,27 @@ size_t Chunk::addConstant(const evaluator::Value& value) {
 }
 
 size_t Chunk::addName(const std::string& name) {
-    // 중복 확인
     for (size_t i = 0; i < names_.size(); i++) {
         if (names_[i] == name) {
             return i;
         }
     }
-
     names_.push_back(name);
     return names_.size() - 1;
+}
+
+size_t Chunk::addProto(FunctionProto proto) {
+    protos_.push_back(std::move(proto));
+    return protos_.size() - 1;
+}
+
+size_t Chunk::addNode(const ast::Node* node) {
+    nodes_.push_back(node);
+    return nodes_.size() - 1;
+}
+
+void Chunk::registerEntry(const ast::Statement* body, size_t entry) {
+    entries_[body] = entry;
 }
 
 uint8_t Chunk::read(size_t offset) const {
@@ -50,6 +75,12 @@ uint8_t Chunk::read(size_t offset) const {
         throw std::runtime_error(std::string(error::chunk::READ_OFFSET_OUT_OF_BOUNDS));
     }
     return code_[offset];
+}
+
+uint16_t Chunk::read16(size_t offset) const {
+    uint8_t high = read(offset);
+    uint8_t low = read(offset + 1);
+    return static_cast<uint16_t>((static_cast<uint16_t>(high) << 8) | low);
 }
 
 const evaluator::Value& Chunk::getConstant(size_t index) const {
@@ -66,110 +97,122 @@ const std::string& Chunk::getName(size_t index) const {
     return names_[index];
 }
 
+const FunctionProto& Chunk::getProto(size_t index) const {
+    if (index >= protos_.size()) {
+        throw std::runtime_error("함수 프로토타입 인덱스가 범위를 벗어났습니다");
+    }
+    return protos_[index];
+}
+
+const ast::Node* Chunk::getNode(size_t index) const {
+    if (index >= nodes_.size()) {
+        throw std::runtime_error("AST 노드 인덱스가 범위를 벗어났습니다");
+    }
+    return nodes_[index];
+}
+
+bool Chunk::findEntry(const ast::Statement* body, size_t& entry) const {
+    auto it = entries_.find(body);
+    if (it == entries_.end()) {
+        return false;
+    }
+    entry = it->second;
+    return true;
+}
+
 int Chunk::getLine(size_t offset) const {
-    // 이진 탐색으로 라인 번호 찾기
     for (auto it = lines_.rbegin(); it != lines_.rend(); ++it) {
         if (offset >= it->offset) {
             return it->line;
         }
     }
-    return 1; // 기본값
+    return 1;
 }
 
 void Chunk::clear() {
     code_.clear();
     constants_.clear();
     names_.clear();
+    protos_.clear();
+    nodes_.clear();
+    entries_.clear();
     lines_.clear();
 }
 
-void Chunk::patch(size_t offset, uint8_t byte) {
-    if (offset >= code_.size()) {
-        throw std::runtime_error(std::string(error::chunk::PATCH_OFFSET_OUT_OF_BOUNDS));
-    }
-    code_[offset] = byte;
-}
-
-void Chunk::write16(uint16_t value, int line) {
-    write(static_cast<uint8_t>((value >> 8) & 0xFF), line);  // 상위 바이트
-    write(static_cast<uint8_t>(value & 0xFF), line);         // 하위 바이트
-}
-
-uint16_t Chunk::read16(size_t offset) const {
-    uint8_t high = read(offset);
-    uint8_t low = read(offset + 1);
-    return (static_cast<uint16_t>(high) << 8) | low;
-}
-
 std::string Chunk::disassemble(const std::string& name) const {
-    std::ostringstream oss;
-    oss << "== " << name << " ==\n";
-
+    std::string out = "== " + name + " ==\n";
     size_t offset = 0;
     while (offset < code_.size()) {
-        offset = disassembleInstruction(offset);
+        offset = disassembleInstruction(offset, &out);
     }
-
-    return oss.str();
+    return out;
 }
 
-size_t Chunk::disassembleInstruction(size_t offset) const {
+size_t Chunk::disassembleInstruction(size_t offset, std::string* out) const {
     std::ostringstream oss;
-
-    // 오프셋 출력
     oss << std::setfill('0') << std::setw(4) << offset << " ";
 
-    // 라인 번호 출력
     int line = getLine(offset);
     if (offset > 0 && line == getLine(offset - 1)) {
         oss << "   | ";
     } else {
-        oss << std::setw(4) << line << " ";
+        oss << std::setfill(' ') << std::setw(4) << line << " ";
     }
 
-    // OpCode 읽기
     OpCode op = static_cast<OpCode>(read(offset));
-    std::string opName = opCodeToString(op);
+    oss << std::setw(16) << std::left << opCodeToString(op) << std::right;
 
-    int operandCount = opCodeOperandCount(op);
-
-    if (operandCount == 0) {
-        // 피연산자 없음
-        oss << opName << "\n";
-        std::cout << oss.str();
-        return offset + 1;
-    } else if (operandCount == 1) {
-        // 피연산자 1개
-        uint8_t operand = read(offset + 1);
-        oss << std::setw(16) << std::left << opName << " " << static_cast<int>(operand);
-
-        // 상수나 이름이면 추가 정보 출력
-        if (op == OpCode::LOAD_CONST && operand < constants_.size()) {
-            oss << " ('" << constants_[operand].toString() << "')";
-        } else if ((op == OpCode::LOAD_VAR || op == OpCode::STORE_VAR ||
-                    op == OpCode::LOAD_GLOBAL || op == OpCode::STORE_GLOBAL) &&
-                   operand < names_.size()) {
-            oss << " ('" << names_[operand] << "')";
+    size_t pos = offset + 1;
+    const auto& widths = opCodeOperandWidths(op);
+    std::vector<size_t> operands;
+    for (uint8_t width : widths) {
+        if (pos + width > code_.size()) {
+            oss << " <잘림>\n";
+            if (out) *out += oss.str(); else std::cout << oss.str();
+            return code_.size();
         }
-
-        oss << "\n";
-        std::cout << oss.str();
-        return offset + 2;
-    } else if (operandCount == 2) {
-        // 피연산자 2개
-        uint8_t operand1 = read(offset + 1);
-        uint8_t operand2 = read(offset + 2);
-        oss << std::setw(16) << std::left << opName
-            << " " << static_cast<int>(operand1)
-            << " " << static_cast<int>(operand2) << "\n";
-        std::cout << oss.str();
-        return offset + 3;
+        size_t value = (width == 2) ? read16(pos) : read(pos);
+        operands.push_back(value);
+        oss << " " << value;
+        pos += width;
     }
 
-    // 알 수 없는 OpCode
-    oss << "Unknown opcode " << static_cast<int>(op) << "\n";
-    std::cout << oss.str();
-    return offset + 1;
+    // 사람이 읽을 보조 정보
+    if (!operands.empty()) {
+        size_t a = operands[0];
+        switch (op) {
+            case OpCode::LOAD_CONST:
+                if (a < constants_.size()) oss << " ('" << constants_[a].toString() << "')";
+                break;
+            case OpCode::DECLARE:
+            case OpCode::LOAD_NAME:
+            case OpCode::STORE_NAME:
+            case OpCode::LOAD_FIELD:
+            case OpCode::STORE_FIELD:
+            case OpCode::JOSA:
+            case OpCode::CONVERT:
+            case OpCode::RANGE_FOR_NEXT:
+            case OpCode::IMPORT:
+                if (a < names_.size()) oss << " ('" << names_[a] << "')";
+                break;
+            case OpCode::CALL_METHOD:
+                if (a < names_.size()) oss << " ('" << names_[a] << "')";
+                break;
+            case OpCode::MAKE_FUNCTION:
+                if (a < protos_.size()) oss << " (" << protos_[a].name << " @" << protos_[a].entry << ")";
+                break;
+            default:
+                break;
+        }
+    }
+    oss << "\n";
+
+    if (out) {
+        *out += oss.str();
+    } else {
+        std::cout << oss.str();
+    }
+    return pos;
 }
 
 } // namespace bytecode

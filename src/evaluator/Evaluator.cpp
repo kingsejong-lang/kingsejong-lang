@@ -25,11 +25,13 @@ namespace evaluator {
 
 Evaluator::Evaluator()
     : env_(std::make_shared<Environment>())
+    , startTime_(std::chrono::steady_clock::now())  // evalProgram 없이 쓰여도 시간 한도가 맞게 잡힌다
 {
 }
 
 Evaluator::Evaluator(std::shared_ptr<Environment> environment)
     : env_(environment)
+    , startTime_(std::chrono::steady_clock::now())
 {
 }
 
@@ -246,34 +248,33 @@ Value Evaluator::evalInterpolatedString(ast::InterpolatedString* interp)
         // 표현식 평가 및 추가
         if (i < expressions.size())
         {
-            Value exprValue = eval(const_cast<ast::Expression*>(expressions[i].get()));
-
-            // Value를 문자열로 변환
-            if (exprValue.isString())
-            {
-                result += exprValue.asString();
-            }
-            else if (exprValue.isInteger())
-            {
-                result += std::to_string(exprValue.asInteger());
-            }
-            else if (exprValue.isFloat())
-            {
-                result += std::to_string(exprValue.asFloat());
-            }
-            else if (exprValue.isBoolean())
-            {
-                result += exprValue.asBoolean() ? "참" : "거짓";
-            }
-            else
-            {
-                // 기타 타입은 기본 toString 사용
-                result += exprValue.toString();
-            }
+            result += interpolationText(eval(const_cast<ast::Expression*>(expressions[i].get())));
         }
     }
 
     return Value::createString(result);
+}
+
+std::string Evaluator::interpolationText(const Value& value)
+{
+    if (value.isString())
+    {
+        return value.asString();
+    }
+    if (value.isInteger())
+    {
+        return std::to_string(value.asInteger());
+    }
+    if (value.isFloat())
+    {
+        return std::to_string(value.asFloat());
+    }
+    if (value.isBoolean())
+    {
+        return value.asBoolean() ? "참" : "거짓";
+    }
+    // 기타 타입은 기본 toString 사용
+    return value.toString();
 }
 
 Value Evaluator::evalBooleanLiteral(ast::BooleanLiteral* lit)
@@ -283,18 +284,21 @@ Value Evaluator::evalBooleanLiteral(ast::BooleanLiteral* lit)
 
 Value Evaluator::evalIdentifier(ast::Identifier* ident)
 {
-    const std::string& name = ident->name();
+    return lookupName(*env_, ident->name());
+}
 
+Value Evaluator::lookupName(const Environment& env, const std::string& name)
+{
     // 0. 언어 참조의 null 리터럴 "없음". 변수로 가려지지 않는 한 null 이다.
-    if (name == "없음" && !env_->existsInChain(name))
+    if (name == "없음" && !env.existsInChain(name))
     {
         return Value::createNull();
     }
 
     // 1. 먼저 환경에서 변수 조회
-    if (env_->existsInChain(name))
+    if (env.existsInChain(name))
     {
-        return env_->get(name);
+        return env.get(name);
     }
 
     // 2. 내장 함수 조회
@@ -321,69 +325,36 @@ Value Evaluator::evalBinaryExpression(ast::BinaryExpression* expr)
         Value value = eval(const_cast<ast::Expression*>(expr->right()));
 
         // 좌변이 MemberAccessExpression이면 필드 할당
-        if (auto* memberAccess = dynamic_cast<ast::MemberAccessExpression*>(const_cast<ast::Expression*>(expr->left())))
+        if (auto* memberAccess = dynamic_cast<const ast::MemberAccessExpression*>(expr->left()))
         {
-            // 객체 평가
             Value obj = eval(const_cast<ast::Expression*>(memberAccess->object()));
-
-            if (!obj.isClassInstance())
-            {
-                throw error::RuntimeError("필드 접근은 클래스 인스턴스에만 가능합니다");
-            }
-
-            // 필드 설정
-            obj.asClassInstance()->setField(memberAccess->memberName(), value);
+            assignMember(obj, memberAccess->memberName(), value);
             return value;
         }
         // 좌변이 Identifier이면 변수 할당
-        else if (auto* ident = dynamic_cast<ast::Identifier*>(const_cast<ast::Expression*>(expr->left())))
+        if (auto* ident = dynamic_cast<const ast::Identifier*>(expr->left()))
         {
             env_->set(ident->name(), value);
             return value;
         }
         // 좌변이 IndexExpression이면 배열 요소·사전 키 할당 (배열[i] = 값, 사전["키"] = 값)
-        else if (auto* indexExpr = dynamic_cast<ast::IndexExpression*>(const_cast<ast::Expression*>(expr->left())))
+        if (auto* indexExpr = dynamic_cast<const ast::IndexExpression*>(expr->left()))
         {
             Value container = eval(const_cast<ast::Expression*>(indexExpr->array()));
             Value key = eval(const_cast<ast::Expression*>(indexExpr->index()));
-
-            if (container.isArray())
-            {
-                if (!key.isInteger())
-                {
-                    throw error::TypeError("배열 인덱스는 정수여야 합니다: " + key.toString());
-                }
-                auto& elements = container.asArray();  // 배열은 공유되므로 제자리에서 바뀐다
-                int64_t i = key.asInteger();
-                if (i < 0 || static_cast<size_t>(i) >= elements.size())
-                {
-                    throw error::RuntimeError(
-                        "배열 인덱스가 범위를 벗어났습니다: " + std::to_string(i) +
-                        " (길이 " + std::to_string(elements.size()) + ")");
-                }
-                elements[static_cast<size_t>(i)] = value;
-                return value;
-            }
-            if (container.isDictionary())
-            {
-                if (!key.isString())
-                {
-                    throw error::TypeError("사전의 키는 문자열이어야 합니다: " + key.toString());
-                }
-                container.asDictionary()[key.asString()] = value;
-                return value;
-            }
-            throw error::TypeError("인덱스 할당은 배열이나 사전에만 할 수 있습니다: " + container.toString());
+            assignIndex(container, key, value);
+            return value;
         }
-        else
-        {
-            throw error::RuntimeError("할당의 좌변이 올바르지 않습니다 (변수, 필드, 배열[인덱스], 사전[키] 만 가능합니다)");
-        }
+        throw error::RuntimeError("할당의 좌변이 올바르지 않습니다 (변수, 필드, 배열[인덱스], 사전[키] 만 가능합니다)");
     }
 
     Value left = eval(const_cast<ast::Expression*>(expr->left()));
     Value right = eval(const_cast<ast::Expression*>(expr->right()));
+    return binaryOperation(left, op, right);
+}
 
+Value Evaluator::binaryOperation(const Value& left, const std::string& op, const Value& right)
+{
     // 비교 연산자
     if (op == "==" || op == "!=" || op == "<" || op == ">" || op == "<=" || op == ">=")
     {
@@ -411,7 +382,6 @@ Value Evaluator::evalBinaryExpression(ast::BinaryExpression* expr)
         return applyFloatOperation(leftVal, op, rightVal);
     }
 
-    // 문자열 연결
     // 배열 + 배열: 이어 붙인 새 배열 (표준 라이브러리가 "결과 = 결과 + [쌍]" 으로 쓴다)
     if (op == "+" && left.isArray() && right.isArray())
     {
@@ -421,6 +391,7 @@ Value Evaluator::evalBinaryExpression(ast::BinaryExpression* expr)
         return Value::createArray(joined);
     }
 
+    // 문자열 연결
     if (op == "+" && left.isString() && right.isString())
     {
         return Value::createString(left.asString() + right.asString());
@@ -445,8 +416,11 @@ Value Evaluator::evalBinaryExpression(ast::BinaryExpression* expr)
 Value Evaluator::evalUnaryExpression(ast::UnaryExpression* expr)
 {
     Value operand = eval(const_cast<ast::Expression*>(expr->operand()));
-    const std::string& op = expr->op();
+    return unaryOperation(expr->op(), operand);
+}
 
+Value Evaluator::unaryOperation(const std::string& op, const Value& operand)
+{
     if (op == "-")
     {
         if (operand.isInteger())
@@ -569,58 +543,42 @@ Value Evaluator::evalPromiseMethodCall(
     const Value& promiseObj
 )
 {
-    auto promise = promiseObj.asPromise();
-    const std::string& methodName = memberAccess->memberName();
+    std::vector<Value> args;
+    for (const auto& argExpr : arguments)
+    {
+        args.push_back(eval(const_cast<ast::Expression*>(argExpr.get())));
+    }
+    return promiseMethod(promiseObj, memberAccess->memberName(), args);
+}
 
-    // 인자 평가 (콜백 함수)
-    if (arguments.size() != 1)
+Value Evaluator::promiseMethod(const Value& promiseObj, const std::string& methodName, const std::vector<Value>& args)
+{
+    auto promise = promiseObj.asPromise();
+
+    // 인자 (콜백 함수)
+    if (args.size() != 1)
     {
         throw error::ArgumentError(
             "Promise." + methodName + "()은 콜백 함수 1개를 인자로 받습니다"
         );
     }
-
-    Value callbackValue = eval(const_cast<ast::Expression*>(arguments[0].get()));
-    if (!callbackValue.isFunction())
+    if (!args[0].isFunction())
     {
         throw error::TypeError(
             "Promise." + methodName + "()의 인자는 함수여야 합니다"
         );
     }
 
-    auto callbackFunc = callbackValue.asFunction();
+    auto callbackFunc = args[0].asFunction();
 
-    // Continuation 생성
-    auto continuation = [this, callbackFunc](const Value& value) -> Value {
-        // 콜백 함수 실행
+    // Continuation 생성: 값을 첫 매개변수에 묶어 콜백 본문을 실행한다
+    auto continuation = [callbackFunc](const Value& value) -> Value {
         auto funcEnv = std::make_shared<Environment>(callbackFunc->closure());
-
-        // 매개변수 바인딩 (value를 첫 번째 매개변수에)
         if (!callbackFunc->parameters().empty())
         {
             funcEnv->set(callbackFunc->parameters()[0], value);
         }
-
-        // 기존 환경 저장
-        auto previousEnv = env_;
-        env_ = funcEnv;
-
-        // 콜백 실행
-        Value result = Value::createNull();
-        try
-        {
-            result = eval(callbackFunc->body());
-        }
-        catch (const ReturnValue& returnVal)
-        {
-            result = returnVal.getValue();
-        }
-
-        // 환경 복원
-        env_ = previousEnv;
-        leaveScope(funcEnv);
-
-        return result;
+        return runBody(callbackFunc->body(), std::move(funcEnv));
     };
 
     // 메서드에 따라 콜백 등록
@@ -747,6 +705,11 @@ Value Evaluator::evalConstructorCall(
     const std::vector<Value>& args
 )
 {
+    return constructInstance(func, args);
+}
+
+Value Evaluator::constructInstance(const std::shared_ptr<Function>& func, const std::vector<Value>& args)
+{
     auto classDef = func->classDef();
     auto instance = std::make_shared<ClassInstance>(classDef);
 
@@ -776,28 +739,51 @@ Value Evaluator::evalConstructorCall(
         // '자신' 키워드를 인스턴스에 바인딩
         ctorEnv->set("자신", Value::createClassInstance(instance));
 
-        // 기존 환경 저장
-        auto previousEnv = env_;
-
-        // 생성자 환경으로 전환
-        env_ = ctorEnv;
-
-        // 생성자 본문 실행
-        try
-        {
-            eval(ctor->body());
-        }
-        catch (const ReturnValue&)
-        {
-            // 생성자에서 return은 무시
-        }
-
-        // 환경 복원
-        env_ = previousEnv;
-        leaveScope(ctorEnv);
+        // 생성자 본문 실행 (생성자에서 return 은 무시한다)
+        runBody(ctor->body(), std::move(ctorEnv));
     }
 
     return Value::createClassInstance(instance);
+}
+
+Value Evaluator::runBody(ast::Statement* body, std::shared_ptr<Environment> env)
+{
+    // 본문을 다 돌고 나면 Evaluator 소멸자가 환경을 놓아 함수-환경 순환 참조를 끊는다
+    Evaluator evaluator(std::move(env));
+    try
+    {
+        return evaluator.eval(body);
+    }
+    catch (const ReturnValue& returnVal)
+    {
+        return returnVal.getValue();
+    }
+}
+
+Value Evaluator::runCallback(const Value& callback, const std::vector<Value>& args)
+{
+    auto func = callback.asFunction();
+    auto funcEnv = func->closure()->createEnclosed();
+    const auto& params = func->parameters();
+    for (size_t i = 0; i < params.size() && i < args.size(); ++i)
+    {
+        funcEnv->set(params[i], args[i]);
+    }
+    return runBody(func->body(), std::move(funcEnv));
+}
+
+Value Evaluator::wrapAsync(const Value& result)
+{
+    auto promise = std::make_shared<Promise>();
+    if (result.isError())
+    {
+        promise->reject(result);
+    }
+    else
+    {
+        promise->resolve(result);
+    }
+    return Value::createPromise(promise);
 }
 
 /**
@@ -1320,18 +1306,46 @@ Value Evaluator::evalIndexExpression(ast::IndexExpression* expr)
 {
     Value left = eval(const_cast<ast::Expression*>(expr->array()));
 
-    // 딕셔너리 인덱스 접근 (Phase 7.2)
-    if (left.isDictionary())
+    if (!left.isArray() && !left.isDictionary())
     {
-        Value index = eval(const_cast<ast::Expression*>(expr->index()));
+        throw error::TypeError(
+            "배열 또는 딕셔너리가 아닌 값에 인덱스 접근을 시도했습니다: " + left.toString() + "\n" +
+            "해결 방법: 인덱스 접근([])은 배열 또는 딕셔너리 타입에만 사용할 수 있습니다."
+        );
+    }
 
+    // 배열 슬라이싱: 인덱스가 범위 표현식일 때
+    const ast::Expression* indexExpr = expr->index();
+    if (left.isArray() && indexExpr->type() == ast::NodeType::RANGE_EXPRESSION)
+    {
+        const auto* rangeExpr = static_cast<const ast::RangeExpression*>(indexExpr);
+        Value startValue = eval(const_cast<ast::Expression*>(rangeExpr->start()));
+        Value endValue = eval(const_cast<ast::Expression*>(rangeExpr->end()));
+        Value stepValue;
+        if (rangeExpr->hasStep())
+        {
+            stepValue = eval(const_cast<ast::Expression*>(rangeExpr->step()));
+        }
+        return sliceValue(left, startValue, endValue, rangeExpr->startInclusive(), rangeExpr->endInclusive(),
+                          rangeExpr->hasStep() ? &stepValue : nullptr);
+    }
+
+    Value index = eval(const_cast<ast::Expression*>(expr->index()));
+    return indexValue(left, index);
+}
+
+Value Evaluator::indexValue(const Value& container, const Value& index)
+{
+    // 딕셔너리 인덱스 접근 (Phase 7.2)
+    if (container.isDictionary())
+    {
         // 딕셔너리 키는 문자열이어야 함
         if (!index.isString())
         {
             throw error::TypeError("딕셔너리 키는 문자열이어야 합니다. 실제 타입: " + types::Type::typeKindToString(index.getType()));
         }
 
-        auto& dict = left.asDictionary();
+        const auto& dict = container.asDictionary();
         std::string key = index.asString();
 
         auto it = dict.find(key);
@@ -1344,130 +1358,155 @@ Value Evaluator::evalIndexExpression(ast::IndexExpression* expr)
     }
 
     // 배열인지 확인
-    if (!left.isArray())
+    if (!container.isArray())
     {
         throw error::TypeError(
-            "배열 또는 딕셔너리가 아닌 값에 인덱스 접근을 시도했습니다: " + left.toString() + "\n" +
+            "배열 또는 딕셔너리가 아닌 값에 인덱스 접근을 시도했습니다: " + container.toString() + "\n" +
             "해결 방법: 인덱스 접근([])은 배열 또는 딕셔너리 타입에만 사용할 수 있습니다."
         );
     }
 
-    std::vector<Value>& arr = left.asArray();
+    const std::vector<Value>& arr = container.asArray();
 
-    // 인덱스 표현식이 RangeExpression인지 확인
-    const ast::Expression* indexExpr = expr->index();
-    if (indexExpr->type() == ast::NodeType::RANGE_EXPRESSION)
+    // 인덱스가 정수인지 확인
+    if (!index.isInteger())
     {
-        // 배열 슬라이싱 처리
-        const ast::RangeExpression* rangeExpr = static_cast<const ast::RangeExpression*>(indexExpr);
-
-        // 시작 인덱스 평가
-        Value startValue = eval(const_cast<ast::Expression*>(rangeExpr->start()));
-        if (!startValue.isInteger())
-        {
-            throw std::runtime_error("슬라이싱 시작 인덱스는 정수여야 합니다");
-        }
-
-        // 끝 인덱스 평가
-        Value endValue = eval(const_cast<ast::Expression*>(rangeExpr->end()));
-        if (!endValue.isInteger())
-        {
-            throw std::runtime_error("슬라이싱 끝 인덱스는 정수여야 합니다");
-        }
-
-        int64_t startIdx = startValue.asInteger();
-        int64_t endIdx = endValue.asInteger();
-
-        // 음수 인덱스 처리 (Python 스타일)
-        if (startIdx < 0)
-        {
-            startIdx = static_cast<int64_t>(arr.size()) + startIdx;
-        }
-        if (endIdx < 0)
-        {
-            endIdx = static_cast<int64_t>(arr.size()) + endIdx;
-        }
-
-        // startInclusive/endInclusive 처리
-        if (!rangeExpr->startInclusive())
-        {
-            startIdx++; // "초과"는 다음 인덱스부터
-        }
-        if (!rangeExpr->endInclusive())
-        {
-            endIdx--; // "미만"은 이전 인덱스까지
-        }
-
-        // 범위 검사
-        if (startIdx < 0) startIdx = 0;
-        if (endIdx >= static_cast<int64_t>(arr.size()))
-        {
-            endIdx = static_cast<int64_t>(arr.size()) - 1;
-        }
-
-        // 빈 슬라이스 처리
-        if (startIdx > endIdx)
-        {
-            return Value::createArray({});
-        }
-
-        // Phase 7.2: Step 값 처리
-        int64_t stepValue = 1; // 기본값은 1
-        if (rangeExpr->hasStep())
-        {
-            Value stepVal = eval(const_cast<ast::Expression*>(rangeExpr->step()));
-            if (!stepVal.isInteger())
-            {
-                throw std::runtime_error("슬라이싱 step 값은 정수여야 합니다");
-            }
-            stepValue = stepVal.asInteger();
-            if (stepValue <= 0)
-            {
-                throw std::runtime_error("슬라이싱 step 값은 양수여야 합니다");
-            }
-        }
-
-        // 슬라이싱 수행 (step 적용)
-        std::vector<Value> sliced;
-        for (int64_t i = startIdx; i <= endIdx; i += stepValue)
-        {
-            sliced.push_back(arr[static_cast<size_t>(i)]);
-        }
-
-        return Value::createArray(sliced);
+        throw std::runtime_error("배열 인덱스는 정수여야 합니다");
     }
-    else
+
+    int64_t idx = index.asInteger();
+
+    // 음수 인덱스 처리 (Python 스타일)
+    if (idx < 0)
     {
-        // 일반 인덱스 접근 (정수)
-        Value index = eval(const_cast<ast::Expression*>(expr->index()));
-
-        // 인덱스가 정수인지 확인
-        if (!index.isInteger())
-        {
-            throw std::runtime_error("배열 인덱스는 정수여야 합니다");
-        }
-
-        int64_t idx = index.asInteger();
-
-        // 음수 인덱스 처리 (Python 스타일)
-        if (idx < 0)
-        {
-            idx = static_cast<int64_t>(arr.size()) + idx;
-        }
-
-        // 범위 검사
-        if (idx < 0 || idx >= static_cast<int64_t>(arr.size()))
-        {
-            throw error::IndexError(
-                "배열 인덱스 범위를 벗어났습니다: 인덱스 " + std::to_string(idx) +
-                ", 배열 크기 " + std::to_string(arr.size()) + "\n" +
-                "해결 방법: 인덱스는 0부터 " + std::to_string(arr.size() - 1) + " 사이여야 합니다. " +
-                "음수 인덱스(-1, -2 등)도 사용할 수 있습니다."
-            );
-        }
-
-        return arr[static_cast<size_t>(idx)];
+        idx = static_cast<int64_t>(arr.size()) + idx;
     }
+
+    // 범위 검사
+    if (idx < 0 || idx >= static_cast<int64_t>(arr.size()))
+    {
+        throw error::IndexError(
+            "배열 인덱스 범위를 벗어났습니다: 인덱스 " + std::to_string(idx) +
+            ", 배열 크기 " + std::to_string(arr.size()) + "\n" +
+            "해결 방법: 인덱스는 0부터 " + std::to_string(arr.size() - 1) + " 사이여야 합니다. " +
+            "음수 인덱스(-1, -2 등)도 사용할 수 있습니다."
+        );
+    }
+
+    return arr[static_cast<size_t>(idx)];
+}
+
+Value Evaluator::sliceValue(const Value& container, const Value& startValue, const Value& endValue,
+                            bool startInclusive, bool endInclusive, const Value* step)
+{
+    if (!container.isArray())
+    {
+        throw error::TypeError(
+            "배열 또는 딕셔너리가 아닌 값에 인덱스 접근을 시도했습니다: " + container.toString() + "\n" +
+            "해결 방법: 인덱스 접근([])은 배열 또는 딕셔너리 타입에만 사용할 수 있습니다."
+        );
+    }
+    const std::vector<Value>& arr = container.asArray();
+
+    if (!startValue.isInteger())
+    {
+        throw std::runtime_error("슬라이싱 시작 인덱스는 정수여야 합니다");
+    }
+    if (!endValue.isInteger())
+    {
+        throw std::runtime_error("슬라이싱 끝 인덱스는 정수여야 합니다");
+    }
+
+    int64_t startIdx = startValue.asInteger();
+    int64_t endIdx = endValue.asInteger();
+
+    // 음수 인덱스 처리 (Python 스타일)
+    if (startIdx < 0)
+    {
+        startIdx = static_cast<int64_t>(arr.size()) + startIdx;
+    }
+    if (endIdx < 0)
+    {
+        endIdx = static_cast<int64_t>(arr.size()) + endIdx;
+    }
+
+    // startInclusive/endInclusive 처리
+    if (!startInclusive)
+    {
+        startIdx++; // "초과"는 다음 인덱스부터
+    }
+    if (!endInclusive)
+    {
+        endIdx--; // "미만"은 이전 인덱스까지
+    }
+
+    // 범위 검사
+    if (startIdx < 0) startIdx = 0;
+    if (endIdx >= static_cast<int64_t>(arr.size()))
+    {
+        endIdx = static_cast<int64_t>(arr.size()) - 1;
+    }
+
+    // 빈 슬라이스 처리
+    if (startIdx > endIdx)
+    {
+        return Value::createArray({});
+    }
+
+    // Phase 7.2: Step 값 처리
+    int64_t stepValue = 1; // 기본값은 1
+    if (step)
+    {
+        if (!step->isInteger())
+        {
+            throw std::runtime_error("슬라이싱 step 값은 정수여야 합니다");
+        }
+        stepValue = step->asInteger();
+        if (stepValue <= 0)
+        {
+            throw std::runtime_error("슬라이싱 step 값은 양수여야 합니다");
+        }
+    }
+
+    // 슬라이싱 수행 (step 적용)
+    std::vector<Value> sliced;
+    for (int64_t i = startIdx; i <= endIdx; i += stepValue)
+    {
+        sliced.push_back(arr[static_cast<size_t>(i)]);
+    }
+
+    return Value::createArray(sliced);
+}
+
+void Evaluator::assignIndex(Value& container, const Value& key, const Value& value)
+{
+    if (container.isArray())
+    {
+        if (!key.isInteger())
+        {
+            throw error::TypeError("배열 인덱스는 정수여야 합니다: " + key.toString());
+        }
+        auto& elements = container.asArray();  // 배열은 공유되므로 제자리에서 바뀐다
+        int64_t i = key.asInteger();
+        if (i < 0 || static_cast<size_t>(i) >= elements.size())
+        {
+            throw error::RuntimeError(
+                "배열 인덱스가 범위를 벗어났습니다: " + std::to_string(i) +
+                " (길이 " + std::to_string(elements.size()) + ")");
+        }
+        elements[static_cast<size_t>(i)] = value;
+        return;
+    }
+    if (container.isDictionary())
+    {
+        if (!key.isString())
+        {
+            throw error::TypeError("사전의 키는 문자열이어야 합니다: " + key.toString());
+        }
+        container.asDictionary()[key.asString()] = value;
+        return;
+    }
+    throw error::TypeError("인덱스 할당은 배열이나 사전에만 할 수 있습니다: " + container.toString());
 }
 
 Value Evaluator::evalImportStatement(ast::ImportStatement* stmt)
@@ -1506,9 +1545,11 @@ Value Evaluator::evalImportStatement(ast::ImportStatement* stmt)
  */
 Value Evaluator::evalThrowStatement(ast::ThrowStatement* stmt)
 {
-    // 던질 값 평가
-    Value value = eval(const_cast<ast::Expression*>(stmt->value()));
+    return throwValue(eval(const_cast<ast::Expression*>(stmt->value())));
+}
 
+Value Evaluator::throwValue(const Value& value)
+{
     // 이미 에러 타입이면 그대로 반환
     if (value.isError())
     {
@@ -1636,6 +1677,12 @@ Value Evaluator::evalTryStatement(ast::TryStatement* stmt)
 Value Evaluator::callValue(const Value& callee, const std::vector<Value>& args,
                            const std::string& name, const ast::SourceLocation& callSite)
 {
+    // 관찰자(디버거)가 없으면 공용 호출 규칙을 그대로 쓴다
+    if (!observer_)
+    {
+        return invokeFunction(callee, args, name);
+    }
+
     if (callee.isBuiltinFunction())
     {
         return callee.asBuiltinFunction()(args);
@@ -1650,7 +1697,7 @@ Value Evaluator::callValue(const Value& callee, const std::vector<Value>& args,
     auto func = callee.asFunction();
     if (func->classDef())
     {
-        return evalConstructorCall(func, args);
+        return constructInstance(func, args);
     }
     if (args.size() != func->parameters().size())
     {
@@ -1675,10 +1722,7 @@ Value Evaluator::callValue(const Value& callee, const std::vector<Value>& args,
         ExecutionObserver* observer;
         ~ObserverExitGuard() { if (observer) observer->onFunctionExit(); }
     };
-    if (observer_)
-    {
-        observer_->onFunctionEnter(name, callSite, funcEnv);
-    }
+    observer_->onFunctionEnter(name, callSite, funcEnv);
     ObserverExitGuard exitGuard{observer_};
 
     Value result = Value::createNull();
@@ -1701,16 +1745,48 @@ Value Evaluator::callValue(const Value& callee, const std::vector<Value>& args,
 
     if (func->isAsync())
     {
-        auto promise = std::make_shared<Promise>();
-        if (result.isError())
-        {
-            promise->reject(result);
-        }
-        else
-        {
-            promise->resolve(result);
-        }
-        return Value::createPromise(promise);
+        return wrapAsync(result);
+    }
+    return result;
+}
+
+Value Evaluator::invokeFunction(const Value& callee, const std::vector<Value>& args, const std::string& name)
+{
+    if (callee.isBuiltinFunction())
+    {
+        return callee.asBuiltinFunction()(args);
+    }
+    if (!callee.isFunction())
+    {
+        throw error::TypeError(
+            "함수가 아닌 값을 호출하려고 합니다: " + name + "\n" +
+            "해결 방법: 조사 뒤에는 함수 이름이나 배열 메서드가 와야 합니다."
+        );
+    }
+    auto func = callee.asFunction();
+    if (func->classDef())
+    {
+        return constructInstance(func, args);
+    }
+    if (args.size() != func->parameters().size())
+    {
+        throw error::ArgumentError(
+            "함수 인자 개수가 일치하지 않습니다: 필요 " + std::to_string(func->parameters().size()) + "개, " +
+            "전달 " + std::to_string(args.size()) + "개 (" + name + ")\n" +
+            "해결 방법: 조사 앞의 값이 첫 인자로 들어간다는 점을 확인하세요."
+        );
+    }
+
+    auto funcEnv = std::make_shared<Environment>(func->closure());
+    for (size_t i = 0; i < func->parameters().size(); ++i)
+    {
+        funcEnv->set(func->parameters()[i], args[i]);
+    }
+
+    Value result = runBody(func->body(), std::move(funcEnv));
+    if (func->isAsync())
+    {
+        return wrapAsync(result);
     }
     return result;
 }
@@ -1725,27 +1801,7 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
     {
         if (auto* member = dynamic_cast<const ast::Identifier*>(expr->method()))
         {
-            if (object.isClassInstance())
-            {
-                return object.asClassInstance()->getField(member->name());
-            }
-            if (object.isDictionary())
-            {
-                const auto& dict = object.asDictionary();
-                auto it = dict.find(member->name());
-                if (it == dict.end())
-                {
-                    throw error::NameError(
-                        "사전에 '" + member->name() + "' 키가 없습니다.\n" +
-                        "해결 방법: 키 이름을 확인하세요."
-                    );
-                }
-                return it->second;
-            }
-            throw error::TypeError(
-                "'의'는 클래스 인스턴스나 사전의 멤버를 읽을 때 쓸 수 있습니다: " + object.toString() + "\n" +
-                "해결 방법: 배열 메서드에는 을/를 을 쓰세요."
-            );
+            return applyJosaMethod(object, expr->josaType(), member->name(), false, {}, env_);
         }
     }
 
@@ -1758,51 +1814,86 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
         if (inner->josaType() == lexer::JosaRecognizer::JosaType::RO_EURO && verb && target &&
             (verb->name() == "변환한다" || verb->name() == "바꾼다"))
         {
-            const std::string& name = target->name();
-            if (env_->existsInChain(name) || Builtin::hasBuiltin(name))
-            {
-                Value callee = env_->existsInChain(name) ? env_->get(name) : Builtin::getBuiltin(name);
-                return callValue(callee, {object}, name, expr->location());
-            }
-            throw error::NameError(
-                "'" + name + "' 로 변환하는 함수가 없습니다.\n"
-                "해결 방법: 문자열, 정수, 실수 중 하나이거나 정의한 함수 이름을 쓰세요."
-            );
+            return convertWith(object, target->name(), env_);
         }
+    }
+
+    // 3·4. 메서드 이름과 인자를 뽑아 공용 규칙에 맡긴다 (함수 호출 또는 배열 메서드)
+    std::string name;
+    bool isCall = false;
+    std::vector<Value> args;
+    if (auto* call = dynamic_cast<const ast::CallExpression*>(expr->method()))
+    {
+        isCall = true;
+        if (auto* fn = dynamic_cast<const ast::Identifier*>(call->function()))
+        {
+            name = fn->name();
+            for (const auto& arg : call->arguments())
+            {
+                args.push_back(eval(const_cast<ast::Expression*>(arg.get())));
+            }
+        }
+    }
+    else if (auto* ident = dynamic_cast<const ast::Identifier*>(expr->method()))
+    {
+        name = ident->name();
+    }
+    return applyJosaMethod(object, expr->josaType(), name, isCall, args, env_);
+}
+
+Value Evaluator::convertWith(const Value& object, const std::string& name, const std::shared_ptr<Environment>& env)
+{
+    if (env->existsInChain(name) || Builtin::hasBuiltin(name))
+    {
+        Value callee = env->existsInChain(name) ? env->get(name) : Builtin::getBuiltin(name);
+        return invokeFunction(callee, {object}, name);
+    }
+    throw error::NameError(
+        "'" + name + "' 로 변환하는 함수가 없습니다.\n"
+        "해결 방법: 문자열, 정수, 실수 중 하나이거나 정의한 함수 이름을 쓰세요."
+    );
+}
+
+Value Evaluator::applyJosaMethod(const Value& object, lexer::JosaRecognizer::JosaType josa,
+                                 const std::string& name, bool isCall, const std::vector<Value>& args,
+                                 const std::shared_ptr<Environment>& env)
+{
+    // 1. '의' 소유격 (메서드가 식별자일 때): 클래스 인스턴스의 필드나 사전의 키
+    if (josa == lexer::JosaRecognizer::JosaType::UI && !isCall && !name.empty())
+    {
+        if (object.isClassInstance())
+        {
+            return object.asClassInstance()->getField(name);
+        }
+        if (object.isDictionary())
+        {
+            const auto& dict = object.asDictionary();
+            auto it = dict.find(name);
+            if (it == dict.end())
+            {
+                throw error::NameError(
+                    "사전에 '" + name + "' 키가 없습니다.\n" +
+                    "해결 방법: 키 이름을 확인하세요."
+                );
+            }
+            return it->second;
+        }
+        throw error::TypeError(
+            "'의'는 클래스 인스턴스나 사전의 멤버를 읽을 때 쓸 수 있습니다: " + object.toString() + "\n" +
+            "해결 방법: 배열 메서드에는 을/를 을 쓰세요."
+        );
     }
 
     // 3. 메서드 이름이 사용자 함수나 내장 함수이면 객체를 첫 인자로 넘겨 호출한다
     //    ("x를 f(a)" 는 "f(x, a)", "값을 출력" 은 "출력(값)")
+    if (!name.empty() && (env->existsInChain(name) || Builtin::hasBuiltin(name)))
     {
-        std::string name;
-        std::vector<const ast::Expression*> argExprs;
-        if (auto* call = dynamic_cast<const ast::CallExpression*>(expr->method()))
-        {
-            if (auto* fn = dynamic_cast<const ast::Identifier*>(call->function()))
-            {
-                name = fn->name();
-                for (const auto& arg : call->arguments())
-                {
-                    argExprs.push_back(arg.get());
-                }
-            }
-        }
-        else if (auto* ident = dynamic_cast<const ast::Identifier*>(expr->method()))
-        {
-            name = ident->name();
-        }
-
-        if (!name.empty() && (env_->existsInChain(name) || Builtin::hasBuiltin(name)))
-        {
-            Value callee = env_->existsInChain(name) ? env_->get(name) : Builtin::getBuiltin(name);
-            std::vector<Value> args;
-            args.push_back(object);
-            for (const auto* argExpr : argExprs)
-            {
-                args.push_back(eval(const_cast<ast::Expression*>(argExpr)));
-            }
-            return callValue(callee, args, name, expr->location());
-        }
+        Value callee = env->existsInChain(name) ? env->get(name) : Builtin::getBuiltin(name);
+        std::vector<Value> callArgs;
+        callArgs.reserve(args.size() + 1);
+        callArgs.push_back(object);
+        callArgs.insert(callArgs.end(), args.begin(), args.end());
+        return invokeFunction(callee, callArgs, name);
     }
 
     // 4. 내장 배열 메서드 (걸러낸다, 변환한다, 축약한다, 찾다, 정렬한다, 역순으로_나열한다)
@@ -1814,15 +1905,12 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
         );
     }
 
-    auto arr = object.asArray();
+    const auto& arr = object.asArray();
 
-    // 메서드가 CallExpression인 경우 (함수형 메서드)
-    const ast::CallExpression* callExpr = dynamic_cast<const ast::CallExpression*>(expr->method());
-    if (callExpr)
+    // 메서드가 호출형인 경우 (함수형 메서드)
+    if (isCall)
     {
-        // 함수 이름 획득
-        const ast::Identifier* funcIdent = dynamic_cast<const ast::Identifier*>(callExpr->function());
-        if (!funcIdent)
+        if (name.empty())
         {
             throw error::TypeError(
                 std::string("조사 표현식의 메서드 호출에서 함수 이름을 식별할 수 없습니다.\n") +
@@ -1830,55 +1918,40 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
             );
         }
 
-        std::string methodName = funcIdent->name();
-
-        // 걸러낸다 (filter)
-        if (methodName == "걸러낸다" || methodName == "걸러내고")
-        {
-            if (callExpr->arguments().size() != 1)
+        // 콜백 하나를 받는 메서드의 인자 검사
+        auto requireCallback = [&](const char* method, const char* example, size_t paramCount) {
+            if (args.size() != 1)
             {
                 throw error::ArgumentError(
-                    std::string("'걸러낸다' 메서드는 정확히 1개의 인자(조건 함수)가 필요합니다.\n") +
-                    "해결 방법: 조건 함수를 전달하세요. 예: 걸러낸다(함수(x) { 반환 x > 0 })"
+                    std::string("'") + method + "' 메서드는 정확히 1개의 인자(" + example + ")가 필요합니다.\n" +
+                    "해결 방법: " + example + "를 전달하세요."
                 );
             }
-
-            Value filterFunc = eval(const_cast<ast::Expression*>(callExpr->arguments()[0].get()));
-            if (!filterFunc.isFunction())
+            if (!args[0].isFunction())
             {
                 throw error::TypeError(
-                    std::string("'걸러낸다' 메서드의 인자는 함수여야 합니다.\n") +
+                    std::string("'") + method + "' 메서드의 인자는 함수여야 합니다.\n" +
                     "해결 방법: 함수 리터럴을 전달하세요."
                 );
             }
+            if (args[0].asFunction()->parameters().size() != paramCount)
+            {
+                throw error::ArgumentError(
+                    std::string("'") + method + "' 메서드의 " + example + "는 정확히 " + std::to_string(paramCount) +
+                    "개의 매개변수가 필요합니다.\n" +
+                    "해결 방법: 함수(x) { ... } 형태로 작성하세요."
+                );
+            }
+        };
 
+        // 걸러낸다 (filter)
+        if (name == "걸러낸다" || name == "걸러내고")
+        {
+            requireCallback("걸러낸다", "조건 함수", 1);
             std::vector<Value> filtered;
             for (const auto& item : arr)
             {
-                // 조건 함수 호출
-                auto funcEnv = filterFunc.asFunction()->closure()->createEnclosed();
-                const auto& params = filterFunc.asFunction()->parameters();
-                if (params.size() != 1)
-                {
-                    throw error::ArgumentError(
-                        std::string("'걸러낸다' 메서드의 조건 함수는 정확히 1개의 매개변수가 필요합니다.\n") +
-                        "해결 방법: 함수(x) { ... } 형태로 작성하세요."
-                    );
-                }
-                funcEnv->set(params[0], item);
-
-                Evaluator funcEvaluator(funcEnv);
-                Value result;
-                try
-                {
-                    result = funcEvaluator.eval(filterFunc.asFunction()->body());
-                }
-                catch (const ReturnValue& retVal)
-                {
-                    result = retVal.getValue();
-                }
-
-                if (result.isTruthy())
+                if (runCallback(args[0], {item}).isTruthy())
                 {
                     filtered.push_back(item);
                 }
@@ -1887,152 +1960,56 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
         }
 
         // 변환한다 (map)
-        if (methodName == "변환한다" || methodName == "변환하고")
+        if (name == "변환한다" || name == "변환하고")
         {
-            if (callExpr->arguments().size() != 1)
-            {
-                throw error::ArgumentError(
-                    std::string("'변환한다' 메서드는 정확히 1개의 인자(변환 함수)가 필요합니다.\n") +
-                    "해결 방법: 변환 함수를 전달하세요. 예: 변환한다(함수(x) { 반환 x * 2 })"
-                );
-            }
-
-            Value mapFunc = eval(const_cast<ast::Expression*>(callExpr->arguments()[0].get()));
-            if (!mapFunc.isFunction())
-            {
-                throw error::TypeError(
-                    std::string("'변환한다' 메서드의 인자는 함수여야 합니다.\n") +
-                    "해결 방법: 함수 리터럴을 전달하세요."
-                );
-            }
-
+            requireCallback("변환한다", "변환 함수", 1);
             std::vector<Value> mapped;
             for (const auto& item : arr)
             {
-                // 변환 함수 호출
-                auto funcEnv = mapFunc.asFunction()->closure()->createEnclosed();
-                const auto& params = mapFunc.asFunction()->parameters();
-                if (params.size() != 1)
-                {
-                    throw error::ArgumentError(
-                        std::string("'변환한다' 메서드의 변환 함수는 정확히 1개의 매개변수가 필요합니다.\n") +
-                        "해결 방법: 함수(x) { ... } 형태로 작성하세요."
-                    );
-                }
-                funcEnv->set(params[0], item);
-
-                Evaluator funcEvaluator(funcEnv);
-                Value result;
-                try
-                {
-                    result = funcEvaluator.eval(mapFunc.asFunction()->body());
-                }
-                catch (const ReturnValue& retVal)
-                {
-                    result = retVal.getValue();
-                }
-
-                mapped.push_back(result);
+                mapped.push_back(runCallback(args[0], {item}));
             }
             return Value::createArray(mapped);
         }
 
         // 축약한다 (reduce)
-        if (methodName == "축약한다" || methodName == "축약하고")
+        if (name == "축약한다" || name == "축약하고")
         {
-            if (callExpr->arguments().size() != 2)
+            if (args.size() != 2)
             {
                 throw error::ArgumentError(
                     std::string("'축약한다' 메서드는 정확히 2개의 인자(초기값, 축약 함수)가 필요합니다.\n") +
                     "해결 방법: 축약한다(0, 함수(누적, 현재) { 반환 누적 + 현재 })"
                 );
             }
-
-            Value initialValue = eval(const_cast<ast::Expression*>(callExpr->arguments()[0].get()));
-            Value reduceFunc = eval(const_cast<ast::Expression*>(callExpr->arguments()[1].get()));
-
-            if (!reduceFunc.isFunction())
+            if (!args[1].isFunction())
             {
                 throw error::TypeError(
                     std::string("'축약한다' 메서드의 두 번째 인자는 함수여야 합니다.\n") +
                     "해결 방법: 함수 리터럴을 전달하세요."
                 );
             }
-
-            const auto& params = reduceFunc.asFunction()->parameters();
-            if (params.size() != 2)
+            if (args[1].asFunction()->parameters().size() != 2)
             {
                 throw error::ArgumentError(
                     std::string("'축약한다' 메서드의 축약 함수는 정확히 2개의 매개변수가 필요합니다.\n") +
                     "해결 방법: 함수(누적, 현재) { ... } 형태로 작성하세요."
                 );
             }
-
-            Value accumulator = initialValue;
+            Value accumulator = args[0];
             for (const auto& item : arr)
             {
-                auto funcEnv = reduceFunc.asFunction()->closure()->createEnclosed();
-                funcEnv->set(params[0], accumulator);
-                funcEnv->set(params[1], item);
-
-                Evaluator funcEvaluator(funcEnv);
-                try
-                {
-                    accumulator = funcEvaluator.eval(reduceFunc.asFunction()->body());
-                }
-                catch (const ReturnValue& retVal)
-                {
-                    accumulator = retVal.getValue();
-                }
+                accumulator = runCallback(args[1], {accumulator, item});
             }
             return accumulator;
         }
 
         // 찾다 (find)
-        if (methodName == "찾다" || methodName == "찾고")
+        if (name == "찾다" || name == "찾고")
         {
-            if (callExpr->arguments().size() != 1)
-            {
-                throw error::ArgumentError(
-                    std::string("'찾다' 메서드는 정확히 1개의 인자(조건 함수)가 필요합니다.\n") +
-                    "해결 방법: 조건 함수를 전달하세요. 예: 찾다(함수(x) { 반환 x > 10 })"
-                );
-            }
-
-            Value findFunc = eval(const_cast<ast::Expression*>(callExpr->arguments()[0].get()));
-            if (!findFunc.isFunction())
-            {
-                throw error::TypeError(
-                    std::string("'찾다' 메서드의 인자는 함수여야 합니다.\n") +
-                    "해결 방법: 함수 리터럴을 전달하세요."
-                );
-            }
-
+            requireCallback("찾다", "조건 함수", 1);
             for (const auto& item : arr)
             {
-                auto funcEnv = findFunc.asFunction()->closure()->createEnclosed();
-                const auto& params = findFunc.asFunction()->parameters();
-                if (params.size() != 1)
-                {
-                    throw error::ArgumentError(
-                        std::string("'찾다' 메서드의 조건 함수는 정확히 1개의 매개변수가 필요합니다.\n") +
-                        "해결 방법: 함수(x) { ... } 형태로 작성하세요."
-                    );
-                }
-                funcEnv->set(params[0], item);
-
-                Evaluator funcEvaluator(funcEnv);
-                Value result;
-                try
-                {
-                    result = funcEvaluator.eval(findFunc.asFunction()->body());
-                }
-                catch (const ReturnValue& retVal)
-                {
-                    result = retVal.getValue();
-                }
-
-                if (result.isTruthy())
+                if (runCallback(args[0], {item}).isTruthy())
                 {
                     return item;
                 }
@@ -2042,14 +2019,13 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
         }
 
         throw error::NameError(
-            "알 수 없는 배열 메서드 '" + methodName + "'입니다.\n" +
+            "알 수 없는 배열 메서드 '" + name + "'입니다.\n" +
             "해결 방법: 지원되는 메서드는 '걸러낸다', '변환한다', '축약한다', '찾다' 등입니다."
         );
     }
 
-    // 메서드가 Identifier인 경우 (기본 메서드)
-    const ast::Identifier* methodIdent = dynamic_cast<const ast::Identifier*>(expr->method());
-    if (!methodIdent)
+    // 메서드가 식별자인 경우 (기본 메서드)
+    if (name.empty())
     {
         throw error::TypeError(
             std::string("조사 표현식의 메서드는 식별자 또는 메서드 호출이어야 합니다.\n") +
@@ -2057,10 +2033,8 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
         );
     }
 
-    std::string methodName = methodIdent->name();
-
     // 정렬 메서드
-    if (methodName == "정렬한다" || methodName == "정렬하고")
+    if (name == "정렬한다" || name == "정렬하고")
     {
         std::vector<Value> sorted = arr;
         std::sort(sorted.begin(), sorted.end(), [](const Value& a, const Value& b) {
@@ -2070,7 +2044,7 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
     }
 
     // 역순 메서드
-    if (methodName == "역순으로_나열한다" || methodName == "역순으로_나열하고")
+    if (name == "역순으로_나열한다" || name == "역순으로_나열하고")
     {
         std::vector<Value> reversed = arr;
         std::reverse(reversed.begin(), reversed.end());
@@ -2079,7 +2053,7 @@ Value Evaluator::evalJosaExpression(ast::JosaExpression* expr)
 
     // 메서드를 찾을 수 없음
     throw error::NameError(
-        "배열에 대한 메서드 '" + methodName + "'를 찾을 수 없습니다.\n" +
+        "배열에 대한 메서드 '" + name + "'를 찾을 수 없습니다.\n" +
         "해결 방법: 지원되는 메서드는 '정렬한다', '역순으로_나열한다', '걸러낸다', '변환한다' 등입니다."
     );
 }
@@ -2261,16 +2235,26 @@ Value Evaluator::evalMatchExpression(ast::MatchExpression* node)
 
 Value Evaluator::evalMemberAccessExpression(ast::MemberAccessExpression* expr)
 {
-    // 객체 평가
     Value obj = eval(const_cast<ast::Expression*>(expr->object()));
+    return memberValue(obj, expr->memberName());
+}
 
-    if (!obj.isClassInstance())
+Value Evaluator::memberValue(const Value& object, const std::string& name)
+{
+    if (!object.isClassInstance())
     {
         throw error::RuntimeError("필드 접근은 클래스 인스턴스에만 가능합니다");
     }
+    return object.asClassInstance()->getField(name);
+}
 
-    // 필드 값 반환
-    return obj.asClassInstance()->getField(expr->memberName());
+void Evaluator::assignMember(const Value& object, const std::string& name, const Value& value)
+{
+    if (!object.isClassInstance())
+    {
+        throw error::RuntimeError("필드 접근은 클래스 인스턴스에만 가능합니다");
+    }
+    object.asClassInstance()->setField(name, value);
 }
 
 Value Evaluator::evalThisExpression(ast::ThisExpression* /* expr */)
@@ -2281,6 +2265,12 @@ Value Evaluator::evalThisExpression(ast::ThisExpression* /* expr */)
 
 Value Evaluator::evalClassStatement(ast::ClassStatement* stmt)
 {
+    env_->set(stmt->className(), makeClass(stmt, env_));
+    return Value::createNull();
+}
+
+Value Evaluator::makeClass(const ast::ClassStatement* stmt, const std::shared_ptr<Environment>& env)
+{
     // 필드 이름 추출
     std::vector<std::string> fieldNames;
     for (const auto& field : stmt->fields())
@@ -2288,7 +2278,7 @@ Value Evaluator::evalClassStatement(ast::ClassStatement* stmt)
         fieldNames.push_back(field->fieldName());
     }
 
-    // 메서드 추출
+    // 메서드 추출 (클로저는 클래스를 정의한 환경)
     std::unordered_map<std::string, std::shared_ptr<Function>> methods;
     for (const auto& method : stmt->methods())
     {
@@ -2301,7 +2291,7 @@ Value Evaluator::evalClassStatement(ast::ClassStatement* stmt)
         auto methodFunc = std::make_shared<Function>(
             params,
             const_cast<ast::BlockStatement*>(method->body()),
-            env_
+            env
         );
 
         methods[method->methodName()] = methodFunc;
@@ -2320,7 +2310,7 @@ Value Evaluator::evalClassStatement(ast::ClassStatement* stmt)
         constructor = std::make_shared<Function>(
             params,
             const_cast<ast::BlockStatement*>(stmt->constructor()->body()),
-            env_
+            env
         );
     }
 
@@ -2333,19 +2323,15 @@ Value Evaluator::evalClassStatement(ast::ClassStatement* stmt)
         stmt->superClass()
     );
 
-    // 환경에 클래스 등록 (클래스 이름을 함수처럼 등록)
-    // 클래스 생성자 함수 생성
+    // 클래스 이름은 생성자 함수처럼 등록된다: 호출하면 인스턴스가 만들어진다
     auto constructorFunc = std::make_shared<Function>(
         std::vector<std::string>{},  // 매개변수 없음 (향후 확장)
         nullptr,  // body는 null
-        env_,
+        env,
         true   // isBuiltin = true (특수 처리)
     );
     constructorFunc->setClassDef(classDef);
-
-    env_->set(stmt->className(), Value::createFunction(constructorFunc));
-
-    return Value::createNull();
+    return Value::createFunction(constructorFunc);
 }
 
 // ============================================================================

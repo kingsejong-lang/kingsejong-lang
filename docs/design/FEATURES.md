@@ -742,7 +742,7 @@ sejong --tutorial
 13. ✅ 모듈 시스템
 14. ✅ 클래스 및 상속
 15. ✅ 패턴 매칭
-16. ✅ Bytecode VM + JIT
+16. ✅ Bytecode VM (`--vm`, 평가기와 동치)
 17. ✅ 세대별 GC
 18. ✅ LSP, 디버거, VS Code 확장
 19. ~~ksjpm 패키지 관리자~~ (2026-10 제거: 저장소·다운로드 없는 뼈대)

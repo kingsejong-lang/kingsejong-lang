@@ -107,20 +107,21 @@ jobs:
     - name: Build
       run: cmake --build build
 
+    # 테스트 실행 파일 전체를 Valgrind 아래에서 한 번 돈다 (약 30초). 잘못된 메모리 접근,
+    # 초기화되지 않은 값 사용, definite/indirect 누수가 하나라도 있으면 잡이 실패한다.
+    # 예제·파일 테스트가 저장소 루트를 기준으로 하므로 루트에서 실행한다.
     - name: Run tests with Valgrind
       run: |
-        cd build
-        valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose \
-          --error-exitcode=1 --errors-for-leak-kinds=definite,possible \
-          ./kingsejong_tests --gtest_filter=TokenTest.*:JosaRecognizerTest.* || true
-      continue-on-error: true
+        valgrind --leak-check=full --errors-for-leak-kinds=definite,indirect \
+          --error-exitcode=1 --log-file=build/valgrind.log \
+          ./build/bin/kingsejong_tests --gtest_brief=1
 
-    - name: Upload Valgrind results
+    - name: Upload Valgrind log
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: valgrind-results
-        path: build/*.valgrind
+        name: valgrind-log
+        path: build/valgrind.log
 
   coverage:
     name: Code Coverage

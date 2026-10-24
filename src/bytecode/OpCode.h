@@ -78,7 +78,7 @@ enum class OpCode : uint8_t {
 
     // ---- 클래스·모듈 ----
     CLASS_DEF,       ///< [u16 노드] 클래스 문장 노드로 클래스를 만들어 현재 환경에 등록
-    IMPORT,          ///< [u16 경로] [u16 파일] 모듈을 불러 바인딩을 현재 환경에 복사
+    IMPORT,          ///< [u16 경로] [u16 파일] 모듈을 불러 바인딩을 현재 환경에 복사 (처음이면 이 청크에 컴파일해 실행)
 
     // ---- 예외 ----
     TRY_PUSH,        ///< [u16 catch] [u16 finally] 핸들러 등록 (오프셋은 명령 끝 기준, NO_OFFSET 은 없음)
@@ -93,7 +93,9 @@ enum class OpCode : uint8_t {
     PROMISE_REJECT,  ///< pop 이유, pop Promise → 거부
 
     // ---- 기타 ----
-    EVAL_NODE,       ///< [u16 노드] AST 표현식을 평가기로 계산해 푸시 (패턴 매칭)
+    MATCH_PATTERN,   ///< [u16 패턴 노드] pop 값 → 패턴에 맞으면 현재 환경에 바인딩하고 참, 아니면 거짓 푸시
+    MATCH_FAIL,      ///< 어느 패턴에도 맞지 않음: RuntimeError
+    EVAL_NODE,       ///< [u16 노드] AST 표현식을 평가기로 계산해 푸시 (리터럴이 아닌 패턴 리터럴이 있는 매칭)
     POP,
     DUP,
     PRINT,           ///< pop 값 → 로그 출력 (디버깅)

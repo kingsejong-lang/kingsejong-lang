@@ -18,6 +18,7 @@
 
 namespace kingsejong {
 namespace module { class ModuleLoader; }
+namespace ast { class Program; }
 namespace bytecode {
 
 /// @name 실행 제한 기본값
@@ -117,6 +118,12 @@ private:
     std::vector<evaluator::Value> popArguments(size_t count);
 
     // ---- 실행 ----
+    /// 실행 상태를 비우고 entry 에서 env 로 시작할 준비를 한다
+    void resetFor(Chunk* chunk, size_t entry, std::shared_ptr<evaluator::Environment> env);
+    /// 실행 루프. 잡히지 않은 에러는 propagate 면 예외로 올리고, 아니면 보고하고 RUNTIME_ERROR
+    VMResult runLoop(bool propagate);
+    /// 가져오기: 모듈 프로그램을 이 청크 끝에 컴파일하고 모듈 환경에서 하위 VM 으로 돌린다
+    void runModule(ast::Program& program, const std::shared_ptr<evaluator::Environment>& moduleEnv);
     Step executeInstruction();
     void checkLimits();
     void callValue(uint8_t argCount);

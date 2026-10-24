@@ -150,14 +150,18 @@ int executeFile(const std::string& filename, bool useVm = false)
         auto env = std::make_shared<kingsejong::evaluator::Environment>();
 
 
-        // 6.5 --vm: 바이트코드 컴파일러와 VM 으로 실행 (실험적). 평가기와 기능이 같지 않다.
+        // 6.5 --vm: 바이트코드 컴파일러와 VM 으로 실행. 값·변수 규칙을 평가기와 공유한다.
         if (useVm)
         {
             kingsejong::bytecode::Chunk chunk;
             kingsejong::bytecode::Compiler compiler;
             if (!compiler.compile(program.get(), &chunk))
             {
-                std::cerr << "에러: 바이트코드 컴파일에 실패했습니다. (--vm 은 실험적이며 일부 구문을 지원하지 않습니다)\n";
+                std::cerr << "에러: 바이트코드 컴파일에 실패했습니다.\n";
+                for (const auto& message : compiler.errors())
+                {
+                    std::cerr << "  " << message << "\n";
+                }
                 return 1;
             }
             kingsejong::bytecode::VM vm;
@@ -546,7 +550,7 @@ void printHelp()
     std::cout << "  -v, --version       버전 정보 출력\n";
     std::cout << "  --lsp               LSP 서버 모드로 실행\n";
     std::cout << "  --debug             디버거 모드로 파일 실행 (break/run/step/next/continue/print/backtrace)\n";
-    std::cout << "  --vm                바이트코드 VM 으로 실행 (실험적: 클로저·가져오기·예외 등 일부 미지원)\n";
+    std::cout << "  --vm                바이트코드 VM 으로 실행 (평가기와 같은 결과, 함수 호출이 많은 코드에서 빠름)\n";
     std::cout << "  --sandbox           샌드박스 모드: 현재 디렉터리와 --allow-path 경로만 파일 접근 허용\n";
     std::cout << "  --untrusted         비신뢰 모드: 시스템 경로(/etc, /sys, /proc ...) 접근 차단\n";
     std::cout << "  --allow-path 경로   샌드박스에서 추가로 허용할 경로 (여러 번 지정 가능)\n";

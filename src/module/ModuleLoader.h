@@ -13,6 +13,7 @@
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
+#include <functional>
 
 namespace kingsejong {
 
@@ -76,13 +77,19 @@ public:
      */
     std::vector<std::string> candidatePaths(const std::string& modulePath, const std::string& fromFile = "") const;
 
+    /// 모듈 프로그램을 실행해 모듈 환경을 채우는 함수. 비어 있으면 평가기로 실행한다.
+    using Executor = std::function<void(ast::Program& program, const std::shared_ptr<evaluator::Environment>& moduleEnv)>;
+
     /**
      * @brief 모듈 로딩
      * @param modulePath 모듈 경로 (예: "math", "utils/helper")
+     * @param fromFile 가져오기 문이 있는 파일 (상대 경로의 기준)
+     * @param executor 모듈 코드를 돌릴 실행기. 비어 있으면 평가기 (VM 은 자기 실행기를 넘긴다)
      * @return 모듈의 Environment
      * @throws RuntimeError 모듈을 찾을 수 없거나 순환 참조 발생 시
      */
-    std::shared_ptr<evaluator::Environment> loadModule(const std::string& modulePath, const std::string& fromFile = "");
+    std::shared_ptr<evaluator::Environment> loadModule(const std::string& modulePath, const std::string& fromFile = "",
+                                                       const Executor& executor = nullptr);
 
     /**
      * @brief 경로 해석

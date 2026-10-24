@@ -12,6 +12,10 @@
 #include "evaluator/Builtin.h"
 #include "parser/Parser.h"
 #include "lexer/Lexer.h"
+#include "module/ModuleLoader.h"
+#include "support/TestTempDir.h"
+#include <filesystem>
+#include <fstream>
 
 using namespace kingsejong;
 using namespace kingsejong::bytecode;
@@ -27,7 +31,7 @@ struct VmRun {
     bool compiled = false;
     VMResult result = VMResult::COMPILE_ERROR;
 
-    explicit VmRun(const std::string& source) {
+    explicit VmRun(const std::string& source, module::ModuleLoader* loader = nullptr) {
         Builtin::registerAllBuiltins();
         lexer::Lexer lexer(source);
         parser::Parser parser(lexer);
@@ -36,8 +40,17 @@ struct VmRun {
         Compiler compiler;
         compiled = compiler.compile(program.get(), &chunk);
         if (compiled) {
+            vm.setModuleLoader(loader);
             result = vm.run(&chunk);
         }
+    }
+
+    /// 전역 함수의 본문이 이 청크에 컴파일되어 있는지 (바이트코드로 호출되는지)
+    bool compiledInChunk(const std::string& name) const {
+        Value value = global(name);
+        if (!value.isFunction()) return false;
+        size_t entry = 0;
+        return chunk.findEntry(value.asFunction()->body(), entry);
     }
 
     Value global(const std::string& name) const { return vm.globals()->get(name); }
@@ -781,6 +794,154 @@ TEST(VMParityTest, ShouldReportArityMismatch) {
         함수 f(a) { 반환 a }
         f(1, 2)
     )");
+    EXPECT_EQ(run.result, VMResult::RUNTIME_ERROR);
+}
+
+TEST(VMParityTest, ShouldMatchPatternsNatively) {
+    const std::string source = R"(
+함수 분류(값) {
+    반환 값 에 대해 {
+        0 -> "영"
+        [a, b] when a == b -> "같은 쌍"
+        [a, b] -> "쌍 " + 문자열(a + b)
+        [첫째, _, 셋째] -> "셋 " + 문자열(첫째 + 셋째)
+        참 -> "참"
+        n when 타입(n) == "정수" -> "정수 " + 문자열(n)
+        _ -> "기타"
+    }
+}
+문자열 결과 = 분류(0) + "/" + 분류([3, 3]) + "/" + 분류([1, 2]) + "/" + 분류([1, 2, 3]) + "/" + 분류(참) + "/" + 분류(7) + "/" + 분류("x")
+)";
+    VmRun run(source);
+    ASSERT_TRUE(run.compiled);
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("결과").toString(), "영/같은 쌍/쌍 3/셋 4/참/정수 7/기타");
+    EXPECT_EQ(run.global("결과").toString(), evaluatorGlobal(source, "결과").toString());
+
+    // 패턴 매칭이 평가기 위임(EVAL_NODE) 없이 바이트코드로 컴파일되었다
+    std::string listing = run.chunk.disassemble("match");
+    EXPECT_NE(listing.find("MATCH_PATTERN"), std::string::npos);
+    EXPECT_EQ(listing.find("EVAL_NODE"), std::string::npos);
+}
+
+TEST(VMParityTest, ShouldThrowCatchableErrorWhenNoPatternMatches) {
+    const std::string source = R"(
+문자열 메시지 = ""
+시도 {
+    정수 r = 7 에 대해 { 1 -> 1 }
+} 오류 (e) {
+    메시지 = e
+}
+)";
+    VmRun run(source);
+    ASSERT_TRUE(run.compiled);
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("메시지").toString(), "RuntimeError: 매칭되는 패턴이 없습니다");
+    EXPECT_EQ(run.global("메시지").toString(), evaluatorGlobal(source, "메시지").toString());
+
+    VmRun uncaught("정수 r = 7 에 대해 { 1 -> 1 }");
+    ASSERT_TRUE(uncaught.compiled);
+    EXPECT_EQ(uncaught.result, VMResult::RUNTIME_ERROR);
+}
+
+TEST(VMParityTest, ShouldNotLeakEnvironmentsForMatchCases) {
+    size_t before = Environment::liveCount();
+    {
+        VmRun run(R"(
+함수 f(x) {
+    반환 x 에 대해 {
+        [a, b] -> a + b
+        n -> n
+    }
+}
+정수 합 = f([1, 2]) + f(3)
+)");
+        ASSERT_TRUE(run.compiled);
+        EXPECT_EQ(run.result, VMResult::OK);
+        EXPECT_EQ(run.global("합").asInteger(), 6);
+    }
+    EXPECT_EQ(Environment::liveCount(), before);
+}
+
+/// 모듈 파일을 임시 디렉터리에 만들고 그 디렉터리를 검색 경로로 쓰는 로더
+class VMModuleTest : public ::testing::Test {
+protected:
+    std::filesystem::path dir_;
+    std::unique_ptr<module::ModuleLoader> loader_;
+
+    void SetUp() override {
+        dir_ = kingsejong::test::uniqueTestDir("kingsejong_vm_module");
+        loader_ = std::make_unique<module::ModuleLoader>(dir_.generic_string());
+    }
+    void TearDown() override {
+        loader_.reset();
+        std::filesystem::remove_all(dir_);
+    }
+    void writeModule(const std::string& name, const std::string& source) {
+        std::ofstream file(dir_ / (name + ".ksj"));
+        file << source;
+    }
+};
+
+TEST_F(VMModuleTest, ShouldCompileImportedModulesIntoChunk) {
+    writeModule("기초", "함수 곱(a, b) { 반환 a * b }\n정수 상수 = 42\n");
+    writeModule("수학", R"(
+가져오기 "기초"
+함수 제곱(x) { 반환 곱(x, x) }
+함수 등급(점수) {
+    반환 점수 에 대해 {
+        100 -> "만점"
+        n when n >= 90 -> "A"
+        _ -> "B 이하"
+    }
+}
+)");
+    VmRun run(R"(
+가져오기 "수학"
+정수 결과 = 제곱(7) + 곱(3, 4) + 상수
+문자열 등급들 = 등급(100) + 등급(95) + 등급(10)
+)", loader_.get());
+    ASSERT_TRUE(run.compiled);
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("결과").asInteger(), 49 + 12 + 42);
+    EXPECT_EQ(run.global("등급들").toString(), "만점AB 이하");
+
+    // 모듈(과 모듈이 가져온 모듈)의 함수가 같은 청크에 컴파일되어 바이트코드로 호출된다
+    EXPECT_TRUE(run.compiledInChunk("제곱"));
+    EXPECT_TRUE(run.compiledInChunk("곱"));
+    EXPECT_TRUE(run.compiledInChunk("등급"));
+    EXPECT_TRUE(loader_->isCached("수학"));
+}
+
+TEST_F(VMModuleTest, ShouldCatchErrorsThrownByModuleCode) {
+    writeModule("실패", "함수 실패() { 던지다 \"모듈 안 오류\" }\n");
+    writeModule("즉시실패", "던지다 \"불러오다 실패\"\n");
+    VmRun run(R"(
+가져오기 "실패"
+문자열 첫째 = ""
+문자열 둘째 = ""
+시도 {
+    실패()
+} 오류 (e) {
+    첫째 = e
+}
+시도 {
+    가져오기 "즉시실패"
+} 오류 (e) {
+    둘째 = e
+}
+)", loader_.get());
+    ASSERT_TRUE(run.compiled);
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("첫째").toString(), "Error: 모듈 안 오류");
+    EXPECT_EQ(run.global("둘째").toString(), "Error: 불러오다 실패");
+}
+
+TEST_F(VMModuleTest, ShouldReportCircularImports) {
+    writeModule("가", "가져오기 \"나\"\n");
+    writeModule("나", "가져오기 \"가\"\n");
+    VmRun run("가져오기 \"가\"\n", loader_.get());
+    ASSERT_TRUE(run.compiled);
     EXPECT_EQ(run.result, VMResult::RUNTIME_ERROR);
 }
 

@@ -862,7 +862,7 @@ test: 타입 시스템 테스트 추가
 - ✅ Try/Catch/Finally
 - ✅ 패턴 매칭
 - ✅ 모듈 시스템
-- ✅ Bytecode VM (평가기와 동치, 61개 OpCode)
+- ✅ Bytecode VM (평가기와 동치, 63개 OpCode)
 - ✅ 세대별 GC
 - ✅ LSP (Language Server Protocol)
 - ✅ 디버거

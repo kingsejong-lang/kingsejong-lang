@@ -1,43 +1,51 @@
 /**
  * @file Compiler.cpp
- * @brief Compiler 구현
- * @author KingSejong Team
- * @date 2025-11-10
+ * @brief AST → 바이트코드 컴파일러 구현
  */
 
 #include "Compiler.h"
+#include "lexer/JosaRecognizer.h"
 #include <iostream>
 
 namespace kingsejong {
 namespace bytecode {
 
+namespace {
+
+uint16_t toU16(size_t value, const char* what) {
+    if (value > 0xFFFF) {
+        throw std::runtime_error(std::string(what) + " 이(가) 65535 를 넘습니다");
+    }
+    return static_cast<uint16_t>(value);
+}
+
+} // namespace
+
 Compiler::Compiler()
-    : chunk_(nullptr), scopeDepth_(0), hadError_(false) {}
+    : chunk_(nullptr), hadError_(false), currentLine_(1) {}
 
 bool Compiler::compile(ast::Program* program, Chunk* chunk) {
     chunk_ = chunk;
     hadError_ = false;
+    errors_.clear();
 
     try {
         auto& statements = program->statements();
-        size_t stmtCount = statements.size();
+        size_t count = statements.size();
 
-        for (size_t i = 0; i < stmtCount; i++) {
-            bool isLastStatement = (i == stmtCount - 1);
-
-            // 마지막 statement가 ExpressionStatement면 결과를 스택에 남김 (REPL 스타일)
-            if (isLastStatement && statements[i]->type() == ast::NodeType::EXPRESSION_STATEMENT) {
+        for (size_t i = 0; i < count; i++) {
+            bool isLast = (i == count - 1);
+            // 마지막 문장이 표현식 문장이면 값을 스택에 남긴다 (REPL 스타일, vm.top())
+            if (isLast && statements[i]->type() == ast::NodeType::EXPRESSION_STATEMENT) {
                 auto* exprStmt = static_cast<ast::ExpressionStatement*>(statements[i].get());
+                setLine(exprStmt);
                 compileExpression(const_cast<ast::Expression*>(exprStmt->expression()));
-                // POP 하지 않음 - 결과를 스택에 남김
             } else {
                 compileStatement(statements[i].get());
             }
         }
 
-        // 프로그램 종료
         emit(OpCode::HALT);
-
         return !hadError_;
     } catch (const std::exception& e) {
         error(std::string("Compilation error: ") + e.what());
@@ -45,8 +53,13 @@ bool Compiler::compile(ast::Program* program, Chunk* chunk) {
     }
 }
 
+// ============================================================================
+// 문장
+// ============================================================================
+
 void Compiler::compileStatement(ast::Statement* stmt) {
     if (!stmt) return;
+    setLine(stmt);
 
     switch (stmt->type()) {
         case ast::NodeType::VAR_DECLARATION:
@@ -56,7 +69,9 @@ void Compiler::compileStatement(ast::Statement* stmt) {
             compileAssignmentStatement(static_cast<ast::AssignmentStatement*>(stmt));
             break;
         case ast::NodeType::EXPRESSION_STATEMENT:
-            compileExpressionStatement(static_cast<ast::ExpressionStatement*>(stmt));
+            compileExpression(const_cast<ast::Expression*>(
+                static_cast<ast::ExpressionStatement*>(stmt)->expression()));
+            emit(OpCode::POP);
             break;
         case ast::NodeType::IF_STATEMENT:
             compileIfStatement(static_cast<ast::IfStatement*>(stmt));
@@ -64,53 +79,245 @@ void Compiler::compileStatement(ast::Statement* stmt) {
         case ast::NodeType::WHILE_STATEMENT:
             compileWhileStatement(static_cast<ast::WhileStatement*>(stmt));
             break;
-        case ast::NodeType::FOR_STATEMENT:
-            compileForStatement(static_cast<ast::ForStatement*>(stmt));
-            break;
-        case ast::NodeType::RETURN_STATEMENT:
-            compileReturnStatement(static_cast<ast::ReturnStatement*>(stmt));
-            break;
-        case ast::NodeType::BLOCK_STATEMENT:
-            compileBlockStatement(static_cast<ast::BlockStatement*>(stmt));
-            break;
         case ast::NodeType::REPEAT_STATEMENT:
             compileRepeatStatement(static_cast<ast::RepeatStatement*>(stmt));
             break;
         case ast::NodeType::RANGE_FOR_STATEMENT:
             compileRangeForStatement(static_cast<ast::RangeForStatement*>(stmt));
             break;
+        case ast::NodeType::RETURN_STATEMENT:
+            compileReturnStatement(static_cast<ast::ReturnStatement*>(stmt));
+            break;
+        case ast::NodeType::BLOCK_STATEMENT:
+            compileBlock(static_cast<ast::BlockStatement*>(stmt));
+            break;
         case ast::NodeType::IMPORT_STATEMENT:
             compileImportStatement(static_cast<ast::ImportStatement*>(stmt));
             break;
-        case ast::NodeType::CLASS_STATEMENT:  // Phase 7.1
+        case ast::NodeType::CLASS_STATEMENT:
             compileClassStatement(static_cast<ast::ClassStatement*>(stmt));
             break;
+        case ast::NodeType::TRY_STATEMENT:
+            compileTryStatement(static_cast<ast::TryStatement*>(stmt));
+            break;
+        case ast::NodeType::THROW_STATEMENT:
+            compileThrowStatement(static_cast<ast::ThrowStatement*>(stmt));
+            break;
         default:
-            error("Unknown statement type");
+            // 평가기도 처리하지 않는 문장 (일반 for 문 등)
+            error("지원되지 않는 문장: " + ast::nodeTypeToString(stmt->type()));
     }
 }
+
+void Compiler::compileVarDeclaration(ast::VarDeclaration* decl) {
+    if (decl->initializer()) {
+        compileExpression(const_cast<ast::Expression*>(decl->initializer()));
+    } else {
+        emit(OpCode::LOAD_NULL);
+    }
+    emitName(OpCode::DECLARE, decl->varName());
+}
+
+void Compiler::compileAssignmentStatement(ast::AssignmentStatement* stmt) {
+    // 바깥 스코프에 있으면 거기에, 없으면 현재 스코프에 (평가기의 setWithLookup)
+    compileExpression(const_cast<ast::Expression*>(stmt->value()));
+    emitName(OpCode::STORE_NAME, stmt->varName());
+    emit(OpCode::POP);
+}
+
+void Compiler::compileIfStatement(ast::IfStatement* stmt) {
+    // 상수 조건이면 한쪽만 컴파일한다
+    bool constResult;
+    if (isConstantCondition(stmt->condition(), constResult)) {
+        if (constResult) {
+            compileBlock(stmt->thenBranch());
+        } else if (stmt->elseBranch()) {
+            compileBlock(stmt->elseBranch());
+        }
+        return;
+    }
+
+    compileExpression(const_cast<ast::Expression*>(stmt->condition()));
+    size_t elseJump = emitJump(OpCode::JUMP_IF_FALSE);
+    compileBlock(stmt->thenBranch());
+
+    if (stmt->elseBranch()) {
+        size_t endJump = emitJump(OpCode::JUMP);
+        patchJump(elseJump);
+        compileBlock(stmt->elseBranch());
+        patchJump(endJump);
+    } else {
+        patchJump(elseJump);
+    }
+}
+
+void Compiler::compileWhileStatement(ast::WhileStatement* stmt) {
+    size_t loopStart = currentOffset();
+    compileExpression(const_cast<ast::Expression*>(stmt->condition()));
+    size_t exitJump = emitJump(OpCode::JUMP_IF_FALSE);
+    compileBlock(stmt->body());
+    emitLoop(loopStart);
+    patchJump(exitJump);
+}
+
+void Compiler::compileRepeatStatement(ast::RepeatStatement* stmt) {
+    // [남은 횟수] 를 스택에 두고 돈다
+    compileExpression(const_cast<ast::Expression*>(stmt->count()));
+    emit(OpCode::REPEAT_INIT);
+    size_t loopStart = currentOffset();
+    size_t exitJump = emitJump(OpCode::REPEAT_NEXT);
+    compileBlock(stmt->body());
+    emitLoop(loopStart);
+    patchJump(exitJump);
+}
+
+void Compiler::compileRangeForStatement(ast::RangeForStatement* stmt) {
+    // [끝, i] 를 스택에 두고, 매 회 반복 변수를 현재 환경에 넣는다 (평가기와 같다)
+    compileExpression(const_cast<ast::Expression*>(stmt->start()));
+    compileExpression(const_cast<ast::Expression*>(stmt->end()));
+    emit(OpCode::RANGE_FOR_INIT);
+    size_t loopStart = currentOffset();
+    emit(OpCode::RANGE_FOR_NEXT);
+    emit16(nameIndex(stmt->varName()));
+    size_t exitOperand = currentOffset();
+    emit16(0);
+    emitByte(stmt->endInclusive() ? 1 : 0);
+    compileBlock(stmt->body());
+    emitLoop(loopStart);
+    patchJump(exitOperand, 1);  // 탈출 오프셋 뒤에 끝포함 플래그 1바이트가 더 있다
+}
+
+void Compiler::compileReturnStatement(ast::ReturnStatement* stmt) {
+    if (stmt->returnValue()) {
+        compileExpression(const_cast<ast::Expression*>(stmt->returnValue()));
+    } else {
+        emit(OpCode::LOAD_NULL);
+    }
+    emit(OpCode::RETURN);
+}
+
+void Compiler::compileBlock(const ast::BlockStatement* block) {
+    // 블록은 새 스코프를 만들지 않는다 (평가기와 같다)
+    if (!block) return;
+    for (const auto& s : block->statements()) {
+        compileStatement(s.get());
+    }
+}
+
+void Compiler::compileImportStatement(ast::ImportStatement* stmt) {
+    emit(OpCode::IMPORT);
+    emit16(nameIndex(stmt->modulePath()));
+    emit16(nameIndex(stmt->location().filename));
+}
+
+void Compiler::compileClassStatement(ast::ClassStatement* stmt) {
+    // 메서드·생성자 본문을 이 청크에 컴파일해 두면 VM 이 네이티브로 부른다.
+    // 클래스 정의 자체는 평가기와 같은 규칙(makeClass)으로 런타임에 만든다.
+    for (const auto& method : stmt->methods()) {
+        std::vector<std::string> params;
+        for (const auto& p : method->parameters()) params.push_back(p.name);
+        compileFunctionBody(params, const_cast<ast::BlockStatement*>(method->body()), false,
+                            stmt->className() + "." + method->methodName());
+    }
+    if (stmt->constructor()) {
+        std::vector<std::string> params;
+        for (const auto& p : stmt->constructor()->parameters()) params.push_back(p.name);
+        compileFunctionBody(params, const_cast<ast::BlockStatement*>(stmt->constructor()->body()), false,
+                            stmt->className() + ".생성자");
+    }
+    emit(OpCode::CLASS_DEF);
+    emit16(toU16(chunk_->addNode(stmt), "AST 노드 수"));
+}
+
+void Compiler::compileTryStatement(ast::TryStatement* stmt) {
+    // 배치:
+    //   [finally 있음] TRY_PUSH none, Lfin        (F)
+    //   [catch 있음]   TRY_PUSH Lcatch, none      (C)
+    //                  <try 블록>
+    //   [catch 있음]   TRY_POP ; JUMP Lafter
+    //        Lcatch:   PUSH_SCOPE ; DECLARE 변수 ; <catch 블록> ; POP_SCOPE
+    //        Lafter:
+    //   [finally 있음] TRY_POP
+    //        Lfin:     <finally 블록> ; END_FINALLY
+    // 예외가 catch 로 가면 VM 이 에러 문자열을 스택에 올려 두고 Lcatch 로 점프한다.
+    // finally 만 있는 핸들러로 가면 예외를 보류한 채 Lfin 을 돌리고 END_FINALLY 가 다시 던진다.
+    bool hasCatch = !stmt->catchClauses().empty();
+    bool hasFinally = stmt->finallyBlock() != nullptr;
+
+    size_t finallyOperand = 0;
+    if (hasFinally) {
+        emit(OpCode::TRY_PUSH);
+        emit16(NO_OFFSET);
+        finallyOperand = currentOffset();
+        emit16(0);
+    }
+
+    size_t catchOperand = 0;
+    if (hasCatch) {
+        emit(OpCode::TRY_PUSH);
+        catchOperand = currentOffset();
+        emit16(0);
+        emit16(NO_OFFSET);
+    }
+
+    compileBlock(stmt->tryBlock());
+
+    if (hasCatch) {
+        emit(OpCode::TRY_POP);
+        size_t afterJump = emitJump(OpCode::JUMP);
+
+        patchJump(catchOperand, 2);  // catch 오프셋 뒤에 finally 오프셋 2바이트가 더 있다
+        const auto& clause = stmt->catchClauses()[0];  // 현재는 단일 catch 만 (평가기와 같다)
+        emit(OpCode::PUSH_SCOPE);
+        emitName(OpCode::DECLARE, clause->errorVarName());
+        compileBlock(clause->body());
+        emit(OpCode::POP_SCOPE);
+
+        patchJump(afterJump);
+    }
+
+    if (hasFinally) {
+        emit(OpCode::TRY_POP);
+        patchJump(finallyOperand);
+        compileBlock(stmt->finallyBlock());
+        emit(OpCode::END_FINALLY);
+    }
+}
+
+void Compiler::compileThrowStatement(ast::ThrowStatement* stmt) {
+    compileExpression(const_cast<ast::Expression*>(stmt->value()));
+    emit(OpCode::THROW);
+}
+
+// ============================================================================
+// 표현식
+// ============================================================================
 
 void Compiler::compileExpression(ast::Expression* expr) {
     if (!expr) {
         emit(OpCode::LOAD_NULL);
         return;
     }
+    setLine(expr);
 
     switch (expr->type()) {
         case ast::NodeType::INTEGER_LITERAL:
-            compileIntegerLiteral(static_cast<ast::IntegerLiteral*>(expr));
+            emitConstant(evaluator::Value::createInteger(static_cast<ast::IntegerLiteral*>(expr)->value()));
             break;
         case ast::NodeType::FLOAT_LITERAL:
-            compileFloatLiteral(static_cast<ast::FloatLiteral*>(expr));
+            emitConstant(evaluator::Value::createFloat(static_cast<ast::FloatLiteral*>(expr)->value()));
             break;
         case ast::NodeType::STRING_LITERAL:
-            compileStringLiteral(static_cast<ast::StringLiteral*>(expr));
+            emitConstant(evaluator::Value::createString(static_cast<ast::StringLiteral*>(expr)->value()));
+            break;
+        case ast::NodeType::INTERPOLATED_STRING:
+            compileInterpolatedString(static_cast<ast::InterpolatedString*>(expr));
             break;
         case ast::NodeType::BOOLEAN_LITERAL:
-            compileBooleanLiteral(static_cast<ast::BooleanLiteral*>(expr));
+            emit(static_cast<ast::BooleanLiteral*>(expr)->value() ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE);
             break;
         case ast::NodeType::IDENTIFIER:
-            compileIdentifier(static_cast<ast::Identifier*>(expr));
+            emitName(OpCode::LOAD_NAME, static_cast<ast::Identifier*>(expr)->name());
             break;
         case ast::NodeType::BINARY_EXPRESSION:
             compileBinaryExpression(static_cast<ast::BinaryExpression*>(expr));
@@ -121,409 +328,107 @@ void Compiler::compileExpression(ast::Expression* expr) {
         case ast::NodeType::CALL_EXPRESSION:
             compileCallExpression(static_cast<ast::CallExpression*>(expr));
             break;
-        case ast::NodeType::ARRAY_LITERAL:
-            compileArrayLiteral(static_cast<ast::ArrayLiteral*>(expr));
+        case ast::NodeType::ARRAY_LITERAL: {
+            auto* lit = static_cast<ast::ArrayLiteral*>(expr);
+            for (auto& elem : lit->elements()) {
+                compileExpression(const_cast<ast::Expression*>(elem.get()));
+            }
+            emit(OpCode::BUILD_ARRAY);
+            emit16(toU16(lit->elements().size(), "배열 리터럴 요소 수"));
             break;
+        }
+        case ast::NodeType::DICTIONARY_LITERAL: {
+            auto* lit = static_cast<ast::DictionaryLiteral*>(expr);
+            for (const auto& [key, value] : lit->pairs()) {
+                compileExpression(const_cast<ast::Expression*>(key.get()));
+                compileExpression(const_cast<ast::Expression*>(value.get()));
+            }
+            emit(OpCode::BUILD_DICT);
+            emit16(toU16(lit->pairs().size(), "사전 리터럴 쌍 수"));
+            break;
+        }
         case ast::NodeType::INDEX_EXPRESSION:
             compileIndexExpression(static_cast<ast::IndexExpression*>(expr));
             break;
-        case ast::NodeType::FUNCTION_LITERAL:
-            compileFunctionLiteral(static_cast<ast::FunctionLiteral*>(expr));
+        case ast::NodeType::FUNCTION_LITERAL: {
+            auto* lit = static_cast<ast::FunctionLiteral*>(expr);
+            size_t proto = compileFunctionBody(lit->parameters(), lit->body(), false, "함수");
+            emit(OpCode::MAKE_FUNCTION);
+            emit16(toU16(proto, "함수 수"));
             break;
+        }
+        case ast::NodeType::ASYNC_FUNCTION_LITERAL: {
+            auto* lit = static_cast<ast::AsyncFunctionLiteral*>(expr);
+            size_t proto = compileFunctionBody(lit->parameters(), lit->body(), true, "비동기 함수");
+            emit(OpCode::MAKE_FUNCTION);
+            emit16(toU16(proto, "함수 수"));
+            break;
+        }
         case ast::NodeType::JOSA_EXPRESSION:
             compileJosaExpression(static_cast<ast::JosaExpression*>(expr));
             break;
-        case ast::NodeType::RANGE_EXPRESSION:
-            compileRangeExpression(static_cast<ast::RangeExpression*>(expr));
+        case ast::NodeType::MEMBER_ACCESS_EXPRESSION: {
+            auto* access = static_cast<ast::MemberAccessExpression*>(expr);
+            compileExpression(const_cast<ast::Expression*>(access->object()));
+            emitName(OpCode::LOAD_FIELD, access->memberName());
             break;
-        case ast::NodeType::NEW_EXPRESSION:  // Phase 7.1
-            compileNewExpression(static_cast<ast::NewExpression*>(expr));
+        }
+        case ast::NodeType::THIS_EXPRESSION:
+            emitName(OpCode::LOAD_NAME, "자신");
             break;
-        case ast::NodeType::MEMBER_ACCESS_EXPRESSION:  // Phase 7.1
-            compileMemberAccessExpression(static_cast<ast::MemberAccessExpression*>(expr));
+        case ast::NodeType::NEW_EXPRESSION: {
+            auto* newExpr = static_cast<ast::NewExpression*>(expr);
+            emitName(OpCode::LOAD_NAME, newExpr->className());
+            compileArguments(newExpr->arguments());
+            emit(OpCode::CALL);
+            emitByte(static_cast<uint8_t>(newExpr->arguments().size()));
             break;
-        case ast::NodeType::THIS_EXPRESSION:  // Phase 7.1
-            compileThisExpression(static_cast<ast::ThisExpression*>(expr));
+        }
+        case ast::NodeType::AWAIT_EXPRESSION:
+            compileExpression(const_cast<ast::Expression*>(static_cast<ast::AwaitExpression*>(expr)->argument()));
+            emit(OpCode::AWAIT);
             break;
-        case ast::NodeType::ASYNC_FUNCTION_LITERAL:  // Phase 7.3
-            compileAsyncFunctionLiteral(static_cast<ast::AsyncFunctionLiteral*>(expr));
-            break;
-        case ast::NodeType::AWAIT_EXPRESSION:  // Phase 7.3
-            compileAwaitExpression(static_cast<ast::AwaitExpression*>(expr));
+        case ast::NodeType::MATCH_EXPRESSION:
+            // 패턴 매칭은 평가기의 규칙을 그대로 쓴다 (현재 환경에서 노드를 평가)
+            emit(OpCode::EVAL_NODE);
+            emit16(toU16(chunk_->addNode(expr), "AST 노드 수"));
             break;
         default:
-            error("Unknown expression type");
+            // 평가기도 값으로 평가하지 않는 표현식 (단독 범위 표현식 등)
+            error("지원되지 않는 표현식: " + ast::nodeTypeToString(expr->type()));
             emit(OpCode::LOAD_NULL);
     }
 }
 
-// ============================================================================
-// 문장 컴파일
-// ============================================================================
-
-void Compiler::compileVarDeclaration(ast::VarDeclaration* decl) {
-    if (decl->initializer()) {
-        compileExpression(const_cast<ast::Expression*>(decl->initializer()));
-    } else {
-        emit(OpCode::LOAD_NULL);
-    }
-
-    if (scopeDepth_ == 0) {
-        // 전역 변수
-        size_t nameIdx = chunk_->addName(decl->varName());
-        emit(OpCode::STORE_GLOBAL, static_cast<uint8_t>(nameIdx));
-    } else {
-        // 로컬 변수
-        addLocal(decl->varName());
-    }
-}
-
-void Compiler::compileAssignmentStatement(ast::AssignmentStatement* stmt) {
-    // 값을 컴파일 (스택에 푸시)
-    compileExpression(const_cast<ast::Expression*>(stmt->value()));
-
-    // 변수에 저장 (타입 추론: 없으면 생성, 있으면 갱신)
-    if (scopeDepth_ == 0) {
-        // 전역 변수
-        size_t nameIdx = chunk_->addName(stmt->varName());
-        emit(OpCode::STORE_GLOBAL, static_cast<uint8_t>(nameIdx));
-    } else {
-        // 로컬 변수: 기존 변수 찾기
-        int local = resolveLocal(stmt->varName());
-        if (local == -1) {
-            // 새 로컬 변수 생성 (타입 추론)
-            addLocal(stmt->varName());
+void Compiler::compileInterpolatedString(ast::InterpolatedString* interp) {
+    const auto& parts = interp->parts();
+    const auto& expressions = interp->expressions();
+    size_t count = 0;
+    for (size_t i = 0; i < parts.size(); ++i) {
+        emitConstant(evaluator::Value::createString(parts[i]));
+        ++count;
+        if (i < expressions.size()) {
+            compileExpression(const_cast<ast::Expression*>(expressions[i].get()));
+            ++count;
         }
-        // 로컬 변수는 자동으로 스택에서 관리됨
     }
-}
-
-void Compiler::compileExpressionStatement(ast::ExpressionStatement* stmt) {
-    compileExpression(const_cast<ast::Expression*>(stmt->expression()));
-    emit(OpCode::POP);  // 표현식 결과 제거
-}
-
-void Compiler::compileIfStatement(ast::IfStatement* stmt) {
-    // 최적화: 상수 조건 검사 (데드 코드 제거)
-    bool constResult;
-    if (isConstantCondition(const_cast<ast::Expression*>(stmt->condition()), constResult)) {
-        if (constResult) {
-            // 조건이 항상 참 - then 블록만 컴파일
-            compileStatement(const_cast<ast::BlockStatement*>(static_cast<const ast::BlockStatement*>(stmt->thenBranch())));
-        } else {
-            // 조건이 항상 거짓 - else 블록만 컴파일
-            if (stmt->elseBranch()) {
-                compileStatement(const_cast<ast::BlockStatement*>(static_cast<const ast::BlockStatement*>(stmt->elseBranch())));
-            }
-        }
-        return;
-    }
-
-    // 조건 평가
-    compileExpression(const_cast<ast::Expression*>(stmt->condition()));
-
-    // 거짓이면 else로 점프
-    size_t thenJump = emitJump(OpCode::JUMP_IF_FALSE);
-
-    // then 블록
-    emit(OpCode::POP);  // 조건 값 제거
-    compileStatement(const_cast<ast::BlockStatement*>(static_cast<const ast::BlockStatement*>(stmt->thenBranch())));
-
-    // else 블록 건너뛰기
-    size_t elseJump = emitJump(OpCode::JUMP);
-
-    // else 블록
-    patchJump(thenJump);
-    emit(OpCode::POP);  // 조건 값 제거
-
-    if (stmt->elseBranch()) {
-        compileStatement(const_cast<ast::BlockStatement*>(static_cast<const ast::BlockStatement*>(stmt->elseBranch())));
-    }
-
-    patchJump(elseJump);
-}
-
-void Compiler::compileWhileStatement(ast::WhileStatement* stmt) {
-    size_t loopStart = currentOffset();
-    loopStarts_.push_back(loopStart);
-    breakJumps_.push_back({});
-
-    // 조건 평가
-    compileExpression(const_cast<ast::Expression*>(stmt->condition()));
-
-    // 거짓이면 루프 종료
-    size_t exitJump = emitJump(OpCode::JUMP_IF_FALSE);
-    emit(OpCode::POP);  // 조건 값 제거
-
-    // 루프 본문
-    compileStatement(const_cast<ast::BlockStatement*>(static_cast<const ast::BlockStatement*>(stmt->body())));
-
-    // 루프 시작으로 점프
-    emitLoop(loopStart);
-
-    // 루프 종료
-    patchJump(exitJump);
-    emit(OpCode::POP);  // 조건 값 제거
-
-    // break 점프 패칭
-    for (size_t offset : breakJumps_.back()) {
-        patchJump(offset);
-    }
-
-    loopStarts_.pop_back();
-    breakJumps_.pop_back();
-}
-
-void Compiler::compileForStatement([[maybe_unused]] ast::ForStatement* stmt) {
-    // TODO: 일반 for 문 구현
-    error("For statement not yet implemented");
-}
-
-void Compiler::compileReturnStatement(ast::ReturnStatement* stmt) {
-    if (stmt->returnValue()) {
-        // Tail Call Optimization: return 문의 값이 함수 호출이면 TAIL_CALL 사용
-        auto* returnExpr = const_cast<ast::Expression*>(stmt->returnValue());
-        if (returnExpr->type() == ast::NodeType::CALL_EXPRESSION) {
-            auto* callExpr = static_cast<ast::CallExpression*>(returnExpr);
-
-            // 일반 함수 호출
-            compileExpression(const_cast<ast::Expression*>(callExpr->function()));
-
-            // 인자들
-            for (auto& arg : callExpr->arguments()) {
-                compileExpression(const_cast<ast::Expression*>(arg.get()));
-            }
-
-            // Tail call
-            emit(OpCode::TAIL_CALL, static_cast<uint8_t>(callExpr->arguments().size()));
-            return;  // RETURN 명령어 생략 (TAIL_CALL이 직접 반환)
-        }
-
-        compileExpression(returnExpr);
-    } else {
-        emit(OpCode::LOAD_NULL);
-    }
-    emit(OpCode::RETURN);
-}
-
-void Compiler::compileBlockStatement(ast::BlockStatement* stmt) {
-    beginScope();
-
-    for (auto& s : stmt->statements()) {
-        compileStatement(s.get());
-    }
-
-    endScope();
-}
-
-void Compiler::compileRepeatStatement(ast::RepeatStatement* stmt) {
-    // 반복 횟수 평가
-    compileExpression(const_cast<ast::Expression*>(stmt->count()));
-
-    size_t loopStart = currentOffset();
-    loopStarts_.push_back(loopStart);
-    breakJumps_.push_back({});
-
-    // 카운터 복제
-    emit(OpCode::DUP);
-
-    // 0과 비교
-    size_t constIdx = chunk_->addConstant(evaluator::Value::createInteger(0));
-    emit(OpCode::LOAD_CONST, static_cast<uint8_t>(constIdx));
-    emit(OpCode::LE);  // counter <= 0
-
-    // 0 이하면 루프 종료
-    size_t exitJump = emitJump(OpCode::JUMP_IF_TRUE);
-    emit(OpCode::POP);
-
-    // 루프 본문
-    compileStatement(const_cast<ast::BlockStatement*>(static_cast<const ast::BlockStatement*>(stmt->body())));
-
-    // 카운터 감소
-    constIdx = chunk_->addConstant(evaluator::Value::createInteger(1));
-    emit(OpCode::LOAD_CONST, static_cast<uint8_t>(constIdx));
-    emit(OpCode::SUB);
-
-    // 루프 시작으로
-    emitLoop(loopStart);
-
-    // 루프 종료
-    patchJump(exitJump);
-    emit(OpCode::POP);  // 카운터 제거
-    emit(OpCode::POP);  // 조건 값 제거
-
-    loopStarts_.pop_back();
-    breakJumps_.pop_back();
-}
-
-void Compiler::compileRangeForStatement(ast::RangeForStatement* stmt) {
-    beginScope();
-
-    // 시작 값 평가 및 전역 변수에 저장
-    compileExpression(const_cast<ast::Expression*>(stmt->start()));
-    size_t varIdx = chunk_->addName(stmt->varName());
-    emit(OpCode::STORE_GLOBAL, static_cast<uint8_t>(varIdx));
-
-    // 끝 값 평가 및 임시 전역 변수에 저장 (__end_value)
-    compileExpression(const_cast<ast::Expression*>(stmt->end()));
-    std::string endVarName = "__end_" + stmt->varName();
-    size_t endVarIdx = chunk_->addName(endVarName);
-    emit(OpCode::STORE_GLOBAL, static_cast<uint8_t>(endVarIdx));
-
-    // 루프 시작
-    size_t loopStart = currentOffset();
-    loopStarts_.push_back(loopStart);
-    breakJumps_.push_back({});
-
-    // 반복 변수 로드
-    emit(OpCode::LOAD_GLOBAL, static_cast<uint8_t>(varIdx));
-
-    // 끝 값 로드
-    emit(OpCode::LOAD_GLOBAL, static_cast<uint8_t>(endVarIdx));
-
-    // 비교 (endInclusive에 따라 <= 또는 <)
-    if (stmt->endInclusive()) {
-        emit(OpCode::LE);  // i <= end
-    } else {
-        emit(OpCode::LT);  // i < end
-    }
-
-    // 조건이 false면 루프 종료
-    emit(OpCode::NOT);  // 조건 반전 (i > end 또는 i >= end)
-    size_t exitJump = emitJump(OpCode::JUMP_IF_TRUE);
-    emit(OpCode::POP);  // 조건 값 제거
-
-    // 루프 본문 실행
-    compileStatement(const_cast<ast::BlockStatement*>(stmt->body()));
-
-    // 반복 변수 증가
-    emit(OpCode::LOAD_GLOBAL, static_cast<uint8_t>(varIdx));
-    size_t constIdx = chunk_->addConstant(evaluator::Value::createInteger(1));
-    emit(OpCode::LOAD_CONST, static_cast<uint8_t>(constIdx));
-    emit(OpCode::ADD);
-    emit(OpCode::STORE_GLOBAL, static_cast<uint8_t>(varIdx));
-
-    // 루프 시작으로 점프
-    emitLoop(loopStart);
-
-    // 루프 종료
-    patchJump(exitJump);
-    emit(OpCode::POP);  // 조건 값 제거
-
-    // Break 점프 패치
-    for (size_t jump : breakJumps_.back()) {
-        patchJump(jump);
-    }
-
-    loopStarts_.pop_back();
-    breakJumps_.pop_back();
-
-    endScope();
-}
-
-void Compiler::compileImportStatement(ast::ImportStatement* stmt) {
-    size_t nameIdx = chunk_->addName(stmt->modulePath());
-    emit(OpCode::IMPORT, static_cast<uint8_t>(nameIdx));
-}
-
-// ============================================================================
-// 표현식 컴파일
-// ============================================================================
-
-void Compiler::compileIntegerLiteral(ast::IntegerLiteral* lit) {
-    size_t idx = chunk_->addConstant(evaluator::Value::createInteger(lit->value()));
-    emit(OpCode::LOAD_CONST, static_cast<uint8_t>(idx));
-}
-
-void Compiler::compileFloatLiteral(ast::FloatLiteral* lit) {
-    size_t idx = chunk_->addConstant(evaluator::Value::createFloat(lit->value()));
-    emit(OpCode::LOAD_CONST, static_cast<uint8_t>(idx));
-}
-
-void Compiler::compileStringLiteral(ast::StringLiteral* lit) {
-    size_t idx = chunk_->addConstant(evaluator::Value::createString(lit->value()));
-    emit(OpCode::LOAD_CONST, static_cast<uint8_t>(idx));
-}
-
-void Compiler::compileBooleanLiteral(ast::BooleanLiteral* lit) {
-    emit(lit->value() ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE);
-}
-
-void Compiler::compileIdentifier(ast::Identifier* ident) {
-    int local = resolveLocal(ident->name());
-
-    if (local != -1) {
-        // 로컬 변수
-        emit(OpCode::LOAD_VAR, static_cast<uint8_t>(local));
-    } else {
-        // 전역 변수
-        size_t nameIdx = chunk_->addName(ident->name());
-        emit(OpCode::LOAD_GLOBAL, static_cast<uint8_t>(nameIdx));
-    }
+    emit(OpCode::BUILD_STRING);
+    emit16(toU16(count, "보간 조각 수"));
 }
 
 void Compiler::compileBinaryExpression(ast::BinaryExpression* expr) {
-    // Phase 7.1: 할당 연산자 특별 처리
     if (expr->op() == "=") {
-        // 좌변이 MemberAccessExpression이면 필드 할당
-        if (auto* memberAccess = dynamic_cast<ast::MemberAccessExpression*>(const_cast<ast::Expression*>(expr->left()))) {
-            // 객체 표현식 컴파일 (스택에 객체 푸시)
-            compileExpression(const_cast<ast::Expression*>(memberAccess->object()));
-
-            // 우변 컴파일 (스택에 값 푸시)
-            compileExpression(const_cast<ast::Expression*>(expr->right()));
-
-            // 필드 이름을 상수 풀에 추가
-            size_t fieldNameIdx = chunk_->addConstant(evaluator::Value::createString(memberAccess->memberName()));
-
-            // STORE_FIELD [field_name_index]
-            emit(OpCode::STORE_FIELD, static_cast<uint8_t>(fieldNameIdx));
-
-            // 할당 표현식은 할당된 값을 반환 (스택에 다시 푸시)
-            compileExpression(const_cast<ast::Expression*>(expr->right()));
-            return;
-        }
-        // 좌변이 Identifier이면 변수 할당
-        else if (auto* ident = dynamic_cast<ast::Identifier*>(const_cast<ast::Expression*>(expr->left()))) {
-            // 우변 컴파일 (스택에 값 푸시)
-            compileExpression(const_cast<ast::Expression*>(expr->right()));
-
-            // 변수에 저장
-            if (scopeDepth_ == 0) {
-                // 전역 변수
-                size_t nameIdx = chunk_->addName(ident->name());
-                emit(OpCode::STORE_GLOBAL, static_cast<uint8_t>(nameIdx));
-            } else {
-                // 로컬 변수: 기존 변수 찾기
-                int local = resolveLocal(ident->name());
-                if (local == -1) {
-                    // 새 로컬 변수 생성 (타입 추론)
-                    addLocal(ident->name());
-                }
-                // 로컬 변수는 자동으로 스택에서 관리됨
-            }
-
-            // 할당 표현식은 할당된 값을 반환 (이미 스택에 있음)
-            return;
-        }
-        else {
-            error("Invalid left-hand side of assignment");
-            return;
-        }
+        compileAssignmentExpression(expr);
+        return;
     }
 
-    // 최적화: 상수 폴딩
     if (tryConstantFoldBinary(expr)) {
         return;
     }
 
-    // 왼쪽 피연산자
     compileExpression(const_cast<ast::Expression*>(expr->left()));
-
-    // 오른쪽 피연산자
     compileExpression(const_cast<ast::Expression*>(expr->right()));
 
-    // 연산자
     const std::string& op = expr->op();
     if (op == "+")          emit(OpCode::ADD);
     else if (op == "-")     emit(OpCode::SUB);
@@ -538,567 +443,318 @@ void Compiler::compileBinaryExpression(ast::BinaryExpression* expr) {
     else if (op == ">=")    emit(OpCode::GE);
     else if (op == "&&" || op == "그리고") emit(OpCode::AND);
     else if (op == "||" || op == "또는")   emit(OpCode::OR);
-    else error("Unknown binary operator: " + op);
+    else error("지원되지 않는 이항 연산자: " + op);
+}
+
+void Compiler::compileAssignmentExpression(ast::BinaryExpression* expr) {
+    // 평가기는 우변을 먼저 평가한다
+    compileExpression(const_cast<ast::Expression*>(expr->right()));
+
+    const ast::Expression* left = expr->left();
+    switch (left->type()) {
+        case ast::NodeType::MEMBER_ACCESS_EXPRESSION: {
+            auto* access = static_cast<const ast::MemberAccessExpression*>(left);
+            compileExpression(const_cast<ast::Expression*>(access->object()));
+            emitName(OpCode::STORE_FIELD, access->memberName());
+            break;
+        }
+        case ast::NodeType::IDENTIFIER:
+            // 할당 표현식은 현재 스코프에 정의한다 (평가기의 env->set)
+            emit(OpCode::DUP);
+            emitName(OpCode::DECLARE, static_cast<const ast::Identifier*>(left)->name());
+            break;
+        case ast::NodeType::INDEX_EXPRESSION: {
+            auto* index = static_cast<const ast::IndexExpression*>(left);
+            compileExpression(const_cast<ast::Expression*>(index->array()));
+            compileExpression(const_cast<ast::Expression*>(index->index()));
+            emit(OpCode::INDEX_SET);
+            break;
+        }
+        default:
+            error("할당의 좌변이 올바르지 않습니다 (변수, 필드, 배열[인덱스], 사전[키] 만 가능합니다)");
+    }
 }
 
 void Compiler::compileUnaryExpression(ast::UnaryExpression* expr) {
-    // 최적화: 상수 폴딩
     if (tryConstantFoldUnary(expr)) {
         return;
     }
-
-    // 피연산자
     compileExpression(const_cast<ast::Expression*>(expr->operand()));
-
-    // 연산자
     const std::string& op = expr->op();
-    if (op == "-" || op == "음수") emit(OpCode::NEG);
-    else if (op == "!" || op == "아님") emit(OpCode::NOT);
-    else error("Unknown unary operator: " + op);
+    if (op == "-")      emit(OpCode::NEG);
+    else if (op == "!") emit(OpCode::NOT);
+    else error("지원되지 않는 단항 연산자: " + op);
+}
+
+void Compiler::compileArguments(const std::vector<std::unique_ptr<ast::Expression>>& args) {
+    if (args.size() > 255) {
+        error("인자가 255개를 넘습니다");
+        return;
+    }
+    for (auto& arg : args) {
+        compileExpression(const_cast<ast::Expression*>(arg.get()));
+    }
 }
 
 void Compiler::compileCallExpression(ast::CallExpression* expr) {
-    // Phase 7.1: CallExpression이 실제로는 클래스 인스턴스화인지 확인
-    // 함수 표현식이 Identifier이고, 그 이름이 클래스 이름이면 NEW_INSTANCE 사용
-    if (auto* ident = dynamic_cast<ast::Identifier*>(const_cast<ast::Expression*>(expr->function()))) {
-        if (classNames_.count(ident->name()) > 0) {
-            // 클래스 인스턴스화
-            size_t classNameIdx = chunk_->addConstant(evaluator::Value::createString(ident->name()));
-
-            // 생성자 인자들
-            for (auto& arg : expr->arguments()) {
-                compileExpression(const_cast<ast::Expression*>(arg.get()));
-            }
-
-            // NEW_INSTANCE [class_name_index] [arg_count]
-            emit(OpCode::NEW_INSTANCE, static_cast<uint8_t>(classNameIdx),
-                 static_cast<uint8_t>(expr->arguments().size()));
-            return;
-        }
-    }
-
-    // 일반 함수 호출
-    compileExpression(const_cast<ast::Expression*>(expr->function()));
-
-    // 인자들
-    for (auto& arg : expr->arguments()) {
-        compileExpression(const_cast<ast::Expression*>(arg.get()));
-    }
-
-    // 호출
-    emit(OpCode::CALL, static_cast<uint8_t>(expr->arguments().size()));
-}
-
-void Compiler::compileArrayLiteral(ast::ArrayLiteral* lit) {
-    // 요소들
-    for (auto& elem : lit->elements()) {
-        compileExpression(const_cast<ast::Expression*>(elem.get()));
-    }
-
-    // 배열 생성
-    emit(OpCode::BUILD_ARRAY, static_cast<uint8_t>(lit->elements().size()));
-}
-
-void Compiler::compileIndexExpression(ast::IndexExpression* expr) {
-    // 배열
-    compileExpression(const_cast<ast::Expression*>(expr->array()));
-
-    // 인덱스
-    compileExpression(const_cast<ast::Expression*>(expr->index()));
-
-    // 인덱스 접근
-    emit(OpCode::INDEX_GET);
-}
-
-void Compiler::compileFunctionLiteral(ast::FunctionLiteral* lit) {
-    // 함수를 별도의 청크로 컴파일
-    // 간단화를 위해 현재 청크에 인라인으로 컴파일
-
-    // 함수 본체 시작 위치로 점프
-    size_t jumpOver = emitJump(OpCode::JUMP);
-
-    // 함수 본체 시작
-    size_t functionStart = currentOffset();
-
-    // 새 스코프 시작
-    beginScope();
-
-    // 파라미터를 로컬 변수로 추가
-    for (const auto& param : lit->parameters()) {
-        addLocal(param);
-    }
-
-    // 함수 본체 컴파일
-    compileBlockStatement(static_cast<ast::BlockStatement*>(lit->body()));
-
-    // 암시적 return null
-    emit(OpCode::LOAD_NULL);
-    emit(OpCode::RETURN);
-
-    // 스코프 종료
-    endScope();
-
-    // 점프 패치
-    patchJump(jumpOver);
-
-    // 함수 객체 생성
-    emit(OpCode::BUILD_FUNCTION,
-         static_cast<uint8_t>(lit->parameters().size()),
-         static_cast<uint8_t>((functionStart >> 8) & 0xFF));
-    chunk_->write(static_cast<uint8_t>(functionStart & 0xFF), currentLine());
-}
-
-void Compiler::compileJosaExpression(ast::JosaExpression* expr) {
-    // 객체
-    compileExpression(const_cast<ast::Expression*>(expr->object()));
-
-    // 메서드 이름
-    const ast::Identifier* methodIdent = static_cast<const ast::Identifier*>(expr->method());
-    size_t methodIdx = chunk_->addName(methodIdent->name());
-
-    // 조사 타입 (간단화를 위해 0으로)
-    emit(OpCode::JOSA_CALL, 0, static_cast<uint8_t>(methodIdx));
-}
-
-void Compiler::compileRangeExpression(ast::RangeExpression* expr) {
-    // 시작값
-    compileExpression(const_cast<ast::Expression*>(expr->start()));
-
-    // 끝값
-    compileExpression(const_cast<ast::Expression*>(expr->end()));
-
-    // 범위 생성 (포함 플래그)
-    uint8_t flags = 0;
-    if (expr->startInclusive()) flags |= 0x01;
-    if (expr->endInclusive()) flags |= 0x02;
-
-    emit(OpCode::BUILD_RANGE, flags, 0);
-}
-
-// ============================================================================
-// 스코프 관리
-// ============================================================================
-
-void Compiler::beginScope() {
-    scopeDepth_++;
-}
-
-void Compiler::endScope() {
-    scopeDepth_--;
-
-    // 로컬 변수 제거
-    while (!locals_.empty() && locals_.back().depth > scopeDepth_) {
-        emit(OpCode::POP);
-        locals_.pop_back();
-    }
-}
-
-void Compiler::addLocal(const std::string& name) {
-    if (locals_.size() >= 256) {
-        error("Too many local variables in function");
+    // 메서드 호출: 객체.이름(인자) — 클래스 인스턴스 또는 Promise
+    if (expr->function()->type() == ast::NodeType::MEMBER_ACCESS_EXPRESSION) {
+        auto* access = static_cast<const ast::MemberAccessExpression*>(expr->function());
+        compileExpression(const_cast<ast::Expression*>(access->object()));
+        compileArguments(expr->arguments());
+        emit(OpCode::CALL_METHOD);
+        emit16(nameIndex(access->memberName()));
+        emitByte(static_cast<uint8_t>(expr->arguments().size()));
         return;
     }
 
-    locals_.push_back({name, scopeDepth_, false});
+    compileExpression(const_cast<ast::Expression*>(expr->function()));
+    compileArguments(expr->arguments());
+    emit(OpCode::CALL);
+    emitByte(static_cast<uint8_t>(expr->arguments().size()));
 }
 
-int Compiler::resolveLocal(const std::string& name) {
-    for (int i = static_cast<int>(locals_.size()) - 1; i >= 0; i--) {
-        if (locals_[i].name == name) {
-            return i;
+void Compiler::compileIndexExpression(ast::IndexExpression* expr) {
+    compileExpression(const_cast<ast::Expression*>(expr->array()));
+
+    if (expr->index()->type() == ast::NodeType::RANGE_EXPRESSION) {
+        auto* range = static_cast<const ast::RangeExpression*>(expr->index());
+        compileExpression(const_cast<ast::Expression*>(range->start()));
+        compileExpression(const_cast<ast::Expression*>(range->end()));
+        uint8_t flags = 0;
+        if (range->startInclusive()) flags |= 0x01;
+        if (range->endInclusive()) flags |= 0x02;
+        if (range->hasStep()) {
+            compileExpression(const_cast<ast::Expression*>(range->step()));
+            flags |= 0x04;
+        }
+        emit(OpCode::SLICE);
+        emitByte(flags);
+        return;
+    }
+
+    compileExpression(const_cast<ast::Expression*>(expr->index()));
+    emit(OpCode::INDEX_GET);
+}
+
+void Compiler::compileJosaExpression(ast::JosaExpression* expr) {
+    using JosaType = lexer::JosaRecognizer::JosaType;
+    compileExpression(const_cast<ast::Expression*>(expr->object()));
+
+    const ast::Expression* method = expr->method();
+    uint8_t josa = static_cast<uint8_t>(expr->josaType());
+
+    // 변환 관용구: "값을 <이름>으로 변환한다"
+    if (method->type() == ast::NodeType::JOSA_EXPRESSION) {
+        auto* inner = static_cast<const ast::JosaExpression*>(method);
+        if (inner->josaType() == JosaType::RO_EURO &&
+            inner->method()->type() == ast::NodeType::IDENTIFIER &&
+            inner->object()->type() == ast::NodeType::IDENTIFIER) {
+            const std::string& verb = static_cast<const ast::Identifier*>(inner->method())->name();
+            if (verb == "변환한다" || verb == "바꾼다") {
+                emit(OpCode::CONVERT);
+                emit16(nameIndex(static_cast<const ast::Identifier*>(inner->object())->name()));
+                return;
+            }
         }
     }
-    return -1;
-}
 
-// ============================================================================
-// 점프 관련
-// ============================================================================
-
-size_t Compiler::emitJump(OpCode op) {
-    emit(op, 0xFF);  // 플레이스홀더
-    return currentOffset() - 1;
-}
-
-void Compiler::patchJump(size_t offset) {
-    size_t jump = currentOffset() - offset - 1;
-
-    if (jump > 0xFF) {
-        error("Too much code to jump over");
+    std::string name;
+    uint8_t argc = 0;
+    uint8_t isCall = 0;
+    if (method->type() == ast::NodeType::CALL_EXPRESSION) {
+        auto* call = static_cast<const ast::CallExpression*>(method);
+        isCall = 1;
+        if (call->function()->type() == ast::NodeType::IDENTIFIER) {
+            name = static_cast<const ast::Identifier*>(call->function())->name();
+            compileArguments(call->arguments());
+            argc = static_cast<uint8_t>(call->arguments().size());
+        }
+    } else if (method->type() == ast::NodeType::IDENTIFIER) {
+        name = static_cast<const ast::Identifier*>(method)->name();
     }
 
-    chunk_->patch(offset, static_cast<uint8_t>(jump));
+    emit(OpCode::JOSA);
+    emit16(nameIndex(name));
+    emitByte(josa);
+    emitByte(argc);
+    emitByte(isCall);
 }
 
-void Compiler::emitLoop(size_t loopStart) {
-    size_t offset = currentOffset() - loopStart + 2;
+size_t Compiler::compileFunctionBody(const std::vector<std::string>& params, ast::Statement* body,
+                                     bool isAsync, const std::string& name) {
+    // 본문을 건너뛰는 점프
+    size_t skip = emitJump(OpCode::JUMP);
+    size_t entry = currentOffset();
 
-    if (offset > 0xFF) {
-        error("Loop body too large");
+    if (body && body->type() == ast::NodeType::BLOCK_STATEMENT) {
+        compileBlock(static_cast<const ast::BlockStatement*>(body));
+    } else if (body) {
+        compileStatement(body);
     }
+    // 암시적 반환
+    emit(OpCode::LOAD_NULL);
+    emit(OpCode::RETURN);
 
-    emit(OpCode::LOOP, static_cast<uint8_t>(offset));
+    patchJump(skip);
+
+    FunctionProto proto;
+    proto.parameters = params;
+    proto.body = body;
+    proto.entry = entry;
+    proto.isAsync = isAsync;
+    proto.name = name;
+    chunk_->registerEntry(body, entry);
+    return chunk_->addProto(std::move(proto));
 }
 
 // ============================================================================
-// 헬퍼
-// ============================================================================
-
-void Compiler::emit(OpCode op) {
-    chunk_->writeOpCode(op, currentLine());
-}
-
-void Compiler::emit(OpCode op, uint8_t operand) {
-    chunk_->writeOpCode(op, currentLine());
-    chunk_->write(operand, currentLine());
-}
-
-void Compiler::emit(OpCode op, uint8_t operand1, uint8_t operand2) {
-    chunk_->writeOpCode(op, currentLine());
-    chunk_->write(operand1, currentLine());
-    chunk_->write(operand2, currentLine());
-}
-
-size_t Compiler::currentOffset() const {
-    return chunk_->size();
-}
-
-void Compiler::error(const std::string& message) {
-    std::cerr << "[컴파일 오류] " << message << std::endl;
-    hadError_ = true;
-}
-
-// ============================================================================
-// 최적화 패스
+// 최적화
 // ============================================================================
 
 bool Compiler::tryConstantFoldBinary(ast::BinaryExpression* expr) {
-    // 정수 리터럴 폴딩
-    auto* leftInt = dynamic_cast<ast::IntegerLiteral*>(const_cast<ast::Expression*>(expr->left()));
-    auto* rightInt = dynamic_cast<ast::IntegerLiteral*>(const_cast<ast::Expression*>(expr->right()));
+    const std::string& op = expr->op();
+    const ast::Expression* left = expr->left();
+    const ast::Expression* right = expr->right();
 
-    if (leftInt && rightInt) {
-        int64_t left = leftInt->value();
-        int64_t right = rightInt->value();
-        int64_t result;
-        bool isBoolResult = false;
-        bool boolResult = false;
-
-        const std::string& op = expr->op();
-        if (op == "+") {
-            result = left + right;
-        } else if (op == "-") {
-            result = left - right;
-        } else if (op == "*") {
-            result = left * right;
-        } else if (op == "/") {
-            if (right == 0) return false;
-            result = left / right;
-        } else if (op == "%") {
-            if (right == 0) return false;
-            result = left % right;
-        } else if (op == "==") {
-            isBoolResult = true;
-            boolResult = (left == right);
-        } else if (op == "!=") {
-            isBoolResult = true;
-            boolResult = (left != right);
-        } else if (op == "<") {
-            isBoolResult = true;
-            boolResult = (left < right);
-        } else if (op == ">") {
-            isBoolResult = true;
-            boolResult = (left > right);
-        } else if (op == "<=") {
-            isBoolResult = true;
-            boolResult = (left <= right);
-        } else if (op == ">=") {
-            isBoolResult = true;
-            boolResult = (left >= right);
-        } else {
-            return false;  // 폴딩 불가능한 연산
-        }
-
-        if (isBoolResult) {
-            emit(boolResult ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE);
-        } else {
-            size_t idx = chunk_->addConstant(evaluator::Value::createInteger(result));
-            emit(OpCode::LOAD_CONST, static_cast<uint8_t>(idx));
-        }
-        return true;
+    if (left->type() == ast::NodeType::INTEGER_LITERAL && right->type() == ast::NodeType::INTEGER_LITERAL) {
+        int64_t a = static_cast<const ast::IntegerLiteral*>(left)->value();
+        int64_t b = static_cast<const ast::IntegerLiteral*>(right)->value();
+        if (op == "+") { emitConstant(evaluator::Value::createInteger(a + b)); return true; }
+        if (op == "-") { emitConstant(evaluator::Value::createInteger(a - b)); return true; }
+        if (op == "*") { emitConstant(evaluator::Value::createInteger(a * b)); return true; }
+        if (op == "/" && b != 0) { emitConstant(evaluator::Value::createInteger(a / b)); return true; }
+        if (op == "%" && b != 0) { emitConstant(evaluator::Value::createInteger(a % b)); return true; }
+        if (op == "==") { emit(a == b ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE); return true; }
+        if (op == "!=") { emit(a != b ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE); return true; }
+        if (op == "<")  { emit(a < b ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE); return true; }
+        if (op == ">")  { emit(a > b ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE); return true; }
+        if (op == "<=") { emit(a <= b ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE); return true; }
+        if (op == ">=") { emit(a >= b ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE); return true; }
+        return false;
     }
 
-    // 부동소수점 리터럴 폴딩
-    auto* leftFloat = dynamic_cast<ast::FloatLiteral*>(const_cast<ast::Expression*>(expr->left()));
-    auto* rightFloat = dynamic_cast<ast::FloatLiteral*>(const_cast<ast::Expression*>(expr->right()));
-
-    if (leftFloat && rightFloat) {
-        double left = leftFloat->value();
-        double right = rightFloat->value();
-        double result;
-        bool isBoolResult = false;
-        bool boolResult = false;
-
-        const std::string& op = expr->op();
-        if (op == "+") {
-            result = left + right;
-        } else if (op == "-") {
-            result = left - right;
-        } else if (op == "*") {
-            result = left * right;
-        } else if (op == "/") {
-            if (right == 0.0) return false;
-            result = left / right;
-        } else if (op == "==") {
-            isBoolResult = true;
-            boolResult = (left == right);
-        } else if (op == "!=") {
-            isBoolResult = true;
-            boolResult = (left != right);
-        } else if (op == "<") {
-            isBoolResult = true;
-            boolResult = (left < right);
-        } else if (op == ">") {
-            isBoolResult = true;
-            boolResult = (left > right);
-        } else if (op == "<=") {
-            isBoolResult = true;
-            boolResult = (left <= right);
-        } else if (op == ">=") {
-            isBoolResult = true;
-            boolResult = (left >= right);
-        } else {
-            return false;
-        }
-
-        if (isBoolResult) {
-            emit(boolResult ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE);
-        } else {
-            size_t idx = chunk_->addConstant(evaluator::Value::createFloat(result));
-            emit(OpCode::LOAD_CONST, static_cast<uint8_t>(idx));
-        }
-        return true;
+    if (left->type() == ast::NodeType::FLOAT_LITERAL && right->type() == ast::NodeType::FLOAT_LITERAL) {
+        double a = static_cast<const ast::FloatLiteral*>(left)->value();
+        double b = static_cast<const ast::FloatLiteral*>(right)->value();
+        if (op == "+") { emitConstant(evaluator::Value::createFloat(a + b)); return true; }
+        if (op == "-") { emitConstant(evaluator::Value::createFloat(a - b)); return true; }
+        if (op == "*") { emitConstant(evaluator::Value::createFloat(a * b)); return true; }
+        if (op == "/" && b != 0.0) { emitConstant(evaluator::Value::createFloat(a / b)); return true; }
+        if (op == "==") { emit(a == b ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE); return true; }
+        if (op == "!=") { emit(a != b ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE); return true; }
+        if (op == "<")  { emit(a < b ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE); return true; }
+        if (op == ">")  { emit(a > b ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE); return true; }
+        if (op == "<=") { emit(a <= b ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE); return true; }
+        if (op == ">=") { emit(a >= b ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE); return true; }
+        return false;
     }
 
     return false;
 }
 
 bool Compiler::tryConstantFoldUnary(ast::UnaryExpression* expr) {
-    // 정수 리터럴 단항 연산 폴딩
-    auto* intLit = dynamic_cast<ast::IntegerLiteral*>(const_cast<ast::Expression*>(expr->operand()));
-    if (intLit && expr->op() == "-") {
-        int64_t result = -intLit->value();
-        size_t idx = chunk_->addConstant(evaluator::Value::createInteger(result));
-        emit(OpCode::LOAD_CONST, static_cast<uint8_t>(idx));
+    const ast::Expression* operand = expr->operand();
+    if (expr->op() == "-" && operand->type() == ast::NodeType::INTEGER_LITERAL) {
+        emitConstant(evaluator::Value::createInteger(-static_cast<const ast::IntegerLiteral*>(operand)->value()));
         return true;
     }
-
-    // 부동소수점 리터럴 단항 연산 폴딩
-    auto* floatLit = dynamic_cast<ast::FloatLiteral*>(const_cast<ast::Expression*>(expr->operand()));
-    if (floatLit && expr->op() == "-") {
-        double result = -floatLit->value();
-        size_t idx = chunk_->addConstant(evaluator::Value::createFloat(result));
-        emit(OpCode::LOAD_CONST, static_cast<uint8_t>(idx));
+    if (expr->op() == "-" && operand->type() == ast::NodeType::FLOAT_LITERAL) {
+        emitConstant(evaluator::Value::createFloat(-static_cast<const ast::FloatLiteral*>(operand)->value()));
         return true;
     }
-
-    // 불린 NOT 연산 폴딩
-    auto* boolLit = dynamic_cast<ast::BooleanLiteral*>(const_cast<ast::Expression*>(expr->operand()));
-    if (boolLit && (expr->op() == "!" || expr->op() == "아님")) {
-        emit(boolLit->value() ? OpCode::LOAD_FALSE : OpCode::LOAD_TRUE);
+    if (expr->op() == "!" && operand->type() == ast::NodeType::BOOLEAN_LITERAL) {
+        emit(static_cast<const ast::BooleanLiteral*>(operand)->value() ? OpCode::LOAD_FALSE : OpCode::LOAD_TRUE);
         return true;
     }
-
     return false;
 }
 
-bool Compiler::isConstantCondition(ast::Expression* expr, bool& result) {
-    // 불린 리터럴
-    auto* boolLit = dynamic_cast<ast::BooleanLiteral*>(expr);
-    if (boolLit) {
-        result = boolLit->value();
+bool Compiler::isConstantCondition(const ast::Expression* expr, bool& result) {
+    if (expr->type() == ast::NodeType::BOOLEAN_LITERAL) {
+        result = static_cast<const ast::BooleanLiteral*>(expr)->value();
         return true;
     }
-
-    // 정수 리터럴 (0은 거짓, 나머지는 참)
-    auto* intLit = dynamic_cast<ast::IntegerLiteral*>(expr);
-    if (intLit) {
-        result = (intLit->value() != 0);
+    if (expr->type() == ast::NodeType::INTEGER_LITERAL) {
+        result = static_cast<const ast::IntegerLiteral*>(expr)->value() != 0;
         return true;
     }
-
     return false;
 }
 
 // ============================================================================
-// Phase 7.1: 클래스 시스템 컴파일
+// 코드 생성
 // ============================================================================
 
-void Compiler::compileClassStatement(ast::ClassStatement* stmt) {
-    // 클래스 이름 기록 (Phase 7.1: CallExpression에서 class instantiation 구분용)
-    classNames_.insert(stmt->className());
+void Compiler::emit(OpCode op) {
+    chunk_->writeOpCode(op, currentLine_);
+}
 
-    // 클래스 이름을 상수 풀에 추가
-    size_t classNameIdx = chunk_->addConstant(evaluator::Value::createString(stmt->className()));
+void Compiler::emitByte(uint8_t byte) {
+    chunk_->write(byte, currentLine_);
+}
 
-    // 필드 개수와 메서드 개수
-    uint8_t fieldCount = static_cast<uint8_t>(stmt->fields().size());
-    uint8_t methodCount = static_cast<uint8_t>(stmt->methods().size());
+void Compiler::emit16(uint16_t value) {
+    chunk_->write16(value, currentLine_);
+}
 
-    // CLASS_DEF [class_name_index] [field_count] [method_count]
-    emit(OpCode::CLASS_DEF, static_cast<uint8_t>(classNameIdx), fieldCount);
-    chunk_->write(methodCount, currentLine());
+void Compiler::emitConstant(const evaluator::Value& value) {
+    emit(OpCode::LOAD_CONST);
+    emit16(toU16(chunk_->addConstant(value), "상수 수"));
+}
 
-    // 필드 이름들을 상수 풀에 추가
-    for (const auto& field : stmt->fields()) {
-        size_t fieldNameIdx = chunk_->addConstant(evaluator::Value::createString(field->fieldName()));
-        chunk_->write(static_cast<uint8_t>(fieldNameIdx), currentLine());
+void Compiler::emitName(OpCode op, const std::string& name) {
+    emit(op);
+    emit16(nameIndex(name));
+}
+
+uint16_t Compiler::nameIndex(const std::string& name) {
+    return toU16(chunk_->addName(name), "이름 수");
+}
+
+size_t Compiler::emitJump(OpCode op) {
+    emit(op);
+    size_t operand = currentOffset();
+    emit16(0);
+    return operand;
+}
+
+void Compiler::patchJump(size_t operandOffset, size_t trailingBytes) {
+    // 점프 거리는 명령의 마지막 피연산자 다음 바이트부터 현재 위치까지
+    size_t jump = currentOffset() - (operandOffset + 2 + trailingBytes);
+    if (jump > 0xFFFF) {
+        error("점프 거리가 65535 바이트를 넘습니다");
+        return;
     }
+    chunk_->patch16(operandOffset, static_cast<uint16_t>(jump));
+}
 
-    // 생성자 컴파일 (있으면)
-    if (stmt->constructor()) {
-        auto* ctor = stmt->constructor();
-        // 생성자를 Function 객체로 변환
-        std::vector<std::string> params;
-        for (const auto& param : ctor->parameters()) {
-            params.push_back(param.name);
-        }
-
-        // Function 객체 생성 (클로저는 nullptr, VM에서 실행 시 환경 설정)
-        auto ctorFunc = std::make_shared<evaluator::Function>(
-            params,
-            const_cast<ast::BlockStatement*>(ctor->body()),
-            nullptr,  // closure - VM에서 설정
-            false     // isBuiltin
-        );
-
-        // Function 객체를 상수 풀에 추가
-        size_t ctorIdx = chunk_->addConstant(evaluator::Value::createFunction(ctorFunc));
-        chunk_->write(static_cast<uint8_t>(ctorIdx), currentLine());
-    } else {
-        // 생성자가 없으면 -1 (0xFF)
-        chunk_->write(0xFF, currentLine());
+void Compiler::emitLoop(size_t loopStart) {
+    emit(OpCode::LOOP);
+    // LOOP 의 피연산자 다음 바이트에서 loopStart 까지 되돌아간다
+    size_t offset = currentOffset() + 2 - loopStart;
+    if (offset > 0xFFFF) {
+        error("반복 본문이 65535 바이트를 넘습니다");
+        emit16(0);
+        return;
     }
+    emit16(static_cast<uint16_t>(offset));
+}
 
-    // 메서드 컴파일
-    for (const auto& method : stmt->methods()) {
-        // 메서드 이름을 상수 풀에 추가
-        size_t methodNameIdx = chunk_->addConstant(evaluator::Value::createString(method->methodName()));
-        chunk_->write(static_cast<uint8_t>(methodNameIdx), currentLine());
+size_t Compiler::currentOffset() const {
+    return chunk_->size();
+}
 
-        // 메서드를 Function 객체로 변환
-        std::vector<std::string> params;
-        for (const auto& param : method->parameters()) {
-            params.push_back(param.name);
-        }
-
-        auto methodFunc = std::make_shared<evaluator::Function>(
-            params,
-            const_cast<ast::BlockStatement*>(method->body()),
-            nullptr,  // closure - VM에서 설정
-            false     // isBuiltin
-        );
-
-        // Function 객체를 상수 풀에 추가
-        size_t methodIdx = chunk_->addConstant(evaluator::Value::createFunction(methodFunc));
-        chunk_->write(static_cast<uint8_t>(methodIdx), currentLine());
+void Compiler::setLine(const ast::Node* node) {
+    if (node && node->location().isValid()) {
+        currentLine_ = node->location().line;
     }
-
-    // 클래스 정의를 전역 변수에 저장
-    size_t globalIdx = chunk_->addName(stmt->className());
-    emit(OpCode::STORE_GLOBAL, static_cast<uint8_t>(globalIdx));
 }
 
-void Compiler::compileNewExpression(ast::NewExpression* expr) {
-    // 클래스 이름을 상수 풀에 추가
-    size_t classNameIdx = chunk_->addConstant(evaluator::Value::createString(expr->className()));
-
-    // 인자들을 컴파일 (스택에 푸시)
-    for (const auto& arg : expr->arguments()) {
-        compileExpression(const_cast<ast::Expression*>(arg.get()));
-    }
-
-    // NEW_INSTANCE [class_name_index] [arg_count]
-    uint8_t argCount = static_cast<uint8_t>(expr->arguments().size());
-    emit(OpCode::NEW_INSTANCE, static_cast<uint8_t>(classNameIdx), argCount);
-}
-
-void Compiler::compileMemberAccessExpression(ast::MemberAccessExpression* expr) {
-    // 객체 표현식 컴파일 (스택에 객체 푸시)
-    compileExpression(const_cast<ast::Expression*>(expr->object()));
-
-    // 필드 이름을 상수 풀에 추가
-    size_t fieldNameIdx = chunk_->addConstant(evaluator::Value::createString(expr->memberName()));
-
-    // LOAD_FIELD [field_name_index]
-    emit(OpCode::LOAD_FIELD, static_cast<uint8_t>(fieldNameIdx));
-}
-
-void Compiler::compileThisExpression(ast::ThisExpression* /* expr */) {
-    // LOAD_THIS
-    emit(OpCode::LOAD_THIS);
-}
-
-// Phase 7.3: 비동기 함수 리터럴 컴파일
-void Compiler::compileAsyncFunctionLiteral(ast::AsyncFunctionLiteral* lit) {
-    // 비동기 함수를 별도의 청크로 컴파일
-    // 간단화를 위해 현재 청크에 인라인으로 컴파일
-
-    // 함수 본체 시작 위치로 점프
-    size_t jumpOver = emitJump(OpCode::JUMP);
-
-    // 함수 본체 시작
-    size_t functionStart = currentOffset();
-
-    // 새 스코프 시작
-    beginScope();
-
-    // 파라미터를 로컬 변수로 추가
-    for (const auto& param : lit->parameters()) {
-        addLocal(param);
-    }
-
-    // 함수 본체 컴파일
-    compileBlockStatement(static_cast<ast::BlockStatement*>(lit->body()));
-
-    // 암시적 return null (Promise로 래핑됨)
-    emit(OpCode::LOAD_NULL);
-    emit(OpCode::RETURN);
-
-    // 스코프 종료
-    endScope();
-
-    // 점프 패치
-    patchJump(jumpOver);
-
-    // 비동기 함수 객체 생성
-    emit(OpCode::BUILD_ASYNC_FUNC,
-         static_cast<uint8_t>(lit->parameters().size()),
-         static_cast<uint8_t>((functionStart >> 8) & 0xFF));
-    chunk_->write(static_cast<uint8_t>(functionStart & 0xFF), currentLine());
-}
-
-// Phase 7.3: await 표현식 컴파일
-void Compiler::compileAwaitExpression(ast::AwaitExpression* expr) {
-    // Promise 표현식 컴파일
-    compileExpression(const_cast<ast::Expression*>(expr->argument()));
-
-    // AWAIT opcode - Promise를 대기하고 resolved value를 스택에 푸시
-    emit(OpCode::AWAIT);
-}
-
-void Compiler::optimizePeephole() {
-    // 간단한 피홀 최적화 패턴
-    // 실제 구현은 생성된 바이트코드를 스캔하여 패턴을 찾아 최적화
-    // 현재는 간단한 버전만 구현
-
-    // TODO: 다음 패턴들을 최적화
-    // 1. LOAD_CONST + POP -> 제거
-    // 2. DUP + POP -> 제거
-    // 3. LOAD_VAR X + STORE_VAR X -> 제거 (변수를 읽고 바로 같은 변수에 저장)
-    // 4. 연속된 POP 최적화
-
-    // 현재는 컴파일 타임 최적화가 대부분이므로 skip
+void Compiler::error(const std::string& message) {
+    std::cerr << "[컴파일 오류] " << message << std::endl;
+    errors_.push_back(message);
+    hadError_ = true;
 }
 
 } // namespace bytecode

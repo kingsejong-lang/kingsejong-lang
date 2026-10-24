@@ -1,8 +1,6 @@
 /**
  * @file BytecodeTest.cpp
  * @brief 바이트코드 컴파일러 및 VM 테스트
- * @author KingSejong Team
- * @date 2025-11-10
  */
 
 #include <gtest/gtest.h>
@@ -10,12 +8,64 @@
 #include "bytecode/Chunk.h"
 #include "bytecode/Compiler.h"
 #include "bytecode/VM.h"
+#include "evaluator/Evaluator.h"
+#include "evaluator/Builtin.h"
 #include "parser/Parser.h"
 #include "lexer/Lexer.h"
 
 using namespace kingsejong;
 using namespace kingsejong::bytecode;
 using namespace kingsejong::evaluator;
+
+namespace {
+
+/// 소스를 컴파일해 VM 으로 돌린다. 프로그램 AST 는 VM 이 끝날 때까지 살아 있어야 한다.
+struct VmRun {
+    std::unique_ptr<ast::Program> program;
+    Chunk chunk;
+    VM vm;
+    bool compiled = false;
+    VMResult result = VMResult::COMPILE_ERROR;
+
+    explicit VmRun(const std::string& source) {
+        Builtin::registerAllBuiltins();
+        lexer::Lexer lexer(source);
+        parser::Parser parser(lexer);
+        program = parser.parseProgram();
+        EXPECT_TRUE(parser.errors().empty()) << (parser.errors().empty() ? "" : parser.errors()[0]);
+        Compiler compiler;
+        compiled = compiler.compile(program.get(), &chunk);
+        if (compiled) {
+            result = vm.run(&chunk);
+        }
+    }
+
+    Value global(const std::string& name) const { return vm.globals()->get(name); }
+};
+
+/// 같은 소스를 평가기로 돌린 전역 값
+Value evaluatorGlobal(const std::string& source, const std::string& name) {
+    lexer::Lexer lexer(source);
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+    auto env = std::make_shared<Environment>();
+    Value result;
+    {
+        Evaluator evaluator(env);
+        evaluator.evalProgram(program.get());
+        result = env->get(name);
+    }
+    env->releaseIfUnreachable(1);
+    return result;
+}
+
+void writeConst(Chunk& chunk, const Value& value) {
+    size_t idx = chunk.addConstant(value);
+    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
+    chunk.write16(static_cast<uint16_t>(idx), 1);
+}
+
+} // namespace
 
 // ============================================================================
 // Chunk 테스트
@@ -48,7 +98,7 @@ TEST(ChunkTest, ShouldAddName) {
 
     EXPECT_EQ(idx1, 0);
     EXPECT_EQ(idx2, 1);
-    EXPECT_EQ(idx3, 0);  // 중복이므로 기존 인덱스 반환
+    EXPECT_EQ(idx3, 0);
 
     EXPECT_EQ(chunk.getName(0), "변수");
     EXPECT_EQ(chunk.getName(1), "함수");
@@ -65,21 +115,35 @@ TEST(ChunkTest, ShouldGetLineNumber) {
     EXPECT_EQ(chunk.getLine(2), 20);
 }
 
+TEST(ChunkTest, ShouldReadAndPatch16BitOperands) {
+    Chunk chunk;
+    chunk.writeOpCode(OpCode::JUMP, 1);
+    chunk.write16(0, 1);
+    chunk.patch16(1, 0x1234);
+    EXPECT_EQ(chunk.read16(1), 0x1234);
+}
+
+TEST(ChunkTest, ShouldDisassembleWithOperands) {
+    Chunk chunk;
+    writeConst(chunk, Value::createInteger(7));
+    chunk.writeOpCode(OpCode::HALT, 1);
+    std::string text = chunk.disassemble("test");
+    EXPECT_NE(text.find("LOAD_CONST"), std::string::npos);
+    EXPECT_NE(text.find("'7'"), std::string::npos);
+    EXPECT_NE(text.find("HALT"), std::string::npos);
+}
+
 // ============================================================================
-// VM 기본 테스트
+// VM 기본 테스트 (손으로 쓴 바이트코드)
 // ============================================================================
 
 TEST(VMTest, ShouldLoadConstant) {
     Chunk chunk;
-    size_t idx = chunk.addConstant(Value::createInteger(42));
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(static_cast<uint8_t>(idx), 1);
+    writeConst(chunk, Value::createInteger(42));
     chunk.writeOpCode(OpCode::HALT, 1);
 
     VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.run(&chunk), VMResult::OK);
     EXPECT_EQ(vm.top().asInteger(), 42);
 }
 
@@ -90,228 +154,161 @@ TEST(VMTest, ShouldLoadBooleans) {
     chunk.writeOpCode(OpCode::HALT, 1);
 
     VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.run(&chunk), VMResult::OK);
     EXPECT_EQ(vm.top().asBoolean(), false);
 }
 
 TEST(VMTest, ShouldAddIntegers) {
     Chunk chunk;
-
-    // 10 + 20
-    size_t idx1 = chunk.addConstant(Value::createInteger(10));
-    size_t idx2 = chunk.addConstant(Value::createInteger(20));
-
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(static_cast<uint8_t>(idx1), 1);
-
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(static_cast<uint8_t>(idx2), 1);
-
+    writeConst(chunk, Value::createInteger(10));
+    writeConst(chunk, Value::createInteger(20));
     chunk.writeOpCode(OpCode::ADD, 1);
     chunk.writeOpCode(OpCode::HALT, 1);
 
     VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.run(&chunk), VMResult::OK);
     EXPECT_EQ(vm.top().asInteger(), 30);
 }
 
 TEST(VMTest, ShouldSubtractIntegers) {
     Chunk chunk;
-
-    // 50 - 30
-    size_t idx1 = chunk.addConstant(Value::createInteger(50));
-    size_t idx2 = chunk.addConstant(Value::createInteger(30));
-
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(static_cast<uint8_t>(idx1), 1);
-
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(static_cast<uint8_t>(idx2), 1);
-
+    writeConst(chunk, Value::createInteger(50));
+    writeConst(chunk, Value::createInteger(30));
     chunk.writeOpCode(OpCode::SUB, 1);
     chunk.writeOpCode(OpCode::HALT, 1);
 
     VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.run(&chunk), VMResult::OK);
     EXPECT_EQ(vm.top().asInteger(), 20);
 }
 
 TEST(VMTest, ShouldMultiplyIntegers) {
     Chunk chunk;
-
-    // 6 * 7
-    size_t idx1 = chunk.addConstant(Value::createInteger(6));
-    size_t idx2 = chunk.addConstant(Value::createInteger(7));
-
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(static_cast<uint8_t>(idx1), 1);
-
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(static_cast<uint8_t>(idx2), 1);
-
+    writeConst(chunk, Value::createInteger(6));
+    writeConst(chunk, Value::createInteger(7));
     chunk.writeOpCode(OpCode::MUL, 1);
     chunk.writeOpCode(OpCode::HALT, 1);
 
     VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.run(&chunk), VMResult::OK);
     EXPECT_EQ(vm.top().asInteger(), 42);
 }
 
 TEST(VMTest, ShouldCompareIntegers) {
     Chunk chunk;
-
-    // 10 < 20
-    size_t idx1 = chunk.addConstant(Value::createInteger(10));
-    size_t idx2 = chunk.addConstant(Value::createInteger(20));
-
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(static_cast<uint8_t>(idx1), 1);
-
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(static_cast<uint8_t>(idx2), 1);
-
+    writeConst(chunk, Value::createInteger(10));
+    writeConst(chunk, Value::createInteger(20));
     chunk.writeOpCode(OpCode::LT, 1);
     chunk.writeOpCode(OpCode::HALT, 1);
 
     VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.run(&chunk), VMResult::OK);
     EXPECT_TRUE(vm.top().asBoolean());
 }
 
 TEST(VMTest, ShouldNegateNumber) {
     Chunk chunk;
-
-    // -42
-    size_t idx = chunk.addConstant(Value::createInteger(42));
-
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(static_cast<uint8_t>(idx), 1);
-
+    writeConst(chunk, Value::createInteger(42));
     chunk.writeOpCode(OpCode::NEG, 1);
     chunk.writeOpCode(OpCode::HALT, 1);
 
     VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.run(&chunk), VMResult::OK);
     EXPECT_EQ(vm.top().asInteger(), -42);
 }
 
 TEST(VMTest, ShouldLogicalNot) {
     Chunk chunk;
-
     chunk.writeOpCode(OpCode::LOAD_TRUE, 1);
     chunk.writeOpCode(OpCode::NOT, 1);
     chunk.writeOpCode(OpCode::HALT, 1);
 
     VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.run(&chunk), VMResult::OK);
     EXPECT_FALSE(vm.top().asBoolean());
+}
+
+TEST(VMTest, ShouldConcatenateStrings) {
+    Chunk chunk;
+    writeConst(chunk, Value::createString("안녕"));
+    writeConst(chunk, Value::createString("하세요"));
+    chunk.writeOpCode(OpCode::ADD, 1);
+    chunk.writeOpCode(OpCode::HALT, 1);
+
+    VM vm;
+    EXPECT_EQ(vm.run(&chunk), VMResult::OK);
+    EXPECT_EQ(vm.top().asString(), "안녕하세요");
 }
 
 TEST(VMTest, ShouldBuildArray) {
     Chunk chunk;
-
-    // [1, 2, 3]
-    size_t idx1 = chunk.addConstant(Value::createInteger(1));
-    size_t idx2 = chunk.addConstant(Value::createInteger(2));
-    size_t idx3 = chunk.addConstant(Value::createInteger(3));
-
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(static_cast<uint8_t>(idx1), 1);
-
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(static_cast<uint8_t>(idx2), 1);
-
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(static_cast<uint8_t>(idx3), 1);
-
+    writeConst(chunk, Value::createInteger(1));
+    writeConst(chunk, Value::createInteger(2));
+    writeConst(chunk, Value::createInteger(3));
     chunk.writeOpCode(OpCode::BUILD_ARRAY, 1);
-    chunk.write(3, 1);
-
+    chunk.write16(3, 1);
     chunk.writeOpCode(OpCode::HALT, 1);
 
     VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.run(&chunk), VMResult::OK);
     EXPECT_TRUE(vm.top().isArray());
     EXPECT_EQ(vm.top().asArray().size(), 3);
 }
 
 TEST(VMTest, ShouldAccessArrayIndex) {
     Chunk chunk;
-
-    // [10, 20, 30][1]
-    size_t idx1 = chunk.addConstant(Value::createInteger(10));
-    size_t idx2 = chunk.addConstant(Value::createInteger(20));
-    size_t idx3 = chunk.addConstant(Value::createInteger(30));
-    size_t idxAccess = chunk.addConstant(Value::createInteger(1));
-
-    // 배열 생성
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(static_cast<uint8_t>(idx1), 1);
-
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(static_cast<uint8_t>(idx2), 1);
-
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(static_cast<uint8_t>(idx3), 1);
-
+    writeConst(chunk, Value::createInteger(10));
+    writeConst(chunk, Value::createInteger(20));
+    writeConst(chunk, Value::createInteger(30));
     chunk.writeOpCode(OpCode::BUILD_ARRAY, 1);
-    chunk.write(3, 1);
-
-    // 인덱스 접근
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(static_cast<uint8_t>(idxAccess), 1);
-
+    chunk.write16(3, 1);
+    writeConst(chunk, Value::createInteger(1));
     chunk.writeOpCode(OpCode::INDEX_GET, 1);
     chunk.writeOpCode(OpCode::HALT, 1);
 
     VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.run(&chunk), VMResult::OK);
     EXPECT_EQ(vm.top().asInteger(), 20);
 }
 
-TEST(VMTest, ShouldStoreAndLoadGlobal) {
+TEST(VMTest, ShouldDeclareAndLoadName) {
     Chunk chunk;
-
-    // x = 42
     size_t nameIdx = chunk.addName("x");
-    size_t valIdx = chunk.addConstant(Value::createInteger(42));
-
-    // x에 42 저장
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(static_cast<uint8_t>(valIdx), 1);
-
-    chunk.writeOpCode(OpCode::STORE_GLOBAL, 1);
-    chunk.write(static_cast<uint8_t>(nameIdx), 1);
-
-    // x 로드
-    chunk.writeOpCode(OpCode::LOAD_GLOBAL, 1);
-    chunk.write(static_cast<uint8_t>(nameIdx), 1);
-
+    writeConst(chunk, Value::createInteger(42));
+    chunk.writeOpCode(OpCode::DECLARE, 1);
+    chunk.write16(static_cast<uint16_t>(nameIdx), 1);
+    chunk.writeOpCode(OpCode::LOAD_NAME, 1);
+    chunk.write16(static_cast<uint16_t>(nameIdx), 1);
     chunk.writeOpCode(OpCode::HALT, 1);
 
     VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.run(&chunk), VMResult::OK);
     EXPECT_EQ(vm.top().asInteger(), 42);
+    EXPECT_EQ(vm.globals()->get("x").asInteger(), 42);
+}
+
+TEST(VMTest, ShouldResolveBuiltinNames) {
+    Builtin::registerAllBuiltins();
+    Chunk chunk;
+    size_t nameIdx = chunk.addName("길이");
+    chunk.writeOpCode(OpCode::LOAD_NAME, 1);
+    chunk.write16(static_cast<uint16_t>(nameIdx), 1);
+    chunk.writeOpCode(OpCode::HALT, 1);
+
+    VM vm;
+    EXPECT_EQ(vm.run(&chunk), VMResult::OK);
+    EXPECT_TRUE(vm.top().isBuiltinFunction());
+}
+
+TEST(VMTest, ShouldReportUndefinedName) {
+    Chunk chunk;
+    size_t nameIdx = chunk.addName("없는이름");
+    chunk.writeOpCode(OpCode::LOAD_NAME, 1);
+    chunk.write16(static_cast<uint16_t>(nameIdx), 1);
+    chunk.writeOpCode(OpCode::HALT, 1);
+
+    VM vm;
+    EXPECT_EQ(vm.run(&chunk), VMResult::RUNTIME_ERROR);
 }
 
 // ============================================================================
@@ -319,278 +316,88 @@ TEST(VMTest, ShouldStoreAndLoadGlobal) {
 // ============================================================================
 
 TEST(CompilerTest, ShouldCompileIntegerLiteral) {
-    std::string code = "42";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-    EXPECT_GT(chunk.size(), 0);
+    VmRun run("42");
+    EXPECT_TRUE(run.compiled);
+    EXPECT_GT(run.chunk.size(), 0);
 }
 
 TEST(CompilerTest, ShouldCompileAddition) {
-    std::string code = "10 + 20";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_EQ(vm.top().asInteger(), 30);
+    VmRun run("10 + 20");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.vm.top().asInteger(), 30);
 }
 
 TEST(CompilerTest, ShouldCompileVariableDeclaration) {
-    std::string code = "정수 x = 42";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
+    VmRun run("정수 x = 42");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("x").asInteger(), 42);
 }
 
 TEST(CompilerTest, ShouldCompileStringLiteral) {
-    std::string code = "\"안녕하세요\"";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-    EXPECT_GT(chunk.size(), 0);
+    VmRun run("\"안녕하세요\"");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.vm.top().asString(), "안녕하세요");
 }
 
 TEST(CompilerTest, ShouldCompileBooleanLiteral) {
-    std::string code = "참";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_TRUE(vm.top().asBoolean());
+    VmRun run("참");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_TRUE(run.vm.top().asBoolean());
 }
 
 TEST(CompilerTest, ShouldCompileFloatLiteral) {
-    std::string code = "3.14";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_NEAR(vm.top().asFloat(), 3.14, 0.001);
+    VmRun run("3.14");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_NEAR(run.vm.top().asFloat(), 3.14, 0.001);
 }
 
 TEST(CompilerTest, ShouldCompileComparison) {
-    std::string code = "10 < 20";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_TRUE(vm.top().asBoolean());
+    VmRun run("10 < 20");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_TRUE(run.vm.top().asBoolean());
 }
 
 TEST(CompilerTest, ShouldCompileMultiplication) {
-    std::string code = "6 * 7";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_EQ(vm.top().asInteger(), 42);
+    VmRun run("6 * 7");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.vm.top().asInteger(), 42);
 }
 
 TEST(CompilerTest, ShouldCompileSubtraction) {
-    std::string code = "100 - 58";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_EQ(vm.top().asInteger(), 42);
+    VmRun run("100 - 58");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.vm.top().asInteger(), 42);
 }
 
 TEST(CompilerTest, ShouldCompileDivision) {
-    std::string code = "84 / 2";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_EQ(vm.top().asInteger(), 42);
+    VmRun run("84 / 2");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.vm.top().asInteger(), 42);
 }
 
 TEST(CompilerTest, ShouldCompileNegation) {
-    std::string code = "-42";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_EQ(vm.top().asInteger(), -42);
+    VmRun run("-42");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.vm.top().asInteger(), -42);
 }
 
 TEST(CompilerTest, ShouldCompileLogicalNot) {
-    std::string code = "!참";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_FALSE(vm.top().asBoolean());
+    VmRun run("!참");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_FALSE(run.vm.top().asBoolean());
 }
 
 TEST(CompilerTest, ShouldCompileComplexExpression) {
-    std::string code = "(10 + 20) * 2 - 18";
+    VmRun run("(10 + 20) * 2 - 18");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.vm.top().asInteger(), 42);
+}
 
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_EQ(vm.top().asInteger(), 42);
+TEST(CompilerTest, ShouldRejectUnsupportedStatementsWithMessage) {
+    // 평가기도 값으로 다루지 않는 단독 범위 표현식
+    VmRun run("1부터 10까지");
+    EXPECT_FALSE(run.compiled);
+    ASSERT_FALSE(run.chunk.size() == 0);
 }
 
 // ============================================================================
@@ -601,12 +408,18 @@ TEST(OpCodeTest, ShouldConvertToString) {
     EXPECT_EQ(opCodeToString(OpCode::ADD), "ADD");
     EXPECT_EQ(opCodeToString(OpCode::LOAD_CONST), "LOAD_CONST");
     EXPECT_EQ(opCodeToString(OpCode::HALT), "HALT");
+    EXPECT_EQ(opCodeToString(OpCode::JOSA), "JOSA");
 }
 
-TEST(OpCodeTest, ShouldGetOperandCount) {
+TEST(OpCodeTest, ShouldGetOperandCountAndWidth) {
     EXPECT_EQ(opCodeOperandCount(OpCode::ADD), 0);
     EXPECT_EQ(opCodeOperandCount(OpCode::LOAD_CONST), 1);
-    EXPECT_EQ(opCodeOperandCount(OpCode::BUILD_FUNCTION), 2);
+    EXPECT_EQ(opCodeOperandBytes(OpCode::LOAD_CONST), 2u);
+    EXPECT_EQ(opCodeOperandCount(OpCode::CALL), 1);
+    EXPECT_EQ(opCodeOperandBytes(OpCode::CALL), 1u);
+    EXPECT_EQ(opCodeOperandCount(OpCode::JOSA), 4);
+    EXPECT_EQ(opCodeOperandBytes(OpCode::JOSA), 5u);
+    EXPECT_EQ(opCodeOperandCount(OpCode::RANGE_FOR_NEXT), 3);
 }
 
 TEST(OpCodeTest, ShouldDetectJumpOpCodes) {
@@ -621,410 +434,355 @@ TEST(OpCodeTest, ShouldDetectJumpOpCodes) {
 // ============================================================================
 
 TEST(OptimizationTest, ShouldFoldConstantAddition) {
-    // 2 + 3 -> 5
-    std::string code = "2 + 3";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-
-    // 최적화되었으면 LOAD_CONST 1개만 있어야 함 (ADD 없음)
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_EQ(vm.top().asInteger(), 5);
+    VmRun run("2 + 3");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.vm.top().asInteger(), 5);
+    // 폴딩되었으면 LOAD_CONST + HALT 만 있다 (ADD 없음)
+    EXPECT_EQ(run.chunk.size(), 1u + 2u + 1u);
+    EXPECT_EQ(run.chunk.constantCount(), 1u);
 }
 
 TEST(OptimizationTest, ShouldFoldConstantMultiplication) {
-    // 6 * 7 -> 42
-    std::string code = "6 * 7";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_EQ(vm.top().asInteger(), 42);
+    VmRun run("6 * 7");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.vm.top().asInteger(), 42);
+    EXPECT_EQ(run.chunk.constantCount(), 1u);
 }
 
 TEST(OptimizationTest, ShouldFoldConstantComparison) {
-    // 10 < 20 -> 참
-    std::string code = "10 < 20";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_TRUE(vm.top().asBoolean());
+    VmRun run("10 < 20");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_TRUE(run.vm.top().asBoolean());
+    EXPECT_EQ(run.chunk.constantCount(), 0u);  // LOAD_TRUE 로 폴딩
 }
 
 TEST(OptimizationTest, ShouldFoldConstantNegation) {
-    // -42 -> -42
-    std::string code = "-42";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_EQ(vm.top().asInteger(), -42);
+    VmRun run("-42");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.vm.top().asInteger(), -42);
+    EXPECT_EQ(run.chunk.constantCount(), 1u);
 }
 
 TEST(OptimizationTest, ShouldFoldConstantFloatArithmetic) {
-    // 2.5 + 3.5 -> 6.0
-    std::string code = "2.5 + 3.5";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_DOUBLE_EQ(vm.top().asFloat(), 6.0);
+    VmRun run("2.5 + 3.5");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_DOUBLE_EQ(run.vm.top().asFloat(), 6.0);
+    EXPECT_EQ(run.chunk.constantCount(), 1u);
 }
 
 TEST(OptimizationTest, ShouldFoldBooleanNot) {
-    // !참 -> 거짓
-    std::string code = "!참";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_FALSE(vm.top().asBoolean());
+    VmRun run("!참");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_FALSE(run.vm.top().asBoolean());
+    EXPECT_EQ(run.chunk.constantCount(), 0u);
 }
 
 TEST(OptimizationTest, ShouldEliminateDeadCodeInIfTrue) {
-    // 만약 (참) { x = 1 } 아니면 { x = 2 }
-    // 아니면 블록은 컴파일되지 않아야 함
-    std::string code = R"(
+    VmRun run(R"(
         정수 x = 0
         만약 (참) {
             x = 1
         } 아니면 {
             x = 2
         }
-    )";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    // x는 1이어야 함 (참 브랜치만 실행)
+    )");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("x").asInteger(), 1);
+    // 아니면 블록의 상수 2 는 컴파일되지 않는다
+    EXPECT_EQ(run.chunk.constantCount(), 2u);  // 0, 1
 }
 
 TEST(OptimizationTest, ShouldEliminateDeadCodeInIfFalse) {
-    // 만약 (거짓) { x = 1 } 아니면 { x = 2 }
-    // 만약 블록은 컴파일되지 않아야 함
-    std::string code = R"(
+    VmRun run(R"(
         정수 x = 0
         만약 (거짓) {
             x = 1
         } 아니면 {
             x = 2
         }
-    )";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    // x는 2이어야 함 (거짓 브랜치만 실행)
+    )");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("x").asInteger(), 2);
+    EXPECT_EQ(run.chunk.constantCount(), 2u);  // 0, 2
 }
 
 TEST(OptimizationTest, ShouldNotFoldNonConstantExpression) {
-    // x + 3 는 폴딩되지 않음 (x가 변수)
-    std::string code = R"(
+    VmRun run(R"(
         정수 x = 5
         x + 3
-    )";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_EQ(vm.top().asInteger(), 8);
+    )");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.vm.top().asInteger(), 8);
 }
 
 TEST(OptimizationTest, ShouldFoldNestedConstantExpression) {
-    // (2 + 3) * 4 -> 일부 폴딩 가능
-    // 최소한 2 + 3은 컴파일 타임에 5로 폴딩됨
-    std::string code = "(2 + 3) * 4";
-
-    lexer::Lexer lexer(code);
-    parser::Parser parser(lexer);
-    auto program = parser.parseProgram();
-
-    ASSERT_NE(program, nullptr);
-
-    Chunk chunk;
-    Compiler compiler;
-    bool success = compiler.compile(program.get(), &chunk);
-
-    EXPECT_TRUE(success);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_EQ(vm.top().asInteger(), 20);
+    VmRun run("(2 + 3) * 4");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.vm.top().asInteger(), 20);
 }
-
-// ============================================================================
-// 실행
-// ============================================================================
 
 // ============================================================================
 // VM 루프 테스트
 // ============================================================================
 
-TEST(VMLoopTest, ShouldRunSimpleProgram) {
-    Chunk chunk;
+TEST(VMLoopTest, ShouldRunWhileLoop) {
+    VmRun run(R"(
+        정수 합 = 0
+        정수 i = 0
+        동안 (i < 50) {
+            합 = 합 + 1
+            i = i + 1
+        }
+    )");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("합").asInteger(), 50);
+}
 
-    // sum = 0
-    chunk.addConstant(Value::createInteger(0));
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(0, 1);
-
-    // i = 0
-    chunk.addConstant(Value::createInteger(0));
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(1, 1);
-
-    // 루프 시작
-    size_t loopStart = chunk.size();
-
-    // i < 50?
-    chunk.writeOpCode(OpCode::DUP, 1);
-    chunk.addConstant(Value::createInteger(50));
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(2, 1);
-    chunk.writeOpCode(OpCode::LT, 1);
-
-    // false면 종료
-    chunk.writeOpCode(OpCode::JUMP_IF_FALSE, 1);
-    chunk.write(12, 1);
-    chunk.writeOpCode(OpCode::POP, 1);
-
-    // sum = sum + 1
-    chunk.writeOpCode(OpCode::SWAP, 1);
-    chunk.addConstant(Value::createInteger(1));
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(3, 1);
-    chunk.writeOpCode(OpCode::ADD, 1);
-    chunk.writeOpCode(OpCode::SWAP, 1);
-
-    // i = i + 1
-    chunk.addConstant(Value::createInteger(1));
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(3, 1);
-    chunk.writeOpCode(OpCode::ADD, 1);
-
-    // 루프 백점프
-    size_t offset = chunk.size() - loopStart + 2;
-    chunk.writeOpCode(OpCode::LOOP, 1);
-    chunk.write(static_cast<uint8_t>(offset), 1);
-
-    chunk.writeOpCode(OpCode::POP, 1);
-    chunk.writeOpCode(OpCode::POP, 1);
-    chunk.writeOpCode(OpCode::HALT, 1);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_EQ(vm.top().asInteger(), 50);
+TEST(VMLoopTest, ShouldRunRangeForAndRepeat) {
+    VmRun run(R"(
+        정수 합 = 0
+        i가 1부터 10까지 {
+            합 = 합 + i
+        }
+        정수 횟수 = 0
+        3번 반복한다 {
+            횟수 = 횟수 + 1
+        }
+    )");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("합").asInteger(), 55);
+    EXPECT_EQ(run.global("횟수").asInteger(), 3);
+    EXPECT_EQ(run.global("i").asInteger(), 10);  // 반복 변수는 평가기처럼 바깥에 남는다
 }
 
 TEST(VMLoopTest, ShouldHandleHighIterationCount) {
-    // 많은 반복 테스트 (100회 반복)
-    Chunk chunk;
-
-    // sum = 0, counter = 0
-    chunk.addConstant(Value::createInteger(0));  // 0
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(0, 1);
-    chunk.addConstant(Value::createInteger(0));  // 1
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(1, 1);
-
-    // 루프 시작
-    size_t loopStart = chunk.size();
-
-    // counter < 100?
-    chunk.writeOpCode(OpCode::DUP, 1);
-    chunk.addConstant(Value::createInteger(100));  // 2
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(2, 1);
-    chunk.writeOpCode(OpCode::LT, 1);
-
-    // false면 종료
-    chunk.writeOpCode(OpCode::JUMP_IF_FALSE, 1);
-    chunk.write(12, 1);
-    chunk.writeOpCode(OpCode::POP, 1);
-
-    // sum += 1
-    chunk.writeOpCode(OpCode::SWAP, 1);
-    chunk.addConstant(Value::createInteger(1));  // 3
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(3, 1);
-    chunk.writeOpCode(OpCode::ADD, 1);
-    chunk.writeOpCode(OpCode::SWAP, 1);
-
-    // counter += 1
-    chunk.addConstant(Value::createInteger(1));  // 4
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(4, 1);
-    chunk.writeOpCode(OpCode::ADD, 1);
-
-    // 루프 백점프
-    size_t offset = chunk.size() - loopStart + 2;
-    chunk.writeOpCode(OpCode::LOOP, 1);
-    chunk.write(static_cast<uint8_t>(offset), 1);
-
-    chunk.writeOpCode(OpCode::POP, 1);  // 조건 제거
-    chunk.writeOpCode(OpCode::POP, 1);  // counter 제거
-    chunk.writeOpCode(OpCode::HALT, 1);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_EQ(vm.top().asInteger(), 100);
+    VmRun run(R"(
+        정수 합 = 0
+        i가 1부터 10000까지 {
+            합 = 합 + 1
+        }
+    )");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("합").asInteger(), 10000);
 }
 
 TEST(VMLoopTest, ShouldRespectMaxInstructions) {
-    // 최대 명령어 수 제한 테스트
+    // 무한 루프: LOAD_CONST 1; ADD; LOOP
     Chunk chunk;
-
-    // 무한 루프 (sum = sum + 1)
-    chunk.addConstant(Value::createInteger(0));
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(0, 1);
-
+    writeConst(chunk, Value::createInteger(0));
     size_t loopStart = chunk.size();
-    chunk.addConstant(Value::createInteger(1));
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(1, 1);
+    writeConst(chunk, Value::createInteger(1));
     chunk.writeOpCode(OpCode::ADD, 1);
-
-    size_t offset = chunk.size() - loopStart + 2;
     chunk.writeOpCode(OpCode::LOOP, 1);
-    chunk.write(static_cast<uint8_t>(offset), 1);
-
+    chunk.write16(static_cast<uint16_t>(chunk.size() + 2 - loopStart), 1);
     chunk.writeOpCode(OpCode::HALT, 1);
 
     VM vm;
-    vm.setMaxInstructions(1000);  // 1000개 명령어 제한
-    VMResult result = vm.run(&chunk);
-
-    // 최대 명령어 초과로 런타임 에러 예상
-    EXPECT_EQ(result, VMResult::RUNTIME_ERROR);
+    vm.setMaxInstructions(1000);
+    EXPECT_EQ(vm.run(&chunk), VMResult::RUNTIME_ERROR);
 }
 
 // ============================================================================
-// Async OpCode 테스트 (Phase 7.3)
+// 평가기와의 동치 (같은 소스, 같은 결과)
+// ============================================================================
+
+TEST(VMParityTest, ShouldCallFunctionsRecursively) {
+    const std::string source = R"(
+        함수 피보나치(n) {
+            만약 (n < 2) { 반환 n }
+            반환 피보나치(n - 1) + 피보나치(n - 2)
+        }
+        정수 결과 = 피보나치(15)
+    )";
+    VmRun run(source);
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("결과").asInteger(), 610);
+    EXPECT_EQ(run.global("결과").asInteger(), evaluatorGlobal(source, "결과").asInteger());
+}
+
+TEST(VMParityTest, ShouldCaptureClosures) {
+    VmRun run(R"(
+        함수 만들기() {
+            정수 횟수 = 0
+            반환 함수() {
+                횟수 = 횟수 + 1
+                반환 횟수
+            }
+        }
+        정수 세기 = 만들기()
+        세기()
+        세기()
+        정수 결과 = 세기()
+    )");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("결과").asInteger(), 3);
+}
+
+TEST(VMParityTest, ShouldPassFunctionsToArrayMethods) {
+    VmRun run(R"(
+        정수 배열 = [3, 1, 2, 5, 4]
+        정수 짝수 = 배열을 걸러낸다(함수(x) { 반환 x % 2 == 0 })
+        정수 합 = 배열을 축약한다(0, 함수(누적, 현재) { 반환 누적 + 현재 })
+        정수 정렬됨 = 배열을 정렬한다
+    )");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("짝수").asArray().size(), 2u);
+    EXPECT_EQ(run.global("합").asInteger(), 15);
+    EXPECT_EQ(run.global("정렬됨").asArray()[0].asInteger(), 1);
+}
+
+TEST(VMParityTest, ShouldCatchThrownErrorsAndRunFinally) {
+    VmRun run(R"(
+        정수 기록 = ""
+        시도 {
+            기록 = 기록 + "시도 "
+            던지다 "문제"
+            기록 = 기록 + "도달하지 않음 "
+        } 오류 (e) {
+            기록 = 기록 + e + " "
+        } 마지막 {
+            기록 = 기록 + "마지막"
+        }
+    )");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("기록").asString(), "시도 Error: 문제 마지막");
+}
+
+TEST(VMParityTest, ShouldCatchRuntimeErrorsFromBuiltins) {
+    VmRun run(R"(
+        정수 결과 = "없음"
+        시도 {
+            정수 x = 10 / 0
+        } 오류 (e) {
+            결과 = "잡음"
+        }
+    )");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("결과").asString(), "잡음");
+}
+
+TEST(VMParityTest, ShouldPropagateErrorsThroughFinallyInFunctions) {
+    VmRun run(R"(
+        정수 기록 = ""
+        함수 위험() {
+            시도 {
+                던지다 "깊은 문제"
+            } 마지막 {
+                기록 = 기록 + "정리 "
+            }
+        }
+        시도 {
+            위험()
+        } 오류 (e) {
+            기록 = 기록 + e
+        }
+    )");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("기록").asString(), "정리 Error: 깊은 문제");
+}
+
+TEST(VMParityTest, ShouldRunFinallyBeforeReturning) {
+    VmRun run(R"(
+        정수 기록 = ""
+        함수 f() {
+            시도 {
+                반환 "값"
+            } 마지막 {
+                기록 = "마지막 실행"
+            }
+        }
+        정수 결과 = f()
+    )");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("결과").asString(), "값");
+    EXPECT_EQ(run.global("기록").asString(), "마지막 실행");
+}
+
+TEST(VMParityTest, ShouldBuildDictionariesAndInterpolate) {
+    VmRun run(R"(
+        사전 = {"이름": "세종", "나이": 30}
+        사전["도시"] = "서울"
+        이름 = 사전["이름"]
+        나이 = 사전["나이"]
+        도시 = 사전의 도시
+        문장 = "${이름}은 ${나이}살, ${도시}"
+    )");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("문장").asString(), "세종은 30살, 서울");
+}
+
+TEST(VMParityTest, ShouldDefineClassesWithMethodsAndConstructors) {
+    VmRun run(R"(
+        클래스 계좌 {
+            비공개 정수 잔액
+            생성자(초기) {
+                자신.잔액 = 초기
+            }
+            공개 함수 입금(금액) {
+                자신.잔액 = 자신.잔액 + 금액
+                반환 자신.잔액
+            }
+        }
+        정수 a = 계좌(100)
+        a.입금(50)
+        정수 결과 = a.입금(25)
+    )");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("결과").asInteger(), 175);
+}
+
+TEST(VMParityTest, ShouldSliceArraysAndAssignIndexes) {
+    VmRun run(R"(
+        정수 배열 = [1, 2, 3, 4, 5]
+        배열[0] = 10
+        정수 부분 = 배열[1부터 3까지]
+        정수 첫값 = 배열[0]
+    )");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("첫값").asInteger(), 10);
+    EXPECT_EQ(run.global("부분").asArray().size(), 3u);
+}
+
+TEST(VMParityTest, ShouldWrapAsyncResultsInPromises) {
+    VmRun run(R"(
+        더하기 = 비동기 함수(a, b) {
+            반환 a + b
+        }
+        p = 더하기(1, 2)
+        결과 = 대기 더하기(3, 4)
+    )");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_TRUE(run.global("p").isPromise());
+    EXPECT_EQ(run.global("결과").asInteger(), 7);
+}
+
+TEST(VMParityTest, ShouldReportArityMismatch) {
+    VmRun run(R"(
+        함수 f(a) { 반환 a }
+        f(1, 2)
+    )");
+    EXPECT_EQ(run.result, VMResult::RUNTIME_ERROR);
+}
+
+TEST(VMParityTest, ShouldNotLeakEnvironmentsForGlobalFunctions) {
+    size_t before = Environment::liveCount();
+    {
+        VmRun run(R"(
+            함수 f(n) { 만약 (n == 0) { 반환 0 } 반환 f(n - 1) }
+            f(50)
+            클래스 점 {
+                비공개 정수 x
+                생성자(x) { 자신.x = x }
+            }
+            정수 p = 점(1)
+        )");
+        EXPECT_EQ(run.result, VMResult::OK);
+    }
+    EXPECT_EQ(Environment::liveCount(), before);
+}
+
+// ============================================================================
+// 비동기 OpCode 테스트
 // ============================================================================
 
 TEST(VMAsyncTest, ShouldBuildPromise) {
@@ -1033,110 +791,66 @@ TEST(VMAsyncTest, ShouldBuildPromise) {
     chunk.writeOpCode(OpCode::HALT, 1);
 
     VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.run(&chunk), VMResult::OK);
     EXPECT_TRUE(vm.top().isPromise());
 }
 
 TEST(VMAsyncTest, ShouldResolvePromise) {
     Chunk chunk;
-    // BUILD_PROMISE
     chunk.writeOpCode(OpCode::BUILD_PROMISE, 1);
-    // DUP (스택에 promise 복제)
     chunk.writeOpCode(OpCode::DUP, 1);
-    // LOAD_CONST 42 (resolve할 값)
-    size_t idx = chunk.addConstant(Value::createInteger(42));
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(static_cast<uint8_t>(idx), 1);
-    // PROMISE_RESOLVE (pop value, pop promise)
+    writeConst(chunk, Value::createInteger(42));
     chunk.writeOpCode(OpCode::PROMISE_RESOLVE, 1);
-    // AWAIT (남은 promise에서 값 추출)
     chunk.writeOpCode(OpCode::AWAIT, 1);
     chunk.writeOpCode(OpCode::HALT, 1);
 
     VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.run(&chunk), VMResult::OK);
     EXPECT_EQ(vm.top().asInteger(), 42);
 }
 
-TEST(VMAsyncTest, ShouldBuildAsyncFunction) {
-    Chunk chunk;
-
-    // BUILD_ASYNC_FUNC [param_count] [addr_high] [addr_low]
-    // 함수 시작 주소를 임의로 100으로 설정
-    chunk.writeOpCode(OpCode::BUILD_ASYNC_FUNC, 1);
-    chunk.write(2, 1);   // 파라미터 개수 2
-    chunk.write(0, 1);   // addr_high = 0
-    chunk.write(100, 1); // addr_low = 100 (함수 시작 주소)
-
-    chunk.writeOpCode(OpCode::HALT, 1);
-
-    VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    // 비동기 함수는 정수로 인코딩됨 (상위 비트로 async 표시)
-    EXPECT_TRUE(vm.top().isInteger());
-
-    // 인코딩 확인: (funcAddr << 8) | paramCount | (1 << 31)
-    int64_t encoded = vm.top().asInteger();
-    EXPECT_TRUE((encoded & (1LL << 31)) != 0);  // async 플래그
-    EXPECT_EQ((encoded >> 8) & 0xFFFF, 100);    // 함수 주소
-    EXPECT_EQ(encoded & 0xFF, 2);               // 파라미터 개수
+TEST(VMAsyncTest, ShouldBuildAsyncFunctionValue) {
+    VmRun run("비동기 함수(a, b) { 반환 a + b }");
+    EXPECT_EQ(run.result, VMResult::OK);
+    ASSERT_TRUE(run.vm.top().isFunction());
+    EXPECT_TRUE(run.vm.top().asFunction()->isAsync());
+    EXPECT_EQ(run.vm.top().asFunction()->parameters().size(), 2u);
 }
 
 TEST(VMAsyncTest, ShouldAwaitNonPromiseValue) {
-    // Promise가 아닌 값을 await하면 그 값 그대로 반환
     Chunk chunk;
-    size_t idx = chunk.addConstant(Value::createInteger(123));
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(static_cast<uint8_t>(idx), 1);
+    writeConst(chunk, Value::createInteger(123));
     chunk.writeOpCode(OpCode::AWAIT, 1);
     chunk.writeOpCode(OpCode::HALT, 1);
 
     VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
+    EXPECT_EQ(vm.run(&chunk), VMResult::OK);
     EXPECT_EQ(vm.top().asInteger(), 123);
 }
 
-TEST(VMAsyncTest, ShouldRejectPromise) {
+TEST(VMAsyncTest, ShouldAwaitRejectedPromiseAsItsReason) {
+    // 평가기와 같다: 완료된 Promise 는 거부 이유도 값으로 돌려준다
     Chunk chunk;
-    // BUILD_PROMISE
     chunk.writeOpCode(OpCode::BUILD_PROMISE, 1);
-    // DUP
     chunk.writeOpCode(OpCode::DUP, 1);
-    // LOAD_CONST "에러" (reject할 이유)
-    size_t idx = chunk.addConstant(Value::createString("에러"));
-    chunk.writeOpCode(OpCode::LOAD_CONST, 1);
-    chunk.write(static_cast<uint8_t>(idx), 1);
-    // PROMISE_REJECT
+    writeConst(chunk, Value::createString("에러"));
     chunk.writeOpCode(OpCode::PROMISE_REJECT, 1);
-    // AWAIT (rejected promise는 에러)
     chunk.writeOpCode(OpCode::AWAIT, 1);
     chunk.writeOpCode(OpCode::HALT, 1);
 
     VM vm;
-    VMResult result = vm.run(&chunk);
-
-    // rejected promise를 await하면 런타임 에러
-    EXPECT_EQ(result, VMResult::RUNTIME_ERROR);
+    EXPECT_EQ(vm.run(&chunk), VMResult::OK);
+    EXPECT_EQ(vm.top().asString(), "에러");
 }
 
-TEST(VMAsyncTest, ShouldAwaitPendingPromise) {
-    // Pending 상태의 Promise를 await하면 null 반환
+TEST(VMAsyncTest, ShouldAwaitPendingPromiseAsPromise) {
+    // 평가기와 같다: 아직 끝나지 않은 Promise 는 그대로 돌려준다
     Chunk chunk;
     chunk.writeOpCode(OpCode::BUILD_PROMISE, 1);
     chunk.writeOpCode(OpCode::AWAIT, 1);
     chunk.writeOpCode(OpCode::HALT, 1);
 
     VM vm;
-    VMResult result = vm.run(&chunk);
-
-    EXPECT_EQ(result, VMResult::OK);
-    EXPECT_TRUE(vm.top().isNull());
+    EXPECT_EQ(vm.run(&chunk), VMResult::OK);
+    EXPECT_TRUE(vm.top().isPromise());
 }

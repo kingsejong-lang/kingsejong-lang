@@ -229,6 +229,8 @@ if(Python3_Interpreter_FOUND)
                 ${EXAMPLES_EXCLUDE_ARGS}
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     )
+    # 두 실행은 같은 작업 디렉터리에 예제가 만드는 파일(stdlib_io·json·os)을 공유하므로 동시에 돌리지 않는다.
+    set_tests_properties(examples examples-vm PROPERTIES RESOURCE_LOCK examples-workdir)
 endif()
 
 # 설치 규칙

@@ -1,143 +1,88 @@
 #pragma once
-
 /**
  * @file Compiler.h
- * @brief AST를 바이트코드로 컴파일
- * @author KingSejong Team
- * @date 2025-11-10
+ * @brief AST → 바이트코드 컴파일러
  *
- * AST 노드를 방문하여 바이트코드를 생성합니다.
+ * 변수는 이름으로 환경에 두므로 컴파일러는 스코프를 추적하지 않는다. 함수·메서드 본문은
+ * 같은 청크 안에 인라인으로 두고 (앞에 JUMP 로 건너뛴다) 본문 노드 → 진입점을 등록해
+ * VM 이 Function 객체를 호출할 때 네이티브 코드를 찾게 한다.
  */
 
 #include "Chunk.h"
 #include "ast/Node.h"
 #include "ast/Statement.h"
 #include "ast/Expression.h"
-#include <memory>
-#include <unordered_map>
-#include <unordered_set>
+#include <string>
 #include <vector>
 
 namespace kingsejong {
 namespace bytecode {
 
-/**
- * @struct Local
- * @brief 로컬 변수 정보
- */
-struct Local {
-    std::string name;       ///< 변수 이름
-    int depth;              ///< 스코프 깊이
-    bool isCaptured;        ///< 클로저에 캡처되었는지
-};
-
-/**
- * @class Compiler
- * @brief AST → Bytecode 컴파일러
- *
- * AST를 순회하며 바이트코드를 생성합니다.
- */
 class Compiler {
-private:
-    Chunk* chunk_;                          ///< 현재 청크
-    std::vector<Local> locals_;             ///< 로컬 변수 테이블
-    int scopeDepth_;                        ///< 현재 스코프 깊이
-
-    // 점프 패칭을 위한 스택
-    std::vector<size_t> loopStarts_;        ///< 루프 시작 오프셋
-    std::vector<std::vector<size_t>> breakJumps_;  ///< break 점프 오프셋
-
-    // Phase 7.1: 클래스 시스템
-    std::unordered_set<std::string> classNames_;  ///< 정의된 클래스 이름
-
 public:
-    /**
-     * @brief Compiler 생성자
-     */
     Compiler();
 
-    /**
-     * @brief 프로그램 컴파일
-     * @param program AST 루트 노드
-     * @param chunk 출력 청크
-     * @return 컴파일 성공 여부
-     */
+    /// 프로그램을 청크로 컴파일한다. 실패하면 false (메시지는 errors()).
     bool compile(ast::Program* program, Chunk* chunk);
 
-    /**
-     * @brief 문장 컴파일
-     * @param stmt 문장 노드
-     */
     void compileStatement(ast::Statement* stmt);
-
-    /**
-     * @brief 표현식 컴파일
-     * @param expr 표현식 노드
-     */
     void compileExpression(ast::Expression* expr);
 
+    const std::vector<std::string>& errors() const { return errors_; }
+
 private:
-    // 문장 컴파일
+    Chunk* chunk_;
+    bool hadError_;
+    int currentLine_;
+    std::vector<std::string> errors_;
+
+    // ---- 문장 ----
     void compileVarDeclaration(ast::VarDeclaration* decl);
     void compileAssignmentStatement(ast::AssignmentStatement* stmt);
-    void compileExpressionStatement(ast::ExpressionStatement* stmt);
     void compileIfStatement(ast::IfStatement* stmt);
     void compileWhileStatement(ast::WhileStatement* stmt);
-    void compileForStatement(ast::ForStatement* stmt);
-    void compileReturnStatement(ast::ReturnStatement* stmt);
-    void compileBlockStatement(ast::BlockStatement* stmt);
     void compileRepeatStatement(ast::RepeatStatement* stmt);
     void compileRangeForStatement(ast::RangeForStatement* stmt);
+    void compileReturnStatement(ast::ReturnStatement* stmt);
+    void compileBlock(const ast::BlockStatement* block);
     void compileImportStatement(ast::ImportStatement* stmt);
-    void compileClassStatement(ast::ClassStatement* stmt);  // Phase 7.1
+    void compileClassStatement(ast::ClassStatement* stmt);
+    void compileTryStatement(ast::TryStatement* stmt);
+    void compileThrowStatement(ast::ThrowStatement* stmt);
 
-    // 표현식 컴파일
-    void compileIntegerLiteral(ast::IntegerLiteral* lit);
-    void compileFloatLiteral(ast::FloatLiteral* lit);
-    void compileStringLiteral(ast::StringLiteral* lit);
-    void compileBooleanLiteral(ast::BooleanLiteral* lit);
-    void compileIdentifier(ast::Identifier* ident);
+    // ---- 표현식 ----
+    void compileInterpolatedString(ast::InterpolatedString* interp);
     void compileBinaryExpression(ast::BinaryExpression* expr);
+    void compileAssignmentExpression(ast::BinaryExpression* expr);
     void compileUnaryExpression(ast::UnaryExpression* expr);
     void compileCallExpression(ast::CallExpression* expr);
-    void compileArrayLiteral(ast::ArrayLiteral* lit);
     void compileIndexExpression(ast::IndexExpression* expr);
-    void compileFunctionLiteral(ast::FunctionLiteral* lit);
     void compileJosaExpression(ast::JosaExpression* expr);
-    void compileRangeExpression(ast::RangeExpression* expr);
-    void compileNewExpression(ast::NewExpression* expr);          // Phase 7.1
-    void compileMemberAccessExpression(ast::MemberAccessExpression* expr);  // Phase 7.1
-    void compileThisExpression(ast::ThisExpression* expr);        // Phase 7.1
-    void compileAsyncFunctionLiteral(ast::AsyncFunctionLiteral* lit);  // Phase 7.3
-    void compileAwaitExpression(ast::AwaitExpression* expr);      // Phase 7.3
+    void compileArguments(const std::vector<std::unique_ptr<ast::Expression>>& args);
 
-    // 스코프 관리
-    void beginScope();
-    void endScope();
-    void addLocal(const std::string& name);
-    int resolveLocal(const std::string& name);
+    /// 함수 본문을 인라인으로 컴파일하고 프로토타입 인덱스를 돌려준다
+    size_t compileFunctionBody(const std::vector<std::string>& params, ast::Statement* body,
+                               bool isAsync, const std::string& name);
 
-    // 점프 관련
-    size_t emitJump(OpCode op);
-    void patchJump(size_t offset);
-    void emitLoop(size_t loopStart);
-
-    // 헬퍼
-    void emit(OpCode op);
-    void emit(OpCode op, uint8_t operand);
-    void emit(OpCode op, uint8_t operand1, uint8_t operand2);
-    size_t currentOffset() const;
-    int currentLine() const { return 1; } // 간단화를 위해 1로 고정
-
-    // 최적화 패스
+    // ---- 최적화 ----
     bool tryConstantFoldBinary(ast::BinaryExpression* expr);
     bool tryConstantFoldUnary(ast::UnaryExpression* expr);
-    bool isConstantCondition(ast::Expression* expr, bool& result);
-    void optimizePeephole();
+    bool isConstantCondition(const ast::Expression* expr, bool& result);
 
-    // 에러 처리
+    // ---- 코드 생성 ----
+    void emit(OpCode op);
+    void emitByte(uint8_t byte);
+    void emit16(uint16_t value);
+    void emitConstant(const evaluator::Value& value);
+    void emitName(OpCode op, const std::string& name);
+    size_t emitJump(OpCode op);            ///< [u16] 자리 표시자를 쓰고 그 위치를 돌려준다
+    void patchJump(size_t operandOffset, size_t trailingBytes = 0);  ///< 자리 표시자를 현재 위치까지의 거리로 채운다
+    void emitLoop(size_t loopStart);
+    size_t currentOffset() const;
+    uint16_t nameIndex(const std::string& name);
+    void setLine(const ast::Node* node);
+
     void error(const std::string& message);
-    bool hadError_ = false;
 };
 
 } // namespace bytecode

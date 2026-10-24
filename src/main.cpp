@@ -161,6 +161,7 @@ int executeFile(const std::string& filename, bool useVm = false)
                 return 1;
             }
             kingsejong::bytecode::VM vm;
+            vm.setModuleLoader(moduleLoader.get());
             auto result = vm.run(&chunk);
             if (result != kingsejong::bytecode::VMResult::OK && result != kingsejong::bytecode::VMResult::HALT)
             {

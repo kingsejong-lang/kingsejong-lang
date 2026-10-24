@@ -201,6 +201,15 @@ public:
     /// 클래스 문장으로 클래스 정의를 만들고, 환경에 등록할 생성자 함수 값을 돌려준다
     static Value makeClass(const ast::ClassStatement* stmt, const std::shared_ptr<Environment>& env);
 
+    /// 함수 본문을 주어진 환경에서 실행한다. 반환문은 값으로 바꾸고, 끝나면 환경을 놓는다.
+    static Value runBody(ast::Statement* body, std::shared_ptr<Environment> env);
+    /// 콜백 함수를 인자로 부른다 (매개변수 개수 검사는 호출자가 한다)
+    static Value runCallback(const Value& callback, const std::vector<Value>& args);
+    /// 클래스 생성자 함수(classDef 가 붙은 Function)로 인스턴스를 만든다
+    static Value constructInstance(const std::shared_ptr<Function>& func, const std::vector<Value>& args);
+    /// 비동기 함수의 결과를 Promise 로 감싼다 (에러 값이면 reject)
+    static Value wrapAsync(const Value& result);
+
 private:
     std::shared_ptr<Environment> env_;  ///< 변수 저장 환경
 
@@ -549,15 +558,6 @@ private:
      * 평가 횟수와 실행 시간을 체크하여 제한을 초과하면 예외를 던집니다.
      */
     void checkSafetyLimits();
-
-    /// 함수 본문을 주어진 환경에서 실행한다. 반환문은 값으로 바꾸고, 끝나면 환경을 놓는다.
-    static Value runBody(ast::Statement* body, std::shared_ptr<Environment> env);
-    /// 콜백 함수를 인자로 부른다 (매개변수 개수 검사는 호출자가 한다)
-    static Value runCallback(const Value& callback, const std::vector<Value>& args);
-    /// 클래스 생성자 함수(classDef 가 붙은 Function)로 인스턴스를 만든다
-    static Value constructInstance(const std::shared_ptr<Function>& func, const std::vector<Value>& args);
-    /// 비동기 함수의 결과를 Promise 로 감싼다 (에러 값이면 reject)
-    static Value wrapAsync(const Value& result);
 };
 
 } // namespace evaluator

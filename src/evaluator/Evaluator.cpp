@@ -25,11 +25,13 @@ namespace evaluator {
 
 Evaluator::Evaluator()
     : env_(std::make_shared<Environment>())
+    , startTime_(std::chrono::steady_clock::now())  // evalProgram 없이 쓰여도 시간 한도가 맞게 잡힌다
 {
 }
 
 Evaluator::Evaluator(std::shared_ptr<Environment> environment)
     : env_(environment)
+    , startTime_(std::chrono::steady_clock::now())
 {
 }
 

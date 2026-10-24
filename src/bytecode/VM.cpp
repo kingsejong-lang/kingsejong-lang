@@ -542,15 +542,9 @@ VM::Step VM::executeInstruction() {
         }
 
         // ---- 비동기 ----
-        case OpCode::AWAIT: {
-            Value value = pop();
-            if (value.isPromise() && value.asPromise()->isSettled()) {
-                push(value.asPromise()->value());
-            } else {
-                push(value);
-            }
+        case OpCode::AWAIT:
+            push(Evaluator::awaitValue(pop()));
             break;
-        }
         case OpCode::BUILD_PROMISE:
             push(Value::createPromise(std::make_shared<evaluator::Promise>()));
             break;

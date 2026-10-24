@@ -34,7 +34,8 @@ public:
 
     Program() = default;
 
-    NodeType type() const override { return NodeType::PROGRAM; }
+    static constexpr NodeType kType = NodeType::PROGRAM;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -80,7 +81,8 @@ public:
         : expression_(std::move(expression))
     {}
 
-    NodeType type() const override { return NodeType::EXPRESSION_STATEMENT; }
+    static constexpr NodeType kType = NodeType::EXPRESSION_STATEMENT;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -119,7 +121,8 @@ public:
         , initializer_(std::move(initializer))
     {}
 
-    NodeType type() const override { return NodeType::VAR_DECLARATION; }
+    static constexpr NodeType kType = NodeType::VAR_DECLARATION;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -164,7 +167,8 @@ public:
         , value_(std::move(value))
     {}
 
-    NodeType type() const override { return NodeType::ASSIGNMENT_STATEMENT; }
+    static constexpr NodeType kType = NodeType::ASSIGNMENT_STATEMENT;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -193,7 +197,8 @@ public:
         : returnValue_(std::move(returnValue))
     {}
 
-    NodeType type() const override { return NodeType::RETURN_STATEMENT; }
+    static constexpr NodeType kType = NodeType::RETURN_STATEMENT;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -231,7 +236,8 @@ public:
 
     BlockStatement() = default;
 
-    NodeType type() const override { return NodeType::BLOCK_STATEMENT; }
+    static constexpr NodeType kType = NodeType::BLOCK_STATEMENT;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -286,7 +292,8 @@ public:
         , elseBranch_(std::move(elseBranch))
     {}
 
-    NodeType type() const override { return NodeType::IF_STATEMENT; }
+    static constexpr NodeType kType = NodeType::IF_STATEMENT;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -330,7 +337,8 @@ public:
         , body_(std::move(body))
     {}
 
-    NodeType type() const override { return NodeType::WHILE_STATEMENT; }
+    static constexpr NodeType kType = NodeType::WHILE_STATEMENT;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -368,7 +376,8 @@ public:
         , body_(std::move(body))
     {}
 
-    NodeType type() const override { return NodeType::FOR_STATEMENT; }
+    static constexpr NodeType kType = NodeType::FOR_STATEMENT;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -405,7 +414,8 @@ public:
         , body_(std::move(body))
     {}
 
-    NodeType type() const override { return NodeType::REPEAT_STATEMENT; }
+    static constexpr NodeType kType = NodeType::REPEAT_STATEMENT;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -449,7 +459,8 @@ public:
         , endInclusive_(endInclusive)
     {}
 
-    NodeType type() const override { return NodeType::RANGE_FOR_STATEMENT; }
+    static constexpr NodeType kType = NodeType::RANGE_FOR_STATEMENT;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -482,7 +493,8 @@ public:
         : modulePath_(modulePath)
     {}
 
-    NodeType type() const override { return NodeType::IMPORT_STATEMENT; }
+    static constexpr NodeType kType = NodeType::IMPORT_STATEMENT;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -557,7 +569,8 @@ public:
         , finallyBlock_(std::move(finallyBlock))
     {}
 
-    NodeType type() const override { return NodeType::TRY_STATEMENT; }
+    static constexpr NodeType kType = NodeType::TRY_STATEMENT;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -604,7 +617,8 @@ public:
         : value_(std::move(value))
     {}
 
-    NodeType type() const override { return NodeType::THROW_STATEMENT; }
+    static constexpr NodeType kType = NodeType::THROW_STATEMENT;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -671,7 +685,8 @@ public:
         , initializer_(std::move(initializer))
     {}
 
-    NodeType type() const override { return NodeType::FIELD_DECLARATION; }
+    static constexpr NodeType kType = NodeType::FIELD_DECLARATION;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -717,7 +732,8 @@ public:
         , body_(std::move(body))
     {}
 
-    NodeType type() const override { return NodeType::CONSTRUCTOR_DECLARATION; }
+    static constexpr NodeType kType = NodeType::CONSTRUCTOR_DECLARATION;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -774,7 +790,8 @@ public:
         , body_(std::move(body))
     {}
 
-    NodeType type() const override { return NodeType::METHOD_DECLARATION; }
+    static constexpr NodeType kType = NodeType::METHOD_DECLARATION;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {
@@ -841,7 +858,8 @@ public:
         , superClass_(superClass)
     {}
 
-    NodeType type() const override { return NodeType::CLASS_STATEMENT; }
+    static constexpr NodeType kType = NodeType::CLASS_STATEMENT;
+    NodeType type() const override { return kType; }
 
     std::string toString() const override
     {

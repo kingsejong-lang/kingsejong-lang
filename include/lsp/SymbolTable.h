@@ -211,6 +211,15 @@ public:
     void addReference(const std::string& name, const Location& location);
 
     /**
+     * @brief 특정 스코프에 정의된 심볼에 참조를 붙인다
+     *
+     * 같은 이름이 전역과 함수 안에 따로 있을 때, 이름만으로 붙이면 둘이 섞인다.
+     * 수집기가 참조를 해석한 스코프를 함께 넘겨 그 심볼에만 붙인다.
+     * @return 그 스코프에 심볼이 없으면 false
+     */
+    bool addReference(const std::string& name, const std::string& scope, const Location& location);
+
+    /**
      * @brief 참조 목록 가져오기
      * @param name 심볼 이름
      * @return 참조 위치 목록
@@ -220,6 +229,9 @@ public:
      * Complexity: O(log n)
      */
     std::vector<Location> getReferences(const std::string& name) const;
+
+    /// 특정 스코프의 심볼이 가진 참조만 돌려준다
+    std::vector<Location> getReferences(const std::string& name, const std::string& scope) const;
 
     /**
      * @brief 종류별 심볼 가져오기

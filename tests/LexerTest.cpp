@@ -894,3 +894,29 @@ TEST(LexerTest, TokenizeClassDefinitionSyntax)
     // (DOT token이 필요할 수도 있음)
     // }
 }
+
+// 열은 모든 줄에서 1부터 센다 (바이트 단위). 예전에는 줄바꿈 뒤 열이 1에서 출발해 하나씩 밀렸다.
+TEST(LexerTest, ShouldNumberColumnsFromOneOnEveryLine)
+{
+    kingsejong::lexer::Lexer lexer("x = 1\n  y = 2\n정수 z");
+    auto x = lexer.nextToken();
+    EXPECT_EQ(x.literal, "x");
+    EXPECT_EQ(x.location.line, 1);
+    EXPECT_EQ(x.location.column, 1);
+
+    lexer.nextToken();  // =
+    lexer.nextToken();  // 1
+    auto y = lexer.nextToken();
+    EXPECT_EQ(y.literal, "y");
+    EXPECT_EQ(y.location.line, 2);
+    EXPECT_EQ(y.location.column, 3);
+
+    lexer.nextToken();  // =
+    lexer.nextToken();  // 2
+    auto jeongsu = lexer.nextToken();
+    EXPECT_EQ(jeongsu.location.line, 3);
+    EXPECT_EQ(jeongsu.location.column, 1);
+    auto z = lexer.nextToken();
+    EXPECT_EQ(z.literal, "z");
+    EXPECT_EQ(z.location.column, 8);  // "정수" 6바이트 + 공백 뒤
+}

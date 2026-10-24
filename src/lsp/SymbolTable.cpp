@@ -45,11 +45,26 @@ std::optional<Symbol> SymbolTable::findSymbolInScope(const std::string& name, co
 
 std::optional<Symbol> SymbolTable::findSymbolAtLocation(const Location& location) const
 {
-    // 위치 인덱스에서 먼저 찾기 (정의 위치)
+    // 위치 인덱스로 이름을 알아낸 뒤, 같은 이름 중 정말로 그 위치를 가진 심볼을 고른다.
+    // 이름만으로 고르면 전역 x 와 함수 안 x 가 섞인다.
     auto it = locationIndex_.find(location);
     if (it != locationIndex_.end())
     {
-        return findSymbol(it->second);
+        auto range = symbols_.equal_range(it->second);
+        for (auto sym = range.first; sym != range.second; ++sym)
+        {
+            if (sym->second.definitionLocation == location)
+            {
+                return sym->second;
+            }
+            for (const auto& ref : sym->second.references)
+            {
+                if (ref == location)
+                {
+                    return sym->second;
+                }
+            }
+        }
     }
 
     // 참조 위치에서 찾기
@@ -65,6 +80,34 @@ std::optional<Symbol> SymbolTable::findSymbolAtLocation(const Location& location
     }
 
     return std::nullopt;
+}
+
+bool SymbolTable::addReference(const std::string& name, const std::string& scope, const Location& location)
+{
+    auto range = symbols_.equal_range(name);
+    for (auto it = range.first; it != range.second; ++it)
+    {
+        if (it->second.scope == scope)
+        {
+            it->second.references.push_back(location);
+            locationIndex_[location] = name;
+            return true;
+        }
+    }
+    return false;
+}
+
+std::vector<Location> SymbolTable::getReferences(const std::string& name, const std::string& scope) const
+{
+    auto range = symbols_.equal_range(name);
+    for (auto it = range.first; it != range.second; ++it)
+    {
+        if (it->second.scope == scope)
+        {
+            return it->second.references;
+        }
+    }
+    return {};
 }
 
 void SymbolTable::addReference(const std::string& name, const Location& location)

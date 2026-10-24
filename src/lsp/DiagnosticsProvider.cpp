@@ -6,6 +6,7 @@
  */
 
 #include "lsp/DiagnosticsProvider.h"
+#include "lsp/LspUtils.h"
 #include "lexer/Lexer.h"
 #include "parser/Parser.h"
 #include "error/ErrorReporter.h"
@@ -32,22 +33,6 @@ std::string lineText(const std::string& content, int lineIndex)
     }
     size_t end = content.find('\n', start);
     return content.substr(start, end == std::string::npos ? std::string::npos : end - start);
-}
-
-/// Lexer 의 열은 1부터 세는 바이트 단위다. LSP 는 0부터 세는 UTF-16 단위를 쓴다.
-/// 한글 한 글자는 UTF-8 3바이트, UTF-16 1단위이고 이모지는 4바이트, 2단위다.
-int byteColumnToUtf16(const std::string& line, int byteColumn)
-{
-    size_t bytes = byteColumn > 0 ? static_cast<size_t>(byteColumn - 1) : 0;
-    if (bytes > line.size()) bytes = line.size();
-    int units = 0;
-    for (size_t i = 0; i < bytes;) {
-        unsigned char c = static_cast<unsigned char>(line[i]);
-        size_t len = (c < 0x80) ? 1 : (c >> 5) == 0x6 ? 2 : (c >> 4) == 0xE ? 3 : (c >> 3) == 0x1E ? 4 : 1;
-        units += (len == 4) ? 2 : 1;
-        i += len;
-    }
-    return units;
 }
 
 } // namespace

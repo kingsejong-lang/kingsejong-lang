@@ -11,6 +11,7 @@
 #include "lexer/Lexer.h"
 #include "parser/Parser.h"
 #include <stdexcept>
+#include <optional>
 #include <sstream>
 #include <cctype>
 
@@ -308,7 +309,7 @@ void LanguageServer::handleTextDocumentDidOpen(const nlohmann::json& params)
         if (program) {
             symbolTable_.clear();  // 기존 심볼 제거
             SymbolCollector collector(symbolTable_);
-            collector.collect(program.get(), uri);
+            collector.collect(program.get(), uri, text);
         }
     } catch (const std::exception& e) {
         // 파싱 에러는 무시 (진단에서 처리됨)
@@ -364,7 +365,7 @@ void LanguageServer::handleTextDocumentDidChange(const nlohmann::json& params)
         if (program) {
             symbolTable_.clear();  // 기존 심볼 제거
             SymbolCollector collector(symbolTable_);
-            collector.collect(program.get(), uri);
+            collector.collect(program.get(), uri, newText);
         }
     } catch (const std::exception& e) {
         // 파싱 에러는 무시 (진단에서 처리됨)
@@ -520,19 +521,56 @@ nlohmann::json LanguageServer::createPublishDiagnosticsNotification(
     };
 }
 
+
+namespace {
+
+/// LSP 위치(0-based 줄, UTF-16 문자)에 있는 식별자가 가리키는 심볼.
+/// 식별자의 시작 위치를 심볼 테이블의 정의·참조 위치와 맞춰 찾으므로, 같은 이름이 여러
+/// 스코프에 있어도 커서가 놓인 바로 그 심볼이 나온다. 위치로 못 찾으면 이름으로 찾는다.
+std::optional<Symbol> symbolAtPosition(const SymbolTable& table, const std::string& uri,
+                                       const std::string& content, int line, int character)
+{
+    auto lines = splitLines(content);
+    if (line < 0 || line >= static_cast<int>(lines.size())) {
+        return std::nullopt;
+    }
+    const std::string& text = lines[static_cast<size_t>(line)];
+    size_t byteOffset = characterToByteOffset(text, character);
+    if (byteOffset >= text.length()) {
+        return std::nullopt;
+    }
+    std::string word = extractWordAtOffset(text, byteOffset);
+    if (word.empty()) {
+        return std::nullopt;
+    }
+    size_t start = wordStartOffset(text, byteOffset);
+    Location at(line + 1, byteColumnToUtf16(text, static_cast<int>(start) + 1) + 1, uri);
+    if (auto found = table.findSymbolAtLocation(at)) {
+        return found;
+    }
+    return table.findSymbol(word);
+}
+
+nlohmann::json rangeOf(const Location& location, const std::string& name)
+{
+    return {
+        {"start", {{"line", location.line - 1}, {"character", location.column - 1}}},
+        {"end", {{"line", location.line - 1}, {"character", location.column - 1 + utf16Length(name)}}}
+    };
+}
+
+} // namespace
+
 nlohmann::json LanguageServer::handleTextDocumentDefinition(const nlohmann::json& params)
 {
-    // params 검증
     if (!params.contains("textDocument")) {
         throw std::runtime_error("Missing textDocument parameter");
     }
     if (!params.contains("position")) {
         throw std::runtime_error("Missing position parameter");
     }
-
     auto textDocument = params["textDocument"];
     auto position = params["position"];
-
     if (!textDocument.contains("uri") || !textDocument["uri"].is_string()) {
         throw std::runtime_error("Missing or invalid uri");
     }
@@ -544,130 +582,18 @@ nlohmann::json LanguageServer::handleTextDocumentDefinition(const nlohmann::json
     }
 
     std::string uri = textDocument["uri"];
-    int line = position["line"];
-    int character = position["character"];
-
-    // 문서 가져오기
     const auto* doc = getDocument(uri);
     if (!doc) {
         throw std::runtime_error("Document not found: " + uri);
     }
 
-    // 커서 위치에서 심볼 이름 추출
-    const std::string& content = doc->content;
-
-    // 줄 가져오기
-    auto lines = splitLines(content);
-    if (line < 0 || line >= static_cast<int>(lines.size())) {
-        return nullptr;  // 유효하지 않은 줄
-    }
-
-    const std::string& targetLine = lines[line];
-
-    // LSP character position을 바이트 오프셋으로 변환
-    size_t byteOffset = characterToByteOffset(targetLine, character);
-    if (byteOffset >= targetLine.length()) {
-        return nullptr;
-    }
-
-    // 바이트 오프셋 위치에서 단어 추출
-    std::string symbolName = extractWordAtOffset(targetLine, byteOffset);
-    if (symbolName.empty()) {
-        return nullptr;
-    }
-
-    // 심볼 찾기 (스코프 고려)
-    // 1. 커서 위치가 속한 함수 찾기
-    std::string currentScope = "global";
-
-    // 모든 함수 심볼을 가져와서 줄 번호로 판단
-    auto allFunctions = symbolTable_.getAllSymbolsByKind(SymbolKind::Function);
-
-    // 현재 줄이 어느 함수 안에 있는지 확인
-    for (const auto& func : allFunctions) {
-        int funcDefLine = func.definitionLocation.line - 1;  // 0-based로 변환
-
-        // 함수 정의보다 뒤에 있고, 함수가 끝나기 전인지 확인
-        if (line > funcDefLine) {
-            // 함수의 끝을 찾기 (간단한 휴리스틱: 닫는 중괄호)
-            bool insideFunc = false;
-            int braceCount = 0;
-
-            for (int i = funcDefLine; i <= line && i < static_cast<int>(lines.size()); ++i) {
-                const std::string& checkLine = lines[i];
-
-                // 여는 중괄호 카운트
-                for (char c : checkLine) {
-                    if (c == '{') {
-                        braceCount++;
-                        if (braceCount == 1 && i == funcDefLine) {
-                            insideFunc = true;
-                        }
-                    }
-                    else if (c == '}') {
-                        braceCount--;
-                        if (braceCount == 0 && insideFunc) {
-                            // 함수가 끝남
-                            insideFunc = false;
-                        }
-                    }
-                }
-
-                if (i == line && insideFunc && braceCount > 0) {
-                    currentScope = "함수:" + func.name;
-                    break;
-                }
-            }
-
-            if (currentScope != "global") {
-                break;
-            }
-        }
-    }
-
-    // 현재 스코프에서 먼저 찾기
-    if (currentScope != "global") {
-        auto symbol = symbolTable_.findSymbolInScope(symbolName, currentScope);
-        if (symbol.has_value()) {
-            // 정의 위치 반환
-            return {
-                {"uri", symbol->definitionLocation.uri},
-                {"range", {
-                    {"start", {
-                        {"line", symbol->definitionLocation.line - 1},
-                        {"character", symbol->definitionLocation.column - 1}
-                    }},
-                    {"end", {
-                        {"line", symbol->definitionLocation.line - 1},
-                        {"character", symbol->definitionLocation.column - 1 + static_cast<int>(symbol->name.length())}
-                    }}
-                }}
-            };
-        }
-    }
-
-    // 전역 스코프에서 찾기
-    auto symbol = symbolTable_.findSymbol(symbolName);
-
+    auto symbol = symbolAtPosition(symbolTable_, uri, doc->content, position["line"], position["character"]);
     if (!symbol.has_value()) {
-        // 심볼을 찾지 못함 - null 반환
         return nullptr;
     }
-
-    // 정의 위치 반환 (LSP Location 형식)
-    // SymbolTable은 1-based이므로 -1
     return {
         {"uri", symbol->definitionLocation.uri},
-        {"range", {
-            {"start", {
-                {"line", symbol->definitionLocation.line - 1},
-                {"character", symbol->definitionLocation.column - 1}
-            }},
-            {"end", {
-                {"line", symbol->definitionLocation.line - 1},
-                {"character", symbol->definitionLocation.column - 1 + static_cast<int>(symbol->name.length())}
-            }}
-        }}
+        {"range", rangeOf(symbol->definitionLocation, symbol->name)}
     };
 }
 
@@ -836,7 +762,6 @@ nlohmann::json LanguageServer::handleTextDocumentHover(const nlohmann::json& par
 
 nlohmann::json LanguageServer::handleTextDocumentReferences(const nlohmann::json& params)
 {
-    // params 검증
     if (!params.contains("textDocument")) {
         throw std::runtime_error("Missing textDocument parameter");
     }
@@ -846,11 +771,9 @@ nlohmann::json LanguageServer::handleTextDocumentReferences(const nlohmann::json
     if (!params.contains("context")) {
         throw std::runtime_error("Missing context parameter");
     }
-
     auto textDocument = params["textDocument"];
     auto position = params["position"];
     auto context = params["context"];
-
     if (!textDocument.contains("uri") || !textDocument["uri"].is_string()) {
         throw std::runtime_error("Missing or invalid uri");
     }
@@ -862,190 +785,35 @@ nlohmann::json LanguageServer::handleTextDocumentReferences(const nlohmann::json
     }
 
     std::string uri = textDocument["uri"];
-    int line = position["line"];
-    int character = position["character"];
     bool includeDeclaration = context.contains("includeDeclaration") &&
-                               context["includeDeclaration"].is_boolean() &&
-                               context["includeDeclaration"].get<bool>();
-
-    // 문서 가져오기
+                              context["includeDeclaration"].is_boolean() &&
+                              context["includeDeclaration"].get<bool>();
     const auto* doc = getDocument(uri);
     if (!doc) {
         throw std::runtime_error("Document not found: " + uri);
     }
 
-    // 커서 위치에서 심볼 이름 추출
-    const std::string& content = doc->content;
-
-    // 줄 가져오기
-    auto lines = splitLines(content);
-    if (line < 0 || line >= static_cast<int>(lines.size())) {
-        return nlohmann::json::array();  // 유효하지 않은 줄 - 빈 배열 반환
-    }
-
-    const std::string& targetLine = lines[line];
-
-    // LSP character position을 바이트 오프셋으로 변환
-    size_t byteOffset = characterToByteOffset(targetLine, character);
-    if (byteOffset >= targetLine.length()) {
-        return nlohmann::json::array();
-    }
-
-    // 바이트 오프셋 위치에서 단어 추출
-    std::string symbolName = extractWordAtOffset(targetLine, byteOffset);
-    if (symbolName.empty()) {
-        return nlohmann::json::array();
-    }
-
-    // 스코프 감지 (definition/hover와 동일한 로직)
-    std::string currentScope = "global";
-    auto allFunctions = symbolTable_.getAllSymbolsByKind(SymbolKind::Function);
-
-    for (const auto& func : allFunctions) {
-        int funcDefLine = func.definitionLocation.line - 1;
-
-        if (line > funcDefLine) {
-            bool insideFunc = false;
-            int braceCount = 0;
-
-            for (int i = funcDefLine; i <= line && i < static_cast<int>(lines.size()); ++i) {
-                const std::string& checkLine = lines[i];
-
-                for (char c : checkLine) {
-                    if (c == '{') {
-                        braceCount++;
-                        if (braceCount == 1 && i == funcDefLine) {
-                            insideFunc = true;
-                        }
-                    }
-                    else if (c == '}') {
-                        braceCount--;
-                        if (braceCount == 0 && insideFunc) {
-                            insideFunc = false;
-                        }
-                    }
-                }
-
-                if (i == line && insideFunc && braceCount > 0) {
-                    currentScope = "함수:" + func.name;
-                    break;
-                }
-            }
-
-            if (currentScope != "global") {
-                break;
-            }
-        }
-    }
-
-    // 현재 스코프에서 먼저 찾기
-    std::optional<Symbol> symbol;
-    if (currentScope != "global") {
-        symbol = symbolTable_.findSymbolInScope(symbolName, currentScope);
-    }
-
-    // 로컬에서 못 찾으면 전역에서 찾기
+    auto symbol = symbolAtPosition(symbolTable_, uri, doc->content, position["line"], position["character"]);
     if (!symbol.has_value()) {
-        symbol = symbolTable_.findSymbol(symbolName);
-    }
-
-    if (!symbol.has_value()) {
-        // 심볼을 찾지 못함 - 빈 배열 반환
         return nlohmann::json::array();
     }
 
-    // 참조 목록 가져오기
-    auto references = symbolTable_.getReferences(symbolName);
-
-    // 스코프 필터링: 현재 심볼과 같은 스코프의 참조만
+    // 참조는 수집할 때 이미 스코프별로 나뉘어 붙어 있다. 그대로 돌려주면 된다.
     nlohmann::json result = nlohmann::json::array();
-
-    // includeDeclaration이 true면 정의 위치도 추가
     if (includeDeclaration) {
         result.push_back({
             {"uri", symbol->definitionLocation.uri},
-            {"range", {
-                {"start", {
-                    {"line", symbol->definitionLocation.line - 1},
-                    {"character", symbol->definitionLocation.column - 1}
-                }},
-                {"end", {
-                    {"line", symbol->definitionLocation.line - 1},
-                    {"character", symbol->definitionLocation.column - 1 + static_cast<int>(symbol->name.length())}
-                }}
-            }}
+            {"range", rangeOf(symbol->definitionLocation, symbol->name)}
         });
     }
-
-    // 참조 추가 (스코프 필터링)
-    for (const auto& ref : references) {
-        // 참조가 현재 심볼과 같은 스코프에 있는지 확인
-        // 참조의 줄 번호로 스코프 판단
-        int refLine = ref.line - 1;  // 0-based
-        std::string refScope = "global";
-
-        // 참조가 어느 함수 안에 있는지 확인
-        for (const auto& func : allFunctions) {
-            int funcDefLine = func.definitionLocation.line - 1;
-
-            if (refLine > funcDefLine) {
-                bool insideFunc = false;
-                int braceCount = 0;
-
-                for (int i = funcDefLine; i <= refLine && i < static_cast<int>(lines.size()); ++i) {
-                    const std::string& checkLine = lines[i];
-
-                    for (char c : checkLine) {
-                        if (c == '{') {
-                            braceCount++;
-                            if (braceCount == 1 && i == funcDefLine) {
-                                insideFunc = true;
-                            }
-                        }
-                        else if (c == '}') {
-                            braceCount--;
-                            if (braceCount == 0 && insideFunc) {
-                                insideFunc = false;
-                            }
-                        }
-                    }
-
-                    if (i == refLine && insideFunc && braceCount > 0) {
-                        refScope = "함수:" + func.name;
-                        break;
-                    }
-                }
-
-                if (refScope != "global") {
-                    break;
-                }
-            }
-        }
-
-        // 같은 스코프의 참조만 추가
-        if (refScope == symbol->scope) {
-            result.push_back({
-                {"uri", ref.uri},
-                {"range", {
-                    {"start", {
-                        {"line", ref.line - 1},
-                        {"character", ref.column - 1}
-                    }},
-                    {"end", {
-                        {"line", ref.line - 1},
-                        {"character", ref.column - 1 + static_cast<int>(symbolName.length())}
-                    }}
-                }}
-            });
-        }
+    for (const auto& ref : symbol->references) {
+        result.push_back({{"uri", ref.uri}, {"range", rangeOf(ref, symbol->name)}});
     }
-
     return result;
 }
 
 nlohmann::json LanguageServer::handleTextDocumentRename(const nlohmann::json& params)
 {
-    // params 검증
     if (!params.contains("textDocument")) {
         throw std::runtime_error("Missing textDocument parameter");
     }
@@ -1055,10 +823,8 @@ nlohmann::json LanguageServer::handleTextDocumentRename(const nlohmann::json& pa
     if (!params.contains("newName")) {
         throw std::runtime_error("Missing newName parameter");
     }
-
     auto textDocument = params["textDocument"];
     auto position = params["position"];
-
     if (!textDocument.contains("uri") || !textDocument["uri"].is_string()) {
         throw std::runtime_error("Missing or invalid uri");
     }
@@ -1069,194 +835,31 @@ nlohmann::json LanguageServer::handleTextDocumentRename(const nlohmann::json& pa
         throw std::runtime_error("Missing or invalid character");
     }
     if (!params["newName"].is_string()) {
-        throw std::runtime_error("Invalid newName");
+        throw std::runtime_error("Missing or invalid newName");
     }
 
     std::string uri = textDocument["uri"];
-    int line = position["line"];
-    int character = position["character"];
     std::string newName = params["newName"];
-
-    // 빈 이름 거부
     if (newName.empty()) {
         return nullptr;
     }
-
-    // 문서 가져오기
     const auto* doc = getDocument(uri);
     if (!doc) {
         throw std::runtime_error("Document not found: " + uri);
     }
 
-    // 커서 위치에서 심볼 이름 추출
-    const std::string& content = doc->content;
-
-    // 줄 가져오기
-    auto lines = splitLines(content);
-    if (line < 0 || line >= static_cast<int>(lines.size())) {
-        return nullptr;  // 유효하지 않은 줄
-    }
-
-    const std::string& targetLine = lines[line];
-
-    // LSP character position을 바이트 오프셋으로 변환
-    size_t byteOffset = characterToByteOffset(targetLine, character);
-    if (byteOffset >= targetLine.length()) {
-        return nullptr;
-    }
-
-    // 바이트 오프셋 위치에서 단어 추출
-    std::string symbolName = extractWordAtOffset(targetLine, byteOffset);
-    if (symbolName.empty()) {
-        return nullptr;
-    }
-
-    // 스코프 감지 (references와 동일한 로직)
-    std::string currentScope = "global";
-    auto allFunctions = symbolTable_.getAllSymbolsByKind(SymbolKind::Function);
-
-    for (const auto& func : allFunctions) {
-        int funcDefLine = func.definitionLocation.line - 1;
-
-        if (line > funcDefLine) {
-            bool insideFunc = false;
-            int braceCount = 0;
-
-            for (int i = funcDefLine; i <= line && i < static_cast<int>(lines.size()); ++i) {
-                const std::string& checkLine = lines[i];
-
-                for (char c : checkLine) {
-                    if (c == '{') {
-                        braceCount++;
-                        if (braceCount == 1 && i == funcDefLine) {
-                            insideFunc = true;
-                        }
-                    }
-                    else if (c == '}') {
-                        braceCount--;
-                        if (braceCount == 0 && insideFunc) {
-                            insideFunc = false;
-                        }
-                    }
-                }
-
-                if (i == line && insideFunc && braceCount > 0) {
-                    currentScope = "함수:" + func.name;
-                    break;
-                }
-            }
-
-            if (currentScope != "global") {
-                break;
-            }
-        }
-    }
-
-    // 현재 스코프에서 먼저 찾기
-    std::optional<Symbol> symbol;
-    if (currentScope != "global") {
-        symbol = symbolTable_.findSymbolInScope(symbolName, currentScope);
-    }
-
-    // 로컬에서 못 찾으면 전역에서 찾기
+    auto symbol = symbolAtPosition(symbolTable_, uri, doc->content, position["line"], position["character"]);
     if (!symbol.has_value()) {
-        symbol = symbolTable_.findSymbol(symbolName);
-    }
-
-    if (!symbol.has_value()) {
-        // 심볼을 찾지 못함 - null 반환
         return nullptr;
     }
 
-    // 참조 목록 가져오기
-    auto references = symbolTable_.getReferences(symbolName);
-
-    // WorkspaceEdit 생성
+    // 정의와 참조를 모두 바꾼다. 다른 스코프의 같은 이름은 다른 심볼이라 건드리지 않는다.
     nlohmann::json edits = nlohmann::json::array();
-
-    // 1. 정의 위치 편집 추가
-    edits.push_back({
-        {"range", {
-            {"start", {
-                {"line", symbol->definitionLocation.line - 1},
-                {"character", symbol->definitionLocation.column - 1}
-            }},
-            {"end", {
-                {"line", symbol->definitionLocation.line - 1},
-                {"character", symbol->definitionLocation.column - 1 + static_cast<int>(symbol->name.length())}
-            }}
-        }},
-        {"newText", newName}
-    });
-
-    // 2. 참조 위치 편집 추가 (스코프 필터링)
-    for (const auto& ref : references) {
-        // 참조가 현재 심볼과 같은 스코프에 있는지 확인
-        int refLine = ref.line - 1;  // 0-based
-        std::string refScope = "global";
-
-        // 참조가 어느 함수 안에 있는지 확인
-        for (const auto& func : allFunctions) {
-            int funcDefLine = func.definitionLocation.line - 1;
-
-            if (refLine > funcDefLine) {
-                bool insideFunc = false;
-                int braceCount = 0;
-
-                for (int i = funcDefLine; i <= refLine && i < static_cast<int>(lines.size()); ++i) {
-                    const std::string& checkLine = lines[i];
-
-                    for (char c : checkLine) {
-                        if (c == '{') {
-                            braceCount++;
-                            if (braceCount == 1 && i == funcDefLine) {
-                                insideFunc = true;
-                            }
-                        }
-                        else if (c == '}') {
-                            braceCount--;
-                            if (braceCount == 0 && insideFunc) {
-                                insideFunc = false;
-                            }
-                        }
-                    }
-
-                    if (i == refLine && insideFunc && braceCount > 0) {
-                        refScope = "함수:" + func.name;
-                        break;
-                    }
-                }
-
-                if (refScope != "global") {
-                    break;
-                }
-            }
-        }
-
-        // 같은 스코프의 참조만 추가
-        if (refScope == symbol->scope) {
-            edits.push_back({
-                {"range", {
-                    {"start", {
-                        {"line", ref.line - 1},
-                        {"character", ref.column - 1}
-                    }},
-                    {"end", {
-                        {"line", ref.line - 1},
-                        {"character", ref.column - 1 + static_cast<int>(symbolName.length())}
-                    }}
-                }},
-                {"newText", newName}
-            });
-        }
+    edits.push_back({{"range", rangeOf(symbol->definitionLocation, symbol->name)}, {"newText", newName}});
+    for (const auto& ref : symbol->references) {
+        edits.push_back({{"range", rangeOf(ref, symbol->name)}, {"newText", newName}});
     }
-
-    // WorkspaceEdit 반환
-    return {
-        {"changes", {
-            {uri, edits}
-        }}
-    };
+    return {{"changes", {{uri, edits}}}};
 }
 
 } // namespace lsp

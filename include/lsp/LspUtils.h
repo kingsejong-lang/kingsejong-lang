@@ -59,5 +59,18 @@ size_t characterToByteOffset(const std::string& line, int character);
  */
 std::string extractWordAtOffset(const std::string& line, size_t byteOffset);
 
+/**
+ * @brief Lexer 의 1-based 바이트 열을 LSP 의 0-based UTF-16 단위로 바꾼다
+ *
+ * 한글 한 글자는 UTF-8 3바이트, UTF-16 1단위이고 이모지는 4바이트, 2단위다.
+ */
+int byteColumnToUtf16(const std::string& line, int byteColumn);
+
+/// UTF-8 문자열의 UTF-16 단위 길이 (LSP range 의 end 계산용)
+int utf16Length(const std::string& text);
+
+/// byteOffset 이 가리키는 식별자의 시작 바이트 오프셋 (식별자가 아니면 byteOffset 그대로)
+size_t wordStartOffset(const std::string& line, size_t byteOffset);
+
 } // namespace lsp
 } // namespace kingsejong

@@ -2,13 +2,11 @@
 
 /**
  * @file SymbolCollector.h
- * @brief AST 기반 심볼 수집기
- * @author KingSejong Team
- * @date 2025-11-13
+ * @brief AST 를 걸어 LSP 심볼 테이블을 채운다
  *
- * AST를 순회하여 SymbolTable을 구축합니다.
- * Go to Definition, Find References 등의 LSP 고급 기능을 위한
- * 심볼 정보를 수집합니다.
+ * 정의와 참조의 위치는 AST 노드가 가진 소스 위치를 쓴다. 문서 본문을 같이 주면
+ * 열을 LSP 가 쓰는 UTF-16 단위로 바꾸고, 선언문의 변수 이름 위치를 그 줄에서 찾는다.
+ * 참조는 안쪽 스코프부터 바깥으로 찾아 실제로 보이는 심볼에만 붙인다.
  */
 
 #include "lsp/SymbolTable.h"
@@ -16,114 +14,52 @@
 #include "ast/Statement.h"
 #include "ast/Expression.h"
 #include <string>
+#include <vector>
 
 namespace kingsejong {
 namespace lsp {
 
-/**
- * @class SymbolCollector
- * @brief AST 방문자 패턴으로 심볼 수집
- *
- * AST를 재귀적으로 순회하며 다음을 수집합니다:
- * - 변수 선언 → 심볼 추가
- * - 함수 선언 → 심볼 추가
- * - 식별자 사용 → 참조 추가
- * - 함수 호출 → 참조 추가
- *
- * 스코프 추적:
- * - 전역: "global"
- * - 함수 내부: "함수:함수이름"
- *
- * Thread Safety: NOT thread-safe
- * Memory: RAII - 스택 기반 재귀
- *
- * Example:
- * ```cpp
- * SymbolTable table;
- * SymbolCollector collector(table);
- *
- * auto program = parser.parseProgram();
- * collector.collect(program.get(), "example.ksj");
- *
- * // 이제 table에서 심볼 조회 가능
- * auto x = table.findSymbol("x");
- * ```
- */
 class SymbolCollector
 {
 public:
-    /**
-     * @brief 생성자
-     * @param table 심볼을 저장할 SymbolTable 참조
-     */
     explicit SymbolCollector(SymbolTable& table);
-
-    /**
-     * @brief 기본 생성자 (테스트용)
-     */
     SymbolCollector() = default;
 
     /**
-     * @brief AST에서 심볼 수집
-     * @param program AST 루트 노드
-     * @param uri 파일 URI
-     *
-     * Preconditions:
-     * - program != nullptr
-     *
-     * Postconditions:
-     * - table에 모든 심볼과 참조가 추가됨
-     *
-     * Complexity: O(n) where n = AST nodes
+     * @brief 프로그램의 심볼을 수집한다
+     * @param program 파싱된 프로그램
+     * @param uri 문서 URI
+     * @param content 문서 본문 (선택). 주면 열이 UTF-16 단위가 되고 이름 위치가 정확해진다.
      */
-    void collect(const ast::Program* program, const std::string& uri);
+    void collect(const ast::Program* program, const std::string& uri, const std::string& content = "");
 
 private:
-    /**
-     * @brief Statement 방문
-     */
     void visitStatement(const ast::Statement* stmt);
-
-    /**
-     * @brief Expression 방문
-     */
     void visitExpression(const ast::Expression* expr);
+    void visitBlock(const ast::BlockStatement* block);
+    void visitFunction(const ast::Node* node, const std::string& name,
+                       const std::vector<std::string>& parameters, const ast::Statement* body);
+    void visitClass(const ast::ClassStatement* cls);
 
-    /**
-     * @brief 변수 선언 처리
-     */
-    void visitVarDeclaration(const ast::VarDeclaration* varDecl);
+    /// 심볼을 현재 스코프에 정의한다
+    void declare(const std::string& name, SymbolKind kind, const Location& location,
+                 const std::string& typeInfo = "");
+    /// 이름을 안쪽 스코프부터 찾아 보이는 심볼에 참조를 붙인다. 없으면 무시한다(내장 함수 등).
+    void reference(const std::string& name, const ast::Node* node);
 
-    /**
-     * @brief 함수 리터럴 처리
-     */
-    void visitFunctionLiteral(const ast::FunctionLiteral* funcLit, const std::string& funcName);
+    /// 노드의 소스 위치를 Location 으로 바꾼다 (본문이 있으면 UTF-16 열)
+    Location locationOf(const ast::Node* node) const;
+    /// 노드가 있는 줄에서 노드 열 뒤에 처음 나오는 식별자 name 의 위치 (없으면 노드 위치)
+    Location nameLocation(const ast::Node* node, const std::string& name) const;
+    Location toLocation(int line, int byteColumn) const;
 
-    /**
-     * @brief 식별자 참조 처리
-     */
-    void visitIdentifier(const ast::Identifier* ident);
+    const std::string& currentScope() const { return scopes_.back(); }
 
-    /**
-     * @brief 함수 호출 처리
-     */
-    void visitCallExpression(const ast::CallExpression* call);
-
-    /**
-     * @brief 블록 문장 처리
-     */
-    void visitBlockStatement(const ast::BlockStatement* block);
-
-    /**
-     * @brief 현재 줄 번호 가져오기 (AST 노드에서)
-     */
-    int getLineNumber(const ast::Node* node) const;
-
-private:
-    SymbolTable* symbolTable_;      ///< 심볼 테이블 (nullable for default ctor)
-    std::string currentUri_;        ///< 현재 파일 URI
-    std::string currentScope_;      ///< 현재 스코프
-    int currentLine_;               ///< 현재 줄 번호 (임시)
+    SymbolTable* symbolTable_ = nullptr;
+    std::string currentUri_;
+    std::vector<std::string> scopes_;   ///< 안쪽이 뒤. 맨 앞은 "global"
+    std::vector<std::string> lines_;    ///< 문서 본문의 줄 (없으면 비어 있음)
+    int anonymousCount_ = 0;
 };
 
 } // namespace lsp

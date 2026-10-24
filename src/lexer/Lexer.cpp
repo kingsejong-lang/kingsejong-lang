@@ -14,14 +14,14 @@ namespace kingsejong {
 namespace lexer {
 
 Lexer::Lexer(const std::string& input)
-    : input(input), filename(""), position(0), readPosition(0), ch('\0'), currentLine(1), currentColumn(1)
+    : input(input), filename(""), position(0), readPosition(0), ch('\0'), currentLine(1), currentColumn(0)
 {
     // 첫 번째 문자 읽기
     readChar();
 }
 
 Lexer::Lexer(const std::string& input, const std::string& filename)
-    : input(input), filename(filename), position(0), readPosition(0), ch('\0'), currentLine(1), currentColumn(1)
+    : input(input), filename(filename), position(0), readPosition(0), ch('\0'), currentLine(1), currentColumn(0)
 {
     // 첫 번째 문자 읽기
     readChar();
@@ -39,10 +39,12 @@ void Lexer::readChar()
     }
 
     // 위치 정보 업데이트
+    // readChar 는 읽은 글자의 열을 가리키도록 증가시키므로, 줄 시작은 0 에서 출발해야
+    // 첫 글자가 1 이 된다 (1 에서 출발하면 모든 열이 하나씩 밀린다).
     if (ch == '\n')
     {
         currentLine++;
-        currentColumn = 1;
+        currentColumn = 0;
     }
     else if (ch != '\0')
     {

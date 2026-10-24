@@ -246,7 +246,7 @@ TEST_F(FindReferencesTest, ShouldFindParameterReferences)
 
 TEST_F(FindReferencesTest, ShouldHandleLocalAndGlobalScope)
 {
-    GTEST_SKIP() << "SymbolCollector 가 실제 줄 번호 대신 문장 카운터를 쓴다. AST 위치를 쓰도록 바꾸면 켤 것";
+
     // Arrange - 전역 x와 로컬 x
     std::string uri = "file:///test.ksj";
     std::string content =

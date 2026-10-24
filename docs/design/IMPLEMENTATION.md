@@ -579,7 +579,7 @@ Value Evaluator::evalRepeatStatement(RepeatStatement* stmt) {
 - ✅ 조건문 (if/else)
 - ✅ 기본 연산자
 - ✅ 변수 환경 (스코프)
-- ✅ 표준 입출력 (`출력`, `입력`)
+- ✅ 표준 출력 (`출력`) / ☐ 표준 입력 (`입력`, 미구현)
 
 **테스트**:
 ```cpp

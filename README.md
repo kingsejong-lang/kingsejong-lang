@@ -155,6 +155,8 @@ make && ctest
 
 ## 📚 문서
 
+온라인 문서 사이트: https://kingsejong-lang.github.io/kingsejong-lang/docs/ (아래 문서를 검색·목차와 함께 본다)
+
 | 문서 | 설명 |
 |------|------|
 | [튜토리얼](docs/TUTORIAL.md) | 단계별 학습 가이드 (초보자용) |
@@ -168,13 +170,13 @@ make && ctest
 | [설치 가이드](docs/INSTALL.md) | 상세 설치 방법 (OS별) |
 | [기여 가이드](docs/CONTRIBUTING.md) | 기여 방법 및 개발 가이드 |
 
-### 아키텍처 문서
+### 설계 문서
 
-- [아키텍처 분석](docs/ARCHITECTURE_ANALYSIS.md) - 시스템 구조
-- [VM 분석](docs/KINGSEJONG_VM_ANALYSIS.md) - 가상 머신 상세
-- [언어 분석](docs/KINGSEJONG_LANGUAGE_ANALYSIS.md) - 언어 스펙
-- [성능 분석](docs/PERFORMANCE_ANALYSIS.md) - 벤치마크 및 최적화
-- [GC 설계](docs/GC_DESIGN.md) - 가비지 컬렉터 설계
+- [프로젝트 개요](docs/design/PROJECT_OVERVIEW.md) - 목표와 전체 구조
+- [설계 철학](docs/design/LANGUAGE_DESIGN_PHILOSOPHY.md) - 한글 문법을 택한 이유
+- [기능 명세](docs/design/FEATURES.md) - 언어 기능 명세
+- [구현 상태](docs/design/IMPLEMENTATION.md) - 구현된 것과 남은 것
+- [메모리 풀링 설계](docs/design/MEMORY_POOLING_DESIGN.md) - 값 객체 메모리 전략
 - [Phase 9 리팩토링](docs/PHASE9_REFACTORING_PLAN.md) - 코드 품질 개선
 
 ---

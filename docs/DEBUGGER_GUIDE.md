@@ -438,7 +438,7 @@ Breakpoint 1 enabled
 ## 12. 추가 자료
 
 - [KingSejong 언어 가이드](./USER_GUIDE.md)
-- [API 문서](./API.md)
+- [언어 레퍼런스](./LANGUAGE_REFERENCE.md)
 - [예제 코드](../examples/)
 
 ---

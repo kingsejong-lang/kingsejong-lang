@@ -1,4 +1,4 @@
-name: Deploy Playground to GitHub Pages
+name: Deploy Playground and Docs to GitHub Pages
 
 on:
   # main 브랜치에 푸시될 때 실행
@@ -7,6 +7,8 @@ on:
       - main
     paths:
       - 'web/**'
+      - 'docs/**'
+      - 'site/**'
       - 'src/**'
       - 'include/**'
       - 'wasm/**'
@@ -88,6 +90,17 @@ jobs:
         working-directory: ./web
         run: npm run build
 
+      - name: Install docs site dependencies
+        working-directory: ./site
+        run: npm install
+
+      - name: Build docs site
+        working-directory: ./site
+        run: npm run build
+
+      - name: Add docs site to the Pages artifact
+        run: cp -r site/.vitepress/dist web/dist/docs
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
@@ -108,5 +121,5 @@ jobs:
     steps:
       - name: Check deployment
         run: |
-          echo "✅ Playground deployed successfully!"
-          echo "🌐 URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          echo "Playground deployed: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          echo "Docs deployed: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/docs/"

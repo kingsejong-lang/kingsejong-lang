@@ -737,7 +737,7 @@ public:
 - ✅ 디버거
 - ✅ 온라인 플레이그라운드 (WebAssembly)
 - ✅ VSCode 확장
-- ☐ 문서 사이트
+- ✅ 문서 사이트 (VitePress, https://kingsejong-lang.github.io/kingsejong-lang/docs/)
 
 ---
 

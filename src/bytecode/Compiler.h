@@ -37,6 +37,7 @@ private:
     Chunk* chunk_;
     bool hadError_;
     int currentLine_;
+    std::string currentFile_;   ///< 지금 컴파일 중인 노드의 소스 파일 (청크의 파일 표에 바뀌는 자리를 적는다)
     std::vector<std::string> errors_;
 
     // ---- 문장 ----
@@ -82,6 +83,8 @@ private:
     void emit16(uint16_t value);
     void emitConstant(const evaluator::Value& value);
     void emitName(OpCode op, const std::string& name);
+    /// CALL 명령을 내고 호출식에 적힌 함수 이름을 청크에 남긴다 (호출 스택에 보일 이름)
+    void emitCall(uint8_t argCount, const std::string& callee);
     size_t emitJump(OpCode op);            ///< [u16] 자리 표시자를 쓰고 그 위치를 돌려준다
     void patchJump(size_t operandOffset, size_t trailingBytes = 0);  ///< 자리 표시자를 현재 위치까지의 거리로 채운다
     void emitLoop(size_t loopStart);

@@ -38,6 +38,7 @@ bool Compiler::compileProgram(ast::Program* program, Chunk* chunk, bool keepLast
     chunk_ = chunk;
     hadError_ = false;
     errors_.clear();
+    currentFile_.clear();
 
     try {
         auto& statements = program->statements();
@@ -390,8 +391,8 @@ void Compiler::compileExpression(ast::Expression* expr) {
             auto* newExpr = static_cast<ast::NewExpression*>(expr);
             emitName(OpCode::LOAD_NAME, newExpr->className());
             compileArguments(newExpr->arguments());
-            emit(OpCode::CALL);
-            emitByte(static_cast<uint8_t>(newExpr->arguments().size()));
+            setLine(expr);
+            emitCall(static_cast<uint8_t>(newExpr->arguments().size()), newExpr->className());
             break;
         }
         case ast::NodeType::AWAIT_EXPRESSION:
@@ -572,6 +573,7 @@ void Compiler::compileCallExpression(ast::CallExpression* expr) {
         auto* access = static_cast<const ast::MemberAccessExpression*>(expr->function());
         compileExpression(const_cast<ast::Expression*>(access->object()));
         compileArguments(expr->arguments());
+        setLine(expr);   // 인자가 여러 줄에 걸쳐도 호출 명령은 호출식의 줄을 갖는다 (호출 스택의 위치)
         emit(OpCode::CALL_METHOD);
         emit16(nameIndex(access->memberName()));
         emitByte(static_cast<uint8_t>(expr->arguments().size()));
@@ -580,8 +582,19 @@ void Compiler::compileCallExpression(ast::CallExpression* expr) {
 
     compileExpression(const_cast<ast::Expression*>(expr->function()));
     compileArguments(expr->arguments());
+    setLine(expr);
+    std::string callee = "<익명 함수>";
+    if (expr->function()->type() == ast::NodeType::IDENTIFIER) {
+        callee = static_cast<const ast::Identifier*>(expr->function())->name();
+    }
+    emitCall(static_cast<uint8_t>(expr->arguments().size()), callee);
+}
+
+void Compiler::emitCall(uint8_t argCount, const std::string& callee) {
+    size_t at = currentOffset();
     emit(OpCode::CALL);
-    emitByte(static_cast<uint8_t>(expr->arguments().size()));
+    emitByte(argCount);
+    chunk_->setCallSiteName(at, callee);
 }
 
 void Compiler::compileIndexExpression(ast::IndexExpression* expr) {
@@ -818,6 +831,10 @@ size_t Compiler::currentOffset() const {
 void Compiler::setLine(const ast::Node* node) {
     if (node && node->location().isValid()) {
         currentLine_ = node->location().line;
+        if (node->location().filename != currentFile_) {
+            currentFile_ = node->location().filename;
+            chunk_->setFile(currentFile_);
+        }
     }
 }
 

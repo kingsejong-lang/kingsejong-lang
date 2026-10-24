@@ -70,6 +70,16 @@ void Chunk::registerEntry(const ast::Statement* body, size_t entry) {
     entries_[body] = entry;
 }
 
+void Chunk::setFile(const std::string& filename) {
+    if (files_.empty() || files_.back().filename != filename) {
+        files_.push_back({code_.size(), filename});
+    }
+}
+
+void Chunk::setCallSiteName(size_t offset, const std::string& name) {
+    callSites_[offset] = static_cast<uint16_t>(addName(name));
+}
+
 uint8_t Chunk::read(size_t offset) const {
     if (offset >= code_.size()) {
         throw std::runtime_error(std::string(error::chunk::READ_OFFSET_OUT_OF_BOUNDS));
@@ -129,6 +139,25 @@ int Chunk::getLine(size_t offset) const {
     return 1;
 }
 
+const std::string& Chunk::getFile(size_t offset) const {
+    static const std::string none;
+    for (auto it = files_.rbegin(); it != files_.rend(); ++it) {
+        if (offset >= it->offset) {
+            return it->filename;
+        }
+    }
+    return none;
+}
+
+const std::string& Chunk::getCallSiteName(size_t offset) const {
+    static const std::string none;
+    auto it = callSites_.find(offset);
+    if (it == callSites_.end() || it->second >= names_.size()) {
+        return none;
+    }
+    return names_[it->second];
+}
+
 void Chunk::clear() {
     code_.clear();
     constants_.clear();
@@ -137,6 +166,8 @@ void Chunk::clear() {
     nodes_.clear();
     entries_.clear();
     lines_.clear();
+    files_.clear();
+    callSites_.clear();
 }
 
 std::string Chunk::disassemble(const std::string& name) const {
@@ -160,7 +191,7 @@ size_t Chunk::disassembleInstruction(size_t offset, std::string* out) const {
     }
 
     OpCode op = static_cast<OpCode>(read(offset));
-    oss << std::setw(16) << std::left << opCodeToString(op) << std::right;
+    oss << std::setfill(' ') << std::setw(16) << std::left << opCodeToString(op) << std::right;
 
     size_t pos = offset + 1;
     const auto& widths = opCodeOperandWidths(op);
@@ -198,6 +229,11 @@ size_t Chunk::disassembleInstruction(size_t offset, std::string* out) const {
             case OpCode::CALL_METHOD:
                 if (a < names_.size()) oss << " ('" << names_[a] << "')";
                 break;
+            case OpCode::CALL: {
+                const std::string& callee = getCallSiteName(offset);
+                if (!callee.empty()) oss << " ('" << callee << "')";
+                break;
+            }
             case OpCode::MAKE_FUNCTION:
                 if (a < protos_.size()) oss << " (" << protos_[a].name << " @" << protos_[a].entry << ")";
                 break;

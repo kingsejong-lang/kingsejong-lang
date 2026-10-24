@@ -9,7 +9,7 @@
 #include "support/TestTempDir.h"
 #include "module/ModuleLoader.h"
 #include "evaluator/Evaluator.h"
-#include "evaluator/Environment.h"
+#include "runtime/Environment.h"
 #include "lexer/Lexer.h"
 #include "parser/Parser.h"
 #include <fstream>

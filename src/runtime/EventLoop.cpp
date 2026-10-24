@@ -7,7 +7,7 @@
  * Phase 7.3: Async/Await - Event Loop 구현
  */
 
-#include "EventLoop.h"
+#include "runtime/EventLoop.h"
 
 namespace kingsejong {
 namespace evaluator {

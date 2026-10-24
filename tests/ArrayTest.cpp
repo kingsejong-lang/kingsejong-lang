@@ -10,7 +10,7 @@
 #include "../src/parser/Parser.h"
 #include "../src/evaluator/Evaluator.h"
 #include "../src/evaluator/Builtin.h"
-#include "../src/evaluator/Value.h"
+#include "runtime/Value.h"
 
 using namespace kingsejong;
 

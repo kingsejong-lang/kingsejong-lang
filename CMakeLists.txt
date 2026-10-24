@@ -36,11 +36,11 @@ set(LIB_SOURCES
     src/parser/Parser.cpp
     src/semantic/SemanticAnalyzer.cpp
     src/types/Type.cpp
-    src/evaluator/Value.cpp
-    src/evaluator/Environment.cpp
+    src/runtime/Value.cpp
+    src/runtime/Environment.cpp
     src/evaluator/Evaluator.cpp
     src/evaluator/Builtin.cpp
-    src/evaluator/EventLoop.cpp
+    src/runtime/EventLoop.cpp
     src/module/ModuleLoader.cpp
     src/repl/Repl.cpp
     src/memory/GC.cpp

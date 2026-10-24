@@ -6,8 +6,8 @@
  */
 
 #include "GC.h"
-#include "evaluator/Environment.h"
-#include "evaluator/Value.h"
+#include "runtime/Environment.h"
+#include "runtime/Value.h"
 #include <sstream>
 #include <algorithm>
 

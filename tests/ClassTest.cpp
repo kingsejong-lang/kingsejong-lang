@@ -11,7 +11,7 @@
 #include "semantic/SemanticAnalyzer.h"
 #include "bytecode/Compiler.h"
 #include "bytecode/VM.h"
-#include "evaluator/Value.h"
+#include "runtime/Value.h"
 
 using namespace kingsejong;
 using namespace kingsejong::lexer;

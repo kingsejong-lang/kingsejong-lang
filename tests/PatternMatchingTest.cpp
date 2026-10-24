@@ -11,7 +11,7 @@
 #include "lexer/Lexer.h"
 #include "parser/Parser.h"
 #include "evaluator/Evaluator.h"
-#include "evaluator/Environment.h"
+#include "runtime/Environment.h"
 
 using namespace kingsejong;
 

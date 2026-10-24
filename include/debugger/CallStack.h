@@ -10,7 +10,7 @@
  */
 
 #include "error/Error.h"
-#include "evaluator/Environment.h"
+#include "runtime/Environment.h"
 #include <vector>
 #include <memory>
 #include <string>

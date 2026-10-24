@@ -116,6 +116,97 @@ TEST(BuiltinTest, ShouldPrintNull)
 }
 
 // ============================================================================
+// 입력() 함수 테스트
+// ============================================================================
+
+namespace {
+
+/**
+ * @brief std::cin 을 주어진 텍스트로, std::cout 을 버퍼로 바꿔 코드를 평가하는 헬퍼
+ * @param printed 실행 중 표준 출력에 쓰인 내용을 받을 포인터 (선택)
+ */
+static evaluator::Value evalWithStdin(const std::string& code, const std::string& stdinText,
+                                      std::string* printed = nullptr)
+{
+    std::istringstream in(stdinText);
+    std::ostringstream out;
+    std::streambuf* oldIn = std::cin.rdbuf(in.rdbuf());
+    std::streambuf* oldOut = std::cout.rdbuf(out.rdbuf());
+    evaluator::Value result;
+    try
+    {
+        result = evalInput(code);
+    }
+    catch (...)
+    {
+        std::cin.rdbuf(oldIn);
+        std::cout.rdbuf(oldOut);
+        throw;
+    }
+    std::cin.rdbuf(oldIn);   // rdbuf() 교체는 스트림 상태(eof 등)도 지운다
+    std::cout.rdbuf(oldOut);
+    if (printed) *printed = out.str();
+    return result;
+}
+
+} // anonymous namespace
+
+TEST(BuiltinTest, ShouldReadLineFromStandardInput)
+{
+    auto result = evalWithStdin("입력()", "세종\n");
+    ASSERT_TRUE(result.isString());
+    EXPECT_EQ(result.asString(), "세종");
+}
+
+TEST(BuiltinTest, ShouldPrintPromptWithoutNewlineBeforeReading)
+{
+    std::string printed;
+    auto result = evalWithStdin("입력(\"이름: \")", "홍길동\n", &printed);
+    EXPECT_EQ(printed, "이름: ");
+    ASSERT_TRUE(result.isString());
+    EXPECT_EQ(result.asString(), "홍길동");
+}
+
+TEST(BuiltinTest, ShouldReadConsecutiveLines)
+{
+    auto result = evalWithStdin("첫째 = 입력()\n둘째 = 입력()\n첫째 + 둘째", "가\n나\n");
+    ASSERT_TRUE(result.isString());
+    EXPECT_EQ(result.asString(), "가나");
+}
+
+TEST(BuiltinTest, ShouldReturnLastLineWithoutTrailingNewline)
+{
+    auto result = evalWithStdin("입력()", "마지막");
+    ASSERT_TRUE(result.isString());
+    EXPECT_EQ(result.asString(), "마지막");
+}
+
+TEST(BuiltinTest, ShouldStripCarriageReturnFromInput)
+{
+    auto result = evalWithStdin("입력()", "값\r\n");
+    ASSERT_TRUE(result.isString());
+    EXPECT_EQ(result.asString(), "값");
+}
+
+TEST(BuiltinTest, ShouldReturnNullAtEndOfInput)
+{
+    auto result = evalWithStdin("입력()", "");
+    EXPECT_TRUE(result.isNull());
+}
+
+TEST(BuiltinTest, ShouldConvertInputWithInteger)
+{
+    auto result = evalWithStdin("정수(입력()) + 1", "41\n");
+    ASSERT_TRUE(result.isInteger());
+    EXPECT_EQ(result.asInteger(), 42);
+}
+
+TEST(BuiltinTest, ShouldRejectMoreThanOnePromptArgument)
+{
+    EXPECT_THROW(evalWithStdin("입력(\"a\", \"b\")", "x\n"), std::runtime_error);
+}
+
+// ============================================================================
 // 타입() 함수 테스트
 // ============================================================================
 

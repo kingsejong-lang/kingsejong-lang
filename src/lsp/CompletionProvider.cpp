@@ -36,6 +36,7 @@ CompletionProvider::CompletionProvider()
 
         // 내장 함수
         CompletionItem("출력", CompletionItemKind::Keyword, "내장 함수", "값을 출력합니다. 예: 출력(\"안녕하세요\")"),
+        CompletionItem("입력", CompletionItemKind::Keyword, "내장 함수", "표준 입력에서 한 줄을 읽어 문자열로 반환합니다. 예: 이름 = 입력(\"이름: \")"),
         CompletionItem("타입", CompletionItemKind::Keyword, "내장 함수", "값의 타입을 반환합니다. 예: 타입(x)"),
         CompletionItem("길이", CompletionItemKind::Keyword, "내장 함수", "문자열이나 배열의 길이를 반환합니다. 예: 길이(\"안녕\")"),
     };

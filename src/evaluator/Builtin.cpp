@@ -142,6 +142,46 @@ static Value builtin_출력(const std::vector<Value>& args)
 }
 
 /**
+ * @brief 입력([프롬프트]) - 표준 입력에서 한 줄을 읽어 문자열로 반환
+ *
+ * 프롬프트가 있으면 줄바꿈 없이 먼저 출력한다. 줄 끝의 개행(CRLF 포함)은 떼어낸다.
+ * 더 읽을 입력이 없으면(EOF) 없음 을 반환하므로, 파이프로 들어온 입력을 끝까지 읽는 반복에 쓸 수 있다.
+ * 브라우저(WASM) 빌드에는 표준 입력이 없어 에러를 낸다.
+ *
+ * @param args 프롬프트 (0개 또는 1개)
+ * @return 읽은 한 줄 (문자열) 또는 없음
+ * @throws std::runtime_error 인자가 2개 이상인 경우, 브라우저 환경인 경우
+ */
+static Value builtin_입력(const std::vector<Value>& args)
+{
+    if (args.size() > 1)
+    {
+        throw std::runtime_error("입력() 함수는 프롬프트 인자를 최대 1개만 받습니다");
+    }
+
+#ifdef KINGSEJONG_WASM
+    throw std::runtime_error("입력() 함수는 브라우저 환경에서 사용할 수 없습니다");
+#else
+    if (!args.empty())
+    {
+        std::cout << (args[0].isString() ? args[0].asString() : args[0].toString());
+        std::cout.flush();
+    }
+
+    std::string line;
+    if (!std::getline(std::cin, line))
+    {
+        return Value::createNull();
+    }
+    if (!line.empty() && line.back() == '\r')
+    {
+        line.pop_back();
+    }
+    return Value::createString(line);
+#endif
+}
+
+/**
  * @brief 타입(값) - 값의 타입을 문자열로 반환
  *
  * @param args 타입을 확인할 값 (1개)
@@ -3471,6 +3511,7 @@ void Builtin::registerAllBuiltins()
 {
     // 기본 함수
     registerBuiltin("출력", builtin_출력);
+    registerBuiltin("입력", builtin_입력);
     registerBuiltin("타입", builtin_타입);
     registerBuiltin("길이", builtin_길이);
     registerBuiltin("부분문자열", builtin_부분문자열);

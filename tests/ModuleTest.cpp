@@ -6,6 +6,7 @@
  */
 
 #include <gtest/gtest.h>
+#include "support/TestTempDir.h"
 #include "module/ModuleLoader.h"
 #include "evaluator/Evaluator.h"
 #include "evaluator/Environment.h"
@@ -27,12 +28,13 @@ using namespace kingsejong::parser;
 class ModuleTestFixture : public ::testing::Test
 {
 protected:
-    std::string testModulePath_ = "test_modules";
+    std::string testModulePath_;
 
     void SetUp() override
     {
-        // 테스트 모듈 디렉토리 생성
-        std::filesystem::create_directories(testModulePath_);
+        // 테스트마다 고유한 디렉터리를 쓴다 (병렬 ctest 에서 서로 파일을 지우지 않도록)
+        testModulePath_ = kingsejong::test::uniqueTestDir("kingsejong_module_test")
+                              .lexically_normal().generic_string();
     }
 
     void TearDown() override

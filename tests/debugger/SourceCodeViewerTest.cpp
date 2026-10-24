@@ -8,6 +8,7 @@
  */
 
 #include <gtest/gtest.h>
+#include "support/TestTempDir.h"
 #include "debugger/SourceCodeViewer.h"
 #include <fstream>
 #include <filesystem>
@@ -25,15 +26,13 @@ protected:
         viewer = std::make_unique<SourceCodeViewer>();
 
         // 테스트용 임시 파일 생성
-        testFile = fs::temp_directory_path() / "test_source.ksj";
+        testFile = kingsejong::test::uniqueTestDir("kingsejong_viewer_test") / "test_source.ksj";
         createTestFile();
     }
 
     void TearDown() override {
-        // 임시 파일 삭제
-        if (fs::exists(testFile)) {
-            fs::remove(testFile);
-        }
+        // 임시 디렉터리 삭제
+        fs::remove_all(testFile.parent_path());
     }
 
     void createTestFile() {

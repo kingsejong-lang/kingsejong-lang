@@ -6,7 +6,7 @@
 
 #include <gtest/gtest.h>
 #include "memory/ValuePool.h"
-#include "evaluator/Value.h"
+#include "runtime/Value.h"
 #include <chrono>
 
 using namespace kingsejong::memory;

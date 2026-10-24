@@ -17,7 +17,7 @@
 #include "debugger/CommandParser.h"
 #include "debugger/SourceCodeViewer.h"
 #include "error/Error.h"
-#include "evaluator/Environment.h"
+#include "runtime/Environment.h"
 #include "evaluator/Evaluator.h"
 #include "ast/Node.h"
 #include <memory>

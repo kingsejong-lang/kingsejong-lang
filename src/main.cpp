@@ -17,7 +17,7 @@
 #include "parser/Parser.h"
 #include "semantic/SemanticAnalyzer.h"
 #include "evaluator/Evaluator.h"
-#include "evaluator/Environment.h"
+#include "runtime/Environment.h"
 #include "evaluator/Builtin.h"
 #include "lsp/LanguageServer.h"
 #include "lsp/JsonRpc.h"

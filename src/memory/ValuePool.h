@@ -11,7 +11,7 @@
  */
 
 #include "memory/ObjectPool.h"
-#include "evaluator/Value.h"
+#include "runtime/Value.h"
 
 namespace kingsejong {
 namespace memory {

@@ -8,7 +8,7 @@
 #include <gtest/gtest.h>
 #include "../src/types/TypeChecker.h"
 #include "../src/types/Type.h"
-#include "../src/evaluator/Value.h"
+#include "runtime/Value.h"
 #include "../src/error/Error.h"
 
 using namespace kingsejong;

@@ -7,6 +7,7 @@
 
 #include "Repl.h"
 #include "../evaluator/Builtin.h"
+#include "version/Version.h"
 #include <iostream>
 #include <sstream>
 #include <algorithm>
@@ -251,13 +252,9 @@ bool Repl::handleCommand(const std::string& input)
 
 void Repl::printWelcome()
 {
-    std::cout << "┌─────────────────────────────────────────┐\n";
-    std::cout << "│   KingSejong 언어 v0.1.0                │\n";
-    std::cout << "│   대화형 실행 환경 (REPL)                │\n";
-    std::cout << "│                                         │\n";
-    std::cout << "│   도움말: .help 또는 .도움말             │\n";
-    std::cout << "│   종료: .exit 또는 Ctrl+D               │\n";
-    std::cout << "└─────────────────────────────────────────┘\n";
+    std::cout << version::getVersionString() << "\n";
+    std::cout << "대화형 실행 환경 (REPL)\n";
+    std::cout << "도움말: .help 또는 .도움말, 종료: .exit 또는 Ctrl+D\n";
     std::cout << "\n";
 }
 

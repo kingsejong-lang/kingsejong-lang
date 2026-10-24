@@ -7,6 +7,7 @@
 
 #include "lsp/LanguageServer.h"
 #include "lsp/SymbolCollector.h"
+#include "version/Version.h"
 #include "lsp/LspUtils.h"
 #include "lexer/Lexer.h"
 #include "parser/Parser.h"
@@ -260,7 +261,7 @@ nlohmann::json LanguageServer::handleInitialize(const nlohmann::json& params)
         {"capabilities", capabilities},
         {"serverInfo", {
             {"name", "kingsejong-lsp"},
-            {"version", "0.3.2"}
+            {"version", version::VERSION}
         }}
     };
 }

@@ -36,8 +36,8 @@ void ImportOrderRule::onImportStatement(ast::ImportStatement* stmt)
 
     imports_.push_back(ImportInfo{
         modulePath,
-        0,  // TODO: 실제 줄 번호가 AST에 추가되면 사용
-        0,  // TODO: 실제 열 번호가 AST에 추가되면 사용
+        stmt->location().line,
+        stmt->location().column,
         isStdlib
     });
 }

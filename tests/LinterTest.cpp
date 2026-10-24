@@ -1279,6 +1279,27 @@ TEST(LinterTest, ShouldDetectMisorderedImports)
 
     // stdlib import가 사용자 import 뒤에 옴
     EXPECT_GE(linter.warningCount(), 1);
+
+    // 진단이 문제가 된 가져오기 문의 실제 위치를 가리킨다:
+    // 순서 위반은 3번째 줄의 "stdlib/math", 알파벳 순 위반은 4번째 줄의 "stdlib/json"
+    bool misorderLocated = false;
+    bool alphabetLocated = false;
+    for (const auto& issue : linter.issues())
+    {
+        EXPECT_EQ(issue.column, 1);
+        if (issue.message.find("먼저 선언") != std::string::npos)
+        {
+            EXPECT_EQ(issue.line, 3);
+            misorderLocated = true;
+        }
+        else if (issue.message.find("알파벳") != std::string::npos)
+        {
+            EXPECT_EQ(issue.line, 4);
+            alphabetLocated = true;
+        }
+    }
+    EXPECT_TRUE(misorderLocated);
+    EXPECT_TRUE(alphabetLocated);
 }
 
 /**

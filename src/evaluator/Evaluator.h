@@ -231,6 +231,9 @@ public:
     static Value constructInstance(const std::shared_ptr<Function>& func, const std::vector<Value>& args);
     /// 비동기 함수의 결과를 Promise 로 감싼다 (에러 값이면 reject)
     static Value wrapAsync(const Value& result);
+    /// 대기: Promise 면 이벤트 루프를 돌려 끝날 때까지 기다린 뒤 그 값(거부면 이유)을 돌려준다.
+    /// 남은 작업이 없는데도 미완료면 끝낼 길이 없으므로 Promise 를 그대로 돌려준다. Promise 가 아니면 그대로
+    static Value awaitValue(const Value& value);
 
     /// 리터럴 패턴의 표현식을 값으로 바꾸는 함수 (평가기는 eval, VM 은 상수 변환)
     using PatternLiteral = std::function<Value(const ast::Expression*)>;

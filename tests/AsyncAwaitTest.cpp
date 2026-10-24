@@ -12,6 +12,7 @@
 #include "lexer/Lexer.h"
 #include "evaluator/Evaluator.h"
 #include "semantic/SemanticAnalyzer.h"
+#include "runtime/EventLoop.h"
 
 using namespace kingsejong;
 
@@ -367,6 +368,45 @@ TEST(AsyncAwaitTest, ShouldHandleNestedAwait)
     auto result = eval.environment()->get("결과");
     EXPECT_TRUE(result.isInteger());
     EXPECT_EQ(result.asInteger(), 100);
+}
+
+TEST(AsyncAwaitTest, ShouldRunEventLoopUntilAwaitedPromiseSettles)
+{
+    // 아직 끝나지 않은 Promise 를 환경에 넣고, 끝내는 일은 이벤트 루프에 미뤄 둔다
+    auto promise = std::make_shared<evaluator::Promise>();
+    evaluator::getGlobalEventLoop().enqueueMicrotask([promise]() {
+        promise->resolve(evaluator::Value::createInteger(7));
+    });
+    auto env = std::make_shared<evaluator::Environment>();
+    env->set("약속", evaluator::Value::createPromise(promise));
+
+    lexer::Lexer lexer("결과 = 대기 약속");
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    evaluator::Evaluator eval(env);
+    eval.eval(program.get());
+
+    EXPECT_EQ(env->get("결과").asInteger(), 7);
+    EXPECT_TRUE(evaluator::getGlobalEventLoop().isEmpty());
+}
+
+TEST(AsyncAwaitTest, ShouldReturnPendingPromiseWhenNothingCanSettleIt)
+{
+    auto promise = std::make_shared<evaluator::Promise>();
+    auto env = std::make_shared<evaluator::Environment>();
+    env->set("약속", evaluator::Value::createPromise(promise));
+
+    lexer::Lexer lexer("결과 = 대기 약속");
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    evaluator::Evaluator eval(env);
+    eval.eval(program.get());
+
+    EXPECT_TRUE(env->get("결과").isPromise());
 }
 
 TEST(AsyncAwaitTest, ShouldReturnNonPromiseValueDirectly)

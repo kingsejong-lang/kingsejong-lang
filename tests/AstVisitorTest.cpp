@@ -95,3 +95,24 @@ TEST(AstVisitorTest, WalkingNullDoesNothing)
     ast::walkChildren(nullptr, rec);
     EXPECT_TRUE(rec.events.empty());
 }
+
+// node_cast: 종류가 맞으면 포인터, 다르거나 nullptr 이면 nullptr
+TEST(NodeCastTest, ShouldCastOnlyMatchingNodeType)
+{
+    auto program = parse("정수 끝 = 1 + 2");
+    ASSERT_EQ(program->statements().size(), 1u);
+    const ast::Statement* stmt = program->statements()[0].get();
+
+    auto* decl = ast::node_cast<ast::VarDeclaration>(stmt);
+    ASSERT_NE(decl, nullptr);
+    EXPECT_EQ(decl->varName(), "끝");
+    EXPECT_EQ(ast::node_cast<ast::AssignmentStatement>(stmt), nullptr);
+
+    auto* binary = ast::node_cast<ast::BinaryExpression>(decl->initializer());
+    ASSERT_NE(binary, nullptr);
+    EXPECT_NE(ast::node_cast<ast::IntegerLiteral>(binary->left()), nullptr);
+    EXPECT_EQ(ast::node_cast<ast::Identifier>(binary->left()), nullptr);
+
+    const ast::Node* none = nullptr;
+    EXPECT_EQ(ast::node_cast<ast::Identifier>(none), nullptr);
+}

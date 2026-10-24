@@ -653,3 +653,84 @@ TEST(AsyncAwaitTest, ShouldReturnBooleanFromAsyncFunction)
     EXPECT_TRUE(result.isBoolean());
     EXPECT_EQ(result.asBoolean(), true);
 }
+
+TEST(AsyncAwaitTest, ShouldThrowRejectionReasonWhenAwaitingRejectedPromise)
+{
+    // 거부된 Promise 를 기다리면 거부 이유가 던져진다: 시도 블록이 잡는다.
+    // 환경은 평가기만 쥔다 (함수-환경 순환은 평가기 소멸자가 끊는다)
+    size_t before = evaluator::Environment::liveCount();
+    {
+        lexer::Lexer lexer(R"(
+실패 = 비동기 함수() { 던지다 "실패함" }
+메시지 = ""
+시도 {
+    값 = 대기 실패()
+} 오류 (e) {
+    메시지 = e
+}
+)");
+        parser::Parser parser(lexer);
+        auto program = parser.parseProgram();
+        ASSERT_TRUE(parser.errors().empty());
+
+        evaluator::Evaluator eval;
+        EXPECT_NO_THROW(eval.evalProgram(program.get()));
+        EXPECT_NE(eval.environment()->get("메시지").toString().find("실패함"), std::string::npos);
+        EXPECT_FALSE(eval.environment()->exists("값"));
+    }
+    EXPECT_EQ(evaluator::Environment::liveCount(), before);
+}
+
+TEST(AsyncAwaitTest, ShouldRejectAsyncFunctionWhenAwaitedPromiseIsRejected)
+{
+    // 비동기 함수 안에서 기다린 Promise 가 거부되면 그 함수의 Promise 도 같은 이유로 거부된다
+    size_t before = evaluator::Environment::liveCount();
+    {
+        lexer::Lexer lexer(R"(
+실패 = 비동기 함수() { 던지다 "실패함" }
+바깥 = 비동기 함수() {
+    값 = 대기 실패()
+    반환 1
+}
+p = 바깥()
+)");
+        parser::Parser parser(lexer);
+        auto program = parser.parseProgram();
+        ASSERT_TRUE(parser.errors().empty());
+
+        evaluator::Evaluator eval;
+        EXPECT_NO_THROW(eval.evalProgram(program.get()));
+        auto p = eval.environment()->get("p");
+        ASSERT_TRUE(p.isPromise());
+        EXPECT_EQ(p.asPromise()->state(), evaluator::Promise::State::REJECTED);
+        ASSERT_TRUE(p.asPromise()->value().isError());
+        EXPECT_EQ(p.asPromise()->value().asError()->message(), "실패함");
+    }
+    EXPECT_EQ(evaluator::Environment::liveCount(), before);
+}
+
+TEST(AsyncAwaitTest, ShouldReportUncaughtAwaitedRejectionAsRuntimeError)
+{
+    size_t before = evaluator::Environment::liveCount();
+    {
+        lexer::Lexer lexer(R"(
+실패 = 비동기 함수() { 던지다 "실패함" }
+값 = 대기 실패()
+)");
+        parser::Parser parser(lexer);
+        auto program = parser.parseProgram();
+        ASSERT_TRUE(parser.errors().empty());
+
+        evaluator::Evaluator eval;
+        try
+        {
+            eval.evalProgram(program.get());
+            FAIL() << "거부 이유가 던져지지 않았다";
+        }
+        catch (const kingsejong::error::KingSejongError& e)
+        {
+            EXPECT_NE(std::string(e.what()).find("실패함"), std::string::npos);
+        }
+    }
+    EXPECT_EQ(evaluator::Environment::liveCount(), before);
+}

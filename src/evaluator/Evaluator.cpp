@@ -528,6 +528,12 @@ Value Evaluator::awaitValue(const Value& value)
     }
     if (promise->isSettled())
     {
+        if (promise->state() == Promise::State::REJECTED)
+        {
+            // 거부된 Promise 를 기다리면 거부 이유가 던져진다 (던지다 와 같다):
+            // 시도 블록이 잡고, 비동기 함수 안이면 그 함수의 Promise 가 거부되고, 아무도 잡지 않으면 실행 에러다
+            throw ThrowSignal(promise->value());
+        }
         return promise->value();
     }
     return value;

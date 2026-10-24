@@ -193,6 +193,33 @@ TEST(StackTraceTest, ShouldRecordCallSiteLineAfterInnerCallReturned)
     EXPECT_EQ(framesOf(e), (Frames{{"작업", 6}, {"<최상위>", 8}}));
 }
 
+TEST(StackTraceTest, ShouldPointAtLoopLineWhenConditionFailsAfterBodyRan)
+{
+    // 본문이 한 번 돈 뒤 조건식에서 난 에러는 본문의 마지막 문장이 아니라 반복문의 줄을 가리켜야 한다
+    auto e = runExpectingError(R"(x = 2
+반복 (10 / x > 0) {
+    y = 1
+    x = x - 1
+}
+)");
+    EXPECT_THAT(e.what(), HasSubstr("0으로 나눌 수 없습니다"));
+    EXPECT_EQ(framesOf(e), (Frames{{"<최상위>", 2}}));
+}
+
+TEST(StackTraceTest, ShouldPointAtLoopLineWhenConditionCallThrowsAfterBodyRan)
+{
+    // 조건식이 부른 함수 안에서 난 에러도 바깥 프레임은 반복문의 줄이다
+    auto e = runExpectingError(R"(함수 검사(n) {
+    반환 10 / n
+}
+x = 1
+반복 (검사(x) > 0) {
+    x = x - 1
+}
+)");
+    EXPECT_EQ(framesOf(e), (Frames{{"검사", 2}, {"<최상위>", 5}}));
+}
+
 TEST(StackTraceTest, ShouldReportStackTraceWithInnermostLocation)
 {
     auto e = runExpectingError(kNestedSource);

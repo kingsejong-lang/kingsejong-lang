@@ -86,14 +86,14 @@ bool ConstantConditionRule::isConstantExpression(const Expression* expr, bool& v
     if (!expr) return false;
 
     // Boolean 리터럴
-    if (auto boolLit = dynamic_cast<const BooleanLiteral*>(expr))
+    if (auto boolLit = node_cast<BooleanLiteral>(expr))
     {
         value = boolLit->value();
         return true;
     }
 
     // Integer 리터럴 (0은 거짓, 그 외는 참)
-    if (auto intLit = dynamic_cast<const IntegerLiteral*>(expr))
+    if (auto intLit = node_cast<IntegerLiteral>(expr))
     {
         value = (intLit->value() != 0);
         return true;

@@ -276,7 +276,7 @@ bool Debugger::handleCommand(
                     break;
                 }
 
-                auto* exprStmt = dynamic_cast<ast::ExpressionStatement*>(
+                auto* exprStmt = ast::node_cast<ast::ExpressionStatement>(
                     prog->statements()[0].get()
                 );
 

@@ -116,3 +116,25 @@ TEST(NodeCastTest, ShouldCastOnlyMatchingNodeType)
     const ast::Node* none = nullptr;
     EXPECT_EQ(ast::node_cast<ast::Identifier>(none), nullptr);
 }
+
+TEST(NodeCastTest, ShouldCastToStatementBaseByNodeType)
+{
+    auto program = parse("정수 끝 = 1 + 2");
+    ASSERT_EQ(program->statements().size(), 1u);
+    ast::Statement* stmt = program->statements()[0].get();
+    ast::Node* asNode = stmt;
+
+    // 구체 종류와 무관하게 문장이면 Statement 로 돌아온다
+    EXPECT_EQ(ast::node_cast<ast::Statement>(asNode), stmt);
+    EXPECT_EQ(ast::node_cast<ast::Statement>(static_cast<const ast::Node*>(asNode)), stmt);
+
+    // 표현식·프로그램 노드는 문장이 아니다
+    auto* decl = ast::node_cast<ast::VarDeclaration>(stmt);
+    ASSERT_NE(decl, nullptr);
+    EXPECT_EQ(ast::node_cast<ast::Statement>(decl->initializer()), nullptr);
+    EXPECT_EQ(ast::node_cast<ast::Statement>(program.get()), nullptr);
+
+    EXPECT_TRUE(ast::isStatementType(ast::NodeType::CLASS_STATEMENT));
+    EXPECT_FALSE(ast::isStatementType(ast::NodeType::METHOD_DECLARATION));
+    EXPECT_FALSE(ast::isStatementType(ast::NodeType::IDENTIFIER));
+}

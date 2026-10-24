@@ -25,7 +25,7 @@ void DeadCodeRule::analyze(Program* program)
     const auto& statements = program->statements();
     for (size_t i = 0; i < statements.size(); ++i)
     {
-        if (dynamic_cast<ReturnStatement*>(statements[i].get()))
+        if (node_cast<ReturnStatement>(statements[i].get()))
         {
             foundReturn = true;
             returnIndex = i;
@@ -70,7 +70,7 @@ void DeadCodeRule::checkBlockForDeadCode(BlockStatement* block)
     // return 문 찾기
     for (size_t i = 0; i < statements.size(); ++i)
     {
-        if (dynamic_cast<ReturnStatement*>(statements[i].get()))
+        if (node_cast<ReturnStatement>(statements[i].get()))
         {
             foundReturn = true;
             returnIndex = i;
@@ -93,49 +93,49 @@ void DeadCodeRule::checkBlockForDeadCode(BlockStatement* block)
     // 중첩된 블록도 검사
     for (const auto& stmt : statements)
     {
-        if (auto ifStmt = dynamic_cast<IfStatement*>(stmt.get()))
+        if (auto ifStmt = node_cast<IfStatement>(stmt.get()))
         {
             if (ifStmt->thenBranch())
             {
                 checkBlockForDeadCode(const_cast<BlockStatement*>(
-                    dynamic_cast<const BlockStatement*>(ifStmt->thenBranch())
+                    node_cast<BlockStatement>(ifStmt->thenBranch())
                 ));
             }
             if (ifStmt->elseBranch())
             {
                 checkBlockForDeadCode(const_cast<BlockStatement*>(
-                    dynamic_cast<const BlockStatement*>(ifStmt->elseBranch())
+                    node_cast<BlockStatement>(ifStmt->elseBranch())
                 ));
             }
         }
-        else if (auto whileStmt = dynamic_cast<WhileStatement*>(stmt.get()))
+        else if (auto whileStmt = node_cast<WhileStatement>(stmt.get()))
         {
             if (whileStmt->body())
             {
                 checkBlockForDeadCode(const_cast<BlockStatement*>(
-                    dynamic_cast<const BlockStatement*>(whileStmt->body())
+                    node_cast<BlockStatement>(whileStmt->body())
                 ));
             }
         }
-        else if (auto forStmt = dynamic_cast<RangeForStatement*>(stmt.get()))
+        else if (auto forStmt = node_cast<RangeForStatement>(stmt.get()))
         {
             if (forStmt->body())
             {
                 checkBlockForDeadCode(const_cast<BlockStatement*>(
-                    dynamic_cast<const BlockStatement*>(forStmt->body())
+                    node_cast<BlockStatement>(forStmt->body())
                 ));
             }
         }
-        else if (auto repeatStmt = dynamic_cast<RepeatStatement*>(stmt.get()))
+        else if (auto repeatStmt = node_cast<RepeatStatement>(stmt.get()))
         {
             if (repeatStmt->body())
             {
                 checkBlockForDeadCode(const_cast<BlockStatement*>(
-                    dynamic_cast<const BlockStatement*>(repeatStmt->body())
+                    node_cast<BlockStatement>(repeatStmt->body())
                 ));
             }
         }
-        else if (auto nestedBlock = dynamic_cast<BlockStatement*>(stmt.get()))
+        else if (auto nestedBlock = node_cast<BlockStatement>(stmt.get()))
         {
             checkBlockForDeadCode(nestedBlock);
         }

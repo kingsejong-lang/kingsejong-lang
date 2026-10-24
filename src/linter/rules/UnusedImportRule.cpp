@@ -49,7 +49,7 @@ void UnusedImportRule::onImportStatement(ast::ImportStatement* stmt)
 void UnusedImportRule::onCallExpression(ast::CallExpression* expr)
 {
     // 함수명 추출
-    if (auto funcIdent = dynamic_cast<const ast::Identifier*>(expr->function()))
+    if (auto funcIdent = ast::node_cast<ast::Identifier>(expr->function()))
     {
         std::string functionName = funcIdent->name();
         std::string moduleName = guessModuleFromFunction(functionName);

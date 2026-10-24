@@ -30,7 +30,7 @@
 1. ✅ **차별화 먼저**: 조사 체인, 범위 표현 등 혁신적 기능 구현 완료
 2. ✅ **교육 중심**: 명확한 에러 메시지, 한글 문서화
 3. ✅ **실용성 확보**: 실제 사용 가능한 수준 (LSP, 디버거, VS Code)
-4. ✅ **고성능**: Bytecode VM + JIT Compiler Tier 1
+4. ✅ **고성능**: Bytecode VM (`--vm`, 평가기와 동치)
 
 ---
 
@@ -862,8 +862,7 @@ test: 타입 시스템 테스트 추가
 - ✅ Try/Catch/Finally
 - ✅ 패턴 매칭
 - ✅ 모듈 시스템
-- ✅ Bytecode VM (56개 OpCode)
-- ✅ JIT Compiler Tier 1
+- ✅ Bytecode VM (평가기와 동치, 61개 OpCode)
 - ✅ 세대별 GC
 - ✅ LSP (Language Server Protocol)
 - ✅ 디버거

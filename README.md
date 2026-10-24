@@ -41,7 +41,7 @@
 - **표준 라이브러리**: 251개 함수 (14개 모듈 - math, string, array, json, http, db, crypto 등)
 - **개발 도구**: Linter (13개 규칙, `kingsejong lint`), Formatter (`kingsejong fmt`), Debugger (`--debug`), LSP (`--lsp`) + VS Code Extension
 - **보안 모드**: `--sandbox`, `--untrusted`, `--allow-path` 로 파일·네트워크 접근 제한
-- **실험적**: 바이트코드 VM 은 `kingsejong --vm 파일.ksj` 로 실행할 수 있지만 클로저·가져오기·예외·클래스 등 평가기 기능의 대부분이 없다 (`examples/expected/KNOWN_FAILURES_VM` 이 현황).
+- **바이트코드 VM**: `kingsejong --vm 파일.ksj` 로 같은 프로그램을 바이트코드로 컴파일해 실행한다. 값의 의미와 변수 모델을 평가기와 공유해 모든 예제가 같은 결과를 내며(ctest `examples-vm`), 함수 호출이 많은 코드에서 평가기보다 빠르다. 기본 실행기는 여전히 평가기다.
 
 ---
 

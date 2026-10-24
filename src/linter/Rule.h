@@ -24,6 +24,8 @@ enum class IssueSeverity;
  * @class Rule
  * @brief Linter 규칙 베이스 클래스
  */
+class HookDispatcher;
+
 class Rule
 {
 public:
@@ -78,6 +80,9 @@ protected:
     /**
      * @brief Statement 순회
      */
+    // 순회(ast::walk) 어댑터가 on* 훅을 부를 수 있어야 한다
+    friend class HookDispatcher;
+
     void visitStatement(ast::Statement* stmt);
 
     /**
@@ -114,6 +119,10 @@ protected:
     virtual void onIndexExpression(ast::IndexExpression* /* expr */) {}
     virtual void onFunctionLiteral(ast::FunctionLiteral* /* expr */) {}
     virtual void onJosaExpression(ast::JosaExpression* /* expr */) {}
+
+    // 자식을 모두 걷은 뒤 불리는 훅. 노드 안에 있는 동안만 켜 두는 상태를 되돌릴 때 쓴다.
+    virtual void onVarDeclarationEnd(ast::VarDeclaration* /* stmt */) {}
+    virtual void onArrayLiteralEnd(ast::ArrayLiteral* /* expr */) {}
 
 private:
     std::string ruleId_;        ///< 규칙 ID

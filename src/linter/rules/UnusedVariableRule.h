@@ -38,6 +38,7 @@ public:
 protected:
     /// @brief 변수 선언 추적
     void onVarDeclaration(ast::VarDeclaration* stmt) override;
+    void onVarDeclarationEnd(ast::VarDeclaration* stmt) override;
 
     /// @brief 식별자 사용 추적
     void onIdentifier(ast::Identifier* expr) override;

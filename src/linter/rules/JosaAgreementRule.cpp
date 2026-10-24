@@ -44,14 +44,6 @@ void JosaAgreementRule::analyze(Program* program)
     }
 }
 
-void JosaAgreementRule::onVarDeclaration(VarDeclaration* stmt)
-{
-    if (stmt && stmt->initializer())
-    {
-        visitExpression(const_cast<Expression*>(stmt->initializer()));
-    }
-}
-
 void JosaAgreementRule::onJosaExpression(JosaExpression* expr)
 {
     if (!expr || expr->particle().empty()) return;

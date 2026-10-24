@@ -33,7 +33,6 @@ protected:
     void onRangeForStatement(ast::RangeForStatement* stmt) override;
     void onRepeatStatement(ast::RepeatStatement* stmt) override;
     void onFunctionLiteral(ast::FunctionLiteral* expr) override;
-    void onVarDeclaration(ast::VarDeclaration* stmt) override;
 
 private:
     /**

@@ -59,17 +59,6 @@ void DeadCodeRule::onBlockStatement(BlockStatement* block)
     checkBlockForDeadCode(block);
 }
 
-void DeadCodeRule::onVarDeclaration(VarDeclaration* stmt)
-{
-    if (!stmt) return;
-
-    // initializer 방문하여 내부의 FunctionLiteral까지 검사
-    if (stmt->initializer())
-    {
-        visitExpression(const_cast<Expression*>(stmt->initializer()));
-    }
-}
-
 void DeadCodeRule::checkBlockForDeadCode(BlockStatement* block)
 {
     if (!block) return;

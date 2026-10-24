@@ -6,6 +6,7 @@
  */
 
 #include "linter/Rule.h"
+#include "ast/Visitor.h"
 #include "linter/Linter.h"
 
 namespace kingsejong {
@@ -30,188 +31,67 @@ void Rule::reportIssue(
     }
 }
 
+/// 공용 순회 위에서 규칙의 on* 훅을 부른다. 자식 열거는 ast::walk 가 맡는다.
+class HookDispatcher : public ast::Visitor
+{
+public:
+    explicit HookDispatcher(Rule& rule) : rule_(rule) {}
+
+    bool enter(ast::Node& node) override
+    {
+        switch (node.type())
+        {
+            case ast::NodeType::VAR_DECLARATION:        rule_.onVarDeclaration(static_cast<VarDeclaration*>(&node)); break;
+            case ast::NodeType::ASSIGNMENT_STATEMENT:   rule_.onAssignmentStatement(static_cast<AssignmentStatement*>(&node)); break;
+            case ast::NodeType::EXPRESSION_STATEMENT:   rule_.onExpressionStatement(static_cast<ExpressionStatement*>(&node)); break;
+            case ast::NodeType::RETURN_STATEMENT:       rule_.onReturnStatement(static_cast<ReturnStatement*>(&node)); break;
+            case ast::NodeType::IF_STATEMENT:           rule_.onIfStatement(static_cast<IfStatement*>(&node)); break;
+            case ast::NodeType::WHILE_STATEMENT:        rule_.onWhileStatement(static_cast<WhileStatement*>(&node)); break;
+            case ast::NodeType::BLOCK_STATEMENT:        rule_.onBlockStatement(static_cast<BlockStatement*>(&node)); break;
+            case ast::NodeType::RANGE_FOR_STATEMENT:    rule_.onRangeForStatement(static_cast<RangeForStatement*>(&node)); break;
+            case ast::NodeType::REPEAT_STATEMENT:       rule_.onRepeatStatement(static_cast<RepeatStatement*>(&node)); break;
+            case ast::NodeType::IMPORT_STATEMENT:       rule_.onImportStatement(static_cast<ImportStatement*>(&node)); break;
+            case ast::NodeType::IDENTIFIER:             rule_.onIdentifier(static_cast<Identifier*>(&node)); break;
+            case ast::NodeType::INTEGER_LITERAL:        rule_.onIntegerLiteral(static_cast<IntegerLiteral*>(&node)); break;
+            case ast::NodeType::FLOAT_LITERAL:          rule_.onFloatLiteral(static_cast<FloatLiteral*>(&node)); break;
+            case ast::NodeType::STRING_LITERAL:         rule_.onStringLiteral(static_cast<StringLiteral*>(&node)); break;
+            case ast::NodeType::BOOLEAN_LITERAL:        rule_.onBooleanLiteral(static_cast<BooleanLiteral*>(&node)); break;
+            case ast::NodeType::ARRAY_LITERAL:          rule_.onArrayLiteral(static_cast<ArrayLiteral*>(&node)); break;
+            case ast::NodeType::BINARY_EXPRESSION:      rule_.onBinaryExpression(static_cast<BinaryExpression*>(&node)); break;
+            case ast::NodeType::UNARY_EXPRESSION:       rule_.onUnaryExpression(static_cast<UnaryExpression*>(&node)); break;
+            case ast::NodeType::CALL_EXPRESSION:        rule_.onCallExpression(static_cast<CallExpression*>(&node)); break;
+            case ast::NodeType::INDEX_EXPRESSION:       rule_.onIndexExpression(static_cast<IndexExpression*>(&node)); break;
+            case ast::NodeType::FUNCTION_LITERAL:       rule_.onFunctionLiteral(static_cast<FunctionLiteral*>(&node)); break;
+            case ast::NodeType::JOSA_EXPRESSION:        rule_.onJosaExpression(static_cast<JosaExpression*>(&node)); break;
+            default: break;
+        }
+        return true;
+    }
+
+    void leave(ast::Node& node) override
+    {
+        switch (node.type())
+        {
+            case ast::NodeType::VAR_DECLARATION: rule_.onVarDeclarationEnd(static_cast<VarDeclaration*>(&node)); break;
+            case ast::NodeType::ARRAY_LITERAL:   rule_.onArrayLiteralEnd(static_cast<ArrayLiteral*>(&node)); break;
+            default: break;
+        }
+    }
+
+private:
+    Rule& rule_;
+};
+
 void Rule::visitStatement(Statement* stmt)
 {
-    if (!stmt) return;
-
-    // VarDeclaration
-    if (auto varDecl = dynamic_cast<VarDeclaration*>(stmt))
-    {
-        onVarDeclaration(varDecl);
-        // Note: initializer is visited inside onVarDeclaration, don't visit again
-    }
-    // AssignmentStatement
-    else if (auto assignStmt = dynamic_cast<AssignmentStatement*>(stmt))
-    {
-        onAssignmentStatement(assignStmt);
-        visitExpression(const_cast<Expression*>(assignStmt->value()));
-    }
-    // ExpressionStatement
-    else if (auto exprStmt = dynamic_cast<ExpressionStatement*>(stmt))
-    {
-        onExpressionStatement(exprStmt);
-        visitExpression(const_cast<Expression*>(exprStmt->expression()));
-    }
-    // ReturnStatement
-    else if (auto retStmt = dynamic_cast<ReturnStatement*>(stmt))
-    {
-        onReturnStatement(retStmt);
-        if (retStmt->returnValue())
-        {
-            visitExpression(const_cast<Expression*>(retStmt->returnValue()));
-        }
-    }
-    // IfStatement
-    else if (auto ifStmt = dynamic_cast<IfStatement*>(stmt))
-    {
-        onIfStatement(ifStmt);
-        visitExpression(const_cast<Expression*>(ifStmt->condition()));
-        if (ifStmt->thenBranch())
-        {
-            visitStatement(const_cast<BlockStatement*>(ifStmt->thenBranch()));
-        }
-        if (ifStmt->elseBranch())
-        {
-            visitStatement(const_cast<BlockStatement*>(ifStmt->elseBranch()));
-        }
-    }
-    // WhileStatement
-    else if (auto whileStmt = dynamic_cast<WhileStatement*>(stmt))
-    {
-        onWhileStatement(whileStmt);
-        visitExpression(const_cast<Expression*>(whileStmt->condition()));
-        if (whileStmt->body())
-        {
-            visitStatement(const_cast<BlockStatement*>(whileStmt->body()));
-        }
-    }
-    // BlockStatement
-    else if (auto blockStmt = dynamic_cast<BlockStatement*>(stmt))
-    {
-        onBlockStatement(blockStmt);
-        for (const auto& s : blockStmt->statements())
-        {
-            visitStatement(s.get());
-        }
-    }
-    // RangeForStatement
-    else if (auto forStmt = dynamic_cast<RangeForStatement*>(stmt))
-    {
-        onRangeForStatement(forStmt);
-        visitExpression(const_cast<Expression*>(forStmt->start()));
-        visitExpression(const_cast<Expression*>(forStmt->end()));
-        if (forStmt->body())
-        {
-            visitStatement(const_cast<BlockStatement*>(forStmt->body()));
-        }
-    }
-    // RepeatStatement
-    else if (auto repeatStmt = dynamic_cast<RepeatStatement*>(stmt))
-    {
-        onRepeatStatement(repeatStmt);
-        visitExpression(const_cast<Expression*>(repeatStmt->count()));
-        if (repeatStmt->body())
-        {
-            visitStatement(const_cast<BlockStatement*>(repeatStmt->body()));
-        }
-    }
-    // ImportStatement
-    else if (auto importStmt = dynamic_cast<ImportStatement*>(stmt))
-    {
-        onImportStatement(importStmt);
-    }
+    HookDispatcher dispatcher(*this);
+    ast::walk(stmt, dispatcher);
 }
 
 void Rule::visitExpression(Expression* expr)
 {
-    if (!expr) return;
-
-    // Identifier
-    if (auto ident = dynamic_cast<Identifier*>(expr))
-    {
-        onIdentifier(ident);
-    }
-    // IntegerLiteral
-    else if (auto intLit = dynamic_cast<IntegerLiteral*>(expr))
-    {
-        onIntegerLiteral(intLit);
-    }
-    // FloatLiteral
-    else if (auto floatLit = dynamic_cast<FloatLiteral*>(expr))
-    {
-        onFloatLiteral(floatLit);
-    }
-    // StringLiteral
-    else if (auto strLit = dynamic_cast<StringLiteral*>(expr))
-    {
-        onStringLiteral(strLit);
-    }
-    // BooleanLiteral
-    else if (auto boolLit = dynamic_cast<BooleanLiteral*>(expr))
-    {
-        onBooleanLiteral(boolLit);
-    }
-    // ArrayLiteral
-    else if (auto arrayLit = dynamic_cast<ArrayLiteral*>(expr))
-    {
-        onArrayLiteral(arrayLit);
-        for (const auto& elem : arrayLit->elements())
-        {
-            visitExpression(elem.get());
-        }
-    }
-    // BinaryExpression
-    else if (auto binExpr = dynamic_cast<BinaryExpression*>(expr))
-    {
-        onBinaryExpression(binExpr);
-        visitExpression(const_cast<Expression*>(binExpr->left()));
-        visitExpression(const_cast<Expression*>(binExpr->right()));
-    }
-    // UnaryExpression
-    else if (auto unaryExpr = dynamic_cast<UnaryExpression*>(expr))
-    {
-        onUnaryExpression(unaryExpr);
-        visitExpression(const_cast<Expression*>(unaryExpr->operand()));
-    }
-    // CallExpression
-    else if (auto callExpr = dynamic_cast<CallExpression*>(expr))
-    {
-        onCallExpression(callExpr);
-        visitExpression(const_cast<Expression*>(callExpr->function()));
-        for (const auto& arg : callExpr->arguments())
-        {
-            visitExpression(arg.get());
-        }
-    }
-    // IndexExpression
-    else if (auto indexExpr = dynamic_cast<IndexExpression*>(expr))
-    {
-        onIndexExpression(indexExpr);
-        visitExpression(const_cast<Expression*>(indexExpr->array()));
-        visitExpression(const_cast<Expression*>(indexExpr->index()));
-    }
-    // FunctionLiteral
-    else if (auto funcLit = dynamic_cast<FunctionLiteral*>(expr))
-    {
-        onFunctionLiteral(funcLit);
-        if (funcLit->body())
-        {
-            // body()는 Statement*를 반환하므로 그대로 사용
-            visitStatement(funcLit->body());
-        }
-    }
-    // JosaExpression: 객체와 메서드 양쪽을 방문한다
-    else if (auto josaExpr = dynamic_cast<JosaExpression*>(expr))
-    {
-        onJosaExpression(josaExpr);
-        visitExpression(const_cast<Expression*>(josaExpr->object()));
-        visitExpression(const_cast<Expression*>(josaExpr->method()));
-    }
-    // MemberAccessExpression: 객체를 방문한다
-    else if (auto memberExpr = dynamic_cast<MemberAccessExpression*>(expr))
-    {
-        visitExpression(const_cast<Expression*>(memberExpr->object()));
-    }
+    HookDispatcher dispatcher(*this);
+    ast::walk(expr, dispatcher);
 }
 
 } // namespace linter

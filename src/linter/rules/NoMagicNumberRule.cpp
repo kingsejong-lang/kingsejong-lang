@@ -81,16 +81,12 @@ void NoMagicNumberRule::onVarDeclaration(VarDeclaration* stmt)
 {
     if (!stmt) return;
 
-    // 변수 초기화 플래그 설정
+    // 초기식은 순회가 이어서 걷는다. 그동안 플래그를 켜 둔다.
     inVarInitializer_ = true;
+}
 
-    // 초기화 표현식 순회
-    if (stmt->initializer())
-    {
-        visitExpression(const_cast<Expression*>(stmt->initializer()));
-    }
-
-    // 플래그 해제
+void NoMagicNumberRule::onVarDeclarationEnd(VarDeclaration*)
+{
     inVarInitializer_ = false;
 }
 
@@ -98,18 +94,15 @@ void NoMagicNumberRule::onArrayLiteral(ArrayLiteral* expr)
 {
     if (!expr) return;
 
-    // 배열 리터럴 플래그 설정
-    bool wasInArray = inArrayLiteral_;
+    // 요소는 순회가 이어서 걷는다. 중첩 배열을 위해 깊이를 센다.
+    ++arrayDepth_;
     inArrayLiteral_ = true;
+}
 
-    // 배열 요소 순회
-    for (const auto& elem : expr->elements())
-    {
-        visitExpression(elem.get());
-    }
-
-    // 플래그 복원
-    inArrayLiteral_ = wasInArray;
+void NoMagicNumberRule::onArrayLiteralEnd(ArrayLiteral*)
+{
+    --arrayDepth_;
+    inArrayLiteral_ = arrayDepth_ > 0;
 }
 
 } // namespace rules

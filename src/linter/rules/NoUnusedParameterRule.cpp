@@ -6,6 +6,7 @@
  */
 
 #include "linter/rules/NoUnusedParameterRule.h"
+#include "ast/Visitor.h"
 #include "linter/Linter.h"
 #include <unordered_map>
 #include <unordered_set>
@@ -17,121 +18,30 @@ namespace rules {
 using namespace ast;
 
 // Helper: 함수 내에서 사용된 식별자 수집
-class IdentifierCollector
+/**
+ * @brief 함수 본문에서 쓰인 식별자 이름을 모은다
+ *
+ * 중첩 함수 안은 들어가지 않는다 (예전 동작 유지: 안쪽 함수가 바깥 매개변수를 쓰는지는
+ * 클로저 문제라 이 규칙이 다루지 않는다).
+ */
+class IdentifierCollector : public ast::Visitor
 {
 public:
     std::unordered_set<std::string> identifiers;
 
     void collect(const Statement* stmt)
     {
-        if (!stmt) return;
-
-        // VarDeclaration
-        if (auto varDecl = dynamic_cast<const VarDeclaration*>(stmt))
-        {
-            if (varDecl->initializer())
-            {
-                collectExpr(varDecl->initializer());
-            }
-        }
-        // AssignmentStatement
-        else if (auto assignStmt = dynamic_cast<const AssignmentStatement*>(stmt))
-        {
-            collectExpr(assignStmt->value());
-        }
-        // ExpressionStatement
-        else if (auto exprStmt = dynamic_cast<const ExpressionStatement*>(stmt))
-        {
-            collectExpr(exprStmt->expression());
-        }
-        // ReturnStatement
-        else if (auto retStmt = dynamic_cast<const ReturnStatement*>(stmt))
-        {
-            if (retStmt->returnValue())
-            {
-                collectExpr(retStmt->returnValue());
-            }
-        }
-        // IfStatement
-        else if (auto ifStmt = dynamic_cast<const IfStatement*>(stmt))
-        {
-            collectExpr(ifStmt->condition());
-            if (ifStmt->thenBranch()) collect(ifStmt->thenBranch());
-            if (ifStmt->elseBranch()) collect(ifStmt->elseBranch());
-        }
-        // WhileStatement
-        else if (auto whileStmt = dynamic_cast<const WhileStatement*>(stmt))
-        {
-            collectExpr(whileStmt->condition());
-            if (whileStmt->body()) collect(whileStmt->body());
-        }
-        // BlockStatement
-        else if (auto blockStmt = dynamic_cast<const BlockStatement*>(stmt))
-        {
-            for (const auto& s : blockStmt->statements())
-            {
-                collect(s.get());
-            }
-        }
-        // RangeForStatement
-        else if (auto forStmt = dynamic_cast<const RangeForStatement*>(stmt))
-        {
-            collectExpr(forStmt->start());
-            collectExpr(forStmt->end());
-            if (forStmt->body()) collect(forStmt->body());
-        }
-        // RepeatStatement
-        else if (auto repeatStmt = dynamic_cast<const RepeatStatement*>(stmt))
-        {
-            collectExpr(repeatStmt->count());
-            if (repeatStmt->body()) collect(repeatStmt->body());
-        }
+        ast::walk(const_cast<Statement*>(stmt), *this);
     }
 
-    void collectExpr(const Expression* expr)
+    bool enter(ast::Node& node) override
     {
-        if (!expr) return;
-
-        // Identifier
-        if (auto ident = dynamic_cast<const Identifier*>(expr))
+        if (node.type() == ast::NodeType::IDENTIFIER)
         {
-            identifiers.insert(ident->name());
+            identifiers.insert(static_cast<const Identifier&>(node).name());
         }
-        // BinaryExpression
-        else if (auto binExpr = dynamic_cast<const BinaryExpression*>(expr))
-        {
-            collectExpr(binExpr->left());
-            collectExpr(binExpr->right());
-        }
-        // UnaryExpression
-        else if (auto unaryExpr = dynamic_cast<const UnaryExpression*>(expr))
-        {
-            collectExpr(unaryExpr->operand());
-        }
-        // CallExpression
-        else if (auto callExpr = dynamic_cast<const CallExpression*>(expr))
-        {
-            collectExpr(callExpr->function());
-            for (const auto& arg : callExpr->arguments())
-            {
-                collectExpr(arg.get());
-            }
-        }
-        // IndexExpression
-        else if (auto indexExpr = dynamic_cast<const IndexExpression*>(expr))
-        {
-            collectExpr(indexExpr->array());
-            collectExpr(indexExpr->index());
-        }
-        // ArrayLiteral
-        else if (auto arrayLit = dynamic_cast<const ArrayLiteral*>(expr))
-        {
-            for (const auto& elem : arrayLit->elements())
-            {
-                collectExpr(elem.get());
-            }
-        }
-        // FunctionLiteral - 중첩 함수는 무시 (외부 매개변수 사용은 클로저이므로 허용)
+        return node.type() != ast::NodeType::FUNCTION_LITERAL &&
+               node.type() != ast::NodeType::ASYNC_FUNCTION_LITERAL;
     }
 };
 

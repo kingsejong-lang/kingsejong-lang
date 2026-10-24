@@ -60,12 +60,6 @@ void UnusedImportRule::onCallExpression(ast::CallExpression* expr)
         }
     }
 
-    // 하위 표현식 순회 (기본 동작)
-    visitExpression(const_cast<ast::Expression*>(expr->function()));
-    for (const auto& arg : expr->arguments())
-    {
-        visitExpression(const_cast<ast::Expression*>(arg.get()));
-    }
 }
 
 std::string UnusedImportRule::extractModuleName(const std::string& modulePath) const

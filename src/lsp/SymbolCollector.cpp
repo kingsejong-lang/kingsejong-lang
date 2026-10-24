@@ -17,6 +17,31 @@ bool isIdentifierByte(unsigned char c)
     return std::isalnum(c) || c == '_' || c >= 0x80;
 }
 
+bool isFunctionLiteral(const ast::Expression* expr)
+{
+    return expr && (expr->type() == ast::NodeType::FUNCTION_LITERAL ||
+                    expr->type() == ast::NodeType::ASYNC_FUNCTION_LITERAL);
+}
+
+const std::vector<std::string>& parametersOf(const ast::Node& node)
+{
+    if (node.type() == ast::NodeType::ASYNC_FUNCTION_LITERAL)
+    {
+        return static_cast<const ast::AsyncFunctionLiteral&>(node).parameters();
+    }
+    return static_cast<const ast::FunctionLiteral&>(node).parameters();
+}
+
+std::vector<std::string> parameterNames(const std::vector<ast::Parameter>& params)
+{
+    std::vector<std::string> names;
+    for (const auto& p : params)
+    {
+        names.push_back(p.name);
+    }
+    return names;
+}
+
 } // namespace
 
 SymbolCollector::SymbolCollector(SymbolTable& table)
@@ -33,12 +58,11 @@ void SymbolCollector::collect(const ast::Program* program, const std::string& ur
     currentUri_ = uri;
     scopes_.assign(1, "global");
     lines_ = content.empty() ? std::vector<std::string>{} : splitLines(content);
+    pendingFunctionName_.clear();
+    pendingFunctionNode_ = nullptr;
     anonymousCount_ = 0;
 
-    for (const auto& stmt : program->statements())
-    {
-        visitStatement(stmt.get());
-    }
+    ast::walk(const_cast<ast::Program*>(program), *this);
 }
 
 // ============================================================================
@@ -54,19 +78,20 @@ Location SymbolCollector::toLocation(int line, int byteColumn) const
     return Location(line, byteColumn, currentUri_);
 }
 
-Location SymbolCollector::locationOf(const ast::Node* node) const
+Location SymbolCollector::locationOf(const ast::Node& node) const
 {
-    const auto& loc = node->location();
+    const auto& loc = node.location();
     return toLocation(loc.line, loc.column);
 }
 
-Location SymbolCollector::nameLocation(const ast::Node* node, const std::string& name) const
+Location SymbolCollector::nameLocation(const ast::Node& node, const std::string& name, int afterByteColumn) const
 {
-    const auto& loc = node->location();
+    const auto& loc = node.location();
     if (loc.line >= 1 && static_cast<size_t>(loc.line) <= lines_.size() && !name.empty())
     {
         const std::string& text = lines_[static_cast<size_t>(loc.line) - 1];
-        size_t from = loc.column > 0 ? static_cast<size_t>(loc.column - 1) : 0;
+        int fromColumn = afterByteColumn > 0 ? afterByteColumn : loc.column;
+        size_t from = fromColumn > 0 ? static_cast<size_t>(fromColumn - 1) : 0;
         for (size_t pos = text.find(name, from); pos != std::string::npos; pos = text.find(name, pos + 1))
         {
             bool startOk = pos == 0 || !isIdentifierByte(static_cast<unsigned char>(text[pos - 1]));
@@ -97,7 +122,19 @@ void SymbolCollector::declare(const std::string& name, SymbolKind kind, const Lo
     symbolTable_->addSymbol(symbol);
 }
 
-void SymbolCollector::reference(const std::string& name, const ast::Node* node)
+bool SymbolCollector::isVisible(const std::string& name) const
+{
+    for (auto it = scopes_.rbegin(); it != scopes_.rend(); ++it)
+    {
+        if (symbolTable_->findSymbolInScope(name, *it).has_value())
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+void SymbolCollector::reference(const std::string& name, const ast::Node& node)
 {
     Location location = locationOf(node);
     for (auto it = scopes_.rbegin(); it != scopes_.rend(); ++it)
@@ -109,339 +146,167 @@ void SymbolCollector::reference(const std::string& name, const ast::Node* node)
     }
 }
 
-// ============================================================================
-// 문장
-// ============================================================================
-
-void SymbolCollector::visitStatement(const ast::Statement* stmt)
+void SymbolCollector::enterFunction(const ast::Node& node, const std::string& name,
+                                    const std::vector<std::string>& parameters)
 {
-    if (!stmt)
-    {
-        return;
-    }
+    // 이름이 선언문("정수 f = 함수(...)", "함수 f(...)")에서 왔으면 그 문장에서 이름을 찾는다
+    const ast::Node& named = pendingFunctionNode_ ? *pendingFunctionNode_ : node;
+    Location defLocation = nameLocation(named, name);
+    declare(name, SymbolKind::Function, defLocation, "함수");
 
-    switch (stmt->type())
+    scopes_.push_back("함수:" + name);
+    // 매개변수는 함수 이름 뒤 같은 줄에 있다. 이름 위치 뒤에서부터 찾는다.
+    int afterName = 0;
+    if (defLocation.line >= 1 && static_cast<size_t>(defLocation.line) <= lines_.size())
     {
-        case ast::NodeType::VAR_DECLARATION:
+        const std::string& text = lines_[static_cast<size_t>(defLocation.line) - 1];
+        size_t namePos = text.find(name);
+        afterName = namePos == std::string::npos ? 0 : static_cast<int>(namePos + name.size()) + 1;
+    }
+    for (const auto& param : parameters)
+    {
+        declare(param, SymbolKind::Parameter, nameLocation(named, param, afterName));
+    }
+}
+
+// ============================================================================
+// 순회 훅
+// ============================================================================
+
+bool SymbolCollector::enter(ast::Node& node)
+{
+    using ast::NodeType;
+    switch (node.type())
+    {
+        case NodeType::VAR_DECLARATION:
         {
-            auto* decl = static_cast<const ast::VarDeclaration*>(stmt);
-            const auto* init = decl->initializer();
-            if (init && init->type() == ast::NodeType::FUNCTION_LITERAL)
+            auto& decl = static_cast<const ast::VarDeclaration&>(node);
+            if (isFunctionLiteral(decl.initializer()))
             {
-                auto* fn = static_cast<const ast::FunctionLiteral*>(init);
-                visitFunction(decl, decl->varName(), fn->parameters(), fn->body());
+                pendingFunctionName_ = decl.varName();
+                pendingFunctionNode_ = &node;
             }
-            else if (init && init->type() == ast::NodeType::ASYNC_FUNCTION_LITERAL)
-            {
-                auto* fn = static_cast<const ast::AsyncFunctionLiteral*>(init);
-                visitFunction(decl, decl->varName(), fn->parameters(), fn->body());
-            }
-            else
-            {
-                // 초기식을 먼저 걷는다: "정수 x = x + 1" 의 오른쪽 x 는 바깥 x 다
-                visitExpression(init);
-                declare(decl->varName(), SymbolKind::Variable, nameLocation(decl, decl->varName()), decl->typeName());
-            }
+            // 일반 변수는 초기식을 걷고 난 뒤 leave() 에서 선언한다: "정수 x = x + 1" 의 오른쪽 x 는 바깥 x 다
             break;
         }
-        case ast::NodeType::ASSIGNMENT_STATEMENT:
+        case NodeType::ASSIGNMENT_STATEMENT:
         {
-            auto* assign = static_cast<const ast::AssignmentStatement*>(stmt);
-            const auto* value = assign->value();
-            if (value && value->type() == ast::NodeType::FUNCTION_LITERAL)
+            auto& assign = static_cast<const ast::AssignmentStatement&>(node);
+            if (isFunctionLiteral(assign.value()))
             {
-                auto* fn = static_cast<const ast::FunctionLiteral*>(value);
-                visitFunction(assign, assign->varName(), fn->parameters(), fn->body());
-            }
-            else if (value && value->type() == ast::NodeType::ASYNC_FUNCTION_LITERAL)
-            {
-                auto* fn = static_cast<const ast::AsyncFunctionLiteral*>(value);
-                visitFunction(assign, assign->varName(), fn->parameters(), fn->body());
-            }
-            else
-            {
-                visitExpression(value);
-                // 보이는 변수가 있으면 그 변수에 쓰는 것이고, 없으면 여기서 새로 만드는 것이다
-                bool visible = false;
-                for (auto it = scopes_.rbegin(); it != scopes_.rend() && !visible; ++it)
-                {
-                    visible = symbolTable_->findSymbolInScope(assign->varName(), *it).has_value();
-                }
-                if (visible)
-                {
-                    reference(assign->varName(), assign);
-                }
-                else
-                {
-                    declare(assign->varName(), SymbolKind::Variable, nameLocation(assign, assign->varName()));
-                }
+                pendingFunctionName_ = assign.varName();
+                pendingFunctionNode_ = &node;
             }
             break;
         }
-        case ast::NodeType::EXPRESSION_STATEMENT:
-            visitExpression(static_cast<const ast::ExpressionStatement*>(stmt)->expression());
-            break;
-        case ast::NodeType::RETURN_STATEMENT:
-            visitExpression(static_cast<const ast::ReturnStatement*>(stmt)->returnValue());
-            break;
-        case ast::NodeType::IF_STATEMENT:
+        case NodeType::FUNCTION_LITERAL:
+        case NodeType::ASYNC_FUNCTION_LITERAL:
         {
-            auto* ifStmt = static_cast<const ast::IfStatement*>(stmt);
-            visitExpression(ifStmt->condition());
-            visitBlock(ifStmt->thenBranch());
-            visitBlock(ifStmt->elseBranch());
+            std::string name = pendingFunctionName_.empty()
+                ? "익명" + std::to_string(++anonymousCount_)
+                : pendingFunctionName_;
+            enterFunction(node, name, parametersOf(node));
+            pendingFunctionName_.clear();
+            pendingFunctionNode_ = nullptr;
             break;
         }
-        case ast::NodeType::WHILE_STATEMENT:
+        case NodeType::FOR_STATEMENT:
         {
-            auto* w = static_cast<const ast::WhileStatement*>(stmt);
-            visitExpression(w->condition());
-            visitBlock(w->body());
+            auto& f = static_cast<const ast::ForStatement&>(node);
+            declare(f.iterator(), SymbolKind::Variable, nameLocation(node, f.iterator()));
             break;
         }
-        case ast::NodeType::FOR_STATEMENT:
+        case NodeType::RANGE_FOR_STATEMENT:
         {
-            auto* f = static_cast<const ast::ForStatement*>(stmt);
-            visitExpression(f->range());
-            declare(f->iterator(), SymbolKind::Variable, nameLocation(f, f->iterator()));
-            visitBlock(f->body());
+            auto& r = static_cast<const ast::RangeForStatement&>(node);
+            declare(r.varName(), SymbolKind::Variable, nameLocation(node, r.varName()));
             break;
         }
-        case ast::NodeType::RANGE_FOR_STATEMENT:
+        case NodeType::TRY_STATEMENT:
         {
-            auto* r = static_cast<const ast::RangeForStatement*>(stmt);
-            visitExpression(r->start());
-            visitExpression(r->end());
-            declare(r->varName(), SymbolKind::Variable, nameLocation(r, r->varName()));
-            visitBlock(r->body());
-            break;
-        }
-        case ast::NodeType::REPEAT_STATEMENT:
-        {
-            auto* r = static_cast<const ast::RepeatStatement*>(stmt);
-            visitExpression(r->count());
-            visitBlock(r->body());
-            break;
-        }
-        case ast::NodeType::BLOCK_STATEMENT:
-            visitBlock(static_cast<const ast::BlockStatement*>(stmt));
-            break;
-        case ast::NodeType::TRY_STATEMENT:
-        {
-            auto* t = static_cast<const ast::TryStatement*>(stmt);
-            visitBlock(t->tryBlock());
-            for (const auto& clause : t->catchClauses())
+            // CatchClause 는 노드가 아니라 위치가 없다. 시도문 줄에서 이름을 찾는다.
+            for (const auto& clause : static_cast<const ast::TryStatement&>(node).catchClauses())
             {
                 if (!clause->errorVarName().empty())
                 {
-                    // CatchClause 는 AST 노드가 아니라 위치가 없다. 시도문 줄에서 이름을 찾는다.
-                    declare(clause->errorVarName(), SymbolKind::Variable, nameLocation(t, clause->errorVarName()));
+                    declare(clause->errorVarName(), SymbolKind::Variable, nameLocation(node, clause->errorVarName()));
                 }
-                visitBlock(clause->body());
             }
-            visitBlock(t->finallyBlock());
             break;
         }
-        case ast::NodeType::THROW_STATEMENT:
-            visitExpression(static_cast<const ast::ThrowStatement*>(stmt)->value());
+        case NodeType::CLASS_STATEMENT:
+        {
+            auto& cls = static_cast<const ast::ClassStatement&>(node);
+            declare(cls.className(), SymbolKind::Class, nameLocation(node, cls.className()), "클래스");
+            scopes_.push_back("클래스:" + cls.className());
             break;
-        case ast::NodeType::CLASS_STATEMENT:
-            visitClass(static_cast<const ast::ClassStatement*>(stmt));
+        }
+        case NodeType::FIELD_DECLARATION:
+        {
+            auto& field = static_cast<const ast::FieldDeclaration&>(node);
+            declare(field.fieldName(), SymbolKind::Property, nameLocation(node, field.fieldName()));
+            break;
+        }
+        case NodeType::METHOD_DECLARATION:
+        {
+            auto& method = static_cast<const ast::MethodDeclaration&>(node);
+            enterFunction(node, method.methodName(), parameterNames(method.parameters()));
+            break;
+        }
+        case NodeType::CONSTRUCTOR_DECLARATION:
+        {
+            auto& ctor = static_cast<const ast::ConstructorDeclaration&>(node);
+            enterFunction(node, "생성자", parameterNames(ctor.parameters()));
+            break;
+        }
+        case NodeType::IDENTIFIER:
+            reference(static_cast<const ast::Identifier&>(node).name(), node);
             break;
         default:
             break;
     }
+    return true;
 }
 
-void SymbolCollector::visitBlock(const ast::BlockStatement* block)
+void SymbolCollector::leave(ast::Node& node)
 {
-    if (!block)
+    using ast::NodeType;
+    switch (node.type())
     {
-        return;
-    }
-    for (const auto& stmt : block->statements())
-    {
-        visitStatement(stmt.get());
-    }
-}
-
-void SymbolCollector::visitFunction(const ast::Node* node, const std::string& name,
-                                    const std::vector<std::string>& parameters, const ast::Statement* body)
-{
-    Location defLocation = nameLocation(node, name);
-    declare(name, SymbolKind::Function, defLocation, "함수");
-
-    scopes_.push_back("함수:" + name);
-    for (const auto& param : parameters)
-    {
-        // 매개변수는 함수 이름 뒤 같은 줄에 있다
-        Location paramLocation = defLocation;
-        if (defLocation.line >= 1 && static_cast<size_t>(defLocation.line) <= lines_.size())
+        case NodeType::VAR_DECLARATION:
         {
-            const std::string& text = lines_[static_cast<size_t>(defLocation.line) - 1];
-            size_t from = text.find(name);
-            size_t pos = from == std::string::npos ? std::string::npos : text.find(param, from + name.size());
-            while (pos != std::string::npos)
+            auto& decl = static_cast<const ast::VarDeclaration&>(node);
+            if (!isFunctionLiteral(decl.initializer()))
             {
-                bool startOk = pos == 0 || !isIdentifierByte(static_cast<unsigned char>(text[pos - 1]));
-                size_t after = pos + param.size();
-                bool endOk = after >= text.size() || !isIdentifierByte(static_cast<unsigned char>(text[after]));
-                if (startOk && endOk)
-                {
-                    paramLocation = toLocation(defLocation.line, static_cast<int>(pos) + 1);
-                    break;
-                }
-                pos = text.find(param, pos + 1);
-            }
-        }
-        declare(param, SymbolKind::Parameter, paramLocation);
-    }
-    if (body && body->type() == ast::NodeType::BLOCK_STATEMENT)
-    {
-        visitBlock(static_cast<const ast::BlockStatement*>(body));
-    }
-    else
-    {
-        visitStatement(body);
-    }
-    scopes_.pop_back();
-}
-
-void SymbolCollector::visitClass(const ast::ClassStatement* cls)
-{
-    declare(cls->className(), SymbolKind::Class, nameLocation(cls, cls->className()), "클래스");
-    scopes_.push_back("클래스:" + cls->className());
-    for (const auto& field : cls->fields())
-    {
-        declare(field->fieldName(), SymbolKind::Property, nameLocation(field.get(), field->fieldName()));
-    }
-    if (const auto* ctor = cls->constructor())
-    {
-        std::vector<std::string> params;
-        for (const auto& p : ctor->parameters())
-        {
-            params.push_back(p.name);
-        }
-        visitFunction(ctor, "생성자", params, ctor->body());
-    }
-    for (const auto& method : cls->methods())
-    {
-        std::vector<std::string> params;
-        for (const auto& p : method->parameters())
-        {
-            params.push_back(p.name);
-        }
-        visitFunction(method.get(), method->methodName(), params, method->body());
-    }
-    scopes_.pop_back();
-}
-
-// ============================================================================
-// 식
-// ============================================================================
-
-void SymbolCollector::visitExpression(const ast::Expression* expr)
-{
-    if (!expr)
-    {
-        return;
-    }
-
-    switch (expr->type())
-    {
-        case ast::NodeType::IDENTIFIER:
-            reference(static_cast<const ast::Identifier*>(expr)->name(), expr);
-            break;
-        case ast::NodeType::CALL_EXPRESSION:
-        {
-            auto* call = static_cast<const ast::CallExpression*>(expr);
-            visitExpression(call->function());
-            for (const auto& arg : call->arguments())
-            {
-                visitExpression(arg.get());
+                declare(decl.varName(), SymbolKind::Variable, nameLocation(node, decl.varName()), decl.typeName());
             }
             break;
         }
-        case ast::NodeType::BINARY_EXPRESSION:
+        case NodeType::ASSIGNMENT_STATEMENT:
         {
-            auto* b = static_cast<const ast::BinaryExpression*>(expr);
-            visitExpression(b->left());
-            visitExpression(b->right());
-            break;
-        }
-        case ast::NodeType::UNARY_EXPRESSION:
-            visitExpression(static_cast<const ast::UnaryExpression*>(expr)->operand());
-            break;
-        case ast::NodeType::INDEX_EXPRESSION:
-        {
-            auto* i = static_cast<const ast::IndexExpression*>(expr);
-            visitExpression(i->array());
-            visitExpression(i->index());
-            break;
-        }
-        case ast::NodeType::JOSA_EXPRESSION:
-        {
-            auto* j = static_cast<const ast::JosaExpression*>(expr);
-            visitExpression(j->object());
-            visitExpression(j->method());
-            break;
-        }
-        case ast::NodeType::RANGE_EXPRESSION:
-        {
-            auto* r = static_cast<const ast::RangeExpression*>(expr);
-            visitExpression(r->start());
-            visitExpression(r->end());
-            visitExpression(r->step());
-            break;
-        }
-        case ast::NodeType::ARRAY_LITERAL:
-            for (const auto& e : static_cast<const ast::ArrayLiteral*>(expr)->elements())
+            auto& assign = static_cast<const ast::AssignmentStatement&>(node);
+            if (isFunctionLiteral(assign.value()))
             {
-                visitExpression(e.get());
+                break;
             }
-            break;
-        case ast::NodeType::DICTIONARY_LITERAL:
-            for (const auto& pair : static_cast<const ast::DictionaryLiteral*>(expr)->pairs())
+            // 보이는 변수가 있으면 그 변수에 쓰는 것이고, 없으면 여기서 새로 만드는 것이다
+            if (isVisible(assign.varName()))
             {
-                visitExpression(pair.first.get());
-                visitExpression(pair.second.get());
+                reference(assign.varName(), node);
             }
-            break;
-        case ast::NodeType::MEMBER_ACCESS_EXPRESSION:
-            visitExpression(static_cast<const ast::MemberAccessExpression*>(expr)->object());
-            break;
-        case ast::NodeType::AWAIT_EXPRESSION:
-            visitExpression(static_cast<const ast::AwaitExpression*>(expr)->argument());
-            break;
-        case ast::NodeType::INTERPOLATED_STRING:
-            for (const auto& e : static_cast<const ast::InterpolatedString*>(expr)->expressions())
+            else
             {
-                visitExpression(e.get());
-            }
-            break;
-        case ast::NodeType::MATCH_EXPRESSION:
-        {
-            auto* m = static_cast<const ast::MatchExpression*>(expr);
-            visitExpression(m->value());
-            for (const auto& c : m->cases())
-            {
-                visitExpression(c.guard());
-                visitExpression(c.body());
+                declare(assign.varName(), SymbolKind::Variable, nameLocation(node, assign.varName()));
             }
             break;
         }
-        case ast::NodeType::FUNCTION_LITERAL:
-        {
-            auto* fn = static_cast<const ast::FunctionLiteral*>(expr);
-            visitFunction(fn, "익명" + std::to_string(++anonymousCount_), fn->parameters(), fn->body());
+        case NodeType::FUNCTION_LITERAL:
+        case NodeType::ASYNC_FUNCTION_LITERAL:
+        case NodeType::METHOD_DECLARATION:
+        case NodeType::CONSTRUCTOR_DECLARATION:
+        case NodeType::CLASS_STATEMENT:
+            scopes_.pop_back();
             break;
-        }
-        case ast::NodeType::ASYNC_FUNCTION_LITERAL:
-        {
-            auto* fn = static_cast<const ast::AsyncFunctionLiteral*>(expr);
-            visitFunction(fn, "익명" + std::to_string(++anonymousCount_), fn->parameters(), fn->body());
-            break;
-        }
         default:
             break;
     }

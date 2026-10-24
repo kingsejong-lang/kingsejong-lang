@@ -29,7 +29,6 @@ public:
 
 protected:
     void onBlockStatement(ast::BlockStatement* stmt) override;
-    void onVarDeclaration(ast::VarDeclaration* stmt) override;
 
 private:
     /**

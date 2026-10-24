@@ -29,7 +29,6 @@ public:
 
 protected:
     void onBinaryExpression(ast::BinaryExpression* expr) override;
-    void onVarDeclaration(ast::VarDeclaration* stmt) override;
 
 private:
     /**

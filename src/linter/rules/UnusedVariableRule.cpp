@@ -58,12 +58,12 @@ void UnusedVariableRule::onVarDeclaration(VarDeclaration* stmt)
     // 변수 선언 기록
     declaredVars_[varName] = stmt;
 
-    // 초기화 값 처리 시 자기 자신을 사용으로 간주하지 않음
+    // 초기식은 순회가 이어서 걷는다. 그동안 자기 자신은 사용으로 세지 않는다.
     currentDeclaring_ = varName;
-    if (stmt->initializer())
-    {
-        visitExpression(const_cast<ast::Expression*>(stmt->initializer()));
-    }
+}
+
+void UnusedVariableRule::onVarDeclarationEnd(VarDeclaration*)
+{
     currentDeclaring_.clear();
 }
 

@@ -409,6 +409,125 @@ TEST(AsyncAwaitTest, ShouldReturnPendingPromiseWhenNothingCanSettleIt)
     EXPECT_TRUE(env->get("결과").isPromise());
 }
 
+TEST(AsyncAwaitTest, ShouldChainThenResultOnPendingPromise)
+{
+    // 아직 끝나지 않은 Promise 의 then 은 콜백 결과로 끝나는 새 Promise 를 돌려준다
+    auto promise = std::make_shared<evaluator::Promise>();
+    auto env = std::make_shared<evaluator::Environment>();
+    env->set("약속", evaluator::Value::createPromise(promise));
+
+    lexer::Lexer lexer(R"(
+결과 = 약속.그러면(함수(값) {
+    반환 값 + 10
+})
+)");
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    evaluator::Evaluator eval(env);
+    eval.eval(program.get());
+
+    auto result = env->get("결과");
+    ASSERT_TRUE(result.isPromise());
+    EXPECT_NE(result.asPromise(), promise) << "then은 원래 Promise가 아닌 새 Promise를 돌려줘야 합니다";
+    EXPECT_FALSE(result.asPromise()->isSettled());
+
+    promise->resolve(evaluator::Value::createInteger(5));
+    evaluator::getGlobalEventLoop().run();
+
+    ASSERT_TRUE(result.asPromise()->isSettled());
+    EXPECT_EQ(result.asPromise()->state(), evaluator::Promise::State::FULFILLED);
+    EXPECT_EQ(result.asPromise()->value().asInteger(), 15);
+}
+
+TEST(AsyncAwaitTest, ShouldRejectChainedPromiseWhenThenCallbackThrows)
+{
+    auto promise = std::make_shared<evaluator::Promise>();
+    auto env = std::make_shared<evaluator::Environment>();
+    env->set("약속", evaluator::Value::createPromise(promise));
+
+    lexer::Lexer lexer(R"(
+결과 = 약속.그러면(함수(값) {
+    던지다 "실패"
+})
+)");
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    evaluator::Evaluator eval(env);
+    eval.eval(program.get());
+
+    promise->resolve(evaluator::Value::createInteger(5));
+    evaluator::getGlobalEventLoop().run();
+
+    auto result = env->get("결과");
+    ASSERT_TRUE(result.isPromise());
+    EXPECT_EQ(result.asPromise()->state(), evaluator::Promise::State::REJECTED);
+    ASSERT_TRUE(result.asPromise()->value().isError());
+    EXPECT_EQ(result.asPromise()->value().asError()->message(), "실패");
+}
+
+TEST(AsyncAwaitTest, ShouldPassRejectionThroughThenToCatch)
+{
+    // then 은 거부를 그대로 다음 catch 로 넘기고, catch 의 결과가 체인의 값이 된다
+    auto promise = std::make_shared<evaluator::Promise>();
+    auto env = std::make_shared<evaluator::Environment>();
+    env->set("약속", evaluator::Value::createPromise(promise));
+
+    lexer::Lexer lexer(R"(
+결과 = 약속.그러면(함수(값) {
+    반환 값 + 10
+}).오류시(함수(e) {
+    반환 "잡음"
+})
+)");
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    evaluator::Evaluator eval(env);
+    eval.eval(program.get());
+
+    promise->reject(evaluator::Value::createError("원인"));
+    evaluator::getGlobalEventLoop().run();
+
+    auto result = env->get("결과");
+    ASSERT_TRUE(result.isPromise());
+    EXPECT_EQ(result.asPromise()->state(), evaluator::Promise::State::FULFILLED);
+    EXPECT_EQ(result.asPromise()->value().asString(), "잡음");
+}
+
+TEST(AsyncAwaitTest, ShouldPassFulfillmentThroughCatchToThen)
+{
+    auto promise = std::make_shared<evaluator::Promise>();
+    auto env = std::make_shared<evaluator::Environment>();
+    env->set("약속", evaluator::Value::createPromise(promise));
+
+    lexer::Lexer lexer(R"(
+결과 = 약속.오류시(함수(e) {
+    반환 "잡음"
+}).그러면(함수(값) {
+    반환 값 * 2
+})
+)");
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    evaluator::Evaluator eval(env);
+    eval.eval(program.get());
+
+    promise->resolve(evaluator::Value::createInteger(21));
+    evaluator::getGlobalEventLoop().run();
+
+    auto result = env->get("결과");
+    ASSERT_TRUE(result.isPromise());
+    EXPECT_EQ(result.asPromise()->state(), evaluator::Promise::State::FULFILLED);
+    EXPECT_EQ(result.asPromise()->value().asInteger(), 42);
+}
+
 TEST(AsyncAwaitTest, ShouldReturnNonPromiseValueDirectly)
 {
     std::string input = R"(

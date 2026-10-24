@@ -198,9 +198,6 @@ bool SemanticAnalyzer::analyze(Program* program)
     // Phase 3: 타입 검사
     checkTypes(program);
 
-    // Phase 4: 모호성 해결
-    resolveAmbiguities(program);
-
     // 에러가 없으면 성공
     return errors_.empty();
 }
@@ -1675,27 +1672,6 @@ bool SemanticAnalyzer::isTypeCompatible(Type* expected, Type* actual)
 
     // 타입 이름이 같으면 호환
     return expected->koreanName() == actual->koreanName();
-}
-
-// ============================================================================
-// Phase 4: 모호성 해결
-// ============================================================================
-
-void SemanticAnalyzer::resolveAmbiguities(Program* program)
-{
-    // TODO: 모호성 해결 구현
-    // 현재는 skeleton
-    for (auto& stmt : program->statements())
-    {
-        resolveAmbiguitiesInStatement(stmt.get());
-    }
-}
-
-void SemanticAnalyzer::resolveAmbiguitiesInStatement(Statement* /* stmt */)
-{
-    // TODO: 모호성 해결
-    // 예: JosaExpression이 실제로 RangeForStatement여야 하는지 검증
-    // 현재는 skeleton
 }
 
 // ============================================================================

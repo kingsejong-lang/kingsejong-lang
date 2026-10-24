@@ -1617,7 +1617,20 @@ Value Evaluator::evalImportStatement(ast::ImportStatement* stmt)
     // 모듈 로딩
     // 가져오기 문이 있는 파일을 기준으로 상대 경로를 해석한다
     std::string modulePath = stmt->modulePath();
-    auto moduleEnv = moduleLoader_->loadModule(modulePath, stmt->location().filename);
+
+    // 모듈을 돌리는 동안 현재 문장은 모듈 안의 문장이 되고, 모듈이 실패하면 그 AST 는 해제된다.
+    // 어떤 경로로 나가든 이 가져오기 문을 다시 현재 문장으로 두어야 바깥 호출 스택 프레임이 해제된 노드를 읽지 않는다.
+    std::shared_ptr<Environment> moduleEnv;
+    try
+    {
+        moduleEnv = moduleLoader_->loadModule(modulePath, stmt->location().filename);
+    }
+    catch (...)
+    {
+        currentStatement_ = stmt;
+        throw;
+    }
+    currentStatement_ = stmt;
 
     // 모듈의 모든 변수를 현재 환경으로 가져오기
     for (const auto& [name, value] : moduleEnv->getAllBindings())

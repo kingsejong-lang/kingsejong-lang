@@ -143,8 +143,8 @@ p = 포인트(0)
 
 TEST(StackTraceTest, ShouldRestoreEnvironmentWhenMethodThrowsIntoTryBlock)
 {
-    // 메서드가 던진 에러를 호출한 쪽의 시도 블록이 잡으면, 이후 문장은 원래 환경에서 실행돼야 한다
-    auto env = std::make_shared<evaluator::Environment>();
+    // 메서드가 던진 에러를 호출한 쪽의 시도 블록이 잡으면, 이후 문장은 원래 환경에서 실행돼야 한다.
+    // 환경은 평가기만 쥔다 (클래스·메서드가 만드는 함수-환경 순환은 평가기 소멸자가 끊는다)
     evaluator::Builtin::registerAllBuiltins();
     lexer::Lexer lexer(R"(클래스 계산기 {
     공개 함수 나누기(a, b) {
@@ -163,10 +163,11 @@ TEST(StackTraceTest, ShouldRestoreEnvironmentWhenMethodThrowsIntoTryBlock)
     auto program = parser.parseProgram();
     ASSERT_TRUE(parser.errors().empty());
 
-    evaluator::Evaluator eval(env);
+    evaluator::Evaluator eval;
+    const evaluator::Environment* globalEnv = eval.environment().get();
     EXPECT_NO_THROW(eval.evalProgram(program.get()));
-    EXPECT_EQ(eval.environment(), env);
-    auto result = env->get("결과");
+    EXPECT_EQ(eval.environment().get(), globalEnv);
+    auto result = eval.environment()->get("결과");
     ASSERT_TRUE(result.isInteger());
     EXPECT_EQ(result.asInteger(), 1);
 }

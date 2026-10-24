@@ -528,6 +528,31 @@ TEST(AsyncAwaitTest, ShouldPassFulfillmentThroughCatchToThen)
     EXPECT_EQ(result.asPromise()->value().asInteger(), 42);
 }
 
+TEST(AsyncAwaitTest, ShouldDropUnusedCallbacksWhenPromiseSettles)
+{
+    // 이행된 Promise 의 catch 콜백(거부된 Promise 의 then 콜백)은 실행될 수 없으므로 붙잡고 있지 않아야 한다.
+    // 콜백이 클로저 환경을 쥐고 환경이 Promise 를 쥐는 순환이 남으면 누수가 된다.
+    auto token = std::make_shared<int>(0);
+    std::weak_ptr<int> watch = token;
+    auto promise = std::make_shared<evaluator::Promise>();
+    promise->catchError([token](const evaluator::Value& v) { return v; });
+    promise->then([token](const evaluator::Value& v) { return v; });
+    token.reset();
+    EXPECT_FALSE(watch.expired());
+
+    promise->resolve(evaluator::Value::createInteger(1));
+    evaluator::getGlobalEventLoop().run();
+    EXPECT_TRUE(watch.expired());
+
+    auto token2 = std::make_shared<int>(0);
+    std::weak_ptr<int> watch2 = token2;
+    auto rejected = std::make_shared<evaluator::Promise>();
+    rejected->then([token2](const evaluator::Value& v) { return v; });
+    token2.reset();
+    rejected->reject(evaluator::Value::createError("원인"));
+    EXPECT_TRUE(watch2.expired());
+}
+
 TEST(AsyncAwaitTest, ShouldReturnNonPromiseValueDirectly)
 {
     std::string input = R"(

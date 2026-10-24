@@ -1053,3 +1053,33 @@ TEST(VMAsyncTest, ShouldAwaitPendingPromiseAsPromise) {
     EXPECT_EQ(vm.run(&chunk), VMResult::OK);
     EXPECT_TRUE(vm.top().isPromise());
 }
+
+TEST(VMAsyncTest, ShouldChainThenResultOnPendingPromise) {
+    // 끝나지 않은 Promise 의 then 은 콜백 결과로 끝나는 새 Promise 를 돌려준다 (평가기와 같다)
+    auto promise = std::make_shared<Promise>();
+    lexer::Lexer lexer(R"(
+결과 = 약속.그러면(함수(값) {
+    반환 값 + 10
+})
+)");
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_TRUE(parser.errors().empty());
+
+    Chunk chunk;
+    Compiler compiler;
+    ASSERT_TRUE(compiler.compile(program.get(), &chunk));
+
+    VM vm;
+    vm.globals()->set("약속", Value::createPromise(promise));
+    ASSERT_EQ(vm.run(&chunk), VMResult::OK);
+
+    Value result = vm.globals()->get("결과");
+    ASSERT_TRUE(result.isPromise());
+    EXPECT_NE(result.asPromise(), promise);
+
+    promise->resolve(Value::createInteger(5));
+    getGlobalEventLoop().run();
+    EXPECT_EQ(result.asPromise()->state(), Promise::State::FULFILLED);
+    EXPECT_EQ(result.asPromise()->value().asInteger(), 15);
+}

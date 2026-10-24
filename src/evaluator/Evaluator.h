@@ -12,6 +12,7 @@
 #include "../ast/Node.h"
 #include "../ast/Expression.h"
 #include "../ast/Statement.h"
+#include "../error/Error.h"
 #include "lexer/JosaRecognizer.h"
 #include <memory>
 #include <stdexcept>
@@ -49,6 +50,26 @@ public:
  * AST 노드를 순회하면서 실행하고 결과를 Value로 반환합니다.
  * Environment를 통해 변수의 저장과 조회를 관리합니다.
  */
+/**
+ * @class ThrowSignal
+ * @brief 던지다 로 던진 에러
+ *
+ * 시도 블록이 잡을 때까지 블록과 함수 호출을 거슬러 올라간다. KingSejongError 를 상속하므로
+ * 아무도 잡지 않으면 main 이 실행 에러로 보고한다. 비동기 함수 안에서 던지면 Promise 거부가 된다.
+ */
+class ThrowSignal : public error::KingSejongError
+{
+private:
+    Value value_;
+
+public:
+    explicit ThrowSignal(Value value)
+        : error::KingSejongError(error::ErrorType::RUNTIME_ERROR, value.toString())
+        , value_(std::move(value))
+    {}
+    const Value& value() const { return value_; }
+};
+
 /**
  * @class ExecutionObserver
  * @brief 평가기의 실행 흐름을 지켜보는 인터페이스 (디버거가 구현한다)

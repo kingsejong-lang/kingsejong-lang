@@ -756,6 +756,26 @@ TEST(VMParityTest, ShouldWrapAsyncResultsInPromises) {
     EXPECT_EQ(run.global("결과").asInteger(), 7);
 }
 
+TEST(VMParityTest, ShouldRejectPromiseWhenAsyncFunctionThrows) {
+    VmRun run(R"(
+        실패 = 비동기 함수() {
+            던지다 "실패함"
+        }
+        p = 실패()
+    )");
+    EXPECT_EQ(run.result, VMResult::OK);
+    ASSERT_TRUE(run.global("p").isPromise());
+    EXPECT_EQ(run.global("p").asPromise()->state(), Promise::State::REJECTED);
+}
+
+TEST(VMParityTest, ShouldFailWithExitStatusOnUncaughtThrow) {
+    VmRun run(R"(
+        함수 f() { 던지다 "미처리" }
+        f()
+    )");
+    EXPECT_EQ(run.result, VMResult::RUNTIME_ERROR);
+}
+
 TEST(VMParityTest, ShouldReportArityMismatch) {
     VmRun run(R"(
         함수 f(a) { 반환 a }

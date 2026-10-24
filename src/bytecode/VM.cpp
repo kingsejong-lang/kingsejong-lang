@@ -103,6 +103,12 @@ VMResult VM::run(Chunk* chunk) {
         } catch (const evaluator::ReturnValue& ret) {
             // 평가기로 해석한 본문에서 새어 나온 반환 (정상 경로에서는 일어나지 않는다)
             push(ret.getValue());
+        } catch (const evaluator::ThrowSignal& signal) {
+            // 평가기로 해석한 콜백·모듈 함수가 던진 에러
+            if (!unwindToHandler(signal.value())) {
+                runtimeError(signal.what());
+                return VMResult::RUNTIME_ERROR;
+            }
         } catch (const std::exception& e) {
             // 런타임 에러: 시도 블록 안이면 오류 블록으로, 아니면 보고하고 끝낸다
             Value error = Value::createError(e.what(), "RuntimeError");
@@ -744,17 +750,33 @@ void VM::raise(const Value& error) {
     }
 }
 
+bool VM::rejectAsyncFrame(const Value& error, size_t frameDepth) {
+    // 핸들러에 닿기 전에 비동기 함수 프레임을 지나면, 에러는 그 함수의 Promise 거부가 된다
+    while (frames_.size() > frameDepth) {
+        CallFrame frame = std::move(frames_.back());
+        frames_.pop_back();
+        if (frame.isAsync) {
+            while (handlers_.size() > frame.handlerBase) handlers_.pop_back();
+            stack_.resize(frame.stackBase);
+            ip_ = frame.returnIp;
+            dropFrame(frame);
+            push(Evaluator::wrapAsync(error));
+            return true;
+        }
+        dropFrame(frame);
+    }
+    return false;
+}
+
 bool VM::unwindToHandler(const Value& error) {
     while (!handlers_.empty()) {
         Handler handler = handlers_.back();
-        handlers_.pop_back();
 
-        // 핸들러보다 안쪽 프레임을 모두 걷어 낸다
-        while (frames_.size() > handler.frameDepth) {
-            CallFrame frame = std::move(frames_.back());
-            frames_.pop_back();
-            dropFrame(frame);
+        // 핸들러보다 안쪽 프레임을 걷어 낸다. 비동기 프레임을 만나면 거기서 멈춘다
+        if (rejectAsyncFrame(error, handler.frameDepth)) {
+            return true;
         }
+        handlers_.pop_back();
         stack_.resize(handler.stackDepth);
         env_ = handler.env;
 
@@ -771,11 +793,9 @@ bool VM::unwindToHandler(const Value& error) {
         return true;
     }
 
-    // 처리할 핸들러가 없다: 프레임을 정리하고 보고하게 한다
-    while (!frames_.empty()) {
-        CallFrame frame = std::move(frames_.back());
-        frames_.pop_back();
-        dropFrame(frame);
+    // 처리할 핸들러가 없다: 비동기 프레임이 있으면 거부로 바꾸고, 아니면 보고하게 한다
+    if (rejectAsyncFrame(error, 0)) {
+        return true;
     }
     return false;
 }

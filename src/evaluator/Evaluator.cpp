@@ -846,6 +846,17 @@ Value Evaluator::evalRegularFunctionCall(
         // return 문으로 인한 정상적인 함수 종료
         result = returnVal.getValue();
     }
+    catch (const ThrowSignal& signal)
+    {
+        // 비동기 함수 안에서 던진 에러는 Promise 거부가 된다
+        if (!func->isAsync())
+        {
+            env_ = previousEnv;
+            leaveScope(funcEnv);
+            throw;
+        }
+        result = signal.value();
+    }
     catch (...)
     {
         env_ = previousEnv;
@@ -1545,7 +1556,8 @@ Value Evaluator::evalImportStatement(ast::ImportStatement* stmt)
  */
 Value Evaluator::evalThrowStatement(ast::ThrowStatement* stmt)
 {
-    return throwValue(eval(const_cast<ast::Expression*>(stmt->value())));
+    // 에러는 예외로 전파되어 블록의 나머지 문장을 건너뛰고 가장 가까운 시도 블록에서 잡힌다
+    throw ThrowSignal(throwValue(eval(const_cast<ast::Expression*>(stmt->value()))));
 }
 
 Value Evaluator::throwValue(const Value& value)
@@ -1588,87 +1600,83 @@ Value Evaluator::evalTryStatement(ast::TryStatement* stmt)
 {
     Value result = Value::createNull();
     Value caughtError = Value::createNull();
-    bool errorCaught = false;
+    bool hasError = false;
 
-    // 1. Try 블록 실행
+    // 1. 시도 블록
     try
     {
         result = eval(const_cast<ast::BlockStatement*>(stmt->tryBlock()));
 
-        // 에러 Value가 반환된 경우 catch 블록으로 전달
+        // 에러 값이 블록의 값으로 흘러나온 경우도 잡는다 (에러 값을 돌려주는 함수)
         if (result.isError())
         {
             caughtError = result;
-            errorCaught = false;  // catch 블록에서 처리 필요
-        }
-        else
-        {
-            errorCaught = true;  // 에러 없음
+            hasError = true;
         }
     }
-    catch (const ReturnValue& ret)
+    catch (const ReturnValue&)
     {
-        // return 문은 try-catch를 통과시킴
-        // finally 블록 실행 후 다시 던짐
+        // 반환문은 시도 블록을 통과한다. 마지막 블록만 돌리고 다시 던진다
         if (stmt->finallyBlock())
         {
             eval(const_cast<ast::BlockStatement*>(stmt->finallyBlock()));
         }
-        throw;  // return 예외 재전파
+        throw;
     }
-    catch (...)
+    catch (const ThrowSignal& signal)
     {
-        // C++ 예외는 런타임 에러로 변환
-        caughtError = Value::createError("예기치 않은 내부 에러 발생", "RuntimeError");
-        errorCaught = false;
+        caughtError = signal.value();
+        hasError = true;
+    }
+    catch (const std::exception& e)
+    {
+        // 내장 함수·연산이 던진 런타임 에러도 오류 블록으로 간다 (메시지를 그대로 전한다)
+        caughtError = Value::createError(e.what(), "RuntimeError");
+        hasError = true;
     }
 
-    // 2. Catch 블록 실행 (에러가 있고 catch절이 있는 경우)
-    if (!errorCaught && !stmt->catchClauses().empty())
+    // 2. 오류 블록 (에러가 있고 오류 절이 있을 때)
+    if (hasError && !stmt->catchClauses().empty())
     {
-        // 첫 번째 catch 절 실행 (현재는 단일 catch만 지원)
-        const auto& catchClause = stmt->catchClauses()[0];
+        const auto& catchClause = stmt->catchClauses()[0];  // 현재는 단일 오류 절만
 
-        // 새로운 스코프 생성 (에러 변수 바인딩용)
+        // 에러 변수를 묶을 새 스코프. 에러는 문자열로 바뀌어 묶인다
         auto catchEnv = std::make_shared<Environment>(env_);
         auto prevEnv = env_;
         env_ = catchEnv;
+        env_->set(catchClause->errorVarName(), Value::createString(caughtError.toString()));
 
-        // 에러 변수 바인딩
-        // 에러 Value를 문자열로 변환하여 바인딩
-        env_->set(catchClause->errorVarName(),
-                 Value::createString(caughtError.toString()));
-
-        // Catch 블록 실행
         try
         {
             result = eval(const_cast<ast::BlockStatement*>(catchClause->body()));
         }
         catch (...)
         {
+            // 오류 블록이 다시 던지면 마지막 블록은 돌리고 전파한다
             env_ = prevEnv;
             leaveScope(catchEnv);
+            if (stmt->finallyBlock())
+            {
+                eval(const_cast<ast::BlockStatement*>(stmt->finallyBlock()));
+            }
             throw;
         }
 
-        // 환경 복원
         env_ = prevEnv;
         leaveScope(catchEnv);
-
-        errorCaught = true;  // 에러가 처리됨
+        hasError = false;
     }
 
-    // 3. Finally 블록 실행 (항상)
+    // 3. 마지막 블록 (항상)
     if (stmt->finallyBlock())
     {
         eval(const_cast<ast::BlockStatement*>(stmt->finallyBlock()));
     }
 
-    // 4. 에러 전파
-    if (!errorCaught)
+    // 4. 잡지 못한 에러는 바깥으로 전파
+    if (hasError)
     {
-        // catch되지 않은 에러는 호출자에게 전파
-        return caughtError;
+        throw ThrowSignal(caughtError);
     }
 
     return result;
@@ -1734,6 +1742,17 @@ Value Evaluator::callValue(const Value& callee, const std::vector<Value>& args,
     {
         result = returnVal.getValue();
     }
+    catch (const ThrowSignal& signal)
+    {
+        // 비동기 함수 안에서 던진 에러는 Promise 거부가 된다
+        if (!func->isAsync())
+        {
+            env_ = previousEnv;
+            leaveScope(funcEnv);
+            throw;
+        }
+        result = signal.value();
+    }
     catch (...)
     {
         env_ = previousEnv;
@@ -1783,7 +1802,17 @@ Value Evaluator::invokeFunction(const Value& callee, const std::vector<Value>& a
         funcEnv->set(func->parameters()[i], args[i]);
     }
 
-    Value result = runBody(func->body(), std::move(funcEnv));
+    Value result;
+    try
+    {
+        result = runBody(func->body(), std::move(funcEnv));
+    }
+    catch (const ThrowSignal& signal)
+    {
+        // 비동기 함수 안에서 던진 에러는 Promise 거부가 된다
+        if (!func->isAsync()) throw;
+        return wrapAsync(signal.value());
+    }
     if (func->isAsync())
     {
         return wrapAsync(result);

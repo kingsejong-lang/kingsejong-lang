@@ -127,6 +127,7 @@ private:
     Step doReturn(evaluator::Value result);
     void raise(const evaluator::Value& error);
     bool unwindToHandler(const evaluator::Value& error);
+    bool rejectAsyncFrame(const evaluator::Value& error, size_t frameDepth);
     void dropFrame(const CallFrame& frame);
     static void releaseScope(std::shared_ptr<evaluator::Environment>& scope);
 

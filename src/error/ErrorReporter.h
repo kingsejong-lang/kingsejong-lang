@@ -228,6 +228,14 @@ private:
      * @return "❌ 에러타입: 메시지" 형식
      */
     std::string formatErrorMessage(const KingSejongError& error, bool useColor) const;
+
+    /**
+     * @brief 호출 스택 포맷팅
+     * @param frames 프레임 목록 (가장 안쪽부터)
+     * @param useColor 컬러 사용 여부
+     * @return "호출 스택 (가장 안쪽부터):" 머리와 "  함수 (파일:줄)" 줄들
+     */
+    std::string formatStackTrace(const std::vector<StackFrame>& frames, bool useColor) const;
 };
 
 // ============================================================================

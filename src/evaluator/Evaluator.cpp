@@ -64,10 +64,11 @@ Value Evaluator::eval(ast::Node* node)
     // 안전 장치 체크 (무한 루프 방지)
     checkSafetyLimits();
 
-    // 디버거 등 관찰자에게 문장 단위로 알린다
-    if (observer_)
+    // 지금 평가하는 문장을 기억해 두고(에러 호출 스택의 위치), 디버거 등 관찰자에게 문장 단위로 알린다
+    if (auto* stmt = ast::node_cast<ast::Statement>(node))
     {
-        if (auto* stmt = ast::node_cast<ast::Statement>(node))
+        currentStatement_ = stmt;
+        if (observer_)
         {
             observer_->onStatement(stmt, env_);
         }
@@ -192,9 +193,18 @@ Value Evaluator::evalProgram(ast::Program* program)
 
     Value result = Value::createNull();
 
-    for (const auto& stmt : program->statements())
+    try
     {
-        result = eval(stmt.get());
+        for (const auto& stmt : program->statements())
+        {
+            result = eval(stmt.get());
+        }
+    }
+    catch (error::KingSejongError& error)
+    {
+        // 잡히지 않은 에러: 파일 최상위에서 실행 중이던 문장을 호출 스택의 마지막 프레임으로 더한다
+        addStackFrame(error, "<최상위>");
+        throw;
     }
 
     // 프로그램 실행 후 Event Loop 실행 (microtask 처리)
@@ -698,7 +708,9 @@ Value Evaluator::evalClassMethodCall(
     // 메서드 환경으로 전환
     env_ = methodEnv;
 
-    // 메서드 본문 실행
+    // 메서드 본문 실행. 예외로 나가더라도 환경을 되돌리고, 에러에는 "클래스.메서드" 프레임을 더한다
+    const std::string frameName = classDef->className() + "." + memberAccess->memberName();
+    const ast::Statement* callerStatement = currentStatement_;
     Value result = Value::createNull();
     try
     {
@@ -708,6 +720,22 @@ Value Evaluator::evalClassMethodCall(
     {
         result = returnVal.getValue();
     }
+    catch (error::KingSejongError& error)
+    {
+        addStackFrame(error, frameName);
+        currentStatement_ = callerStatement;
+        env_ = previousEnv;
+        leaveScope(methodEnv);
+        throw;
+    }
+    catch (...)
+    {
+        currentStatement_ = callerStatement;
+        env_ = previousEnv;
+        leaveScope(methodEnv);
+        throw;
+    }
+    currentStatement_ = callerStatement;
 
     // 환경 복원
     env_ = previousEnv;
@@ -758,11 +786,59 @@ Value Evaluator::constructInstance(const std::shared_ptr<Function>& func, const 
         // '자신' 키워드를 인스턴스에 바인딩
         ctorEnv->set("자신", Value::createClassInstance(instance));
 
-        // 생성자 본문 실행 (생성자에서 return 은 무시한다)
-        runBody(ctor->body(), std::move(ctorEnv));
+        // 생성자 본문 실행 (생성자에서 return 은 무시한다). 에러에는 "클래스.생성자" 프레임을 더한다
+        const ast::Statement* callerStatement = currentStatement_;
+        try
+        {
+            runBody(ctor->body(), std::move(ctorEnv));
+        }
+        catch (error::KingSejongError& error)
+        {
+            addStackFrame(error, classDef->className() + ".생성자");
+            currentStatement_ = callerStatement;
+            throw;
+        }
+        catch (...)
+        {
+            currentStatement_ = callerStatement;
+            throw;
+        }
+        currentStatement_ = callerStatement;
     }
 
     return Value::createClassInstance(instance);
+}
+
+void Evaluator::addStackFrame(error::KingSejongError& error, const std::string& function)
+{
+    error::SourceLocation location;
+    if (currentStatement_)
+    {
+        const auto& loc = currentStatement_->location();
+        location = error::SourceLocation(loc.filename, loc.line, loc.column);
+    }
+    error.addStackFrame(function, location);
+}
+
+Value Evaluator::callBuiltin(const Value& callee, const std::vector<Value>& args)
+{
+    try
+    {
+        return callee.asBuiltinFunction()(args);
+    }
+    catch (const error::KingSejongError&)
+    {
+        throw;
+    }
+    catch (const ReturnValue&)
+    {
+        throw;
+    }
+    catch (const std::exception& e)
+    {
+        // 내장 함수의 std::runtime_error 를 실행 에러로 바꿔 호출 스택을 붙일 수 있게 한다 (메시지는 그대로)
+        throw error::RuntimeError(e.what());
+    }
 }
 
 Value Evaluator::runBody(ast::Statement* body, std::shared_ptr<Environment> env)
@@ -823,6 +899,7 @@ Value Evaluator::evalRegularFunctionCall(
     {
         functionName = identExpr->name();
     }
+    const std::string frameName = functionName == "anonymous" ? "<익명 함수>" : functionName;
 
     auto startTime = std::chrono::steady_clock::now();
 
@@ -854,7 +931,8 @@ Value Evaluator::evalRegularFunctionCall(
     }
     ObserverExitGuard exitGuard{observer_};
 
-    // 함수 본문 실행
+    // 함수 본문 실행. 돌아오면(정상·예외 모두) 호출한 쪽의 문장을 다시 현재 문장으로 둔다
+    const ast::Statement* callerStatement = currentStatement_;
     Value result = Value::createNull();
     try
     {
@@ -865,23 +943,35 @@ Value Evaluator::evalRegularFunctionCall(
         // return 문으로 인한 정상적인 함수 종료
         result = returnVal.getValue();
     }
-    catch (const ThrowSignal& signal)
+    catch (ThrowSignal& signal)
     {
         // 비동기 함수 안에서 던진 에러는 Promise 거부가 된다
         if (!func->isAsync())
         {
+            addStackFrame(signal, frameName);
+            currentStatement_ = callerStatement;
             env_ = previousEnv;
             leaveScope(funcEnv);
             throw;
         }
         result = signal.value();
     }
-    catch (...)
+    catch (error::KingSejongError& error)
     {
+        addStackFrame(error, frameName);
+        currentStatement_ = callerStatement;
         env_ = previousEnv;
         leaveScope(funcEnv);
         throw;
     }
+    catch (...)
+    {
+        currentStatement_ = callerStatement;
+        env_ = previousEnv;
+        leaveScope(funcEnv);
+        throw;
+    }
+    currentStatement_ = callerStatement;
 
     // 환경 복원
     env_ = previousEnv;
@@ -965,7 +1055,7 @@ Value Evaluator::evalCallExpression(ast::CallExpression* expr)
     // 3. 내장 함수 호출
     if (funcValue.isBuiltinFunction())
     {
-        return funcValue.asBuiltinFunction()(args);
+        return callBuiltin(funcValue, args);
     }
 
     // 4. 사용자 정의 함수인지 확인
@@ -1553,7 +1643,20 @@ Value Evaluator::evalImportStatement(ast::ImportStatement* stmt)
     // 모듈 로딩
     // 가져오기 문이 있는 파일을 기준으로 상대 경로를 해석한다
     std::string modulePath = stmt->modulePath();
-    auto moduleEnv = moduleLoader_->loadModule(modulePath, stmt->location().filename);
+
+    // 모듈을 돌리는 동안 현재 문장은 모듈 안의 문장이 되고, 모듈이 실패하면 그 AST 는 해제된다.
+    // 어떤 경로로 나가든 이 가져오기 문을 다시 현재 문장으로 두어야 바깥 호출 스택 프레임이 해제된 노드를 읽지 않는다.
+    std::shared_ptr<Environment> moduleEnv;
+    try
+    {
+        moduleEnv = moduleLoader_->loadModule(modulePath, stmt->location().filename);
+    }
+    catch (...)
+    {
+        currentStatement_ = stmt;
+        throw;
+    }
+    currentStatement_ = stmt;
 
     // 모듈의 모든 변수를 현재 환경으로 가져오기
     for (const auto& [name, value] : moduleEnv->getAllBindings())
@@ -1676,7 +1779,10 @@ Value Evaluator::evalTryStatement(ast::TryStatement* stmt)
             leaveScope(catchEnv);
             if (stmt->finallyBlock())
             {
+                // 마지막 블록이 현재 문장을 바꾸므로, 호출 스택에 던진 자리를 남기려면 되돌린다
+                const ast::Statement* thrownAt = currentStatement_;
                 eval(const_cast<ast::BlockStatement*>(stmt->finallyBlock()));
+                currentStatement_ = thrownAt;
             }
             throw;
         }
@@ -1712,7 +1818,7 @@ Value Evaluator::callValue(const Value& callee, const std::vector<Value>& args,
 
     if (callee.isBuiltinFunction())
     {
-        return callee.asBuiltinFunction()(args);
+        return callBuiltin(callee, args);
     }
     if (!callee.isFunction())
     {
@@ -1752,6 +1858,8 @@ Value Evaluator::callValue(const Value& callee, const std::vector<Value>& args,
     observer_->onFunctionEnter(name, callSite, funcEnv);
     ObserverExitGuard exitGuard{observer_};
 
+    // 돌아오면(정상·예외 모두) 호출한 쪽의 문장을 다시 현재 문장으로 둔다
+    const ast::Statement* callerStatement = currentStatement_;
     Value result = Value::createNull();
     try
     {
@@ -1761,23 +1869,35 @@ Value Evaluator::callValue(const Value& callee, const std::vector<Value>& args,
     {
         result = returnVal.getValue();
     }
-    catch (const ThrowSignal& signal)
+    catch (ThrowSignal& signal)
     {
         // 비동기 함수 안에서 던진 에러는 Promise 거부가 된다
         if (!func->isAsync())
         {
+            addStackFrame(signal, name);
+            currentStatement_ = callerStatement;
             env_ = previousEnv;
             leaveScope(funcEnv);
             throw;
         }
         result = signal.value();
     }
-    catch (...)
+    catch (error::KingSejongError& error)
     {
+        addStackFrame(error, name);
+        currentStatement_ = callerStatement;
         env_ = previousEnv;
         leaveScope(funcEnv);
         throw;
     }
+    catch (...)
+    {
+        currentStatement_ = callerStatement;
+        env_ = previousEnv;
+        leaveScope(funcEnv);
+        throw;
+    }
+    currentStatement_ = callerStatement;
     env_ = previousEnv;
     leaveScope(funcEnv);
 
@@ -1792,7 +1912,7 @@ Value Evaluator::invokeFunction(const Value& callee, const std::vector<Value>& a
 {
     if (callee.isBuiltinFunction())
     {
-        return callee.asBuiltinFunction()(args);
+        return callBuiltin(callee, args);
     }
     if (!callee.isFunction())
     {
@@ -1821,17 +1941,37 @@ Value Evaluator::invokeFunction(const Value& callee, const std::vector<Value>& a
         funcEnv->set(func->parameters()[i], args[i]);
     }
 
+    // 돌아오면(정상·예외 모두) 호출한 쪽의 문장을 다시 현재 문장으로 둔다
+    const ast::Statement* callerStatement = currentStatement_;
     Value result;
     try
     {
         result = runBody(func->body(), std::move(funcEnv));
     }
-    catch (const ThrowSignal& signal)
+    catch (ThrowSignal& signal)
     {
         // 비동기 함수 안에서 던진 에러는 Promise 거부가 된다
-        if (!func->isAsync()) throw;
+        if (!func->isAsync())
+        {
+            addStackFrame(signal, name);
+            currentStatement_ = callerStatement;
+            throw;
+        }
+        currentStatement_ = callerStatement;
         return wrapAsync(signal.value());
     }
+    catch (error::KingSejongError& error)
+    {
+        addStackFrame(error, name);
+        currentStatement_ = callerStatement;
+        throw;
+    }
+    catch (...)
+    {
+        currentStatement_ = callerStatement;
+        throw;
+    }
+    currentStatement_ = callerStatement;
     if (func->isAsync())
     {
         return wrapAsync(result);

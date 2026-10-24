@@ -99,6 +99,47 @@ TEST_F(ModuleTestFixture, ShouldCacheLoadedModule)
 }
 
 /**
+ * @test 가져온 모듈 안에서 난 에러의 호출 스택
+ *
+ * 모듈 b 가 실패하면 b 의 AST 는 로더가 해제한다. 그 뒤에 a 와 메인 프로그램이 더하는 "<최상위>" 프레임은
+ * 각자의 가져오기 문을 가리켜야 한다 (해제된 b 의 문장을 읽으면 안 된다).
+ */
+TEST_F(ModuleTestFixture, ShouldRecordModuleFramesWhenImportedModuleFails)
+{
+    createTestModule("a", "가져오기 \"b\"\n정수 valueA = 1\n");
+    createTestModule("b", "정수 x = 0\n정수 y = 1 / x\n");
+
+    ModuleLoader loader(testModulePath_);
+    Lexer lexer("가져오기 \"a\"\n정수 z = 3\n", "main.ksj");
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_TRUE(parser.errors().empty());
+
+    Evaluator evaluator;
+    evaluator.setModuleLoader(&loader);
+    try
+    {
+        evaluator.evalProgram(program.get());
+        FAIL() << "모듈 b 의 0 나누기가 전파되지 않았다";
+    }
+    catch (const kingsejong::error::KingSejongError& e)
+    {
+        const auto& frames = e.stackTrace();
+        ASSERT_EQ(frames.size(), 3u);
+        auto endsWith = [](const std::string& s, const std::string& suffix) {
+            return s.size() >= suffix.size() && s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
+        };
+        EXPECT_EQ(frames[0].function, "<최상위>");
+        EXPECT_TRUE(endsWith(frames[0].location.filename, "b.ksj")) << frames[0].location.filename;
+        EXPECT_EQ(frames[0].location.line, 2);
+        EXPECT_TRUE(endsWith(frames[1].location.filename, "a.ksj")) << frames[1].location.filename;
+        EXPECT_EQ(frames[1].location.line, 1);
+        EXPECT_EQ(frames[2].location.filename, "main.ksj");
+        EXPECT_EQ(frames[2].location.line, 1);
+    }
+}
+
+/**
  * @test 순환 참조 감지
  */
 TEST_F(ModuleTestFixture, ShouldDetectCircularDependency)

@@ -143,10 +143,17 @@ std::string ErrorFormatter::formatError(
 {
     std::ostringstream oss;
 
-    // 1. 위치 정보 (있는 경우)
-    if (error.getLocation().has_value())
+    // 1. 위치 정보. 에러 자체에 위치가 없으면 호출 스택의 가장 안쪽 프레임(에러가 난 문장)을 쓴다
+    std::optional<SourceLocation> location = error.getLocation();
+    const auto& frames = error.stackTrace();
+    if (!location.has_value() && !frames.empty() &&
+        frames.front().location.line > 0 && !frames.front().location.filename.empty())
     {
-        const auto& loc = error.getLocation().value();
+        location = frames.front().location;
+    }
+    if (location.has_value())
+    {
+        const auto& loc = location.value();
         oss << formatLocation(loc, useColor) << "\n\n";
 
         // 2. 소스 코드 컨텍스트 (소스가 등록된 경우)
@@ -160,6 +167,39 @@ std::string ErrorFormatter::formatError(
 
     // 3. 에러 타입 및 메시지
     oss << formatErrorMessage(error, useColor) << "\n";
+
+    // 4. 호출 스택. 함수 밖에서 난 에러는 "<최상위>" 프레임 하나뿐이라 위치 정보로 충분하다
+    if (frames.size() > 1)
+    {
+        oss << formatStackTrace(frames, useColor);
+    }
+
+    return oss.str();
+}
+
+std::string ErrorFormatter::formatStackTrace(const std::vector<StackFrame>& frames, bool useColor) const
+{
+    std::ostringstream oss;
+
+    std::string header = "호출 스택 (가장 안쪽부터):";
+    oss << (useColor ? colorize(header, AnsiColor::CYAN) : header) << "\n";
+
+    for (const auto& frame : frames)
+    {
+        oss << "  " << frame.function;
+        if (frame.location.line > 0)
+        {
+            if (!frame.location.filename.empty() && frame.location.filename != "<unknown>")
+            {
+                oss << " (" << frame.location.filename << ":" << frame.location.line << ")";
+            }
+            else
+            {
+                oss << " (줄 " << frame.location.line << ")";
+            }
+        }
+        oss << "\n";
+    }
 
     return oss.str();
 }

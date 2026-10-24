@@ -258,6 +258,20 @@ private:
     jit::HotPathDetector* hotPathDetector_ = nullptr;  ///< 핫 패스 감지기
     ExecutionObserver* observer_ = nullptr;  ///< 실행 관찰자 (디버거)
 
+    /**
+     * @brief 지금 평가 중인 문장. 에러가 함수 호출 경계를 거슬러 올라갈 때 호출 스택 프레임의 위치가 된다.
+     *
+     * 함수 본문·콜백·모듈을 돌리는 Evaluator 인스턴스가 여럿이어도 실행 흐름은 하나이므로 공유한다.
+     * 함수 호출이 돌아오면(정상·예외 모두) 호출한 쪽의 문장으로 되돌린다.
+     */
+    inline static thread_local const ast::Statement* currentStatement_ = nullptr;
+
+    /// 에러에 호출 스택 프레임을 더한다. 위치는 지금 평가 중인 문장(에러가 난 함수 안의 문장)이다
+    static void addStackFrame(error::KingSejongError& error, const std::string& function);
+
+    /// 내장 함수를 부른다. 내장 함수가 던진 일반 예외는 실행 에러(KingSejongError)로 바꿔 호출 스택을 붙일 수 있게 한다
+    static Value callBuiltin(const Value& callee, const std::vector<Value>& args);
+
     // 안전 장치
     size_t evaluationCount_ = 0;  ///< 평가 카운터
     size_t maxEvaluations_ = 10000000;  ///< 최대 평가 횟수 (기본: 10,000,000)

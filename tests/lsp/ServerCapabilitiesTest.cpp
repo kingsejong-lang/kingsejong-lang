@@ -9,6 +9,7 @@
 
 #include <gtest/gtest.h>
 #include "lsp/LanguageServer.h"
+#include "version/Version.h"
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
@@ -92,7 +93,7 @@ TEST_F(ServerCapabilitiesTest, ShouldReturnServerInfo)
     EXPECT_EQ(serverInfo["name"], "kingsejong-lsp");
 
     EXPECT_TRUE(serverInfo.contains("version"));
-    EXPECT_EQ(serverInfo["version"], "0.3.2");
+    EXPECT_EQ(serverInfo["version"], kingsejong::version::VERSION);   // 버전은 CMake project() 한 곳에서 온다
 }
 
 TEST_F(ServerCapabilitiesTest, ShouldSetInitializedFlag)

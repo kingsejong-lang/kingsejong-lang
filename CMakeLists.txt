@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(KingSejong VERSION 0.1.0 LANGUAGES CXX)
+project(KingSejong VERSION 0.5.0 LANGUAGES CXX)
 
 # C++23 표준 사용
 set(CMAKE_CXX_STANDARD 23)
@@ -96,6 +96,8 @@ target_include_directories(kingsejong_lib PUBLIC
     ${CMAKE_SOURCE_DIR}/include
 )
 target_link_libraries(kingsejong_lib PUBLIC nlohmann_json::nlohmann_json)
+# 버전은 project() 한 곳에서만 정한다. --version, REPL 배너, LSP serverInfo 가 모두 이 값을 쓴다.
+target_compile_definitions(kingsejong_lib PUBLIC KINGSEJONG_VERSION="${PROJECT_VERSION}")
 
 # SQLite 는 선택이다. 없으면 DB_* 내장 함수가 등록되지 않는다 (Windows 러너처럼 헤더가 없는 환경).
 find_package(SQLite3)
@@ -265,7 +267,7 @@ if(EMSCRIPTEN)
         ${CMAKE_SOURCE_DIR}/include
     )
     target_link_libraries(kingsejong_wasm_lib PUBLIC nlohmann_json::nlohmann_json)
-    target_compile_definitions(kingsejong_wasm_lib PUBLIC KINGSEJONG_WASM=1)
+    target_compile_definitions(kingsejong_wasm_lib PUBLIC KINGSEJONG_WASM=1 KINGSEJONG_VERSION="${PROJECT_VERSION}")
 
     # WASM 바인딩 타겟
     add_executable(kingsejong_wasm

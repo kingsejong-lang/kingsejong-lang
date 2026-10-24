@@ -1009,8 +1009,8 @@ TEST(VMAsyncTest, ShouldAwaitNonPromiseValue) {
     EXPECT_EQ(vm.top().asInteger(), 123);
 }
 
-TEST(VMAsyncTest, ShouldAwaitRejectedPromiseAsItsReason) {
-    // 평가기와 같다: 완료된 Promise 는 거부 이유도 값으로 돌려준다
+TEST(VMAsyncTest, ShouldThrowRejectionReasonWhenAwaitingRejectedPromise) {
+    // 평가기와 같다: 거부된 Promise 를 기다리면 거부 이유가 던져져, 잡는 곳이 없으면 실행 에러다
     Chunk chunk;
     chunk.writeOpCode(OpCode::BUILD_PROMISE, 1);
     chunk.writeOpCode(OpCode::DUP, 1);
@@ -1020,8 +1020,41 @@ TEST(VMAsyncTest, ShouldAwaitRejectedPromiseAsItsReason) {
     chunk.writeOpCode(OpCode::HALT, 1);
 
     VM vm;
-    EXPECT_EQ(vm.run(&chunk), VMResult::OK);
-    EXPECT_EQ(vm.top().asString(), "에러");
+    EXPECT_EQ(vm.run(&chunk), VMResult::RUNTIME_ERROR);
+}
+
+TEST(VMAsyncTest, ShouldCatchAwaitedRejectionInTryBlock) {
+    const char* source = R"(
+실패 = 비동기 함수() { 던지다 "실패함" }
+메시지 = ""
+시도 {
+    값 = 대기 실패()
+} 오류 (e) {
+    메시지 = e
+}
+)";
+    VmRun run(source);
+    ASSERT_TRUE(run.compiled);
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_NE(run.global("메시지").toString().find("실패함"), std::string::npos);
+    EXPECT_EQ(run.global("메시지").toString(), evaluatorGlobal(source, "메시지").toString());
+}
+
+TEST(VMAsyncTest, ShouldRejectAsyncFunctionWhenAwaitedPromiseIsRejected) {
+    const char* source = R"(
+실패 = 비동기 함수() { 던지다 "실패함" }
+바깥 = 비동기 함수() {
+    값 = 대기 실패()
+    반환 1
+}
+p = 바깥()
+)";
+    VmRun run(source);
+    ASSERT_TRUE(run.compiled);
+    EXPECT_EQ(run.result, VMResult::OK);
+    ASSERT_TRUE(run.global("p").isPromise());
+    EXPECT_EQ(run.global("p").asPromise()->state(), Promise::State::REJECTED);
+    EXPECT_EQ(evaluatorGlobal(source, "p").asPromise()->state(), Promise::State::REJECTED);
 }
 
 TEST(VMAsyncTest, ShouldRunEventLoopUntilAwaitedPromiseSettles) {

@@ -83,9 +83,10 @@ Value Evaluator::eval(ast::Node* node)
     }
     catch (const std::runtime_error&)
     {
+        // 문장도 식도 아닌 노드(Program 등)가 올 수 있으므로 실제 타입을 확인한다. 에러 경로에서만 돈다
         if (!errorExpression_)
         {
-            errorExpression_ = static_cast<const ast::Expression*>(node);
+            errorExpression_ = dynamic_cast<const ast::Expression*>(node);
         }
         throw;
     }

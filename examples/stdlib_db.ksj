@@ -143,6 +143,26 @@ DB_테이블_생성(mdb, "회원 목록", ["이름 TEXT"])
 DB_삽입(mdb, "회원 목록", [["이름", "세종"]])
 assert_같음(DB_결과_열(DB_조회(mdb, "회원 목록", ""), 0), ["세종"])
 assert_같음(SQL_이름("a\"b"), "\"a\"\"b\"")
+
+# 매개변수 바인딩: ? 자리에 값을 넣으므로 같음이 아닌 비교에도 외부 입력을 쓸 수 있다
+DB_실행(mdb, "INSERT INTO u (name, age) VALUES (?, ?)", [악성, 7])
+assert_같음(DB_결과_열(DB_쿼리(mdb, "SELECT name FROM u WHERE age < ?", [10]), 0), [악성])
+assert_같음(DB_결과_행수(DB_쿼리(mdb, "SELECT name FROM u WHERE name = ?", ["x"])), 0)
+
+# 트랜잭션 안에서 에러가 나면 롤백하고 같은 에러를 다시 던진다
+행수_전 = DB_결과_행수(DB_쿼리(mdb, "SELECT * FROM u"))
+잡은_에러 = ""
+시도 {
+    DB_트랜잭션(mdb, 함수(d) {
+        DB_실행(d, "INSERT INTO u (name, age) VALUES (?, ?)", ["임시", 1])
+        던지다 "중단"
+    })
+} 오류 (e) {
+    잡은_에러 = e
+}
+assert_같음(잡은_에러, "Error: 중단")
+assert_같음(DB_결과_행수(DB_쿼리(mdb, "SELECT * FROM u")), 행수_전)
+assert_같음(DB_트랜잭션(mdb, 함수(d) { 반환 42 }), 42)
 DB_닫기(mdb)
 출력("  편의 함수 단언 통과")
 출력("")

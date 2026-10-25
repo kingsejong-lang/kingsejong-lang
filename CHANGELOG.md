@@ -303,18 +303,4 @@
 
 ---
 
-## [Unreleased]
-
-### 계획 중인 기능
-
-- 추가 Linter 규칙 (네이밍 컨벤션 등)
-- Formatter VS Code 확장 기능
-- stdlib/gui.ksj - GUI 라이브러리
-- stdlib/network.ksj - 네트워크 라이브러리
-- stdlib/ml.ksj - 머신러닝 바인딩
-- LLVM 백엔드 (선택)
-- 멀티스레딩 지원
-
----
-
-**전체 변경 사항**: [GitHub Releases](https://github.com/kingsejong-lang/kingsejonglang/releases)
+**전체 변경 사항**: [GitHub Releases](https://github.com/kingsejong-lang/kingsejong-lang/releases)

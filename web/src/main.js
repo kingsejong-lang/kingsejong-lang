@@ -3,6 +3,15 @@
  */
 
 import * as monaco from 'monaco-editor';
+import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
+
+// Monaco 는 편집 작업을 웹 워커에서 돌린다. 워커를 알려 주지 않으면 메인 스레드로 대신 돌려 UI 가 멈출 수 있다.
+// KingSejong 은 언어 서비스 워커가 따로 없으므로 기본 편집기 워커 하나면 된다
+self.MonacoEnvironment = {
+    getWorker() {
+        return new EditorWorker();
+    },
+};
 import { examples } from './examples.js';
 
 // ============================================================================
@@ -97,6 +106,10 @@ async function loadWasmModule() {
         // 버전 확인
         const version = interpreter.version();
         updateStatus('ready', `✅ ${version}`);
+        const footerVersion = document.getElementById('footer-version');
+        if (footerVersion) {
+            footerVersion.textContent = version;
+        }
 
         // 버튼 활성화
         elements.runBtn.disabled = false;

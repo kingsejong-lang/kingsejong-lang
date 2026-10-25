@@ -32,6 +32,7 @@
 #include "linter/Linter.h"
 #include "formatter/Formatter.h"
 #include "formatter/FormatterConfig.h"
+#include "common/UTF8Utils.h"
 
 /// 실행 파일 위치에서 유도한 모듈 검색 경로 (main 이 채운다)
 static std::vector<std::string> g_moduleSearchPaths;
@@ -112,8 +113,10 @@ int executeFile(const std::string& filename, bool useVm = false)
                 std::string message = err.message;
                 if (err.location.isValid())
                 {
+                    // 렉서의 열은 바이트 단위라 사람이 읽는 위치는 글자 단위로 바꾼다
+                    int column = kingsejong::common::charColumnInSource(source, err.location.line, err.location.column);
                     message = filename + ":" + std::to_string(err.location.line) + ":" +
-                              std::to_string(err.location.column) + ": " + message;
+                              std::to_string(column) + ": " + message;
                 }
                 auto error = kingsejong::error::ParserError(message);
                 errorReporter.report(error);
@@ -139,8 +142,9 @@ int executeFile(const std::string& filename, bool useVm = false)
         // Semantic 에러 확인
         if (!semanticOk || !semanticAnalyzer.errors().empty())
         {
-            for (const auto& err : semanticAnalyzer.errors())
+            for (auto err : semanticAnalyzer.errors())
             {
+                err.column = kingsejong::common::charColumnInSource(source, err.line, err.column);
                 std::cerr << "Semantic Error: " << err.toString() << "\n";
             }
             return 1;
@@ -431,15 +435,17 @@ int runLinter(int argc, char* argv[])
         }
         std::stringstream buffer;
         buffer << file.rdbuf();
+        const std::string source = buffer.str();
 
-        kingsejong::lexer::Lexer lexer(buffer.str(), filename);
+        kingsejong::lexer::Lexer lexer(source, filename);
         kingsejong::parser::Parser parser(lexer);
         auto program = parser.parseProgram();
         if (!parser.errors().empty())
         {
             for (const auto& err : parser.errorDetails())
             {
-                std::cerr << filename << ":" << err.location.line << ":" << err.location.column
+                std::cerr << filename << ":" << err.location.line << ":"
+                          << kingsejong::common::charColumnInSource(source, err.location.line, err.location.column)
                           << ": 구문 오류: " << err.message << "\n";
             }
             failed = true;
@@ -461,8 +467,9 @@ int runLinter(int argc, char* argv[])
         }
 
         linter.analyze(program.get(), filename);
-        for (const auto& issue : linter.issues())
+        for (auto issue : linter.issues())
         {
+            issue.column = kingsejong::common::charColumnInSource(source, issue.line, issue.column);
             std::cout << issue.toString() << "\n";
         }
         totalErrors += linter.errorCount();
@@ -490,15 +497,17 @@ int runDebugger(const std::string& filename)
     }
     std::stringstream buffer;
     buffer << file.rdbuf();
+    const std::string source = buffer.str();
 
-    kingsejong::lexer::Lexer lexer(buffer.str(), filename);
+    kingsejong::lexer::Lexer lexer(source, filename);
     kingsejong::parser::Parser parser(lexer);
     auto program = parser.parseProgram();
     if (!parser.errors().empty())
     {
         for (const auto& err : parser.errorDetails())
         {
-            std::cerr << filename << ":" << err.location.line << ":" << err.location.column
+            std::cerr << filename << ":" << err.location.line << ":"
+                          << kingsejong::common::charColumnInSource(source, err.location.line, err.location.column)
                       << ": 구문 오류: " << err.message << "\n";
         }
         return 1;

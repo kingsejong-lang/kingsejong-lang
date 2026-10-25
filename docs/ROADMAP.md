@@ -2,9 +2,8 @@
 
 > **비전**: 한국어로 누구나 쉽게 프로그래밍할 수 있는 세상
 
-**최종 업데이트**: 2025-11-26
-**현재 버전**: v0.6.0-rc
-**Production Readiness**: 9.0/10
+**최종 업데이트**: 2026-10-25
+**현재 버전**: v0.5.0 (다음 버전의 변경 사항은 [CHANGELOG.md](../CHANGELOG.md) 의 Unreleased 에 쌓이고 있다)
 **중요 문서**: [프로젝트 개요](./design/PROJECT_OVERVIEW.md) | [기능 명세](./design/FEATURES.md) | [구현 상태](./design/IMPLEMENTATION.md) | [설계 철학](./design/LANGUAGE_DESIGN_PHILOSOPHY.md)
 
 ---
@@ -12,7 +11,7 @@
 ## 🎉 v0.5.0 릴리스 완료!
 
 **릴리스 날짜**: 2025-11-23
-**GitHub 릴리스**: https://github.com/0xmhha/kingsejonglang/releases/tag/v0.5.0
+**GitHub 릴리스**: https://github.com/kingsejong-lang/kingsejong-lang/releases/tag/v0.5.0
 
 ### 주요 성과
 
@@ -27,10 +26,9 @@
 
 ---
 
-## 🚀 v0.6.0 릴리스 준비 완료!
+## 🚀 다음 릴리스 (v0.6.0) 진행 상황
 
-**목표 릴리스**: 2026년 2월
-**Production Readiness**: 9.0/10 ✅
+**목표 릴리스**: 2026년 2월 목표였으나 아직 릴리스하지 않았다. 새 일정은 정해지지 않았다.
 
 ### 완료된 작업 (2025-11-24)
 
@@ -42,9 +40,16 @@
   - CI/CD 통합 (GitHub Actions regression-test job)
   - 모든 벤치마크 100% 통과
 
-- ✅ **릴리스 노트 작성**
-  - v0.6.0 릴리스 노트 초안 완성
-  - CHANGELOG.md 업데이트
+- ~~릴리스 노트 작성~~ — 초안이 JIT Tier 2 를 다루고 있어 기능 제거와 함께 CHANGELOG 에서 지웠다.
+
+### 완료된 작업 (2026-10)
+
+- ✅ **바이트코드 VM 을 평가기와 동치로 재작성** — 예제 51개가 `--vm` 에서도 같은 결과를 내고, 패턴 매칭·가져오기도 VM 이 직접 처리한다. 오류 위치에 열과 캐럿이 나온다.
+- ✅ **조사 메서드 체이닝** — `목록을 걸러낸다(f)를 변환한다(g)` 와 `사용자의 이름을 출력한다` 가 왼쪽부터 적용된다.
+- ✅ **문서 검증** — 사용자 가이드·튜토리얼·표준 라이브러리 레퍼런스의 코드 블록을 인터프리터로 실행해 실제 문법과 결과에 맞췄다.
+- ✅ **버전 표기 단일화** — `--version`, REPL, LSP 가 `CMakeLists.txt` 의 버전 하나를 쓴다.
+- ✅ **CI 강화** — Valgrind 잡이 테스트 전체를 돌리고 메모리 오류·누수가 있으면 실패한다.
+- ✅ **쓰이지 않던 기능 제거** — JIT Tier 1·2, `ksjpm` 패키지 관리자.
 
 ### 남은 작업
 
@@ -158,6 +163,7 @@
 2025-12      코드 품질 개선, 문서 정리
 2026-01      최종 안정화 및 문서 완성
 2026-02      v0.6.0 릴리스 (성능 최적화 버전)
+             ※ 2025-12 ~ 2026-02 일정은 지났고 v0.6.0 은 아직 릴리스하지 않았다. 새 일정은 미정
 2026-03~06   stdlib 고도화 (gui, network, ml)
 2026-09      v0.7.0 - stdlib 확장 완료
 2027-03      v0.8.0 - Incremental GC, 메모리 최적화
@@ -211,7 +217,7 @@
 
 **기간**: 1-2개월 | **난이도**: 중간
 
-최종 안정화, 문서 완성, 커뮤니티 구축을 통해 2026년 2월 릴리스를 준비합니다.
+최종 안정화, 문서 완성, 커뮤니티 구축을 통해 릴리스를 준비합니다 (2026년 2월 목표는 지났고 새 일정은 미정).
 
 ### 3. stdlib 고도화 - 장기
 
@@ -248,7 +254,7 @@ GUI, 네트워크, 머신러닝 라이브러리를 추가하여 실용성을 높
 ## 📚 관련 문서
 
 - [CHANGELOG.md](../CHANGELOG.md) - 버전별 변경 사항
-- [GitHub Releases](https://github.com/0xmhha/kingsejonglang/releases) - 릴리스 노트 및 다운로드
+- [GitHub Releases](https://github.com/kingsejong-lang/kingsejong-lang/releases) - 릴리스 노트 및 다운로드
 - [사용자 가이드](./USER_GUIDE.md) - 시작하기 및 레퍼런스
 - [튜토리얼](./TUTORIAL.md) - 단계별 학습 가이드
 - [설정 가이드](./CONFIG_GUIDE.md) - Linter/Formatter 설정
@@ -291,4 +297,4 @@ perf: 성능 개선
 
 ---
 
-**마지막 업데이트**: 2025-11-26
+**마지막 업데이트**: 2026-10-25

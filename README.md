@@ -8,7 +8,7 @@
 [![C++23](https://img.shields.io/badge/C++-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![CI](https://github.com/0xmhha/kingsejonglang/workflows/CI/badge.svg)](https://github.com/0xmhha/kingsejonglang/actions)
 [![Tests](https://img.shields.io/badge/tests-1506%20passed-success)](tests/)
-[![Version](https://img.shields.io/badge/version-v0.6.0--rc-blue)](https://github.com/0xmhha/kingsejonglang/releases)
+[![Version](https://img.shields.io/badge/version-v0.5.0-blue)](https://github.com/kingsejong-lang/kingsejong-lang/releases)
 [![VS Code](https://img.shields.io/badge/VS%20Code-Extension-blue)](vscode-extension/)
 
 [빠른 시작](#빠른-시작) |

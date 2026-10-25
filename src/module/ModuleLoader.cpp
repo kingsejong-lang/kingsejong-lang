@@ -10,6 +10,7 @@
 #include "../parser/Parser.h"
 #include "../evaluator/Evaluator.h"
 #include "../error/Error.h"
+#include "../common/UTF8Utils.h"
 #include <fstream>
 #include <cstdlib>
 #include <algorithm>
@@ -84,7 +85,8 @@ std::shared_ptr<evaluator::Environment> ModuleLoader::loadModule(const std::stri
             const auto& first = parser.errorDetails()[0];
             throw error::ParserError(
                 "모듈 파싱 오류: " + resolvedPath + ":" + std::to_string(first.location.line) + ":" +
-                std::to_string(first.location.column) + "\n" + first.message
+                std::to_string(common::charColumnInSource(source, first.location.line, first.location.column)) +
+                "\n" + first.message
             );
         }
 

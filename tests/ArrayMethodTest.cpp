@@ -488,3 +488,54 @@ TEST(ArrayMethodTest, ShouldReturnEmptyWhenNoMatch)
     auto filtered = result.asArray();
     EXPECT_EQ(filtered.size(), 0);
 }
+
+/**
+ * @test 괄호 없는 체이닝 - 조사는 바로 앞 단계의 결과에 붙는다
+ */
+TEST(ArrayMethodTest, ShouldChainFilterAndMapInOneExpression)
+{
+    auto result = evalInput(R"(
+        arr = [1, 2, 3, 4, 5, 6]
+        arr을 걸러낸다(함수(x) { 반환 x % 2 == 0 })를 변환한다(함수(x) { 반환 x * x })
+    )");
+
+    ASSERT_TRUE(result.isArray());
+    auto chained = result.asArray();
+    ASSERT_EQ(chained.size(), 3);
+    EXPECT_EQ(chained[0].asInteger(), 4);
+    EXPECT_EQ(chained[1].asInteger(), 16);
+    EXPECT_EQ(chained[2].asInteger(), 36);
+}
+
+/**
+ * @test 인자 없는 메서드끼리의 체이닝과 뒤따르는 이항 연산
+ */
+TEST(ArrayMethodTest, ShouldChainSortAndReverseInOneExpression)
+{
+    auto result = evalInput(R"(
+        arr = [3, 1, 2]
+        arr을 정렬한다를 역순으로_나열한다 + [0]
+    )");
+
+    ASSERT_TRUE(result.isArray());
+    auto chained = result.asArray();
+    ASSERT_EQ(chained.size(), 4);
+    EXPECT_EQ(chained[0].asInteger(), 3);
+    EXPECT_EQ(chained[1].asInteger(), 2);
+    EXPECT_EQ(chained[2].asInteger(), 1);
+    EXPECT_EQ(chained[3].asInteger(), 0);
+}
+
+/**
+ * @test 세 단계 체이닝 - filter, map, reduce 를 한 식에
+ */
+TEST(ArrayMethodTest, ShouldChainThreeMethodsInOneExpression)
+{
+    auto result = evalInput(R"(
+        arr = [1, 2, 3, 4, 5, 6]
+        arr을 걸러낸다(함수(x) { 반환 x % 2 == 0 })를 변환한다(함수(x) { 반환 x * x })를 축약한다(0, 함수(a, b) { 반환 a + b })
+    )");
+
+    ASSERT_TRUE(result.isInteger());
+    EXPECT_EQ(result.asInteger(), 56);
+}

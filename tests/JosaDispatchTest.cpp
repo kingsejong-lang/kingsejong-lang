@@ -123,3 +123,26 @@ TEST(JosaDispatchTest, JosaBindsTighterThanBinaryOperators)
     // 범위 반복은 그대로 동작한다
     EXPECT_EQ(run("합 = 0\ni가 1부터 3까지 { 합 = 합 + i }\n", "합").asInteger(), 6);
 }
+
+TEST(JosaDispatchTest, PossessiveChainsLeftToRight)
+{
+    auto v = run("회사 = {\"대표\": {\"이름\": \"세종\"}}\n결과 = 회사의 대표의 이름\n", "결과");
+    EXPECT_EQ(v.asString(), "세종");
+}
+
+TEST(JosaDispatchTest, PossessiveResultTakesFollowingJosaMethod)
+{
+    // (사용자의 이름)을 대문자로 변환한다
+    auto v = run("사용자 = {\"이름\": \"kim\"}\n결과 = 사용자의 이름을 대문자로 변환한다\n", "결과");
+    EXPECT_EQ(v.asString(), "KIM");
+}
+
+TEST(JosaDispatchTest, CallResultTakesFollowingJosaMethod)
+{
+    auto v = run("두배 = 함수(xs) { 반환 xs를 변환한다(함수(x) { 반환 x * 2 }) }\n"
+                 "결과 = [3, 1, 2]를 두배()를 정렬한다\n", "결과");
+    ASSERT_TRUE(v.isArray());
+    ASSERT_EQ(v.asArray().size(), 3u);
+    EXPECT_EQ(v.asArray()[0].asInteger(), 2);
+    EXPECT_EQ(v.asArray()[2].asInteger(), 6);
+}

@@ -1116,3 +1116,17 @@ TEST(VMAsyncTest, ShouldChainThenResultOnPendingPromise) {
     EXPECT_EQ(result.asPromise()->state(), Promise::State::FULFILLED);
     EXPECT_EQ(result.asPromise()->value().asInteger(), 15);
 }
+
+TEST(BytecodeTest, ShouldChainJosaMethodsWithoutParentheses) {
+    const std::string source =
+        "arr = [1, 2, 3, 4, 5, 6]\n"
+        "제곱합 = arr을 걸러낸다(함수(x) { 반환 x % 2 == 0 })를 변환한다(함수(x) { 반환 x * x })를 축약한다(0, 함수(a, b) { 반환 a + b })\n"
+        "사용자 = {\"이름\": \"kim\"}\n"
+        "이름 = 사용자의 이름을 대문자로 변환한다\n";
+    VmRun run(source);
+    ASSERT_TRUE(run.compiled);
+    ASSERT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("제곱합").asInteger(), 56);
+    EXPECT_EQ(run.global("이름").asString(), "KIM");
+    EXPECT_EQ(evaluatorGlobal(source, "제곱합").asInteger(), 56);
+}

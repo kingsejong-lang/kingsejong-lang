@@ -413,6 +413,42 @@ TEST(EvaluatorTest, ShouldThrowError)
 }
 
 /**
+ * @brief 오류 블록에서 받은 에러를 다시 던지면 원래 타입과 메시지가 유지된다
+ */
+TEST(EvaluatorTest, ShouldKeepTypeAndMessageWhenRethrowing)
+{
+    auto result = evalInput(R"(
+        문자열 기록 = ""
+        시도 {
+            시도 {
+                던지다 "실패함"
+            } 오류 (e) {
+                던지다 e
+            }
+        } 오류 (e) {
+            기록 = e
+        }
+        기록
+    )");
+    EXPECT_EQ(result.asString(), "Error: 실패함");
+
+    auto runtime = evalInput(R"(
+        문자열 기록 = ""
+        시도 {
+            시도 {
+                1 / 0
+            } 오류 (e) {
+                던지다 e
+            }
+        } 오류 (e) {
+            기록 = e
+        }
+        기록
+    )");
+    EXPECT_EQ(runtime.asString().rfind("RuntimeError: 0으로 나눌 수 없습니다", 0), 0u);
+}
+
+/**
  * @brief 던지다 뒤의 문장은 실행되지 않는다
  */
 TEST(EvaluatorTest, ShouldSkipStatementsAfterThrow)
@@ -634,4 +670,45 @@ TEST(EvaluatorTest, ShouldPropagateUncaughtError)
         ASSERT_TRUE(signal.value().isError());
         EXPECT_EQ(signal.value().asError()->message(), "잡히지 않은 에러");
     }
+}
+
+/**
+ * @brief 상속: 부모의 필드·메서드·생성자를 물려받고, 자식이 정의한 메서드가 우선한다
+ */
+TEST(EvaluatorTest, ShouldInheritFieldsMethodsAndConstructor)
+{
+    auto result = evalInput(R"(
+        클래스 동물 {
+            공개 문자열 이름
+            생성자(이름) {
+                자신.이름 = 이름
+            }
+            공개 함수 소개() {
+                반환 자신.이름 + ":" + 자신.소리()
+            }
+            공개 함수 소리() {
+                반환 "..."
+            }
+        }
+        클래스 개 상속 동물 {
+            공개 정수 나이
+            공개 함수 소리() {
+                반환 "멍멍"
+            }
+        }
+        클래스 강아지 상속 개 {
+            생성자(이름, 나이) {
+                자신.이름 = 이름
+                자신.나이 = 나이
+            }
+        }
+        결과 = 개("바둑이").소개() + " " + 강아지("초코", 1).소개() + " " + 동물("냥").소개()
+        결과
+    )");
+    EXPECT_EQ(result.asString(), "바둑이:멍멍 초코:멍멍 냥:...");
+}
+
+TEST(EvaluatorTest, ShouldRejectUnknownSuperClass)
+{
+    EXPECT_THROW(evalInput("클래스 개 상속 없는클래스 {\n}\n"), std::runtime_error);
 }

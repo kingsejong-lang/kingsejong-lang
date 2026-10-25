@@ -66,6 +66,28 @@ TEST(AsyncAwaitTest, ShouldParseAsyncFunctionWithParameters)
     EXPECT_EQ(asyncFuncLit->parameters()[1], "b");
 }
 
+TEST(AsyncAwaitTest, ShouldParseNamedAsyncFunctionDeclaration)
+{
+    // 비동기 함수 이름(...) { } 는 이름 = 비동기 함수(...) { } 대입문이 된다
+    std::string input = "비동기 함수 두배(값) { 반환 값 * 2 }";
+
+    lexer::Lexer lexer(input);
+    parser::Parser parser(lexer);
+
+    auto program = parser.parseProgram();
+
+    ASSERT_EQ(parser.errors().size(), 0) << "파서 에러 발생";
+
+    auto assign = dynamic_cast<ast::AssignmentStatement*>(program->statements()[0].get());
+    ASSERT_NE(assign, nullptr);
+    EXPECT_EQ(assign->varName(), "두배");
+
+    auto asyncFuncLit = dynamic_cast<const ast::AsyncFunctionLiteral*>(assign->value());
+    ASSERT_NE(asyncFuncLit, nullptr);
+    ASSERT_EQ(asyncFuncLit->parameters().size(), 1);
+    EXPECT_EQ(asyncFuncLit->parameters()[0], "값");
+}
+
 TEST(AsyncAwaitTest, ShouldParseAwaitExpression)
 {
     std::string input = "대기 어떤함수()";

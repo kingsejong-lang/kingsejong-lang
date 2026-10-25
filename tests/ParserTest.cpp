@@ -1607,3 +1607,111 @@ TEST(ParserParameterTest, LongStartExpressionRangeFor)
     ASSERT_EQ(program->statements().size(), 2u);
     EXPECT_EQ(program->statements()[1]->type(), kingsejong::ast::NodeType::RANGE_FOR_STATEMENT);
 }
+
+// ============================================================================
+// 조사 체이닝: 조사는 바로 앞 단계의 결과에 붙는다
+// ============================================================================
+
+/**
+ * @brief "a를 f()를 g()" 는 ((a를 f())를 g()) 로 묶인다
+ */
+TEST_F(ParserTest, ShouldBindJosaToPrecedingResultInChain)
+{
+    Lexer lexer("결과 = 배열을 걸러낸다(f)를 변환한다(g)");
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    checkParserErrors(parser);
+    ASSERT_EQ(program->statements().size(), 1u);
+
+    auto assign = dynamic_cast<AssignmentStatement*>(program->statements()[0].get());
+    ASSERT_NE(assign, nullptr);
+    auto outer = dynamic_cast<const JosaExpression*>(assign->value());
+    ASSERT_NE(outer, nullptr);
+
+    // 바깥 조사식의 메서드는 변환한다(g)
+    auto outerCall = dynamic_cast<const CallExpression*>(outer->method());
+    ASSERT_NE(outerCall, nullptr);
+    EXPECT_EQ(dynamic_cast<const Identifier*>(outerCall->function())->name(), "변환한다");
+
+    // 바깥 조사식의 객체는 (배열을 걸러낸다(f))
+    auto inner = dynamic_cast<const JosaExpression*>(outer->object());
+    ASSERT_NE(inner, nullptr);
+    EXPECT_EQ(dynamic_cast<const Identifier*>(inner->object())->name(), "배열");
+    auto innerCall = dynamic_cast<const CallExpression*>(inner->method());
+    ASSERT_NE(innerCall, nullptr);
+    EXPECT_EQ(dynamic_cast<const Identifier*>(innerCall->function())->name(), "걸러낸다");
+}
+
+/**
+ * @brief 소유격 뒤의 조사도 왼쪽부터 묶인다: "사용자의 이름을 출력한다" 는 ((사용자의 이름)을 출력한다)
+ */
+TEST_F(ParserTest, ShouldChainPossessiveBeforeMethod)
+{
+    Lexer lexer("사용자의 이름을 출력한다");
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    checkParserErrors(parser);
+    ASSERT_EQ(program->statements().size(), 1u);
+
+    auto exprStmt = dynamic_cast<ExpressionStatement*>(program->statements()[0].get());
+    ASSERT_NE(exprStmt, nullptr);
+    auto outer = dynamic_cast<const JosaExpression*>(exprStmt->expression());
+    ASSERT_NE(outer, nullptr);
+    EXPECT_EQ(outer->josaType(), JosaRecognizer::JosaType::EUL_REUL);
+    EXPECT_EQ(dynamic_cast<const Identifier*>(outer->method())->name(), "출력한다");
+
+    auto inner = dynamic_cast<const JosaExpression*>(outer->object());
+    ASSERT_NE(inner, nullptr);
+    EXPECT_EQ(inner->josaType(), JosaRecognizer::JosaType::UI);
+    EXPECT_EQ(dynamic_cast<const Identifier*>(inner->object())->name(), "사용자");
+    EXPECT_EQ(dynamic_cast<const Identifier*>(inner->method())->name(), "이름");
+}
+
+/**
+ * @brief 변환 관용구 "값을 문자열로 변환한다" 는 쪼개지 않는다
+ */
+TEST_F(ParserTest, ShouldKeepConversionIdiomIntact)
+{
+    Lexer lexer("값을 문자열로 변환한다");
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    checkParserErrors(parser);
+    ASSERT_EQ(program->statements().size(), 1u);
+
+    auto exprStmt = dynamic_cast<ExpressionStatement*>(program->statements()[0].get());
+    ASSERT_NE(exprStmt, nullptr);
+    auto outer = dynamic_cast<const JosaExpression*>(exprStmt->expression());
+    ASSERT_NE(outer, nullptr);
+    EXPECT_EQ(dynamic_cast<const Identifier*>(outer->object())->name(), "값");
+
+    auto inner = dynamic_cast<const JosaExpression*>(outer->method());
+    ASSERT_NE(inner, nullptr);
+    EXPECT_EQ(inner->josaType(), JosaRecognizer::JosaType::RO_EURO);
+    EXPECT_EQ(dynamic_cast<const Identifier*>(inner->object())->name(), "문자열");
+    EXPECT_EQ(dynamic_cast<const Identifier*>(inner->method())->name(), "변환한다");
+}
+
+/**
+ * @brief 체인 뒤에 이항 연산이 와도 조사는 동사 하나에만 붙는다: "a를 f()를 g() + 1" 은 ((a를 f())를 g()) + 1
+ */
+TEST_F(ParserTest, ShouldBindChainedJosaBeforeBinaryOperator)
+{
+    Lexer lexer("결과 = 배열을 정렬한다를 역순으로_나열한다 + [0]");
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    checkParserErrors(parser);
+    ASSERT_EQ(program->statements().size(), 1u);
+
+    auto assign = dynamic_cast<AssignmentStatement*>(program->statements()[0].get());
+    ASSERT_NE(assign, nullptr);
+    auto binary = dynamic_cast<const BinaryExpression*>(assign->value());
+    ASSERT_NE(binary, nullptr);
+    EXPECT_EQ(binary->op(), "+");
+
+    auto outer = dynamic_cast<const JosaExpression*>(binary->left());
+    ASSERT_NE(outer, nullptr);
+    EXPECT_EQ(dynamic_cast<const Identifier*>(outer->method())->name(), "역순으로_나열한다");
+    auto inner = dynamic_cast<const JosaExpression*>(outer->object());
+    ASSERT_NE(inner, nullptr);
+    EXPECT_EQ(dynamic_cast<const Identifier*>(inner->method())->name(), "정렬한다");
+}

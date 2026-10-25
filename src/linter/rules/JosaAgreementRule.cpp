@@ -49,6 +49,15 @@ void JosaAgreementRule::onJosaExpression(JosaExpression* expr)
     if (!expr || expr->particle().empty()) return;
 
     auto ident = node_cast<Identifier>(expr->object());
+    if (!ident)
+    {
+        // "사용자의 이름을 ..." 은 ((사용자의 이름)을 ...) 로 묶이므로 소유격의 오른쪽 이름이 명사다
+        auto inner = node_cast<JosaExpression>(expr->object());
+        if (inner && inner->josaType() == lexer::JosaRecognizer::JosaType::UI)
+        {
+            ident = node_cast<Identifier>(inner->method());
+        }
+    }
     if (!ident) return;  // 식(호출 결과 등) 뒤의 조사는 명사를 알 수 없다
 
     using JosaType = lexer::JosaRecognizer::JosaType;

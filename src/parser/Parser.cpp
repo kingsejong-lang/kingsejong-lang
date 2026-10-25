@@ -1549,24 +1549,76 @@ std::unique_ptr<Expression> Parser::parseJosaExpression(std::unique_ptr<Expressi
         return nullptr;
     }
 
-    // "x를 f() + 1" 은 method 가 (f() + 1) 로 읽힌다. 조사는 바로 뒤의 동사 하나에만 붙으므로
-    // 이항식의 가장 왼쪽 잎을 꺼내 조사 표현식으로 감싸고 제자리에 끼워 ((x를 f()) + 1) 로 만든다.
-    if (auto* binary = node_cast<BinaryExpression>(method.get()))
+    // 조사는 바로 뒤의 동사 하나에만 붙는다. 그런데 method 는 가장 낮은 우선순위로 읽었으므로
+    // "x를 f() + 1" 은 (f() + 1) 로, "x를 f()를 g()" 는 (f()를 g()) 로 들어온다. 그 식의 가장 왼쪽 잎
+    // (f())을 꺼내 (x를 f()) 로 감싸고 제자리에 끼워 ((x를 f()) + 1), ((x를 f())를 g()) 로 만든다.
+    // 이항식과 조사식을 번갈아 내려가며 잎을 찾고, "값을 문자열로 변환한다" 같은 변환 관용구는 하나의
+    // 단위이므로 쪼개지 않는다.
+    if (Expression* parent = chainParent(method.get()))
     {
-        BinaryExpression* leftmost = binary;
-        while (auto* inner = node_cast<BinaryExpression>(leftmost->leftMutable()))
+        std::unique_ptr<Expression> leaf;
+        if (auto* binary = node_cast<BinaryExpression>(parent))
         {
-            leftmost = inner;
+            leaf = binary->releaseLeft();
         }
-        auto josa = std::make_unique<JosaExpression>(std::move(left), josaType, leftmost->releaseLeft(), particle);
+        else
+        {
+            leaf = static_cast<JosaExpression*>(parent)->releaseObject();
+        }
+        auto josa = std::make_unique<JosaExpression>(std::move(left), josaType, std::move(leaf), particle);
         josa->setLocation(startLoc);
-        leftmost->setLeft(std::move(josa));
+        if (auto* binary = node_cast<BinaryExpression>(parent))
+        {
+            binary->setLeft(std::move(josa));
+        }
+        else
+        {
+            static_cast<JosaExpression*>(parent)->setObject(std::move(josa));
+        }
         return method;
     }
 
     auto expr = std::make_unique<JosaExpression>(std::move(left), josaType, std::move(method), particle);
     expr->setLocation(startLoc);
     return expr;
+}
+
+bool Parser::isConversionIdiom(const JosaExpression* josa) const
+{
+    // "값을 <이름>으로 변환한다/바꾼다": 로/으로 조사식의 객체와 동사가 모두 식별자일 때
+    if (josa->josaType() != lexer::JosaRecognizer::JosaType::RO_EURO)
+    {
+        return false;
+    }
+    auto* verb = node_cast<Identifier>(josa->method());
+    return verb && node_cast<Identifier>(josa->object()) &&
+           (verb->name() == "변환한다" || verb->name() == "바꾼다");
+}
+
+Expression* Parser::chainParent(Expression* method) const
+{
+    // method 의 가장 왼쪽 잎을 품은 노드를 돌려준다. 이항식은 왼쪽으로, 조사식은 객체 쪽으로 내려간다.
+    // 내려갈 수 없는 노드(식별자, 호출, 범위, 변환 관용구 등)가 method 자체면 nullptr.
+    auto descend = [this](Expression* node) -> Expression* {
+        if (auto* binary = node_cast<BinaryExpression>(node))
+        {
+            return binary->leftMutable();
+        }
+        if (auto* josa = node_cast<JosaExpression>(node))
+        {
+            return isConversionIdiom(josa) ? nullptr : josa->objectMutable();
+        }
+        return nullptr;
+    };
+
+    Expression* parent = nullptr;
+    Expression* node = method;
+    while (Expression* child = descend(node))
+    {
+        parent = node;
+        node = child;
+    }
+    return parent;
 }
 
 std::unique_ptr<Expression> Parser::parseRangeExpression(std::unique_ptr<Expression> left)

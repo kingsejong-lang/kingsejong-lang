@@ -23,7 +23,7 @@ uint16_t toU16(size_t value, const char* what) {
 } // namespace
 
 Compiler::Compiler()
-    : chunk_(nullptr), hadError_(false), currentLine_(1) {}
+    : chunk_(nullptr), hadError_(false), currentLine_(1), currentColumn_(0) {}
 
 bool Compiler::compile(ast::Program* program, Chunk* chunk) {
     return compileProgram(program, chunk, true);
@@ -39,6 +39,7 @@ bool Compiler::compileProgram(ast::Program* program, Chunk* chunk, bool keepLast
     hadError_ = false;
     errors_.clear();
     currentFile_.clear();
+    currentColumn_ = 0;
 
     try {
         auto& statements = program->statements();
@@ -381,6 +382,7 @@ void Compiler::compileExpression(ast::Expression* expr) {
         case ast::NodeType::MEMBER_ACCESS_EXPRESSION: {
             auto* access = static_cast<ast::MemberAccessExpression*>(expr);
             compileExpression(const_cast<ast::Expression*>(access->object()));
+            setLine(expr);
             emitName(OpCode::LOAD_FIELD, access->memberName());
             break;
         }
@@ -397,6 +399,7 @@ void Compiler::compileExpression(ast::Expression* expr) {
         }
         case ast::NodeType::AWAIT_EXPRESSION:
             compileExpression(const_cast<ast::Expression*>(static_cast<ast::AwaitExpression*>(expr)->argument()));
+            setLine(expr);
             emit(OpCode::AWAIT);
             break;
         case ast::NodeType::MATCH_EXPRESSION:
@@ -438,6 +441,7 @@ void Compiler::compileBinaryExpression(ast::BinaryExpression* expr) {
     compileExpression(const_cast<ast::Expression*>(expr->left()));
     compileExpression(const_cast<ast::Expression*>(expr->right()));
 
+    setLine(expr);   // 피연산자를 거치며 바뀐 위치를 이 식의 위치로 되돌린다 (에러 위치의 줄·열)
     const std::string& op = expr->op();
     if (op == "+")          emit(OpCode::ADD);
     else if (op == "-")     emit(OpCode::SUB);
@@ -464,6 +468,7 @@ void Compiler::compileAssignmentExpression(ast::BinaryExpression* expr) {
         case ast::NodeType::MEMBER_ACCESS_EXPRESSION: {
             auto* access = static_cast<const ast::MemberAccessExpression*>(left);
             compileExpression(const_cast<ast::Expression*>(access->object()));
+            setLine(expr);
             emitName(OpCode::STORE_FIELD, access->memberName());
             break;
         }
@@ -476,6 +481,7 @@ void Compiler::compileAssignmentExpression(ast::BinaryExpression* expr) {
             auto* index = static_cast<const ast::IndexExpression*>(left);
             compileExpression(const_cast<ast::Expression*>(index->array()));
             compileExpression(const_cast<ast::Expression*>(index->index()));
+            setLine(expr);
             emit(OpCode::INDEX_SET);
             break;
         }
@@ -489,6 +495,7 @@ void Compiler::compileUnaryExpression(ast::UnaryExpression* expr) {
         return;
     }
     compileExpression(const_cast<ast::Expression*>(expr->operand()));
+    setLine(expr);
     const std::string& op = expr->op();
     if (op == "-")      emit(OpCode::NEG);
     else if (op == "!") emit(OpCode::NOT);
@@ -611,12 +618,14 @@ void Compiler::compileIndexExpression(ast::IndexExpression* expr) {
             compileExpression(const_cast<ast::Expression*>(range->step()));
             flags |= 0x04;
         }
+        setLine(expr);
         emit(OpCode::SLICE);
         emitByte(flags);
         return;
     }
 
     compileExpression(const_cast<ast::Expression*>(expr->index()));
+    setLine(expr);
     emit(OpCode::INDEX_GET);
 }
 
@@ -635,6 +644,7 @@ void Compiler::compileJosaExpression(ast::JosaExpression* expr) {
             inner->object()->type() == ast::NodeType::IDENTIFIER) {
             const std::string& verb = static_cast<const ast::Identifier*>(inner->method())->name();
             if (verb == "변환한다" || verb == "바꾼다") {
+                setLine(expr);
                 emit(OpCode::CONVERT);
                 emit16(nameIndex(static_cast<const ast::Identifier*>(inner->object())->name()));
                 return;
@@ -657,6 +667,7 @@ void Compiler::compileJosaExpression(ast::JosaExpression* expr) {
         name = static_cast<const ast::Identifier*>(method)->name();
     }
 
+    setLine(expr);
     emit(OpCode::JOSA);
     emit16(nameIndex(name));
     emitByte(josa);
@@ -770,15 +781,15 @@ bool Compiler::isConstantCondition(const ast::Expression* expr, bool& result) {
 // ============================================================================
 
 void Compiler::emit(OpCode op) {
-    chunk_->writeOpCode(op, currentLine_);
+    chunk_->writeOpCode(op, currentLine_, currentColumn_);
 }
 
 void Compiler::emitByte(uint8_t byte) {
-    chunk_->write(byte, currentLine_);
+    chunk_->write(byte, currentLine_, currentColumn_);
 }
 
 void Compiler::emit16(uint16_t value) {
-    chunk_->write16(value, currentLine_);
+    chunk_->write16(value, currentLine_, currentColumn_);
 }
 
 void Compiler::emitConstant(const evaluator::Value& value) {
@@ -831,6 +842,7 @@ size_t Compiler::currentOffset() const {
 void Compiler::setLine(const ast::Node* node) {
     if (node && node->location().isValid()) {
         currentLine_ = node->location().line;
+        currentColumn_ = node->location().column;
         if (node->location().filename != currentFile_) {
             currentFile_ = node->location().filename;
             chunk_->setFile(currentFile_);

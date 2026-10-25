@@ -872,7 +872,7 @@ error::SourceLocation VM::locationAt(size_t offset) const {
     if (!chunk_ || chunk_->size() == 0) {
         return error::SourceLocation();   // 줄 0: 알 수 없음
     }
-    return error::SourceLocation(chunk_->getFile(offset), chunk_->getLine(offset), 0);
+    return error::SourceLocation(chunk_->getFile(offset), chunk_->getLine(offset), chunk_->getColumn(offset));
 }
 
 void VM::attachStackTrace(error::KingSejongError& error) const {

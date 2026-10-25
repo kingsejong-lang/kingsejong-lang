@@ -412,3 +412,61 @@ TEST_F(VMModuleStackTraceTest, ShouldLocateModuleFunctionFramesInModuleFile)
     EXPECT_EQ(frames[1].location.filename, "main.ksj");
     EXPECT_EQ(frames[1].location.line, 3);
 }
+
+// ============================================================================
+// 열(column): 명령마다 그 명령을 낸 식의 시작 열을 적어 에러 위치에 캐럿을 찍을 수 있게 한다
+// ============================================================================
+
+TEST(VMStackTraceTest, ChunkShouldTrackColumnsNextToLines)
+{
+    Chunk chunk;
+    chunk.writeOpCode(OpCode::LOAD_NULL, 1, 5);
+    chunk.writeOpCode(OpCode::LOAD_NULL, 1, 9);
+    chunk.writeOpCode(OpCode::LOAD_NULL, 2);        // 열을 모르면 0
+    EXPECT_EQ(chunk.getLine(0), 1);
+    EXPECT_EQ(chunk.getColumn(0), 5);
+    EXPECT_EQ(chunk.getColumn(1), 9);
+    EXPECT_EQ(chunk.getLine(2), 2);
+    EXPECT_EQ(chunk.getColumn(2), 0);
+}
+
+TEST(VMStackTraceTest, ShouldRecordColumnOfFailingExpressionAndCallSites)
+{
+    // 나누기 명령은 피연산자가 아니라 "a / b" 식의 시작 열(a)을, CALL 은 호출식의 시작 열을 갖는다.
+    // 열은 렉서가 세는 단위(바이트)와 같다: "    반환 a / b" 에서 a 는 12번째 바이트다.
+    auto e = vmError(kNestedSource);
+    const auto& frames = e.stackTrace();
+    ASSERT_EQ(frames.size(), 3u);
+    EXPECT_EQ(frames[0].location.line, 2);
+    EXPECT_EQ(frames[0].location.column, 12);   // a / b
+    EXPECT_EQ(frames[1].location.line, 5);
+    EXPECT_EQ(frames[1].location.column, 12);   // 나누기(x, 0)
+    EXPECT_EQ(frames[2].location.line, 7);
+    EXPECT_EQ(frames[2].location.column, 1);    // 계산(10)
+}
+
+TEST(VMStackTraceTest, ShouldPointAtExpressionStartNotLastOperand)
+{
+    auto e = vmError("x = 1 / 0\n");
+    ASSERT_FALSE(e.stackTrace().empty());
+    EXPECT_EQ(e.stackTrace().front().location.column, 5);   // "1 / 0" 의 1 (마지막 피연산자 0 은 9열)
+
+    auto idx = vmError("값 = [1, 2]\n출력(값[5])\n");
+    ASSERT_FALSE(idx.stackTrace().empty());
+    EXPECT_EQ(idx.stackTrace().front().location.line, 2);
+    EXPECT_EQ(idx.stackTrace().front().location.column, 8);   // "값[5]" 의 값
+}
+
+TEST(VMStackTraceTest, ShouldPrintColumnAndCaretInReport)
+{
+    auto e = vmError(kNestedSource);
+
+    error::ErrorReporter reporter;
+    reporter.setColorEnabled(false);
+    reporter.registerSource("test.ksj", kNestedSource);
+    std::ostringstream out;
+    reporter.report(e, out);
+
+    EXPECT_THAT(out.str(), HasSubstr("오류 위치: test.ksj:2:12"));
+    EXPECT_THAT(out.str(), HasSubstr("^"));
+}

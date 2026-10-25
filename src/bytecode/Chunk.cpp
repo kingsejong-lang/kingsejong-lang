@@ -13,20 +13,20 @@
 namespace kingsejong {
 namespace bytecode {
 
-void Chunk::write(uint8_t byte, int line) {
+void Chunk::write(uint8_t byte, int line, int column) {
     code_.push_back(byte);
-    if (lines_.empty() || lines_.back().line != line) {
-        lines_.push_back({code_.size() - 1, line});
+    if (lines_.empty() || lines_.back().line != line || lines_.back().column != column) {
+        lines_.push_back({code_.size() - 1, line, column});
     }
 }
 
-void Chunk::write16(uint16_t value, int line) {
-    write(static_cast<uint8_t>((value >> 8) & 0xFF), line);
-    write(static_cast<uint8_t>(value & 0xFF), line);
+void Chunk::write16(uint16_t value, int line, int column) {
+    write(static_cast<uint8_t>((value >> 8) & 0xFF), line, column);
+    write(static_cast<uint8_t>(value & 0xFF), line, column);
 }
 
-void Chunk::writeOpCode(OpCode op, int line) {
-    write(static_cast<uint8_t>(op), line);
+void Chunk::writeOpCode(OpCode op, int line, int column) {
+    write(static_cast<uint8_t>(op), line, column);
 }
 
 void Chunk::patch(size_t offset, uint8_t byte) {
@@ -137,6 +137,15 @@ int Chunk::getLine(size_t offset) const {
         }
     }
     return 1;
+}
+
+int Chunk::getColumn(size_t offset) const {
+    for (auto it = lines_.rbegin(); it != lines_.rend(); ++it) {
+        if (offset >= it->offset) {
+            return it->column;
+        }
+    }
+    return 0;
 }
 
 const std::string& Chunk::getFile(size_t offset) const {

@@ -37,6 +37,7 @@ private:
     Chunk* chunk_;
     bool hadError_;
     int currentLine_;
+    int currentColumn_;         ///< 지금 컴파일 중인 노드의 시작 열 (명령마다 줄과 함께 청크에 적는다)
     std::string currentFile_;   ///< 지금 컴파일 중인 노드의 소스 파일 (청크의 파일 표에 바뀌는 자리를 적는다)
     std::vector<std::string> errors_;
 

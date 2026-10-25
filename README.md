@@ -21,7 +21,7 @@
 
 ## 소개
 
-**KingSejong**은 한국어의 문법적 특성을 활용한 프로그래밍 언어입니다. 조사 기반 메서드 체이닝, 함수형 프로그래밍, 251개의 표준 라이브러리 함수를 제공하며, 교육부터 실전까지 활용할 수 있습니다.
+**KingSejong**은 한국어의 문법적 특성을 활용한 프로그래밍 언어입니다. 조사 기반 메서드 체이닝, 함수형 프로그래밍, 250개의 표준 라이브러리 함수를 제공하며, 교육부터 실전까지 활용할 수 있습니다.
 
 ```ksj
 # 소수 찾기 예제
@@ -37,7 +37,7 @@
 
 - **조사 기반 메서드 체이닝**: 받침 자동 인식 (배열`을`, 데이터`를`)
 - **함수형 프로그래밍**: filter, map, reduce 지원
-- **표준 라이브러리**: 251개 함수 (14개 모듈 - math, string, array, json, http, db, crypto 등)
+- **표준 라이브러리**: 250개 함수 (14개 모듈 - math, string, array, json, http, db, crypto 등)
 - **개발 도구**: Linter (13개 규칙, `kingsejong lint`), Formatter (`kingsejong fmt`), Debugger (`--debug`), LSP (`--lsp`) + VS Code Extension
 - **보안 모드**: `--sandbox`, `--untrusted`, `--allow-path` 로 파일·네트워크 접근 제한
 - **바이트코드 VM**: `kingsejong --vm 파일.ksj` 로 같은 프로그램을 바이트코드로 컴파일해 실행한다. 값의 의미와 변수 모델을 평가기와 공유해 모든 예제가 같은 결과를 내며(ctest `examples-vm`), 함수 호출이 많은 코드에서 평가기보다 빠르다. 기본 실행기는 여전히 평가기다.
@@ -161,7 +161,7 @@ make && ctest
 | [튜토리얼](docs/TUTORIAL.md) | 단계별 학습 가이드 (초보자용) |
 | [사용자 가이드](docs/USER_GUIDE.md) | 언어 기능 레퍼런스 |
 | [언어 레퍼런스](docs/LANGUAGE_REFERENCE.md) | 완전한 문법 가이드 |
-| [표준 라이브러리](docs/STDLIB_REFERENCE.md) | 251개 함수 레퍼런스 |
+| [표준 라이브러리](docs/STDLIB_REFERENCE.md) | 250개 함수 레퍼런스 |
 | [로드맵](docs/ROADMAP.md) | 프로젝트 계획 및 버전 히스토리 |
 | [Linter 규칙](docs/LINTER_RULES.md) | 13개 규칙 설명 및 설정 |
 | [디버거 가이드](docs/DEBUGGER_GUIDE.md) | 디버거 사용법 |

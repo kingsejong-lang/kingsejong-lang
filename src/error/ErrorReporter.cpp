@@ -6,6 +6,7 @@
  */
 
 #include "ErrorReporter.h"
+#include "common/UTF8Utils.h"
 #include <sstream>
 #include <algorithm>
 #include <iostream>
@@ -256,8 +257,8 @@ std::string ErrorFormatter::formatContext(
             // 줄 번호 부분만큼 공백
             std::string indent(lineNumStr.length(), ' ');
 
-            // 컬럼 위치까지 공백 (1-based column to 0-based)
-            std::string spaces(errorCol - 1, ' ');
+            // 열은 바이트 단위이므로 앞 텍스트의 화면 폭만큼 들여쓴다 (한글은 두 칸)
+            std::string spaces = common::caretPadding(lines[i], errorCol);
 
             std::string arrow = "^";
 

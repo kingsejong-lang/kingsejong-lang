@@ -146,6 +146,31 @@ TEST_F(ErrorFormatterTest, ShouldHighlightErrorPosition) {
     EXPECT_THAT(formatted, HasSubstr("^"));
 }
 
+TEST_F(ErrorFormatterTest, ShouldAlignCaretAfterKoreanText) {
+    // 렉서의 열은 바이트 단위다. "출력(" 은 7바이트지만 터미널에서는 5칸을 차지하므로
+    // 8번째 바이트에서 시작하는 "값들" 아래에 캐럿이 오려면 공백 5칸이 필요하다.
+    sourceMgr->loadSource("test.ksj", "출력(값들[5])");
+
+    SourceLocation loc("test.ksj", 1, 8);
+    auto error = RuntimeError("인덱스 범위 초과", loc);
+
+    std::string formatted = formatter->formatError(error, *sourceMgr, false);
+
+    EXPECT_THAT(formatted, HasSubstr("1 | 출력(값들[5])\n    " + std::string(5, ' ') + "^\n"));
+}
+
+TEST_F(ErrorFormatterTest, ShouldKeepTabsWhenAligningCaret) {
+    // 탭은 터미널 설정에 따라 폭이 달라지므로 공백으로 바꾸지 않고 그대로 둔다.
+    sourceMgr->loadSource("test.ksj", "\tx = 값 / 0");
+
+    SourceLocation loc("test.ksj", 1, 6);
+    auto error = RuntimeError("0으로 나눌 수 없습니다", loc);
+
+    std::string formatted = formatter->formatError(error, *sourceMgr, false);
+
+    EXPECT_THAT(formatted, HasSubstr("1 | \tx = 값 / 0\n    \t    ^\n"));
+}
+
 TEST_F(ErrorFormatterTest, ShouldFormatWithLineNumbers) {
     sourceMgr->loadSource("test.ksj", "x = 10\ny = 20\nz = 30");
 

@@ -116,7 +116,8 @@ public:
      * @return KingSejong 버전 문자열
      */
     std::string version() const {
-        return "KingSejong v0.3.2 (WebAssembly)";
+        // 버전은 CMakeLists.txt 의 project(VERSION) 한 곳에서 온다 (KINGSEJONG_VERSION 컴파일 정의)
+        return std::string("KingSejong v") + KINGSEJONG_VERSION + " (WebAssembly)";
     }
 
 private:

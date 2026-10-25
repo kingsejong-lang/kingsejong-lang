@@ -671,3 +671,44 @@ TEST(EvaluatorTest, ShouldPropagateUncaughtError)
         EXPECT_EQ(signal.value().asError()->message(), "잡히지 않은 에러");
     }
 }
+
+/**
+ * @brief 상속: 부모의 필드·메서드·생성자를 물려받고, 자식이 정의한 메서드가 우선한다
+ */
+TEST(EvaluatorTest, ShouldInheritFieldsMethodsAndConstructor)
+{
+    auto result = evalInput(R"(
+        클래스 동물 {
+            공개 문자열 이름
+            생성자(이름) {
+                자신.이름 = 이름
+            }
+            공개 함수 소개() {
+                반환 자신.이름 + ":" + 자신.소리()
+            }
+            공개 함수 소리() {
+                반환 "..."
+            }
+        }
+        클래스 개 상속 동물 {
+            공개 정수 나이
+            공개 함수 소리() {
+                반환 "멍멍"
+            }
+        }
+        클래스 강아지 상속 개 {
+            생성자(이름, 나이) {
+                자신.이름 = 이름
+                자신.나이 = 나이
+            }
+        }
+        결과 = 개("바둑이").소개() + " " + 강아지("초코", 1).소개() + " " + 동물("냥").소개()
+        결과
+    )");
+    EXPECT_EQ(result.asString(), "바둑이:멍멍 초코:멍멍 냥:...");
+}
+
+TEST(EvaluatorTest, ShouldRejectUnknownSuperClass)
+{
+    EXPECT_THROW(evalInput("클래스 개 상속 없는클래스 {\n}\n"), std::runtime_error);
+}

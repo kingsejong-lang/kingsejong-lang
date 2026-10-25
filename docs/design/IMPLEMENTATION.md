@@ -4,7 +4,7 @@
 
 **프로젝트**: KingSejong (`.ksj`)
 **현재 버전**: v0.5.0 (Phase 8 완료)
-**저장소**: https://github.com/0xmhha/kingsejonglang
+**저장소**: https://github.com/kingsejong-lang/kingsejong-lang
 **테스트**: 1,503개 (100% 통과)
 **마지막 업데이트**: 2025-11-21
 
@@ -54,7 +54,7 @@
 
 **결과**:
 ```
-kingsejonglang/
+kingsejong-lang/
 ├── LICENSE (MIT) ✅
 ├── README.md ✅
 ├── .gitignore ✅
@@ -883,5 +883,5 @@ test: 타입 시스템 테스트 추가
 ---
 
 **프로젝트 상태**: Phase 8 완료, Phase 9 준비 중
-**저장소**: https://github.com/0xmhha/kingsejonglang
+**저장소**: https://github.com/kingsejong-lang/kingsejong-lang
 **다음 작업**: Phase 9 시작 - 긴 함수 리팩토링 및 Incremental GC 구현

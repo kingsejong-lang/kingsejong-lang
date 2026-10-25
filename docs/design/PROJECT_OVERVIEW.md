@@ -5,7 +5,7 @@
 **언어명**: KingSejong
 **파일 확장자**: `.ksj`
 **현재 버전**: v0.5.0 (Phase 8 완료)
-**저장소**: https://github.com/0xmhha/kingsejonglang
+**저장소**: https://github.com/kingsejong-lang/kingsejong-lang
 **테스트**: 1,503개 (100% 통과)
 
 ---
@@ -338,7 +338,7 @@ i가 1부터 5까지 반복한다 {
 ### 구성 요소 (모두 구현됨)
 
 ```
-kingsejonglang/
+kingsejong-lang/
 ├── lexer/          ✅ 어휘 분석 (조사 인식 포함)
 ├── parser/         ✅ 구문 분석 (조사 체인, 범위 표현)
 ├── ast/            ✅ 추상 구문 트리
@@ -569,7 +569,7 @@ in the Software without restriction...
 
 ### ✅ 현재 상태 (v0.5.0, Phase 8 완료)
 
-1. ✅ **GitHub 저장소**: https://github.com/0xmhha/kingsejonglang
+1. ✅ **GitHub 저장소**: https://github.com/kingsejong-lang/kingsejong-lang
 2. ✅ **프로젝트 구조**: 완성됨
 3. ✅ **Lexer/Parser**: 조사 인식 시스템 포함 완성
 4. ✅ **README 및 문서**: 완전히 작성됨
@@ -632,4 +632,4 @@ KingSejong 언어는 **한글의 언어적 장점을 활용하여**
 
 ---
 
-**저장소**: https://github.com/0xmhha/kingsejonglang
+**저장소**: https://github.com/kingsejong-lang/kingsejong-lang

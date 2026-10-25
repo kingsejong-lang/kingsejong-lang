@@ -154,7 +154,7 @@ echo "✅ WASM 빌드 완료!"
 
 **실행**:
 ```bash
-cd /path/to/kingsejonglang
+cd /path/to/kingsejong-lang
 ./scripts/build-wasm.sh
 ```
 
@@ -855,7 +855,7 @@ git push origin gh-pages
 - Source: `gh-pages` 브랜치 선택
 - Save
 
-**접속**: `https://username.github.io/kingsejonglang/`
+**접속**: `https://username.github.io/kingsejong-lang/`
 
 ### 8.2 Vercel
 

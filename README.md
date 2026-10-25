@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![C++23](https://img.shields.io/badge/C++-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
-[![CI](https://github.com/0xmhha/kingsejonglang/workflows/CI/badge.svg)](https://github.com/0xmhha/kingsejonglang/actions)
+[![CI](https://github.com/kingsejong-lang/kingsejong-lang/workflows/CI/badge.svg)](https://github.com/kingsejong-lang/kingsejong-lang/actions)
 [![Tests](https://img.shields.io/badge/tests-1506%20passed-success)](tests/)
 [![Version](https://img.shields.io/badge/version-v0.6.0--rc-blue)](https://github.com/0xmhha/kingsejonglang/releases)
 [![VS Code](https://img.shields.io/badge/VS%20Code-Extension-blue)](vscode-extension/)
@@ -51,8 +51,8 @@
 
 ```bash
 # 저장소 클론
-git clone https://github.com/0xmhha/kingsejonglang.git
-cd kingsejonglang
+git clone https://github.com/kingsejong-lang/kingsejong-lang.git
+cd kingsejong-lang
 
 # 빌드
 mkdir build && cd build
@@ -241,9 +241,9 @@ perf: 성능 개선
 
 <div align="center">
 
-[GitHub](https://github.com/0xmhha/kingsejonglang) •
-[릴리스](https://github.com/0xmhha/kingsejonglang/releases) •
-[이슈 제기](https://github.com/0xmhha/kingsejonglang/issues) •
+[GitHub](https://github.com/kingsejong-lang/kingsejong-lang) •
+[릴리스](https://github.com/kingsejong-lang/kingsejong-lang/releases) •
+[이슈 제기](https://github.com/kingsejong-lang/kingsejong-lang/issues) •
 [튜토리얼](docs/TUTORIAL.md)
 
 </div>

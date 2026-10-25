@@ -413,6 +413,42 @@ TEST(EvaluatorTest, ShouldThrowError)
 }
 
 /**
+ * @brief 오류 블록에서 받은 에러를 다시 던지면 원래 타입과 메시지가 유지된다
+ */
+TEST(EvaluatorTest, ShouldKeepTypeAndMessageWhenRethrowing)
+{
+    auto result = evalInput(R"(
+        문자열 기록 = ""
+        시도 {
+            시도 {
+                던지다 "실패함"
+            } 오류 (e) {
+                던지다 e
+            }
+        } 오류 (e) {
+            기록 = e
+        }
+        기록
+    )");
+    EXPECT_EQ(result.asString(), "Error: 실패함");
+
+    auto runtime = evalInput(R"(
+        문자열 기록 = ""
+        시도 {
+            시도 {
+                1 / 0
+            } 오류 (e) {
+                던지다 e
+            }
+        } 오류 (e) {
+            기록 = e
+        }
+        기록
+    )");
+    EXPECT_EQ(runtime.asString().rfind("RuntimeError: 0으로 나눌 수 없습니다", 0), 0u);
+}
+
+/**
  * @brief 던지다 뒤의 문장은 실행되지 않는다
  */
 TEST(EvaluatorTest, ShouldSkipStatementsAfterThrow)

@@ -68,12 +68,32 @@ Value Evaluator::eval(ast::Node* node)
     if (auto* stmt = ast::node_cast<ast::Statement>(node))
     {
         currentStatement_ = stmt;
+        errorExpression_ = nullptr;
         if (observer_)
         {
             observer_->onStatement(stmt, env_);
         }
+        return evalNode(node);
     }
 
+    // 식이 에러로 끝나면 가장 안쪽 식을 기억한다. 반환(ReturnValue)은 runtime_error 가 아니라 거치지 않는다
+    try
+    {
+        return evalNode(node);
+    }
+    catch (const std::runtime_error&)
+    {
+        // 문장도 식도 아닌 노드(Program 등)가 올 수 있으므로 실제 타입을 확인한다. 에러 경로에서만 돈다
+        if (!errorExpression_)
+        {
+            errorExpression_ = dynamic_cast<const ast::Expression*>(node);
+        }
+        throw;
+    }
+}
+
+Value Evaluator::evalNode(ast::Node* node)
+{
     switch (node->type())
     {
         // Expressions
@@ -818,7 +838,14 @@ Value Evaluator::constructInstance(const std::shared_ptr<Function>& func, const 
 void Evaluator::addStackFrame(error::KingSejongError& error, const std::string& function)
 {
     error::SourceLocation location;
-    if (currentStatement_)
+    if (errorExpression_)
+    {
+        // 이 프레임 안에서 실패한 식. 쓰고 나면 비워서, 바깥 프레임은 자기 호출식 위치를 다시 채운다
+        const auto& loc = errorExpression_->location();
+        location = error::SourceLocation(loc.filename, loc.line, loc.column);
+        errorExpression_ = nullptr;
+    }
+    else if (currentStatement_)
     {
         const auto& loc = currentStatement_->location();
         location = error::SourceLocation(loc.filename, loc.line, loc.column);

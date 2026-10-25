@@ -66,8 +66,8 @@ brew install cmake
 
 ```bash
 # 저장소 클론
-git clone https://github.com/0xmhha/kingsejonglang.git
-cd kingsejonglang
+git clone https://github.com/kingsejong-lang/kingsejong-lang.git
+cd kingsejong-lang
 
 # 빌드 디렉토리 생성
 mkdir build && cd build
@@ -93,7 +93,7 @@ build/bin/kingsejong
 
 ```bash
 # ~/.zshrc 또는 ~/.bash_profile에 추가
-export PATH="/path/to/kingsejonglang/build/bin:$PATH"
+export PATH="/path/to/kingsejong-lang/build/bin:$PATH"
 
 # 적용
 source ~/.zshrc  # zsh
@@ -141,8 +141,8 @@ sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 120
 
 ```bash
 # 저장소 클론
-git clone https://github.com/0xmhha/kingsejonglang.git
-cd kingsejonglang
+git clone https://github.com/kingsejong-lang/kingsejong-lang.git
+cd kingsejong-lang
 
 # 빌드
 mkdir build && cd build
@@ -182,8 +182,8 @@ scl enable gcc-toolset-12 bash
 
 ```bash
 # 저장소 클론
-git clone https://github.com/0xmhha/kingsejonglang.git
-cd kingsejonglang
+git clone https://github.com/kingsejong-lang/kingsejong-lang.git
+cd kingsejong-lang
 
 # 빌드
 mkdir build && cd build
@@ -201,8 +201,8 @@ ctest --output-on-failure
 sudo pacman -S --needed base-devel cmake git
 
 # 빌드
-git clone https://github.com/0xmhha/kingsejonglang.git
-cd kingsejonglang
+git clone https://github.com/kingsejong-lang/kingsejong-lang.git
+cd kingsejong-lang
 mkdir build && cd build
 cmake ..
 make -j$(nproc)
@@ -239,8 +239,8 @@ make -j$(nproc)
 
 ```powershell
 # 저장소 클론
-git clone https://github.com/0xmhha/kingsejonglang.git
-cd kingsejonglang
+git clone https://github.com/kingsejong-lang/kingsejong-lang.git
+cd kingsejong-lang
 
 # 빌드 디렉토리 생성
 mkdir build
@@ -288,8 +288,8 @@ pacman -S --needed \
 
 ```bash
 # 저장소 클론
-git clone https://github.com/0xmhha/kingsejonglang.git
-cd kingsejonglang
+git clone https://github.com/kingsejong-lang/kingsejong-lang.git
+cd kingsejong-lang
 
 # 빌드
 mkdir build && cd build
@@ -505,7 +505,7 @@ call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build
 - **공식 문서**: [문서 사이트](https://kingsejong-lang.github.io/kingsejong-lang/docs/) (저장소의 `docs/`)
 - **튜토리얼**: [TUTORIAL.md](TUTORIAL.md)
 - **예제**: [../examples/](../examples/)
-- **문제 보고**: [GitHub Issues](https://github.com/0xmhha/kingsejonglang/issues)
+- **문제 보고**: [GitHub Issues](https://github.com/kingsejong-lang/kingsejong-lang/issues)
 
 ---
 

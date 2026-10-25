@@ -44,7 +44,7 @@ KingSejong 언어의 성능을 측정하기 위한 벤치마크 프로그램 모
 
 ```bash
 # 프로젝트 빌드
-cd kingsejonglang
+cd kingsejong-lang
 mkdir -p build && cd build
 cmake ..
 make

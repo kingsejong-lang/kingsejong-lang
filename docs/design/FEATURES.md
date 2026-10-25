@@ -5,7 +5,7 @@
 
 **버전**: v0.5.0 (Phase 8 완료)
 **최종 수정**: 2025-11-21
-**저장소**: https://github.com/0xmhha/kingsejonglang
+**저장소**: https://github.com/kingsejong-lang/kingsejong-lang
 **상태 기호**: ✅ 구현 완료 | 🚧 구현 중 | 📝 계획됨
 
 ---
@@ -764,5 +764,5 @@ sejong --tutorial
 ---
 
 **현재 상태**: v0.5.0, Phase 8 완료
-**저장소**: https://github.com/0xmhha/kingsejonglang
+**저장소**: https://github.com/kingsejong-lang/kingsejong-lang
 **다음 단계**: [IMPLEMENTATION.md](./IMPLEMENTATION.md)에서 Phase 9 계획 확인

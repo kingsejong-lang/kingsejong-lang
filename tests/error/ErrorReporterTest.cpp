@@ -10,6 +10,7 @@
 #include "../../src/error/ErrorReporter.h"
 #include "../../src/error/Error.h"
 #include "../../src/error/ErrorMessages.h"
+#include "../../src/common/UTF8Utils.h"
 #include <sstream>
 
 using namespace kingsejong::error;
@@ -157,6 +158,34 @@ TEST_F(ErrorFormatterTest, ShouldAlignCaretAfterKoreanText) {
     std::string formatted = formatter->formatError(error, *sourceMgr, false);
 
     EXPECT_THAT(formatted, HasSubstr("1 | 출력(값들[5])\n    " + std::string(5, ' ') + "^\n"));
+}
+
+TEST_F(ErrorFormatterTest, ShouldShowCharacterColumnInHeader) {
+    // 헤더의 열은 편집기처럼 글자 단위다: 8번째 바이트는 "출력(" 세 글자 다음인 4번째 글자
+    sourceMgr->loadSource("test.ksj", "출력(값들[5])");
+
+    SourceLocation loc("test.ksj", 1, 8);
+    auto error = RuntimeError("인덱스 범위 초과", loc);
+
+    std::string formatted = formatter->formatError(error, *sourceMgr, false);
+
+    EXPECT_THAT(formatted, HasSubstr("오류 위치: test.ksj:1:4\n"));
+}
+
+TEST(ByteColumnToCharColumnTest, ShouldCountCodePoints) {
+    using kingsejong::common::byteColumnToCharColumn;
+    EXPECT_EQ(byteColumnToCharColumn("출력(값들[5])", 1), 1);
+    EXPECT_EQ(byteColumnToCharColumn("출력(값들[5])", 8), 4);
+    EXPECT_EQ(byteColumnToCharColumn("x = 1", 5), 5);
+    // 줄 끝을 넘는 열(줄 끝 토큰)은 넘는 바이트를 한 글자씩 센다
+    EXPECT_EQ(byteColumnToCharColumn("값", 4), 2);
+    EXPECT_EQ(byteColumnToCharColumn("값", 5), 3);
+}
+
+TEST(ByteColumnToCharColumnTest, ShouldFindLineInSource) {
+    using kingsejong::common::charColumnInSource;
+    EXPECT_EQ(charColumnInSource("x = 1\r\n출력(값)\n", 2, 8), 4);
+    EXPECT_EQ(charColumnInSource("x = 1\n", 9, 3), 3);  // 없는 줄이면 바이트 열 그대로
 }
 
 TEST_F(ErrorFormatterTest, ShouldKeepTabsWhenAligningCaret) {

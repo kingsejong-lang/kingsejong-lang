@@ -26,7 +26,7 @@
 ### 1. 프로젝트 빌드
 
 ```bash
-cd /path/to/kingsejonglang
+cd /path/to/kingsejong-lang
 mkdir build && cd build
 cmake ..
 make -j8
@@ -65,7 +65,7 @@ Extension Development Host 창에서:
 
 ```bash
 File > Open Folder...
-# kingsejonglang 프로젝트 폴더 선택
+# kingsejong-lang 프로젝트 폴더 선택
 
 # 테스트 파일 열기
 test_lsp_features.ksj

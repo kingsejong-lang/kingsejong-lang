@@ -45,8 +45,8 @@ KingSejong은 **한글로 프로그래밍**할 수 있는 언어입니다.
 **macOS / Linux:**
 ```bash
 # 저장소 복제
-git clone https://github.com/0xmhha/kingsejonglang.git
-cd kingsejonglang
+git clone https://github.com/kingsejong-lang/kingsejong-lang.git
+cd kingsejong-lang
 
 # 자동 설치 스크립트 실행
 ./install.sh
@@ -58,8 +58,8 @@ cd kingsejonglang
 **Windows:**
 ```powershell
 # 저장소 복제
-git clone https://github.com/0xmhha/kingsejonglang.git
-cd kingsejonglang
+git clone https://github.com/kingsejong-lang/kingsejong-lang.git
+cd kingsejong-lang
 
 # 자동 설치 스크립트 실행 (PowerShell)
 .\install.ps1

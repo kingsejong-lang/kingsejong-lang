@@ -452,8 +452,8 @@ git add $(git diff --cached --name-only --diff-filter=ACM | grep '\.ksj$')
 ```bash
 # 1. 프로젝트 루트에 기본 설정 파일 생성
 cd your-project
-cp path/to/kingsejonglang/.ksjlint.json .
-cp path/to/kingsejonglang/.ksjfmt.json .
+cp path/to/kingsejong-lang/.ksjlint.json .
+cp path/to/kingsejong-lang/.ksjfmt.json .
 
 # 2. 전체 프로젝트 포맷팅
 find . -name "*.ksj" -exec kingsejong fmt {} \;
@@ -519,7 +519,7 @@ cat .ksjfmt.json | jq .
 - **Linter 소스**: `src/linter/`
 - **Formatter 소스**: `src/formatter/`
 - **규칙 정의**: `src/linter/rules/`
-- **이슈 리포트**: [GitHub Issues](https://github.com/0xmhha/kingsejonglang/issues)
+- **이슈 리포트**: [GitHub Issues](https://github.com/kingsejong-lang/kingsejong-lang/issues)
 
 ---
 

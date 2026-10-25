@@ -22,6 +22,7 @@
 #include <regex>
 #include <random>
 #include <algorithm>
+#include <cctype>
 #include <functional>
 #include <cstdlib>
 #include <cstdio>
@@ -1981,6 +1982,39 @@ static Value builtin_정규표현식_개수(const std::vector<Value>& args)
 // ============================================================================
 
 /**
+ * @brief URL_인코딩(문자열) - URL 퍼센트 인코딩 (RFC 3986)
+ *
+ * 영문자·숫자와 `-` `_` `.` `~` 는 그대로 두고, 나머지 바이트(공백, `&`, `=`, 한글의 UTF-8 바이트 등)는
+ * `%XX` 로 바꾼다. 쿼리 값처럼 URL 의 한 조각에 넣을 문자열에 쓴다.
+ *
+ * @code
+ * URL_인코딩("a b&c")  // "a%20b%26c"
+ * URL_인코딩("한")     // "%ED%95%9C"
+ * @endcode
+ */
+static Value builtin_URL_인코딩(const std::vector<Value>& args)
+{
+    if (args.size() != 1) {
+        throw std::runtime_error("URL_인코딩(문자열): 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString()) {
+        throw std::runtime_error("URL_인코딩(문자열): 문자열 타입이어야 합니다");
+    }
+    static const char hex[] = "0123456789ABCDEF";
+    std::string result;
+    for (unsigned char c : args[0].asString()) {
+        if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+            result.push_back(static_cast<char>(c));
+        } else {
+            result.push_back('%');
+            result.push_back(hex[c >> 4]);
+            result.push_back(hex[c & 0x0F]);
+        }
+    }
+    return Value::createString(result);
+}
+
+/**
  * @brief Base64_인코딩(문자열) - Base64 인코딩
  */
 static Value builtin_Base64_인코딩(const std::vector<Value>& args)
@@ -2359,13 +2393,28 @@ static httplib::Result performHttpRequest(std::string method, std::string url,
         httplib::Client cli(host);
         cli.set_follow_location(false);
 
+        // 본문 형식: 호출자가 Content-Type 헤더를 주면 그것을 쓰고(httplib 가 content_type 인자로
+        // 덮어쓰지 않도록 헤더에서 뺀다), 없으면 application/json
+        std::string content_type = "application/json";
+        httplib::Headers request_headers;
+        for (const auto& [name, value] : headers) {
+            std::string lower = name;
+            std::transform(lower.begin(), lower.end(), lower.begin(),
+                           [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            if (lower == "content-type") {
+                content_type = value;
+            } else {
+                request_headers.emplace(name, value);
+            }
+        }
+
         httplib::Result res;
         if (method == "GET") {
             res = cli.Get(path, headers);
         } else if (method == "POST") {
-            res = cli.Post(path, headers, body, "application/json");
+            res = cli.Post(path, request_headers, body, content_type);
         } else if (method == "PUT") {
-            res = cli.Put(path, headers, body, "application/json");
+            res = cli.Put(path, request_headers, body, content_type);
         } else if (method == "DELETE") {
             res = cli.Delete(path, headers);
         } else {
@@ -3616,6 +3665,7 @@ void Builtin::registerAllBuiltins()
 
     // ========== 암호화 ==========
     registerBuiltin("Base64_인코딩", builtin_Base64_인코딩);
+    registerBuiltin("URL_인코딩", builtin_URL_인코딩);
     registerBuiltin("Base64_디코딩", builtin_Base64_디코딩);
     registerBuiltin("문자열_해시", builtin_문자열_해시);
     registerBuiltin("파일_해시", builtin_파일_해시);

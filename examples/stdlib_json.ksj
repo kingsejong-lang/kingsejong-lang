@@ -31,7 +31,7 @@ JSON_예쁘게출력(person)
 출력("\n이름: " + 이름)
 
 나이 = JSON_가져오기(person, "age")
-출력("나이: " + 타입(나이))
+출력("나이: " + 문자열(나이))
 
 출력("\n3. JSON object 수정")
 person2 = JSON_추가(person, "city", "Busan")
@@ -93,10 +93,10 @@ config = [
 ]
 
 debug존재 = JSON_키존재(config, "debug")
-출력("debug 키 존재: " + 타입(debug존재))
+출력("debug 키 존재: " + 문자열(debug존재))
 
 timeout존재 = JSON_키존재(config, "timeout")
-출력("timeout 키 존재: " + 타입(timeout존재))
+출력("timeout 키 존재: " + 문자열(timeout존재))
 
 출력("\n9. 배열에서 JSON object로 변환")
 keys = ["이름", "나이", "도시"]
@@ -123,7 +123,7 @@ JSON_파일_쓰기(config_file, 기본설정, 2)
 포트 = JSON_가져오기(설정, "port")
 
 출력("앱 이름: " + 앱이름)
-출력("포트: " + 타입(포트))
+출력("포트: " + 문자열(포트))
 
 새설정 = JSON_추가(설정, "debug", 참)
 새설정 = JSON_추가(새설정, "log_level", "info")
@@ -132,5 +132,8 @@ JSON_파일_쓰기(config_file, 새설정, 2)
 
 파일_삭제(config_file)
 출력("설정 파일 삭제 완료")
+
+# 배열이 아닌 값에서 꺼내면 없음
+출력("\n배열이 아닌 값: " + 문자열(JSON_가져오기("문자열", "name")))
 
 출력("\n=== 완료 ===")

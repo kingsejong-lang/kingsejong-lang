@@ -467,6 +467,7 @@ TEST(VMStackTraceTest, ShouldPrintColumnAndCaretInReport)
     std::ostringstream out;
     reporter.report(e, out);
 
-    EXPECT_THAT(out.str(), HasSubstr("오류 위치: test.ksj:2:12"));
+    // 헤더의 열은 글자 단위: "    반환 a / b" 의 a 는 8번째 글자다 (바이트로는 12)
+    EXPECT_THAT(out.str(), HasSubstr("오류 위치: test.ksj:2:8"));
     EXPECT_THAT(out.str(), HasSubstr("^"));
 }

@@ -247,5 +247,68 @@ inline std::string caretPadding(const std::string& line, int byteColumn)
     return padding;
 }
 
+/**
+ * @brief 바이트 열을 글자(코드 포인트) 단위 열로 바꾼다
+ * @param line 소스 한 줄 (UTF-8)
+ * @param byteColumn 1부터 시작하는 바이트 열
+ * @return 1부터 시작하는 글자 열. 바이트 열이 줄 끝을 넘으면 넘는 바이트를 한 글자씩 센다
+ *
+ * 렉서와 LSP 는 바이트 열을 쓰지만, 사람이 읽는 `파일:줄:열` 은 편집기처럼 글자 단위로 보여 준다.
+ *
+ * @code
+ * byteColumnToCharColumn("출력(값들[5])", 8);  // 4 ("출력(" 세 글자 다음)
+ * @endcode
+ */
+inline int byteColumnToCharColumn(const std::string& line, int byteColumn)
+{
+    if (byteColumn <= 1)
+    {
+        return byteColumn;
+    }
+    size_t end = static_cast<size_t>(byteColumn - 1);
+    size_t inLine = std::min(end, line.size());
+    int chars = 0;
+    for (size_t i = 0; i < inLine; ++i)
+    {
+        if (!isUTF8ContinuationByte(static_cast<unsigned char>(line[i])))
+        {
+            ++chars;
+        }
+    }
+    return chars + static_cast<int>(end - inLine) + 1;
+}
+
+/**
+ * @brief 소스 텍스트에서 1부터 세는 line 번째 줄을 꺼낸다 (줄 끝 \r 제외). 없으면 빈 문자열
+ */
+inline std::string sourceLine(const std::string& source, int line)
+{
+    size_t start = 0;
+    for (int i = 1; i < line; ++i)
+    {
+        start = source.find('\n', start);
+        if (start == std::string::npos)
+        {
+            return "";
+        }
+        ++start;
+    }
+    size_t end = source.find('\n', start);
+    std::string text = source.substr(start, end == std::string::npos ? std::string::npos : end - start);
+    if (!text.empty() && text.back() == '\r')
+    {
+        text.pop_back();
+    }
+    return text;
+}
+
+/**
+ * @brief 소스 텍스트 기준으로 바이트 열을 글자 열로 바꾼다
+ */
+inline int charColumnInSource(const std::string& source, int line, int byteColumn)
+{
+    return byteColumnToCharColumn(sourceLine(source, line), byteColumn);
+}
+
 } // namespace common
 } // namespace kingsejong

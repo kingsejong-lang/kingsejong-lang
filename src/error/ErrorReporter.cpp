@@ -177,7 +177,13 @@ std::string ErrorFormatter::formatError(
     if (location.has_value())
     {
         const auto& loc = location.value();
-        oss << formatLocation(loc, useColor) << "\n\n";
+        // 헤더의 열은 글자 단위로 보여 준다. 캐럿은 아래 formatContext 가 바이트 열로 맞춘다
+        SourceLocation shown = loc;
+        if (auto text = sourceMgr.getLine(loc.filename, loc.line))
+        {
+            shown.column = common::byteColumnToCharColumn(*text, loc.column);
+        }
+        oss << formatLocation(shown, useColor) << "\n\n";
 
         // 2. 소스 코드 컨텍스트 (소스가 등록된 경우)
         auto context = sourceMgr.getContext(loc.filename, loc.line, 1);

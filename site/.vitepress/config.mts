@@ -158,6 +158,7 @@ export default defineConfig({
         text: '프로젝트',
         items: [
           { text: '로드맵', link: '/ROADMAP' },
+          { text: 'v0.6 마이그레이션', link: '/MIGRATION_v0.6' },
           { text: '기여 가이드', link: '/CONTRIBUTING' },
           { text: '코딩 스타일', link: '/CODING_STYLE' },
           { text: '플레이그라운드 개발', link: '/PLAYGROUND_TUTORIAL' },

@@ -247,6 +247,9 @@ public:
     static bool isLiteralNode(const ast::Expression* expr);
 
 private:
+    /// eval 의 노드 종류별 분기 (eval 은 문장 추적과 에러 위치 기록을 맡는다)
+    Value evalNode(ast::Node* node);
+
     std::shared_ptr<Environment> env_;  ///< 변수 저장 환경
 
     /**
@@ -265,6 +268,9 @@ private:
      * 함수 호출이 돌아오면(정상·예외 모두) 호출한 쪽의 문장으로 되돌린다.
      */
     inline static thread_local const ast::Statement* currentStatement_ = nullptr;
+    // 에러가 처음 난 식(가장 안쪽). 문장을 시작할 때 비우고, 식 평가가 에러로 끝나면 비어 있을 때만 채운다.
+    // addStackFrame 이 가장 안쪽 프레임의 위치로 쓰므로, VM 처럼 문장 시작이 아니라 실패한 식을 가리킨다
+    inline static thread_local const ast::Expression* errorExpression_ = nullptr;
 
     /// 에러에 호출 스택 프레임을 더한다. 위치는 지금 평가 중인 문장(에러가 난 함수 안의 문장)이다
     static void addStackFrame(error::KingSejongError& error, const std::string& function);

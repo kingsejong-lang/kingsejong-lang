@@ -43,6 +43,7 @@
 #include <sqlite3.h>
 #endif
 #include <unordered_map>
+#include <memory>
 
 #ifdef _WIN32
     #include <windows.h>
@@ -2728,19 +2729,100 @@ static Value builtin_DB_닫기(const std::vector<Value>& args)
 }
 
 /**
+ * @brief SQL 한 문장을 준비해 값을 바인딩하고 실행한다 (DB_실행·DB_쿼리의 세 번째 인자)
+ *
+ * SQL 안의 `?` 자리에 매개변수 배열의 값을 차례로 넣는다. 값은 SQL 텍스트에 이어 붙이지 않고
+ * SQLite 가 값으로만 다루므로, 외부 입력을 넣어도 SQL 로 해석되지 않는다.
+ * 정수·실수·문자열·논리(1/0)·없음(NULL)을 받는다.
+ *
+ * @param results 결과 행을 담을 배열. nullptr 이면 행을 버린다(DB_실행)
+ */
+static void run_bound_statement(sqlite3* db, const std::string& sql, const std::vector<Value>& params,
+                                std::vector<Value>* results, const char* who)
+{
+    sqlite3_stmt* stmt = nullptr;
+    const char* tail = nullptr;
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, &tail) != SQLITE_OK) {
+        throw std::runtime_error(std::string(who) + " 오류: " + sqlite3_errmsg(db));
+    }
+    // 준비한 문장을 어떤 경로로 나가든 해제한다
+    std::unique_ptr<sqlite3_stmt, int (*)(sqlite3_stmt*)> guard(stmt, sqlite3_finalize);
+
+    if (tail && std::string(tail).find_first_not_of(" \t\r\n;") != std::string::npos) {
+        throw std::runtime_error(std::string(who) + ": 매개변수를 쓸 때는 SQL 문장을 하나만 줄 수 있습니다");
+    }
+    int expected = sqlite3_bind_parameter_count(stmt);
+    if (expected != static_cast<int>(params.size())) {
+        throw std::runtime_error(std::string(who) + ": SQL 의 자리표시자는 " + std::to_string(expected) +
+                                 "개인데 매개변수는 " + std::to_string(params.size()) + "개입니다");
+    }
+    for (int i = 0; i < expected; ++i) {
+        const Value& v = params[static_cast<size_t>(i)];
+        int rc = SQLITE_OK;
+        if (v.isInteger()) {
+            rc = sqlite3_bind_int64(stmt, i + 1, v.asInteger());
+        } else if (v.isFloat()) {
+            rc = sqlite3_bind_double(stmt, i + 1, v.asFloat());
+        } else if (v.isString()) {
+            const std::string& text = v.asString();
+            rc = sqlite3_bind_text(stmt, i + 1, text.c_str(), static_cast<int>(text.size()), SQLITE_TRANSIENT);
+        } else if (v.isBoolean()) {
+            rc = sqlite3_bind_int(stmt, i + 1, v.asBoolean() ? 1 : 0);
+        } else if (v.isNull()) {
+            rc = sqlite3_bind_null(stmt, i + 1);
+        } else {
+            throw std::runtime_error(std::string(who) + ": 매개변수는 정수·실수·문자열·논리·없음만 쓸 수 있습니다 (" +
+                                     std::to_string(i + 1) + "번째)");
+        }
+        if (rc != SQLITE_OK) {
+            throw std::runtime_error(std::string(who) + " 오류: " + sqlite3_errmsg(db));
+        }
+    }
+
+    int columns = sqlite3_column_count(stmt);
+    int rc = 0;
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        if (!results) {
+            continue;
+        }
+        // DB_쿼리(연결ID, SQL) 과 같은 모양: 첫 행이 있을 때 컬럼 이름 행을 먼저 넣고, 값은 문자열이나 없음
+        if (results->empty()) {
+            std::vector<Value> names;
+            for (int c = 0; c < columns; ++c) {
+                names.push_back(Value::createString(sqlite3_column_name(stmt, c)));
+            }
+            results->push_back(Value::createArray(names));
+        }
+        std::vector<Value> row;
+        for (int c = 0; c < columns; ++c) {
+            const unsigned char* text = sqlite3_column_text(stmt, c);
+            row.push_back(text ? Value::createString(reinterpret_cast<const char*>(text)) : Value::createNull());
+        }
+        results->push_back(Value::createArray(row));
+    }
+    if (rc != SQLITE_DONE) {
+        throw std::runtime_error(std::string(who) + " 오류: " + sqlite3_errmsg(db));
+    }
+}
+
+/**
  * @brief DB_실행(연결ID, SQL) - SQL 실행 (INSERT, UPDATE, DELETE 등)
  *
  * @param args[0] DB 연결 ID (정수)
  * @param args[1] SQL 문장 (문자열)
+ * @param args[2] (선택) `?` 자리에 넣을 값 배열. 주면 문장 하나만 실행한다
  * @return null
  */
 static Value builtin_DB_실행(const std::vector<Value>& args)
 {
-    if (args.size() != 2) {
-        throw std::runtime_error("DB_실행(연결ID, SQL): 2개의 인자가 필요합니다");
+    if (args.size() != 2 && args.size() != 3) {
+        throw std::runtime_error("DB_실행(연결ID, SQL, [매개변수]): 2개 또는 3개의 인자가 필요합니다");
     }
     if (!args[0].isInteger() || !args[1].isString()) {
         throw std::runtime_error("DB_실행: 첫 번째는 정수, 두 번째는 문자열이어야 합니다");
+    }
+    if (args.size() == 3 && !args[2].isArray()) {
+        throw std::runtime_error("DB_실행: 세 번째 인자(매개변수)는 배열이어야 합니다");
     }
 
     int64_t db_id = args[0].asInteger();
@@ -2749,6 +2831,11 @@ static Value builtin_DB_실행(const std::vector<Value>& args)
     auto it = db_connections.find(db_id);
     if (it == db_connections.end()) {
         throw std::runtime_error("유효하지 않은 DB 연결 ID입니다");
+    }
+
+    if (args.size() == 3) {
+        run_bound_statement(it->second, sql, args[2].asArray(), nullptr, "DB_실행");
+        return Value::createNull();
     }
 
     char* error_msg = nullptr;
@@ -2768,6 +2855,7 @@ static Value builtin_DB_실행(const std::vector<Value>& args)
  *
  * @param args[0] DB 연결 ID (정수)
  * @param args[1] SQL SELECT 문장 (문자열)
+ * @param args[2] (선택) `?` 자리에 넣을 값 배열
  * @return 결과 배열 [["col1", "col2", ...], [val1, val2, ...], ...]
  */
 static int query_callback(void* data, int argc, char** argv, char** col_names)
@@ -2799,11 +2887,14 @@ static int query_callback(void* data, int argc, char** argv, char** col_names)
 
 static Value builtin_DB_쿼리(const std::vector<Value>& args)
 {
-    if (args.size() != 2) {
-        throw std::runtime_error("DB_쿼리(연결ID, SQL): 2개의 인자가 필요합니다");
+    if (args.size() != 2 && args.size() != 3) {
+        throw std::runtime_error("DB_쿼리(연결ID, SQL, [매개변수]): 2개 또는 3개의 인자가 필요합니다");
     }
     if (!args[0].isInteger() || !args[1].isString()) {
         throw std::runtime_error("DB_쿼리: 첫 번째는 정수, 두 번째는 문자열이어야 합니다");
+    }
+    if (args.size() == 3 && !args[2].isArray()) {
+        throw std::runtime_error("DB_쿼리: 세 번째 인자(매개변수)는 배열이어야 합니다");
     }
 
     int64_t db_id = args[0].asInteger();
@@ -2815,6 +2906,11 @@ static Value builtin_DB_쿼리(const std::vector<Value>& args)
     }
 
     std::vector<Value> results;
+    if (args.size() == 3) {
+        run_bound_statement(it->second, sql, args[2].asArray(), &results, "DB_쿼리");
+        return Value::createArray(results);
+    }
+
     char* error_msg = nullptr;
     int rc = sqlite3_exec(it->second, sql.c_str(), query_callback, &results, &error_msg);
 

@@ -14,6 +14,7 @@
 #include <sstream>
 #include <cmath>
 #include <algorithm>
+#include <cctype>
 #include <iostream>
 
 namespace kingsejong {
@@ -1701,7 +1702,17 @@ Value Evaluator::throwValue(const Value& value)
     // 문자열인 경우 에러 메시지로 변환
     if (value.isString())
     {
-        return Value::createError(value.asString());
+        // 오류 블록의 변수는 에러를 "타입: 메시지" 문자열로 받는다. 그 문자열을 다시 던지면
+        // ("던지다 e") 원래 타입과 메시지로 되돌려, "Error: Error: ..." 처럼 접두어가 쌓이지 않게 한다
+        const std::string& text = value.asString();
+        size_t colon = text.find(": ");
+        if (colon != std::string::npos && colon >= 5 && text.compare(colon - 5, 5, "Error") == 0 &&
+            std::all_of(text.begin(), text.begin() + static_cast<std::ptrdiff_t>(colon),
+                        [](char c) { return std::isalpha(static_cast<unsigned char>(c)) != 0; }))
+        {
+            return Value::createError(text.substr(colon + 2), text.substr(0, colon));
+        }
+        return Value::createError(text);
     }
 
     // 그 외의 타입은 toString()으로 변환하여 에러 생성

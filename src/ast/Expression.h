@@ -324,6 +324,11 @@ public:
 
     /// 파서가 "i가 <식>부터 ... {" 를 범위 반복문으로 다시 조립할 때 쓴다
     std::unique_ptr<Expression> releaseMethod() { return std::move(method_); }
+
+    /// 파서가 "a를 f()를 g()" 를 ((a를 f())를 g()) 로 다시 묶을 때 안쪽 객체를 바꿔 끼우는 데 쓴다
+    Expression* objectMutable() { return object_.get(); }
+    std::unique_ptr<Expression> releaseObject() { return std::move(object_); }
+    void setObject(std::unique_ptr<Expression> object) { object_ = std::move(object); }
 };
 
 /**

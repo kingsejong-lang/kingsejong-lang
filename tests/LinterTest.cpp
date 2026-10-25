@@ -1445,3 +1445,30 @@ TEST(LinterJosaAgreementTest, ShouldStaySilentOnMatchingParticle)
         EXPECT_NE(issue.ruleId, "josa-agreement") << issue.message;
     }
 }
+
+/**
+ * @test josa-agreement: 소유격 체인 뒤의 조사는 소유격의 오른쪽 이름을 명사로 본다
+ */
+TEST(LinterJosaAgreementTest, ShouldCheckParticleAfterPossessiveChain)
+{
+    std::string code = "사용자 = {\"이름\": \"a\"}\n결과 = 사용자의 이름를 출력한다\n";
+    kingsejong::lexer::Lexer lexer(code);
+    kingsejong::parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_TRUE(parser.errors().empty()) << parser.errors()[0];
+
+    kingsejong::linter::Linter linter;
+    linter.addDefaultRules();
+    linter.analyze(program.get(), "josa.ksj");
+
+    bool found = false;
+    for (const auto& issue : linter.issues())
+    {
+        if (issue.ruleId == "josa-agreement")
+        {
+            found = true;
+            EXPECT_NE(issue.message.find("이름을"), std::string::npos) << issue.message;
+        }
+    }
+    EXPECT_TRUE(found);
+}

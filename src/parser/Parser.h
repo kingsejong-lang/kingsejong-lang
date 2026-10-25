@@ -242,6 +242,8 @@ private:
 
     // 조사 파싱 헬퍼
     bool isJosaToken(TokenType type) const;
+    bool isConversionIdiom(const JosaExpression* josa) const;
+    Expression* chainParent(Expression* method) const;
     lexer::JosaRecognizer::JosaType tokenToJosaType(TokenType type) const;
 
     // 범위 파싱 헬퍼

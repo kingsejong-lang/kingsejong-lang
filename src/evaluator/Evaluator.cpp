@@ -2493,6 +2493,44 @@ Value Evaluator::makeClass(const ast::ClassStatement* stmt, const std::shared_pt
         );
     }
 
+    // 상속: 부모 클래스의 필드·메서드·생성자를 정의 시점에 물려받는다. 자식이 같은 이름을 정의하면
+    // 자식 것이 이긴다. 부모 메서드는 부모를 정의한 환경을 클로저로 그대로 쓴다
+    if (!stmt->superClass().empty())
+    {
+        std::shared_ptr<ClassDefinition> parent;
+        if (env->existsInChain(stmt->superClass()))
+        {
+            Value parentValue = env->get(stmt->superClass());
+            if (parentValue.isFunction() && parentValue.asFunction()->classDef())
+            {
+                parent = parentValue.asFunction()->classDef();
+            }
+        }
+        if (!parent)
+        {
+            throw std::runtime_error("부모 클래스를 찾을 수 없습니다: " + stmt->superClass());
+        }
+
+        std::vector<std::string> inheritedFields = parent->fieldNames();
+        for (const auto& name : fieldNames)
+        {
+            if (std::find(inheritedFields.begin(), inheritedFields.end(), name) == inheritedFields.end())
+            {
+                inheritedFields.push_back(name);
+            }
+        }
+        fieldNames = std::move(inheritedFields);
+
+        for (const auto& [name, method] : parent->methods())
+        {
+            methods.emplace(name, method);  // 자식이 이미 정의한 이름은 그대로 둔다
+        }
+        if (!constructor)
+        {
+            constructor = parent->constructor();
+        }
+    }
+
     // ClassDefinition 생성
     auto classDef = std::make_shared<ClassDefinition>(
         stmt->className(),

@@ -7,6 +7,7 @@
 
 #include "ErrorReporter.h"
 #include "common/UTF8Utils.h"
+#include <fstream>
 #include <sstream>
 #include <algorithm>
 #include <iostream>
@@ -78,6 +79,27 @@ void SourceManager::loadSource(const std::string& filename, const std::string& c
 
     // 맵에 저장
     sources_[filename] = std::move(sourceFile);
+}
+
+bool SourceManager::ensureSource(const std::string& filename)
+{
+    if (hasSource(filename))
+    {
+        return true;
+    }
+    if (filename.empty() || filename[0] == '<')
+    {
+        return false;  // <stdin> 처럼 파일이 아닌 이름
+    }
+    std::ifstream file(filename, std::ios::binary);
+    if (!file)
+    {
+        return false;
+    }
+    std::ostringstream content;
+    content << file.rdbuf();
+    loadSource(filename, content.str());
+    return true;
 }
 
 std::optional<std::string> SourceManager::getLine(const std::string& filename, int line) const
@@ -374,7 +396,15 @@ void ErrorReporter::report(const KingSejongError& error, std::ostream& out)
 {
     try
     {
-        // 1. 에러 포맷팅
+        // 1. 에러 포맷팅. 오류 위치(없으면 가장 안쪽 프레임)의 파일이 등록돼 있지 않으면(가져온 모듈) 읽어 온다
+        if (auto loc = error.getLocation())
+        {
+            sourceMgr_->ensureSource(loc->filename);
+        }
+        else if (!error.stackTrace().empty())
+        {
+            sourceMgr_->ensureSource(error.stackTrace().front().location.filename);
+        }
         std::string formatted = formatter_->formatError(error, *sourceMgr_, colorEnabled_);
 
         // 2. 힌트 추가 (있는 경우)

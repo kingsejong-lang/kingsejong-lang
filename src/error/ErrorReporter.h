@@ -112,6 +112,19 @@ public:
     void loadSource(const std::string& filename, const std::string& content);
 
     /**
+     * @brief 소스가 등록돼 있는지 확인
+     */
+    bool hasSource(const std::string& filename) const { return sources_.count(filename) > 0; }
+
+    /**
+     * @brief 등록되지 않은 파일이면 디스크에서 읽어 등록한다
+     * @return 등록돼 있거나 읽어서 등록했으면 true
+     *
+     * 가져온 모듈 안에서 난 실행 오류는 메인 파일과 달리 미리 등록되지 않으므로, 보고할 때 읽어 온다.
+     */
+    bool ensureSource(const std::string& filename);
+
+    /**
      * @brief 특정 줄 가져오기
      * @param filename 파일 이름
      * @param line 줄 번호 (1부터 시작)

@@ -216,6 +216,7 @@ private:
     std::unique_ptr<Expression> parseDictionaryLiteral();  // Phase 7.2: 딕셔너리
     std::unique_ptr<Expression> parseFunctionLiteral();
     std::unique_ptr<Expression> parseAsyncFunctionLiteral();  // Phase 7.3: 비동기 함수
+    std::unique_ptr<Expression> parseAsyncFunctionRest(const ast::SourceLocation& startLoc);  // "(" 부터 본문까지
     std::unique_ptr<Expression> parseAwaitExpression();       // Phase 7.3: await
     std::unique_ptr<Expression> parseThisExpression();     // Phase 7.1: 자신
     std::unique_ptr<Expression> parseNewExpression();      // Phase 7.1: 객체 생성

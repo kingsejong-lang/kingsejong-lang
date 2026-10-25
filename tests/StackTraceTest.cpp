@@ -178,6 +178,24 @@ TEST(StackTraceTest, ShouldHaveOnlyTopLevelFrameOutsideFunctions)
     EXPECT_EQ(framesOf(e), (Frames{{"<최상위>", 2}}));
 }
 
+TEST(StackTraceTest, ShouldPointAtFailingExpressionLikeVM)
+{
+    // 문장의 시작이 아니라 실패한 식(나눗셈의 왼쪽 피연산자 x)을 가리킨다. VM 의 열과 같다
+    auto e = runExpectingError("x = 1\ny = 2 + x / 0\n");
+    ASSERT_FALSE(e.stackTrace().empty());
+    EXPECT_EQ(e.stackTrace().front().location.line, 2);
+    EXPECT_EQ(e.stackTrace().front().location.column, 9);
+}
+
+TEST(StackTraceTest, ShouldNotLetReturnedCallHideLaterFailingExpression)
+{
+    // 반환으로 끝난 호출(f())은 에러 위치로 남지 않는다: 같은 문장 뒤쪽의 인덱스 식을 가리킨다
+    auto e = runExpectingError("f = 함수() { 반환 1 }\na = [1]\nb = f() + a[5]\n");
+    ASSERT_FALSE(e.stackTrace().empty());
+    EXPECT_EQ(e.stackTrace().front().location.line, 3);
+    EXPECT_EQ(e.stackTrace().front().location.column, 11);
+}
+
 TEST(StackTraceTest, ShouldRecordCallSiteLineAfterInnerCallReturned)
 {
     // 안쪽 호출이 정상으로 돌아온 뒤 같은 함수의 다음 문장에서 난 에러는 그 문장의 줄을 가리켜야 한다

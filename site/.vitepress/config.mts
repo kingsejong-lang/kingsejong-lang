@@ -11,6 +11,8 @@ const REPO = 'https://github.com/kingsejong-lang/kingsejong-lang'
 const vueDir = dirname(createRequire(import.meta.url).resolve('vue/package.json'))
 const PLAYGROUND = 'https://kingsejong-lang.github.io/kingsejong-lang/'
 const SITE = PLAYGROUND + 'docs/'
+/** 공유 미리보기 이미지. web/public/og.png 가 플레이그라운드 루트에 배포된다 (scripts/generate_og_image.py 로 만든다) */
+const OG_IMAGE = PLAYGROUND + 'og.png'
 /** 파비콘: 세종의 첫 자음 ㅅ 을 그린 SVG. 파일 없이 data URI 로 심어 플레이그라운드와 같은 그림을 쓴다 */
 const FAVICON =
   'data:image/svg+xml,' +
@@ -85,7 +87,11 @@ export default defineConfig({
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:site_name', content: 'KingSejong' }],
     ['meta', { property: 'og:locale', content: 'ko_KR' }],
-    ['meta', { name: 'twitter:card', content: 'summary' }],
+    ['meta', { property: 'og:image', content: OG_IMAGE }],
+    ['meta', { property: 'og:image:width', content: '1200' }],
+    ['meta', { property: 'og:image:height', content: '630' }],
+    ['meta', { property: 'og:image:alt', content: 'KingSejong - 한글 문법으로 쓰는 프로그래밍 언어' }],
+    ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
   ],
 
   /** 페이지마다 공유 미리보기(Open Graph)와 canonical 주소를 넣는다. 제목·설명은 각 문서의 것을 쓴다 */

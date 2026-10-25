@@ -417,6 +417,26 @@ bool Parser::isRangeForPattern() const
 
 std::unique_ptr<Statement> Parser::parseStatement()
 {
+    // 명명 비동기 함수: 비동기 함수 이름(매개변수) { ... } → 이름 = 비동기 함수(매개변수) { ... }
+    if (curTokenIs(TokenType::BIDONGGI) && peekTokenIs(TokenType::HAMSU) &&
+        peekPeekToken_.type == TokenType::IDENTIFIER)
+    {
+        auto startLoc = curToken_.location;
+        nextToken();  // 비동기 → 함수
+        nextToken();  // 함수 → 이름
+        std::string functionName = curToken_.literal;
+
+        auto functionLiteral = parseAsyncFunctionRest(startLoc);
+        if (!functionLiteral)
+        {
+            return nullptr;
+        }
+
+        auto stmt = std::make_unique<AssignmentStatement>(functionName, std::move(functionLiteral));
+        stmt->setLocation(startLoc);
+        return stmt;
+    }
+
     // 명명 함수: 함수 이름(매개변수) { ... }
     // 이것을 할당문으로 변환: 이름 = 함수(매개변수) { ... }
     if (curTokenIs(TokenType::HAMSU) && peekTokenIs(TokenType::IDENTIFIER))
@@ -1935,6 +1955,16 @@ std::unique_ptr<Expression> Parser::parseAsyncFunctionLiteral()
         return nullptr;
     }
 
+    return parseAsyncFunctionRest(startLoc);
+}
+
+/**
+ * @brief "(" 부터 본문까지 읽어 비동기 함수 리터럴을 만든다
+ *
+ * 현재 토큰은 "(" 바로 앞(`함수` 키워드 또는 명명 선언의 이름)이어야 한다.
+ */
+std::unique_ptr<Expression> Parser::parseAsyncFunctionRest(const ast::SourceLocation& startLoc)
+{
     // 다음 토큰이 LPAREN "(" 인지 확인
     if (!expectPeek(TokenType::LPAREN))
     {

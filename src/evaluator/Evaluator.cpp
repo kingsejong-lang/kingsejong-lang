@@ -14,6 +14,7 @@
 #include <sstream>
 #include <cmath>
 #include <algorithm>
+#include <cctype>
 #include <iostream>
 
 namespace kingsejong {
@@ -68,12 +69,32 @@ Value Evaluator::eval(ast::Node* node)
     if (auto* stmt = ast::node_cast<ast::Statement>(node))
     {
         currentStatement_ = stmt;
+        errorExpression_ = nullptr;
         if (observer_)
         {
             observer_->onStatement(stmt, env_);
         }
+        return evalNode(node);
     }
 
+    // 식이 에러로 끝나면 가장 안쪽 식을 기억한다. 반환(ReturnValue)은 runtime_error 가 아니라 거치지 않는다
+    try
+    {
+        return evalNode(node);
+    }
+    catch (const std::runtime_error&)
+    {
+        // 문장도 식도 아닌 노드(Program 등)가 올 수 있으므로 실제 타입을 확인한다. 에러 경로에서만 돈다
+        if (!errorExpression_)
+        {
+            errorExpression_ = dynamic_cast<const ast::Expression*>(node);
+        }
+        throw;
+    }
+}
+
+Value Evaluator::evalNode(ast::Node* node)
+{
     switch (node->type())
     {
         // Expressions
@@ -818,7 +839,14 @@ Value Evaluator::constructInstance(const std::shared_ptr<Function>& func, const 
 void Evaluator::addStackFrame(error::KingSejongError& error, const std::string& function)
 {
     error::SourceLocation location;
-    if (currentStatement_)
+    if (errorExpression_)
+    {
+        // 이 프레임 안에서 실패한 식. 쓰고 나면 비워서, 바깥 프레임은 자기 호출식 위치를 다시 채운다
+        const auto& loc = errorExpression_->location();
+        location = error::SourceLocation(loc.filename, loc.line, loc.column);
+        errorExpression_ = nullptr;
+    }
+    else if (currentStatement_)
     {
         const auto& loc = currentStatement_->location();
         location = error::SourceLocation(loc.filename, loc.line, loc.column);
@@ -1701,7 +1729,17 @@ Value Evaluator::throwValue(const Value& value)
     // 문자열인 경우 에러 메시지로 변환
     if (value.isString())
     {
-        return Value::createError(value.asString());
+        // 오류 블록의 변수는 에러를 "타입: 메시지" 문자열로 받는다. 그 문자열을 다시 던지면
+        // ("던지다 e") 원래 타입과 메시지로 되돌려, "Error: Error: ..." 처럼 접두어가 쌓이지 않게 한다
+        const std::string& text = value.asString();
+        size_t colon = text.find(": ");
+        if (colon != std::string::npos && colon >= 5 && text.compare(colon - 5, 5, "Error") == 0 &&
+            std::all_of(text.begin(), text.begin() + static_cast<std::ptrdiff_t>(colon),
+                        [](char c) { return std::isalpha(static_cast<unsigned char>(c)) != 0; }))
+        {
+            return Value::createError(text.substr(colon + 2), text.substr(0, colon));
+        }
+        return Value::createError(text);
     }
 
     // 그 외의 타입은 toString()으로 변환하여 에러 생성
@@ -2491,6 +2529,44 @@ Value Evaluator::makeClass(const ast::ClassStatement* stmt, const std::shared_pt
             const_cast<ast::BlockStatement*>(stmt->constructor()->body()),
             env
         );
+    }
+
+    // 상속: 부모 클래스의 필드·메서드·생성자를 정의 시점에 물려받는다. 자식이 같은 이름을 정의하면
+    // 자식 것이 이긴다. 부모 메서드는 부모를 정의한 환경을 클로저로 그대로 쓴다
+    if (!stmt->superClass().empty())
+    {
+        std::shared_ptr<ClassDefinition> parent;
+        if (env->existsInChain(stmt->superClass()))
+        {
+            Value parentValue = env->get(stmt->superClass());
+            if (parentValue.isFunction() && parentValue.asFunction()->classDef())
+            {
+                parent = parentValue.asFunction()->classDef();
+            }
+        }
+        if (!parent)
+        {
+            throw std::runtime_error("부모 클래스를 찾을 수 없습니다: " + stmt->superClass());
+        }
+
+        std::vector<std::string> inheritedFields = parent->fieldNames();
+        for (const auto& name : fieldNames)
+        {
+            if (std::find(inheritedFields.begin(), inheritedFields.end(), name) == inheritedFields.end())
+            {
+                inheritedFields.push_back(name);
+            }
+        }
+        fieldNames = std::move(inheritedFields);
+
+        for (const auto& [name, method] : parent->methods())
+        {
+            methods.emplace(name, method);  // 자식이 이미 정의한 이름은 그대로 둔다
+        }
+        if (!constructor)
+        {
+            constructor = parent->constructor();
+        }
     }
 
     // ClassDefinition 생성

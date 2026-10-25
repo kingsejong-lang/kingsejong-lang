@@ -52,6 +52,15 @@ TEST(CryptoTest, ShouldEncodeBase64)
     EXPECT_EQ(result.asString(), "SGVsbG8gV29ybGQ=");
 }
 
+TEST(CryptoTest, ShouldPercentEncodeUrlComponents)
+{
+    // 영문자·숫자·-_.~ 는 그대로, 공백·기호·한글의 UTF-8 바이트는 %XX
+    auto result = evalInput(R"(
+        URL_인코딩("a b&c=d/e?f-_.~한")
+    )");
+    EXPECT_EQ(result.asString(), "a%20b%26c%3Dd%2Fe%3Ff-_.~%ED%95%9C");
+}
+
 TEST(CryptoTest, ShouldDecodeBase64)
 {
     auto result = evalInput(R"(

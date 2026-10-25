@@ -110,7 +110,7 @@ createKingSejong().then(module => {
 
     // 버전 확인
     console.log(interpreter.version());
-    // => "KingSejong v0.3.2 (WebAssembly)"
+    // => "KingSejong v0.5.0 (WebAssembly)" (CMakeLists.txt 의 버전)
 
     // 코드 실행
     const result = interpreter.evaluate(`
@@ -210,5 +210,5 @@ npx http-server -p 8000
 ---
 
 **작성일**: 2025-11-14
-**버전**: KingSejong v0.3.2
+**버전**: CMakeLists.txt 의 `project(VERSION)` 을 따른다
 **작성자**: KingSejong Team

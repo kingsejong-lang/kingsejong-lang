@@ -12,6 +12,9 @@
 #include "../../src/error/ErrorMessages.h"
 #include "../../src/common/UTF8Utils.h"
 #include <sstream>
+#include <filesystem>
+#include <fstream>
+#include "../support/TestTempDir.h"
 
 using namespace kingsejong::error;
 using ::testing::HasSubstr;
@@ -696,4 +699,23 @@ TEST(DefaultHintsTest, ShouldProvideHintsFor20PlusErrors) {
 
     // 26개의 에러 중 최소 20개 이상 힌트가 제공되어야 함
     EXPECT_GE(hintsFound, 20);
+}
+
+TEST(ErrorReporterModuleSourceTest, ShouldReadUnregisteredFileForContext) {
+    // 가져온 모듈 안에서 난 에러: 메인 파일만 등록돼 있어도 모듈 파일을 읽어 문맥을 보여 준다
+    auto dir = kingsejong::test::uniqueTestDir("kingsejong_reporter_module");
+    auto path = (dir / "mod.ksj").generic_string();
+    {
+        std::ofstream file(path);
+        file << "x = 1\ny = x / 0\n";
+    }
+
+    ErrorReporter reporter;
+    reporter.setColorEnabled(false);
+    reporter.registerSource("main.ksj", "가져오기 \"mod\"\n");
+    std::ostringstream out;
+    reporter.report(RuntimeError("0으로 나눌 수 없습니다", SourceLocation(path, 2, 5)), out);
+
+    EXPECT_THAT(out.str(), HasSubstr("2 | y = x / 0"));
+    std::filesystem::remove_all(dir);
 }

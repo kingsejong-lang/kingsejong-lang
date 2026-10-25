@@ -23,7 +23,7 @@ uint16_t toU16(size_t value, const char* what) {
 } // namespace
 
 Compiler::Compiler()
-    : chunk_(nullptr), hadError_(false), currentLine_(1) {}
+    : chunk_(nullptr), hadError_(false), currentLine_(1), currentColumn_(0) {}
 
 bool Compiler::compile(ast::Program* program, Chunk* chunk) {
     return compileProgram(program, chunk, true);
@@ -39,6 +39,7 @@ bool Compiler::compileProgram(ast::Program* program, Chunk* chunk, bool keepLast
     hadError_ = false;
     errors_.clear();
     currentFile_.clear();
+    currentColumn_ = 0;
 
     try {
         auto& statements = program->statements();
@@ -770,15 +771,15 @@ bool Compiler::isConstantCondition(const ast::Expression* expr, bool& result) {
 // ============================================================================
 
 void Compiler::emit(OpCode op) {
-    chunk_->writeOpCode(op, currentLine_);
+    chunk_->writeOpCode(op, currentLine_, currentColumn_);
 }
 
 void Compiler::emitByte(uint8_t byte) {
-    chunk_->write(byte, currentLine_);
+    chunk_->write(byte, currentLine_, currentColumn_);
 }
 
 void Compiler::emit16(uint16_t value) {
-    chunk_->write16(value, currentLine_);
+    chunk_->write16(value, currentLine_, currentColumn_);
 }
 
 void Compiler::emitConstant(const evaluator::Value& value) {
@@ -831,6 +832,7 @@ size_t Compiler::currentOffset() const {
 void Compiler::setLine(const ast::Node* node) {
     if (node && node->location().isValid()) {
         currentLine_ = node->location().line;
+        currentColumn_ = node->location().column;
         if (node->location().filename != currentFile_) {
             currentFile_ = node->location().filename;
             chunk_->setFile(currentFile_);

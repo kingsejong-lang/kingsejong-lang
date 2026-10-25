@@ -15,10 +15,11 @@ namespace kingsejong {
 namespace ast { class Node; class Statement; }
 namespace bytecode {
 
-/// 명령어 오프셋 → 소스 줄 (런-렝스)
+/// 명령어 오프셋 → 소스 위치 (런-렝스). 열은 그 명령을 낸 식의 시작 열이고, 모르면 0
 struct LineInfo {
     size_t offset;
     int line;
+    int column;
 };
 
 /// 명령어 오프셋 → 소스 파일 (런-렝스). 가져온 모듈이 같은 청크 끝에 컴파일되므로 파일이 바뀌는 자리를 적는다
@@ -55,9 +56,9 @@ private:
 
 public:
     // ---- 쓰기 ----
-    void write(uint8_t byte, int line);
-    void write16(uint16_t value, int line);
-    void writeOpCode(OpCode op, int line);
+    void write(uint8_t byte, int line, int column = 0);
+    void write16(uint16_t value, int line, int column = 0);
+    void writeOpCode(OpCode op, int line, int column = 0);
     void patch(size_t offset, uint8_t byte);
     void patch16(size_t offset, uint16_t value);
 
@@ -84,6 +85,8 @@ public:
     size_t size() const { return code_.size(); }
     size_t constantCount() const { return constants_.size(); }
     int getLine(size_t offset) const;
+    /// 이 오프셋의 명령을 낸 식의 시작 열. 적힌 것이 없으면 0
+    int getColumn(size_t offset) const;
     /// 이 오프셋의 코드가 온 소스 파일. 적힌 것이 없으면 빈 문자열
     const std::string& getFile(size_t offset) const;
     /// 이 오프셋의 CALL 명령에 적힌 함수 이름. 없으면 빈 문자열

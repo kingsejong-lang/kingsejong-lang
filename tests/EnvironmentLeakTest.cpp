@@ -214,3 +214,29 @@ TEST_F(EnvironmentLeakTest, ReleaseRefusesWhenFunctionEscaped)
     run.result = Value::createNull();
     EXPECT_TRUE(env->releaseIfUnreachable(1));
 }
+
+// 상속과 '상위': 메서드가 부모 클래스 정의를, '상위' 프록시가 원래 인스턴스를 붙잡는다.
+// 이 참조가 도달성 그래프에 없으면 바깥에서 붙잡힌 것으로 보여 전역 환경이 해제되지 않는다
+TEST_F(EnvironmentLeakTest, InheritanceAndSuperCallsAreFreedWithEvaluator)
+{
+    lexer::Lexer lexer(
+        "클래스 동물 {\n"
+        "    공개 문자열 이름\n"
+        "    생성자(이름) {\n        자신.이름 = 이름\n    }\n"
+        "    공개 함수 소리() {\n        반환 \"...\"\n    }\n"
+        "}\n"
+        "클래스 개 상속 동물 {\n"
+        "    생성자(이름) {\n        상위(이름)\n    }\n"
+        "    공개 함수 소리() {\n        반환 \"멍멍 \" + 상위.소리()\n    }\n"
+        "}\n"
+        "바둑이 = 개(\"바둑이\")\n"
+        "바둑이.이름 + \" \" + 바둑이.소리()\n");
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_TRUE(parser.errors().empty());
+    {
+        evaluator::Evaluator evaluator;
+        EXPECT_EQ(evaluator.evalProgram(program.get()).asString(), "바둑이 멍멍 ...");
+    }
+    EXPECT_EQ(evaluator::Environment::liveCount(), baseline_);
+}

@@ -35,8 +35,18 @@ ClassInstance::ClassInstance(std::shared_ptr<ClassDefinition> classDef)
     }
 }
 
+ClassInstance::ClassInstance(std::shared_ptr<ClassDefinition> classDef, std::shared_ptr<ClassInstance> target)
+    : classDef_(std::move(classDef))
+    , target_(std::move(target))
+{
+}
+
 Value ClassInstance::getField(const std::string& fieldName) const
 {
+    if (target_)
+    {
+        return target_->getField(fieldName);
+    }
     auto it = fields_.find(fieldName);
     if (it != fields_.end())
     {
@@ -47,6 +57,11 @@ Value ClassInstance::getField(const std::string& fieldName) const
 
 void ClassInstance::setField(const std::string& fieldName, const Value& value)
 {
+    if (target_)
+    {
+        target_->setField(fieldName, value);
+        return;
+    }
     if (fields_.find(fieldName) != fields_.end())
     {
         fields_[fieldName] = value;
@@ -59,6 +74,10 @@ void ClassInstance::setField(const std::string& fieldName, const Value& value)
 
 const std::unordered_map<std::string, Value>& ClassInstance::fields() const
 {
+    if (target_)
+    {
+        return target_->fields();
+    }
     return fields_;
 }
 

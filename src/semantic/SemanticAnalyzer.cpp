@@ -32,6 +32,9 @@ void SemanticAnalyzer::initBuiltinFunctions()
     // null 리터럴
     builtins_.insert("없음");
 
+    // 메서드·생성자 안에서 부모 클래스를 가리키는 이름 (실행기가 환경에 묶는다)
+    builtins_.insert("상위");
+
     // 타입 및 변환
     builtins_.insert("타입");
     builtins_.insert("정수");

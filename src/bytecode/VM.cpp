@@ -618,6 +618,14 @@ void VM::callValue(uint8_t argCount, const std::string& name) {
         return;
     }
 
+    // '상위(인자...)': 부모 생성자 (본문은 평가기가 같은 환경으로 실행한다)
+    if (callee.isClassInstance() && callee.asClassInstance()->isSuperProxy()) {
+        std::vector<Value> args = popArguments(argCount);
+        pop();
+        push(Evaluator::callSuperConstructor(callee, args));
+        return;
+    }
+
     if (!callee.isFunction()) {
         throw error::TypeError(
             "함수가 아닌 값을 호출하려고 합니다: " + callee.toString() + "\n" +
@@ -654,7 +662,7 @@ void VM::callValue(uint8_t argCount, const std::string& name) {
         for (size_t i = 0; i < ctor->parameters().size(); ++i) {
             ctorEnv->set(ctor->parameters()[i], stack_[stackBase + 1 + i]);
         }
-        ctorEnv->set("자신", instance);
+        Evaluator::bindSelf(*ctorEnv, instance, ctor);
         enterFunction(ctor, entry, std::move(ctorEnv), stackBase, true, instance, classDef->className() + ".생성자");
         return;
     }
@@ -713,7 +721,7 @@ void VM::callMethod(const std::string& name, uint8_t argCount) {
     for (size_t i = 0; i < method->parameters().size(); ++i) {
         methodEnv->set(method->parameters()[i], stack_[stackBase + 1 + i]);
     }
-    methodEnv->set("자신", object);
+    Evaluator::bindSelf(*methodEnv, object, method);
 
     size_t entry;
     if (!chunk_->findEntry(method->body(), entry)) {

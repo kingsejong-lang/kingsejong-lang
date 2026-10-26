@@ -10,6 +10,7 @@ jobs:
   build-and-test:
     name: Build and Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
 
     strategy:
       fail-fast: false
@@ -72,6 +73,7 @@ jobs:
   code-quality:
     name: Code Quality Checks
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
     - name: Checkout code
@@ -128,6 +130,7 @@ jobs:
   coverage:
     name: Code Coverage
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
     - name: Checkout code
@@ -167,6 +170,7 @@ jobs:
   api-docs:
     name: API Reference (Doxygen)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
     - name: Checkout code
@@ -188,6 +192,7 @@ jobs:
   sanitizers:
     name: Sanitizers (ASan + UBSan)
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
     - name: Checkout code
@@ -216,6 +221,7 @@ jobs:
   benchmark:
     name: Performance Benchmarks
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
     - name: Checkout code
@@ -253,6 +259,7 @@ jobs:
   regression-test:
     name: Performance Regression Test
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
     - name: Checkout code

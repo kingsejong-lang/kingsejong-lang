@@ -1202,3 +1202,35 @@ TEST(VMClassTest, ShouldCallParentConstructorAndMethodsWithSuper)
     EXPECT_EQ(run.result, VMResult::OK);
     EXPECT_EQ(run.global("결과").asString(), "나는 바둑이, 멍멍 (원래: ...), 3살 | 나는 초코, 낑낑 / 멍멍 (원래: ...), 1살");
 }
+
+TEST(VMClassTest, ShouldKeepSuperInsideAnEscapingClosure)
+{
+    // 메서드가 돌려준 클로저 안의 '상위' 는 나중에 불러도 원래 인스턴스를 가리킨다
+    VmRun run(R"KSJ(
+        클래스 동물 {
+            공개 문자열 이름
+            생성자(이름) {
+                자신.이름 = 이름
+            }
+            공개 함수 소리() {
+                반환 자신.이름
+            }
+        }
+        클래스 개 상속 동물 {
+            생성자(이름) {
+                상위(이름)
+            }
+            공개 함수 나중에() {
+                반환 함수() {
+                    반환 "멍 " + 상위.소리()
+                }
+            }
+        }
+        바둑이 = 개("바둑이")
+        나중 = 바둑이.나중에()
+        바둑이.이름 = "흰둥이"
+        결과 = 나중()
+    )KSJ");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("결과").asString(), "멍 흰둥이");
+}

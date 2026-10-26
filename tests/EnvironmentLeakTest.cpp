@@ -240,3 +240,33 @@ TEST_F(EnvironmentLeakTest, InheritanceAndSuperCallsAreFreedWithEvaluator)
     }
     EXPECT_EQ(evaluator::Environment::liveCount(), baseline_);
 }
+
+// 메서드가 돌려준 클로저가 '상위' 와 '자신' 을 붙잡고 메서드 밖으로 나가도
+// 원래 인스턴스를 가리키고(나중에 바뀐 필드가 보인다), 끝나면 환경이 모두 해제된다
+TEST_F(EnvironmentLeakTest, ClosureThatCapturesSuperIsFreedWithEvaluator)
+{
+    lexer::Lexer lexer(
+        "클래스 동물 {\n"
+        "    공개 문자열 이름\n"
+        "    생성자(이름) {\n        자신.이름 = 이름\n    }\n"
+        "    공개 함수 소리() {\n        반환 자신.이름\n    }\n"
+        "}\n"
+        "클래스 개 상속 동물 {\n"
+        "    생성자(이름) {\n        상위(이름)\n    }\n"
+        "    공개 함수 나중에() {\n"
+        "        반환 함수() {\n            반환 \"멍 \" + 상위.소리()\n        }\n"
+        "    }\n"
+        "}\n"
+        "바둑이 = 개(\"바둑이\")\n"
+        "나중 = 바둑이.나중에()\n"
+        "바둑이.이름 = \"흰둥이\"\n"
+        "나중()\n");
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_TRUE(parser.errors().empty());
+    {
+        evaluator::Evaluator evaluator;
+        EXPECT_EQ(evaluator.evalProgram(program.get()).asString(), "멍 흰둥이");
+    }
+    EXPECT_EQ(evaluator::Environment::liveCount(), baseline_);
+}

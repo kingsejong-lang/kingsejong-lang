@@ -151,8 +151,10 @@ jobs:
     - name: Generate coverage report
       run: |
         lcov --directory build --capture --output-file coverage.info --ignore-errors mismatch,inconsistent,gcov,unused,source
-        lcov --remove coverage.info '/usr/*' '*/tests/*' '*/googletest/*' --output-file coverage.info --ignore-errors mismatch,inconsistent,gcov,unused,source
+        # 프로젝트 코드만 센다: FetchContent 로 받은 의존성(build/_deps)과 include/third_party 의 단일 헤더 라이브러리는 뺀다
+        lcov --remove coverage.info '/usr/*' '*/tests/*' '*/googletest/*' '*/_deps/*' '*/third_party/*' --output-file coverage.info --ignore-errors mismatch,inconsistent,gcov,unused,source
         lcov --list coverage.info
+        lcov --summary coverage.info
 
     - name: Upload coverage report
       uses: actions/upload-artifact@v4

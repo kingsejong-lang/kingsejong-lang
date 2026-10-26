@@ -179,10 +179,13 @@ void Repl::evalAndPrint(const std::string& input)
             return;
         }
 
-        // Evaluator
+        // Evaluator. 이 입력에서 만든 함수가 다음 입력에서 불릴 수 있으므로 구문 트리를 세션에 남긴다
+        // (예전에는 여기서 해제되어, 앞 줄에서 정의한 함수를 부르면 해제된 노드를 읽고 죽었다)
+        auto* current = program.get();
+        programs_.push_back(std::move(program));
         evaluator::Evaluator evaluator(env_);
         evaluator.setModuleLoader(&moduleLoader_);
-        auto result = evaluator.evalProgram(program.get());
+        auto result = evaluator.evalProgram(current);
 
         // 결과 출력 (null이 아니면)
         if (!result.isNull())

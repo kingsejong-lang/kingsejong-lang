@@ -15,6 +15,7 @@
 #include "../module/ModuleLoader.h"
 #include <string>
 #include <memory>
+#include <vector>
 
 namespace kingsejong {
 namespace repl {
@@ -43,6 +44,10 @@ public:
     void start();
 
 private:
+    /// 지금까지 실행한 입력의 구문 트리. 함수·클래스 값이 본문 노드를 가리키므로 세션 동안 살려 둔다.
+    /// 환경보다 먼저 선언해 환경(과 그 안의 함수)이 먼저 해제되게 한다
+    std::vector<std::unique_ptr<ast::Program>> programs_;
+
     /// 전역 환경 (세션 동안 유지)
     std::shared_ptr<evaluator::Environment> env_;
 

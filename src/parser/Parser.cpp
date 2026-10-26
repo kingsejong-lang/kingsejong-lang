@@ -435,6 +435,7 @@ std::unique_ptr<Statement> Parser::parseStatement()
         }
 
         auto stmt = std::make_unique<AssignmentStatement>(functionName, std::move(functionLiteral));
+        stmt->setDeclarationForm(true);
         stmt->setLocation(startLoc);
         return stmt;
     }
@@ -458,6 +459,7 @@ std::unique_ptr<Statement> Parser::parseStatement()
         // 할당문으로 변환
         // NOTE: Symbol Table 등록은 SemanticAnalyzer가 담당
         auto stmt = std::make_unique<AssignmentStatement>(functionName, std::move(functionLiteral));
+        stmt->setDeclarationForm(true);
         stmt->setLocation(startLoc);
         return stmt;
     }
@@ -814,6 +816,7 @@ std::unique_ptr<IfStatement> Parser::parseIfStatement()
 
     // else 블록 (optional)
     std::unique_ptr<BlockStatement> elseBranch = nullptr;
+    bool elseIf = false;
 
     if (peekTokenIs(TokenType::ANIMYEON))
     {
@@ -822,6 +825,7 @@ std::unique_ptr<IfStatement> Parser::parseIfStatement()
         if (peekTokenIs(TokenType::MANYAK))
         {
             // "아니면 만약 (조건) { }": else-if 사슬. 중첩 if 를 else 블록 하나로 감싼다.
+            elseIf = true;
             nextToken(); // "만약" 으로 이동
             auto nested = parseIfStatement();
             if (!nested)
@@ -850,6 +854,7 @@ std::unique_ptr<IfStatement> Parser::parseIfStatement()
         std::move(elseBranch)
     );
     stmt->setLocation(startLoc);
+    stmt->setElseIf(elseIf);
     return stmt;
 }
 
@@ -1429,6 +1434,10 @@ std::unique_ptr<Expression> Parser::parseGroupedExpression()
         return nullptr;
     }
 
+    if (expr)
+    {
+        expr->setParenthesized(true);
+    }
     return expr;
 }
 
@@ -1622,6 +1631,10 @@ Expression* Parser::chainParent(Expression* method) const
     // method 의 가장 왼쪽 잎을 품은 노드를 돌려준다. 이항식은 왼쪽으로, 조사식은 객체 쪽으로 내려간다.
     // 내려갈 수 없는 노드(식별자, 호출, 범위, 변환 관용구 등)가 method 자체면 nullptr.
     auto descend = [this](Expression* node) -> Expression* {
+        if (node->parenthesized())
+        {
+            return nullptr;  // 괄호로 묶은 식은 한 덩어리다
+        }
         if (auto* binary = node_cast<BinaryExpression>(node))
         {
             return binary->leftMutable();
@@ -1878,6 +1891,7 @@ std::unique_ptr<Expression> Parser::parseFunctionLiteral()
 
     // 매개변수 리스트 파싱
     std::vector<std::string> parameters;
+    std::vector<std::string> parameterTypes;
 
     // 다음 토큰으로 이동
     nextToken();
@@ -1892,11 +1906,13 @@ std::unique_ptr<Expression> Parser::parseFunctionLiteral()
     {
         // 첫 번째 매개변수
         std::string name;
-        if (!readParameterName(name))
+        std::string typeName;
+        if (!readParameterName(name, &typeName))
         {
             return nullptr;
         }
         parameters.push_back(name);
+        parameterTypes.push_back(typeName);
 
         // 나머지 매개변수들 (COMMA로 구분)
         while (peekTokenIs(TokenType::COMMA))
@@ -1904,11 +1920,12 @@ std::unique_ptr<Expression> Parser::parseFunctionLiteral()
             nextToken();  // 현재를 COMMA로
             nextToken();  // 다음 매개변수로
 
-            if (!readParameterName(name))
+            if (!readParameterName(name, &typeName))
             {
                 return nullptr;
             }
             parameters.push_back(name);
+            parameterTypes.push_back(typeName);
         }
 
         // RPAREN ")" 확인
@@ -1929,6 +1946,7 @@ std::unique_ptr<Expression> Parser::parseFunctionLiteral()
     }
 
     auto expr = std::make_unique<FunctionLiteral>(std::move(parameters), std::move(body));
+    expr->setParameterTypes(std::move(parameterTypes));
     expr->setLocation(startLoc);
     return expr;
 }
@@ -1975,6 +1993,7 @@ std::unique_ptr<Expression> Parser::parseAsyncFunctionRest(const ast::SourceLoca
 
     // 매개변수 리스트 파싱
     std::vector<std::string> parameters;
+    std::vector<std::string> parameterTypes;
 
     // 다음 토큰으로 이동
     nextToken();
@@ -1989,11 +2008,13 @@ std::unique_ptr<Expression> Parser::parseAsyncFunctionRest(const ast::SourceLoca
     {
         // 첫 번째 매개변수
         std::string name;
-        if (!readParameterName(name))
+        std::string typeName;
+        if (!readParameterName(name, &typeName))
         {
             return nullptr;
         }
         parameters.push_back(name);
+        parameterTypes.push_back(typeName);
 
         // 나머지 매개변수들 (COMMA로 구분)
         while (peekTokenIs(TokenType::COMMA))
@@ -2001,11 +2022,12 @@ std::unique_ptr<Expression> Parser::parseAsyncFunctionRest(const ast::SourceLoca
             nextToken();  // 현재를 COMMA로
             nextToken();  // 다음 매개변수로
 
-            if (!readParameterName(name))
+            if (!readParameterName(name, &typeName))
             {
                 return nullptr;
             }
             parameters.push_back(name);
+            parameterTypes.push_back(typeName);
         }
 
         // RPAREN ")" 확인
@@ -2026,6 +2048,7 @@ std::unique_ptr<Expression> Parser::parseAsyncFunctionRest(const ast::SourceLoca
     }
 
     auto expr = std::make_unique<AsyncFunctionLiteral>(std::move(parameters), std::move(body));
+    expr->setParameterTypes(std::move(parameterTypes));
     expr->setLocation(startLoc);
     return expr;
 }
@@ -2534,8 +2557,12 @@ std::unique_ptr<ConstructorDeclaration> Parser::parseConstructorDeclaration()
  * 현재 구현: 타입 없이 이름만 사용 (나중에 타입 추론)
  * 향후 구현: 타입 명시 지원 (정수 x, 문자열 이름)
  */
-bool Parser::readParameterName(std::string& name)
+bool Parser::readParameterName(std::string& name, std::string* typeName)
 {
+    if (typeName)
+    {
+        typeName->clear();
+    }
     auto isTypeKeyword = [](TokenType type) {
         return type == TokenType::JEONGSU || type == TokenType::SILSU || type == TokenType::MUNJAYEOL ||
                type == TokenType::NONLI || type == TokenType::BAEYEOL || type == TokenType::MUNJA;
@@ -2551,6 +2578,10 @@ bool Parser::readParameterName(std::string& name)
         // "배열 arr": 타입이 붙은 매개변수. 타입은 아직 검사하지 않고 이름만 쓴다.
         if (peekTokenIs(TokenType::IDENTIFIER))
         {
+            if (typeName)
+            {
+                *typeName = curToken_.literal;
+            }
             nextToken();
             name = curToken_.literal;
             return true;
@@ -2578,13 +2609,14 @@ std::vector<Parameter> Parser::parseParameterList()
 
     // 첫 번째 매개변수
     std::string name;
-    if (!readParameterName(name))
+    std::string typeName;
+    if (!readParameterName(name, &typeName))
     {
         return parameters;
     }
 
-    // 현재는 타입 없이 이름만 사용
-    parameters.emplace_back("", name);
+    // 타입은 아직 검사하지 않고 표기만 남긴다
+    parameters.emplace_back(typeName, name);
 
     // 나머지 매개변수들
     while (peekTokenIs(TokenType::COMMA))
@@ -2592,12 +2624,12 @@ std::vector<Parameter> Parser::parseParameterList()
         nextToken();  // COMMA로 이동
         nextToken();  // 다음 매개변수로 이동
 
-        if (!readParameterName(name))
+        if (!readParameterName(name, &typeName))
         {
             return parameters;
         }
 
-        parameters.emplace_back("", name);
+        parameters.emplace_back(typeName, name);
     }
 
     // RPAREN 확인

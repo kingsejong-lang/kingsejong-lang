@@ -179,6 +179,13 @@ class Expression : public Node
 {
 public:
     virtual ~Expression() = default;
+
+    /// 소스에서 괄호로 감싸여 있었는지. 의미에는 영향이 없고, 포매터가 원래 괄호를 남기는 데 쓴다
+    bool parenthesized() const { return parenthesized_; }
+    void setParenthesized(bool value) { parenthesized_ = value; }
+
+private:
+    bool parenthesized_ = false;
 };
 
 /**

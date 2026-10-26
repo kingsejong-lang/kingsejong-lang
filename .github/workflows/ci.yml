@@ -91,6 +91,8 @@ jobs:
   memory-check:
     name: Memory Safety (Valgrind)
     runs-on: ubuntu-latest
+    # 정상 실행은 15분 안에 끝난다. 러너가 멈추면 기본 6시간 대신 여기서 끊는다.
+    timeout-minutes: 45
 
     steps:
     - name: Checkout code

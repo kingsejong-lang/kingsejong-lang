@@ -161,7 +161,7 @@ private:
      * @brief Symbol Table 구축과 이름 해석을 동시에 수행
      * @param program 프로그램 AST
      *
-     * 기존 buildSymbolTable + resolveNames를 통합하여
+     * 심볼 등록과 이름 해석을 한 번의 순회에서 하여
      * Scope를 일관되게 관리하고 변수 스코프 격리를 올바르게 구현
      */
     void analyzeAndResolve(ast::Program* program);
@@ -183,51 +183,6 @@ private:
      * 모든 식별자가 정의된 심볼인지 확인
      */
     void analyzeAndResolveExpression(const ast::Expression* expr);
-
-    // ========================================================================
-    // Phase 1: Symbol Table 구축 (레거시 - 참조용)
-    // ========================================================================
-
-    /**
-     * @brief Symbol Table 구축 (DEPRECATED - analyzeAndResolve 사용)
-     * @param program 프로그램 AST
-     */
-    void buildSymbolTable(ast::Program* program);
-
-    /**
-     * @brief Statement를 분석하여 심볼 등록
-     */
-    void registerSymbolFromStatement(const ast::Statement* stmt);
-
-    /**
-     * @brief 변수 선언 등록
-     */
-    void registerVariable(ast::VarDeclaration* varDecl);
-
-    /**
-     * @brief 함수 선언 등록
-     */
-    void registerFunction(const std::string& name, ast::FunctionLiteral* funcLit);
-
-    // ========================================================================
-    // Phase 2: 이름 해석 (레거시 - 참조용)
-    // ========================================================================
-
-    /**
-     * @brief 이름 해석 (DEPRECATED - analyzeAndResolve 사용)
-     * @param program 프로그램 AST
-     */
-    void resolveNames(ast::Program* program);
-
-    /**
-     * @brief Statement의 이름 해석
-     */
-    void resolveNamesInStatement(const ast::Statement* stmt);
-
-    /**
-     * @brief Expression의 이름 해석
-     */
-    void resolveNamesInExpression(const ast::Expression* expr);
 
     // ========================================================================
     // Phase 3: 타입 검사 (Type Checking)

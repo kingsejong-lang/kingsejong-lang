@@ -7,6 +7,7 @@
 
 #include "linter/rules/UnusedVariableRule.h"
 #include "linter/Linter.h"
+#include "lexer/JosaRecognizer.h"
 
 namespace kingsejong {
 namespace linter {
@@ -40,7 +41,7 @@ void UnusedVariableRule::analyze(Program* program)
             !varName.empty() && varName[0] != '_')
         {
             reportIssue(
-                "변수 '" + varName + "'이(가) 선언되었지만 사용되지 않습니다",
+                "변수 '" + varName + "'" + lexer::JosaRecognizer::selectOrBoth(varName, lexer::JosaRecognizer::JosaType::I_GA) + " 선언되었지만 사용되지 않습니다",
                 IssueSeverity::WARNING,
                 decl->location().line,
                 decl->location().column

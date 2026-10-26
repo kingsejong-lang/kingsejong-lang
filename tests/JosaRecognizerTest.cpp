@@ -222,3 +222,31 @@ TEST_F(JosaRecognizerTest, ShouldConvertJosaTypeToString)
     EXPECT_EQ(JosaRecognizer::josaTypeToString(JosaRecognizer::JosaType::ESO), "ESO");
     EXPECT_EQ(JosaRecognizer::josaTypeToString(JosaRecognizer::JosaType::E), "E");
 }
+
+/**
+ * @brief 메시지에 넣을 이름 뒤 조사 선택 테스트
+ */
+TEST_F(JosaRecognizerTest, ShouldSelectJosaForNamesInMessages)
+{
+    using JT = JosaRecognizer::JosaType;
+
+    // 한글로 끝나면 받침으로 고른다
+    EXPECT_EQ(JosaRecognizer::selectOrBoth("자신", JT::EUL_REUL), "을");
+    EXPECT_EQ(JosaRecognizer::selectOrBoth("사과", JT::EUL_REUL), "를");
+    EXPECT_EQ(JosaRecognizer::selectOrBoth("사용안함", JT::I_GA), "이");
+    EXPECT_EQ(JosaRecognizer::selectOrBoth("_길", JT::RO_EURO), "로");
+
+    // 숫자로 끝나면 한국어로 읽은 소리로 고른다 (이, 사 / 일, 영, 칠)
+    EXPECT_EQ(JosaRecognizer::selectOrBoth("42", JT::EUL_REUL), "를");
+    EXPECT_EQ(JosaRecognizer::selectOrBoth("3.14", JT::EUL_REUL), "를");
+    EXPECT_EQ(JosaRecognizer::selectOrBoth("100", JT::EUL_REUL), "을");
+    EXPECT_EQ(JosaRecognizer::selectOrBoth("7", JT::RO_EURO), "로");
+    EXPECT_EQ(JosaRecognizer::selectOrBoth("3", JT::RO_EURO), "으로");
+
+    // 영문·기호로 끝나면 읽는 법을 정할 수 없어 두 형태를 함께 쓴다
+    EXPECT_EQ(JosaRecognizer::selectOrBoth("x", JT::EUL_REUL), "을(를)");
+    EXPECT_EQ(JosaRecognizer::selectOrBoth("name", JT::I_GA), "이(가)");
+    EXPECT_EQ(JosaRecognizer::selectOrBoth("myVar", JT::EUN_NEUN), "은(는)");
+    EXPECT_EQ(JosaRecognizer::selectOrBoth("_x", JT::RO_EURO), "(으)로");
+    EXPECT_EQ(JosaRecognizer::selectOrBoth("", JT::I_GA), "이(가)");
+}

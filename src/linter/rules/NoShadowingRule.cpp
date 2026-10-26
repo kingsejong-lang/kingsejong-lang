@@ -7,6 +7,7 @@
 
 #include "linter/rules/NoShadowingRule.h"
 #include "linter/Linter.h"
+#include "lexer/JosaRecognizer.h"
 
 namespace kingsejong {
 namespace linter {
@@ -45,7 +46,7 @@ void NoShadowingRule::onVarDeclaration(VarDeclaration* stmt)
     if (outerDecl)
     {
         reportIssue(
-            "변수 '" + varName + "'이(가) 외부 스코프의 변수를 가립니다 "
+            "변수 '" + varName + "'" + lexer::JosaRecognizer::selectOrBoth(varName, lexer::JosaRecognizer::JosaType::I_GA) + " 외부 스코프의 변수를 가립니다 "
             "(외부 정의: " + std::to_string(outerDecl->location().line) + "줄)",
             IssueSeverity::WARNING,
             stmt->location().line,
@@ -57,7 +58,7 @@ void NoShadowingRule::onVarDeclaration(VarDeclaration* stmt)
     if (isParameterInOuterScopes(varName))
     {
         reportIssue(
-            "변수 '" + varName + "'이(가) 외부 함수의 매개변수를 가립니다",
+            "변수 '" + varName + "'" + lexer::JosaRecognizer::selectOrBoth(varName, lexer::JosaRecognizer::JosaType::I_GA) + " 외부 함수의 매개변수를 가립니다",
             IssueSeverity::WARNING,
             stmt->location().line,
             stmt->location().column
@@ -134,7 +135,7 @@ void NoShadowingRule::onRangeForStatement(RangeForStatement* stmt)
     if (outerDecl)
     {
         reportIssue(
-            "반복 변수 '" + loopVar + "'이(가) 외부 스코프의 변수를 가립니다 "
+            "반복 변수 '" + loopVar + "'" + lexer::JosaRecognizer::selectOrBoth(loopVar, lexer::JosaRecognizer::JosaType::I_GA) + " 외부 스코프의 변수를 가립니다 "
             "(외부 정의: " + std::to_string(outerDecl->location().line) + "줄)",
             IssueSeverity::WARNING,
             stmt->location().line,

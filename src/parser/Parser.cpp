@@ -8,6 +8,7 @@
 #include "Parser.h"
 #include <cctype>
 #include "types/Type.h"
+#include "lexer/JosaRecognizer.h"
 #include <stdexcept>
 #include <iostream>
 
@@ -1324,7 +1325,7 @@ std::unique_ptr<Expression> Parser::parseIntegerLiteral()
     }
     catch (const std::exception&)
     {
-        recordError("'" + curToken_.literal + "'을(를) 정수로 변환할 수 없습니다.", curToken_.location);
+        recordError("'" + curToken_.literal + "'" + lexer::JosaRecognizer::selectOrBoth(curToken_.literal, lexer::JosaRecognizer::JosaType::EUL_REUL) + " 정수로 변환할 수 없습니다.", curToken_.location);
         return nullptr;
     }
 }
@@ -1340,7 +1341,7 @@ std::unique_ptr<Expression> Parser::parseFloatLiteral()
     }
     catch (const std::exception&)
     {
-        recordError("'" + curToken_.literal + "'을(를) 실수로 변환할 수 없습니다.", curToken_.location);
+        recordError("'" + curToken_.literal + "'" + lexer::JosaRecognizer::selectOrBoth(curToken_.literal, lexer::JosaRecognizer::JosaType::EUL_REUL) + " 실수로 변환할 수 없습니다.", curToken_.location);
         return nullptr;
     }
 }

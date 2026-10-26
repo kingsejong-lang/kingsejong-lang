@@ -15,7 +15,7 @@ namespace {
 
 uint16_t toU16(size_t value, const char* what) {
     if (value > 0xFFFF) {
-        throw std::runtime_error(std::string(what) + " 이(가) 65535 를 넘습니다");
+        throw std::runtime_error(std::string(what) + lexer::JosaRecognizer::selectOrBoth(what, lexer::JosaRecognizer::JosaType::I_GA) + " 65535 를 넘습니다");
     }
     return static_cast<uint16_t>(value);
 }

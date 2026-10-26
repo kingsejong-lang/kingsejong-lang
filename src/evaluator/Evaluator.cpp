@@ -11,6 +11,7 @@
 #include "../error/Error.h"
 #include "../module/ModuleLoader.h"
 #include "jit/HotPathDetector.h"
+#include "lexer/JosaRecognizer.h"
 #include <sstream>
 #include <cmath>
 #include <algorithm>
@@ -340,7 +341,7 @@ Value Evaluator::lookupName(const Environment& env, const std::string& name)
 
     // 3. 정의되지 않음
     throw error::NameError(
-        "정의되지 않은 변수 '" + name + "'를 사용하려고 합니다.\n" +
+        "정의되지 않은 변수 '" + name + "'" + lexer::JosaRecognizer::selectOrBoth(name, lexer::JosaRecognizer::JosaType::EUL_REUL) + " 사용하려고 합니다.\n" +
         "해결 방법: 변수를 먼저 선언하세요. 예: 정수 " + name + " = 값"
     );
 }
@@ -2349,7 +2350,7 @@ Value Evaluator::applyJosaMethod(const Value& object, lexer::JosaRecognizer::Jos
 
     // 메서드를 찾을 수 없음
     throw error::NameError(
-        "배열에 대한 메서드 '" + name + "'를 찾을 수 없습니다.\n" +
+        "배열에 대한 메서드 '" + name + "'" + lexer::JosaRecognizer::selectOrBoth(name, lexer::JosaRecognizer::JosaType::EUL_REUL) + " 찾을 수 없습니다.\n" +
         "해결 방법: 지원되는 메서드는 '정렬한다', '역순으로_나열한다', '걸러낸다', '변환한다' 등입니다."
     );
 }

@@ -8,6 +8,7 @@
 #include "NamingConventionRule.h"
 #include "linter/Linter.h"
 #include "linter/IssueSeverity.h"
+#include "lexer/JosaRecognizer.h"
 #include <cctype>
 #include <algorithm>
 
@@ -40,7 +41,7 @@ void NamingConventionRule::onVarDeclaration(ast::VarDeclaration* stmt)
         if (!isUpperSnakeCase(name))
         {
             reportIssue(
-                "상수 변수 '" + name + "'는 UPPER_SNAKE_CASE를 권장합니다 (예: MY_CONSTANT)",
+                "상수 변수 '" + name + "'" + lexer::JosaRecognizer::selectOrBoth(name, lexer::JosaRecognizer::JosaType::EUN_NEUN) + " UPPER_SNAKE_CASE를 권장합니다 (예: MY_CONSTANT)",
                 IssueSeverity::WARNING
             );
         }
@@ -51,7 +52,7 @@ void NamingConventionRule::onVarDeclaration(ast::VarDeclaration* stmt)
     if (!isSnakeCase(name) && !isCamelCase(name))
     {
         reportIssue(
-            "변수명 '" + name + "'는 snake_case 또는 camelCase를 권장합니다 (예: my_variable, myVariable)",
+            "변수명 '" + name + "'" + lexer::JosaRecognizer::selectOrBoth(name, lexer::JosaRecognizer::JosaType::EUN_NEUN) + " snake_case 또는 camelCase를 권장합니다 (예: my_variable, myVariable)",
             IssueSeverity::WARNING
         );
     }

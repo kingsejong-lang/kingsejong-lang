@@ -334,7 +334,7 @@ kingsejong lint myfile.ksj
 
 ```
 myfile.ksj:3:9: 경고 [no-self-comparison]: 변수를 자기 자신과 비교하고 있습니다 (항상 같은 결과)
-myfile.ksj:2:1: 경고 [unused-variable]: 변수 '사용안함'이(가) 선언되었지만 사용되지 않습니다
+myfile.ksj:2:1: 경고 [unused-variable]: 변수 '사용안함'이 선언되었지만 사용되지 않습니다
 검사 완료: 파일 1개, 오류 0개, 경고 2개
 ```
 

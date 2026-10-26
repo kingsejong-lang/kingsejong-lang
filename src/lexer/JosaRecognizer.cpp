@@ -123,6 +123,30 @@ bool JosaRecognizer::hasRieulFinal(const std::string& word)
     return jongseong == 8;
 }
 
+std::string JosaRecognizer::selectOrBoth(const std::string& noun, JosaType type)
+{
+    if (noun.length() >= 3 && getFinalConsonantIndex(noun.substr(noun.length() - 3)) >= 0)
+    {
+        return select(noun, type);
+    }
+
+    // 숫자는 한국어로 읽은 마지막 소리로 고른다 (10, 100 처럼 0 으로 끝나도 십·백·천·만 모두 받침이 있다)
+    if (!noun.empty() && noun.back() >= '0' && noun.back() <= '9')
+    {
+        static const char* const readings[] = {"영", "일", "이", "삼", "사", "오", "육", "칠", "팔", "구"};
+        return select(readings[noun.back() - '0'], type);
+    }
+
+    switch (type)
+    {
+        case JosaType::EUL_REUL: return "을(를)";
+        case JosaType::I_GA:     return "이(가)";
+        case JosaType::EUN_NEUN: return "은(는)";
+        case JosaType::RO_EURO:  return "(으)로";
+        default:                 return select(noun, type);
+    }
+}
+
 std::string JosaRecognizer::select(const std::string& noun, JosaType type)
 {
     bool hasFinal = hasFinalConsonant(noun);

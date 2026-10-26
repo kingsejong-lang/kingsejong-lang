@@ -74,6 +74,7 @@ public:
         , inAsyncFunction_(false)
         , currentFunctionName_("")
         , expectedReturnType_(nullptr)
+        , classMemberDepth_(0)
     {
         initBuiltinFunctions();
     }
@@ -136,6 +137,7 @@ private:
     bool inAsyncFunction_;                        ///< 현재 비동기 함수 내부인지 여부 (Phase 7.3)
     std::string currentFunctionName_;             ///< 현재 분석 중인 함수 이름
     types::Type* expectedReturnType_;             ///< 함수의 첫 return문에서 추론된 타입
+    int classMemberDepth_;                        ///< 분석 중인 메서드·생성자 본문의 깊이 (0 이면 밖)
 
     // ========================================================================
     // Builtin 함수 초기화

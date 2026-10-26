@@ -7,6 +7,7 @@
 
 #include <gtest/gtest.h>
 #include "evaluator/Evaluator.h"
+#include "evaluator/Builtin.h"
 #include "parser/Parser.h"
 #include "lexer/Lexer.h"
 
@@ -718,6 +719,8 @@ TEST(EvaluatorTest, ShouldRejectUnknownSuperClass)
  */
 TEST(EvaluatorTest, ShouldCallParentConstructorAndMethodsWithSuper)
 {
+    // 아래 프로그램은 내장 함수 문자열() 을 쓴다. ctest 는 테스트마다 프로세스를 따로 띄우므로 직접 등록한다
+    evaluator::Builtin::registerAllBuiltins();
     auto result = evalInput(R"KSJ(
         클래스 동물 {
             공개 문자열 이름

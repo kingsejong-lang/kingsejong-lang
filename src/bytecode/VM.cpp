@@ -365,13 +365,13 @@ VM::Step VM::executeInstruction() {
         case OpCode::RANGE_FOR_NEXT: {
             const std::string& name = readName();
             uint16_t exit = readShort();
-            bool inclusive = readByte() != 0;
+            uint8_t mode = readByte();  // 0 미만, 1 까지, 2 거꾸로(이상)
             int64_t i = peek(0).asInteger();
             int64_t end = peek(1).asInteger();
-            bool inRange = inclusive ? (i <= end) : (i < end);
+            bool inRange = mode == 2 ? (i >= end) : mode == 1 ? (i <= end) : (i < end);
             if (inRange) {
                 env_->set(name, Value::createInteger(i));
-                stack_.back() = Value::createInteger(i + 1);
+                stack_.back() = Value::createInteger(mode == 2 ? i - 1 : i + 1);
             } else {
                 pop();
                 pop();

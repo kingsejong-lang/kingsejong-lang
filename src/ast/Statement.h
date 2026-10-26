@@ -465,6 +465,7 @@ private:
     bool endInclusive_;                         ///< 끝 값 포함 여부 (까지=true, 미만=false)
     std::string endWord_;                       ///< 원래 쓴 끝 키워드 (까지/미만/이하/이상)
     std::string loopWord_;                      ///< 원래 쓴 반복 키워드 (없음/반복/반복한다/반복 하라)
+    bool descending_ = false;                   ///< "이상" 으로 끝나 끝 값까지 거꾸로 세는지
 
 public:
     RangeForStatement(
@@ -502,6 +503,10 @@ public:
     void setEndWord(const std::string& word) { endWord_ = word; }
     const std::string& loopWord() const { return loopWord_; }
     void setLoopWord(const std::string& word) { loopWord_ = word; }
+
+    /// "i가 10부터 1 이상" 처럼 끝 값 이상인 동안 1씩 줄이며 도는지
+    bool descending() const { return descending_; }
+    void setDescending(bool value) { descending_ = value; }
 };
 
 /**

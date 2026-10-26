@@ -662,7 +662,17 @@ void SemanticAnalyzer::analyzeAndResolveExpression(const Expression* expr)
         {
             auto index = static_cast<const IndexExpression*>(expr);
             analyzeAndResolveExpression(index->array());
-            analyzeAndResolveExpression(index->index());
+            // 범위 식은 인덱스 자리(배열[1부터 3까지])에서만 값이 된다
+            if (auto range = node_cast<RangeExpression>(index->index()))
+            {
+                analyzeAndResolveExpression(range->start());
+                analyzeAndResolveExpression(range->end());
+                analyzeAndResolveExpression(range->step());
+            }
+            else
+            {
+                analyzeAndResolveExpression(index->index());
+            }
             break;
         }
         // 배열 리터럴: 각 요소 분석
@@ -686,12 +696,15 @@ void SemanticAnalyzer::analyzeAndResolveExpression(const Expression* expr)
             }
             break;
         }
-        // Range 표현식: start, end 분석
+        // Range 표현식: 인덱스 밖에서는 평가기·VM 모두 값으로 만들지 못하므로 여기서 알린다
         case NodeType::RANGE_EXPRESSION:
         {
             auto range = static_cast<const RangeExpression*>(expr);
             analyzeAndResolveExpression(range->start());
             analyzeAndResolveExpression(range->end());
+            addError("범위 식은 배열 인덱스 안(예: 배열[1부터 3까지])에서만 쓸 수 있습니다. "
+                     "반복하려면 'i가 1부터 3까지 { ... }' 를 쓰세요",
+                     expr->location().line, expr->location().column);
             break;
         }
         // Phase 7.1: 객체 생성 표현식

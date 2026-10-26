@@ -193,7 +193,7 @@ void Compiler::compileRangeForStatement(ast::RangeForStatement* stmt) {
     emit16(nameIndex(stmt->varName()));
     size_t exitOperand = currentOffset();
     emit16(0);
-    emitByte(stmt->endInclusive() ? 1 : 0);
+    emitByte(stmt->descending() ? 2 : (stmt->endInclusive() ? 1 : 0));  // 0 미만, 1 까지, 2 거꾸로(이상)
     compileBlock(stmt->body());
     emitLoop(loopStart);
     patchJump(exitOperand, 1);  // 탈출 오프셋 뒤에 끝포함 플래그 1바이트가 더 있다

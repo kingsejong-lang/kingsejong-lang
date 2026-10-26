@@ -334,3 +334,26 @@ TEST(NameResolutionTest, ShouldDetectMultipleUndefinedVariables)
     EXPECT_FALSE(result);  // x, y, z 모두 정의되지 않음
     EXPECT_GE(analyzer.errors().size(), 3);  // 최소 3개 에러
 }
+
+/**
+ * @test 인덱스 밖의 범위 식은 의미 분석에서 알린다 (평가기·VM 모두 값으로 만들지 못한다)
+ */
+TEST(NameResolutionTest, ShouldRejectRangeOutsideIndex)
+{
+    // 다음 줄의 식별자를 step 으로 읽지 않아야 파싱이 끝까지 간다
+    Lexer lexer("r = 1부터 3까지\n출력(r)\n");
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_TRUE(parser.errors().empty()) << parser.errors()[0];
+
+    SemanticAnalyzer analyzer;
+    EXPECT_FALSE(analyzer.analyze(program.get()));
+    ASSERT_FALSE(analyzer.errors().empty());
+    EXPECT_NE(analyzer.errors()[0].message.find("배열 인덱스 안"), std::string::npos);
+
+    Lexer okLexer("배열 = [1, 2, 3, 4]\n출력(배열[1부터 2까지], 배열[0부터 4까지 2씩])\n");
+    Parser okParser(okLexer);
+    auto okProgram = okParser.parseProgram();
+    SemanticAnalyzer okAnalyzer;
+    EXPECT_TRUE(okAnalyzer.analyze(okProgram.get()));
+}

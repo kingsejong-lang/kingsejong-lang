@@ -283,6 +283,7 @@ class IfStatement : public Statement
 {
 private:
     bool elseIf_ = false;  ///< "아니면 만약" 으로 썼는지
+    bool conditionParenthesized_ = true;  ///< "만약 (조건)" 처럼 조건을 괄호로 감쌌는지
     std::unique_ptr<Expression> condition_;
     std::unique_ptr<BlockStatement> thenBranch_;
     std::unique_ptr<BlockStatement> elseBranch_;  ///< optional
@@ -321,6 +322,10 @@ public:
     /// "아니면 만약" 으로 쓴 else-if 인지 (포매터가 원래 형태를 지키는 데 쓴다)
     bool elseIf() const { return elseIf_; }
     void setElseIf(bool value) { elseIf_ = value; }
+
+    /// 조건을 괄호로 감싸 썼는지 (포매터가 원래 형태를 지키는 데 쓴다)
+    bool conditionParenthesized() const { return conditionParenthesized_; }
+    void setConditionParenthesized(bool value) { conditionParenthesized_ = value; }
 };
 
 /**
@@ -337,6 +342,7 @@ class WhileStatement : public Statement
 private:
     std::unique_ptr<Expression> condition_;
     std::unique_ptr<BlockStatement> body_;
+    std::string keyword_ = "반복";  ///< 원래 쓴 키워드 ("반복" 또는 "동안")
 
 public:
     WhileStatement(
@@ -357,6 +363,10 @@ public:
 
     const Expression* condition() const { return condition_.get(); }
     const BlockStatement* body() const { return body_.get(); }
+
+    /// 원래 쓴 키워드 (포매터가 원래 형태를 지키는 데 쓴다)
+    const std::string& keyword() const { return keyword_; }
+    void setKeyword(const std::string& keyword) { keyword_ = keyword; }
 };
 
 /**
@@ -453,6 +463,8 @@ private:
     std::unique_ptr<Expression> end_;           ///< 끝 값 표현식
     std::unique_ptr<BlockStatement> body_;      ///< 반복 본문
     bool endInclusive_;                         ///< 끝 값 포함 여부 (까지=true, 미만=false)
+    std::string endWord_;                       ///< 원래 쓴 끝 키워드 (까지/미만/이하/이상)
+    std::string loopWord_;                      ///< 원래 쓴 반복 키워드 (없음/반복/반복한다/반복 하라)
 
 public:
     RangeForStatement(
@@ -467,6 +479,7 @@ public:
         , end_(std::move(end))
         , body_(std::move(body))
         , endInclusive_(endInclusive)
+        , endWord_(endInclusive ? "까지" : "미만")
     {}
 
     static constexpr NodeType kType = NodeType::RANGE_FOR_STATEMENT;
@@ -483,6 +496,12 @@ public:
     const Expression* end() const { return end_.get(); }
     const BlockStatement* body() const { return body_.get(); }
     bool endInclusive() const { return endInclusive_; }
+
+    /// 원래 쓴 끝 키워드와 반복 키워드 (포매터가 원래 형태를 지키는 데 쓴다)
+    const std::string& endWord() const { return endWord_; }
+    void setEndWord(const std::string& word) { endWord_ = word; }
+    const std::string& loopWord() const { return loopWord_; }
+    void setLoopWord(const std::string& word) { loopWord_ = word; }
 };
 
 /**

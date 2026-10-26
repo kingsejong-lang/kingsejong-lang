@@ -24,6 +24,8 @@ using namespace kingsejong;
  */
 static evaluator::Value evalInput(const std::string& input)
 {
+    // ctest 는 테스트마다 따로 실행하므로 다른 테스트가 등록해 둔 내장 함수에 기대지 않는다
+    evaluator::Builtin::registerAllBuiltins();
     lexer::Lexer lexer(input);
     parser::Parser parser(lexer);
     auto program = parser.parseProgram();
@@ -770,7 +772,6 @@ TEST(EvaluatorTest, ShouldRejectSuperOutsideSubclass)
 
 TEST(EvaluatorTest, ShouldCountDownWhenRangeEndsWithIsang)
 {
-    evaluator::Builtin::registerAllBuiltins();  // 길이() — ctest 는 테스트마다 따로 실행한다
     auto digits = evalInput(
         "자리 = 0\n"
         "i가 3부터 1 이상 {\n자리 = 자리 * 10 + i\n}\n"
@@ -803,4 +804,18 @@ TEST(EvaluatorTest, ShouldEvaluateConditionsThatStartWithParentheses)
         "반복 (x < 10) && (x != 3) {\nx = x + 1\n}\n"
         "x");
     EXPECT_EQ(whileResult.asInteger(), 3);
+}
+
+// ============================================================================
+// 이항 연산자 오른쪽의 조사식
+// ============================================================================
+
+TEST(EvaluatorTest, ShouldNotLetJosaExpressionTakeWeakerOperatorsOfItsParent)
+{
+    // "10 - x를 정수로 변환한다 - 3" 은 (10 - 5) - 3 이다. 조사식이 "- 3" 을 가져가면 10 - (5 - 3) = 8 이 된다
+    EXPECT_EQ(evalInput("x = \"5\"\n10 - x를 정수로 변환한다 - 3").asInteger(), 2);
+    // 더 센 연산자는 조사식 결과에 붙는다: 1 + (5 * 2)
+    EXPECT_EQ(evalInput("x = \"5\"\n1 + x를 정수로 변환한다 * 2").asInteger(), 11);
+    // 문장 수준에서는 그대로: (5 - 3)
+    EXPECT_EQ(evalInput("x = \"5\"\nx를 정수로 변환한다 - 3").asInteger(), 2);
 }

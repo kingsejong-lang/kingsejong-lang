@@ -598,6 +598,13 @@ TEST(FormatterSourceTest, ShouldKeepNestedParentheses)
     EXPECT_EQ(formatChecked(code), code);
 }
 
+TEST(FormatterSourceTest, ShouldNotAddParenthesesAroundJosaOperands)
+{
+    // 조사식이 바깥 연산자의 오른쪽 식을 끌어가지 않으므로 괄호를 더하지 않는다
+    std::string code = "출력(\"[\" + i를 문자열로 변환한다 + \"]\")\n출력(10 - x를 정수로 변환한다 - 3)\n";
+    EXPECT_EQ(formatChecked(code), code);
+}
+
 TEST(FormatterSourceTest, ShouldFormatPreviouslyUnsupportedSyntax)
 {
     std::string code =

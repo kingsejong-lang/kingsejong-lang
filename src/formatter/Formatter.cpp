@@ -568,10 +568,20 @@ void Formatter::formatIfStatement(const IfStatement* stmt)
     const IfStatement* current = stmt;
     while (true)
     {
+        // 조건 괄호는 원래 쓴 대로 둔다 ("만약 (x > 0)" / "만약 x > 0")
         write("만약");
-        write(options_.spaceBeforeBrace ? " (" : "(");
-        formatExpression(current->condition());
-        write(options_.spaceBeforeBrace ? ") " : ")");
+        if (current->conditionParenthesized())
+        {
+            write(options_.spaceBeforeBrace ? " (" : "(");
+            formatExpression(current->condition());
+            write(options_.spaceBeforeBrace ? ") " : ")");
+        }
+        else
+        {
+            write(" ");
+            formatExpression(current->condition());
+            write(options_.spaceBeforeBrace ? " " : "");
+        }
         formatBlockBody(current->thenBranch());
 
         const BlockStatement* elseBlock = current->elseBranch();
@@ -600,7 +610,7 @@ void Formatter::formatIfStatement(const IfStatement* stmt)
 void Formatter::formatWhileStatement(const WhileStatement* stmt)
 {
     writeIndent();
-    write("반복");
+    write(stmt->keyword());
     write(options_.spaceBeforeBrace ? " (" : "(");
     formatExpression(stmt->condition());
     write(options_.spaceBeforeBrace ? ") " : ")");
@@ -610,14 +620,19 @@ void Formatter::formatWhileStatement(const WhileStatement* stmt)
 
 void Formatter::formatRangeForStatement(const RangeForStatement* stmt)
 {
-    // i가 1부터 10까지 { ... } / i가 0부터 n 미만 { ... }
+    // i가 1부터 10까지 { ... } / i가 0부터 n 미만 반복한다 { ... }
+    // 끝 키워드와 반복 키워드는 원래 쓴 대로 둔다. "까지" 만 앞 식에 붙여 쓴다.
     writeIndent();
     write(stmt->varName());
     write(endsWithBatchim(stmt->varName()) ? "이 " : "가 ");
     formatOperand(stmt->start(), kRange + 1, false);
     write("부터 ");
     formatOperand(stmt->end(), kRange + 1, false);
-    write(stmt->endInclusive() ? "까지" : " 미만");
+    write(stmt->endWord() == "까지" ? "까지" : " " + stmt->endWord());
+    if (!stmt->loopWord().empty())
+    {
+        write(" " + stmt->loopWord());
+    }
     write(options_.spaceBeforeBrace ? " " : "");
     formatBlockBody(stmt->body());
     writeLine();
@@ -1031,11 +1046,11 @@ void Formatter::formatJosaExpression(const JosaExpression* expr)
 
 void Formatter::formatRangeExpression(const RangeExpression* expr)
 {
-    // 2부터 5까지, 0초과 10미만, 1부터 9까지 2씩
+    // 2부터 5까지, 0초과 10미만, 1 이상 9 이하, 1부터 9까지 2씩 (키워드는 원래 쓴 대로)
     formatOperand(expr->start(), kRange + 1, false);
-    write(expr->startInclusive() ? "부터 " : "초과 ");
+    write(expr->startWord() == "이상" ? " 이상 " : expr->startWord() + " ");
     formatOperand(expr->end(), kRange + 1, false);
-    write(expr->endInclusive() ? "까지" : "미만");
+    write(expr->endWord() == "이상" || expr->endWord() == "이하" ? " " + expr->endWord() : expr->endWord());
     if (expr->hasStep())
     {
         write(" ");
@@ -1191,6 +1206,7 @@ public:
             {
                 auto& r = static_cast<RangeExpression&>(node);
                 out += std::string(r.startInclusive() ? " [" : " (") + (r.endInclusive() ? "]" : ")");
+                out += " " + r.startWord() + " " + r.endWord();
                 break;
             }
             case NodeType::MEMBER_ACCESS_EXPRESSION:
@@ -1223,6 +1239,7 @@ public:
             {
                 auto& r = static_cast<RangeForStatement&>(node);
                 out += " " + r.varName() + (r.endInclusive() ? " ]" : " )");
+                out += " " + r.endWord() + " " + r.loopWord();
                 break;
             }
             case NodeType::IMPORT_STATEMENT:
@@ -1236,7 +1253,14 @@ public:
                 break;
             }
             case NodeType::IF_STATEMENT:
-                out += static_cast<IfStatement&>(node).elseBranch() ? " else" : "";
+            {
+                auto& i = static_cast<IfStatement&>(node);
+                out += i.elseBranch() ? " else" : "";
+                out += i.conditionParenthesized() ? " ()" : "";
+                break;
+            }
+            case NodeType::WHILE_STATEMENT:
+                out += " " + static_cast<WhileStatement&>(node).keyword();
                 break;
             case NodeType::CLASS_STATEMENT:
             {

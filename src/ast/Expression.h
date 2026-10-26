@@ -373,6 +373,8 @@ private:
     bool startInclusive_;                   ///< 시작 값 포함 여부
     bool endInclusive_;                     ///< 끝 값 포함 여부
     std::unique_ptr<Expression> step_;      ///< 스텝 값 (Phase 7.2)
+    std::string startWord_;                 ///< 원래 쓴 시작 키워드 (부터/초과/이상)
+    std::string endWord_;                   ///< 원래 쓴 끝 키워드 (까지/미만/이하/이상)
 
 public:
     RangeExpression(
@@ -387,6 +389,8 @@ public:
         , startInclusive_(startInclusive)
         , endInclusive_(endInclusive)
         , step_(std::move(step))
+        , startWord_(startInclusive ? "부터" : "초과")
+        , endWord_(endInclusive ? "까지" : "미만")
     {}
 
     static constexpr NodeType kType = NodeType::RANGE_EXPRESSION;
@@ -409,6 +413,15 @@ public:
     bool startInclusive() const { return startInclusive_; }
     bool endInclusive() const { return endInclusive_; }
     const Expression* step() const { return step_.get(); }  // Phase 7.2
+
+    /// 원래 쓴 시작·끝 키워드 (포매터가 원래 형태를 지키는 데 쓴다)
+    const std::string& startWord() const { return startWord_; }
+    const std::string& endWord() const { return endWord_; }
+    void setWords(const std::string& startWord, const std::string& endWord)
+    {
+        startWord_ = startWord;
+        endWord_ = endWord;
+    }
 
     /// 파서가 범위 반복문으로 다시 조립할 때 쓴다. 호출 뒤 이 노드는 비어 있다.
     std::unique_ptr<Expression> releaseStart() { return std::move(start_); }

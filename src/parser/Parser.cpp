@@ -560,23 +560,13 @@ std::unique_ptr<Statement> Parser::parseStatement()
         {
             std::string varName = loopVar->name();
             bool endInclusive = range->endInclusive();
+            std::string endWord = range->endWord();
             auto method = josa->releaseMethod();
             auto* rangeNode = static_cast<RangeExpression*>(method.get());
             auto start = rangeNode->releaseStart();
             auto end = rangeNode->releaseEnd();
 
-            if (peekTokenIs(TokenType::BANBOKHANDA))
-            {
-                nextToken();
-            }
-            else if (peekTokenIs(TokenType::BANBOKK))
-            {
-                nextToken();
-                if (peekTokenIs(TokenType::HARA))
-                {
-                    nextToken();
-                }
-            }
+            std::string loopWord = parseOptionalLoopWord();
             if (!expectPeek(TokenType::LBRACE))
             {
                 return nullptr;
@@ -585,6 +575,8 @@ std::unique_ptr<Statement> Parser::parseStatement()
             auto loop = std::make_unique<RangeForStatement>(varName, std::move(start), std::move(end),
                                                             std::move(body), endInclusive);
             loop->setLocation(startLoc);
+            loop->setEndWord(endWord);
+            loop->setLoopWord(loopWord);
             return loop;
         }
     }
@@ -855,12 +847,14 @@ std::unique_ptr<IfStatement> Parser::parseIfStatement()
     );
     stmt->setLocation(startLoc);
     stmt->setElseIf(elseIf);
+    stmt->setConditionParenthesized(hasParentheses);
     return stmt;
 }
 
 std::unique_ptr<WhileStatement> Parser::parseWhileStatement()
 {
     auto startLoc = curToken_.location;  // "반복" 또는 "동안" 위치
+    std::string keyword = curToken_.literal;
 
     if (!expectPeek(TokenType::LPAREN))
     {
@@ -883,6 +877,7 @@ std::unique_ptr<WhileStatement> Parser::parseWhileStatement()
 
     auto stmt = std::make_unique<WhileStatement>(std::move(condition), std::move(body));
     stmt->setLocation(startLoc);
+    stmt->setKeyword(keyword);
     return stmt;
 }
 
@@ -931,6 +926,30 @@ std::unique_ptr<RepeatStatement> Parser::parseRepeatStatement()
     return stmt;
 }
 
+std::string Parser::parseOptionalLoopWord()
+{
+    // 범위 반복문 끝의 선택 키워드: "반복한다", "반복", "반복 하라"
+    if (peekTokenIs(TokenType::BANBOKHANDA))
+    {
+        nextToken(); // "반복한다"로 이동
+        return curToken_.literal;
+    }
+    if (peekTokenIs(TokenType::BANBOKK))
+    {
+        nextToken(); // "반복"으로 이동
+        std::string word = curToken_.literal;
+
+        // "하라" 확인 (선택적)
+        if (peekTokenIs(TokenType::HARA))
+        {
+            nextToken(); // "하라"로 이동
+            word += " " + curToken_.literal;
+        }
+        return word;
+    }
+    return "";
+}
+
 std::unique_ptr<RangeForStatement> Parser::parseRangeForStatement()
 {
     // 범위 for문: "i가 1부터 5까지 반복한다 { ... }"
@@ -975,6 +994,7 @@ std::unique_ptr<RangeForStatement> Parser::parseRangeForStatement()
 
     nextToken(); // 범위 종료 키워드로 이동
     TokenType endToken = curToken_.type;
+    std::string endWord = curToken_.literal;
 
     // 끝 키워드에 따라 inclusive 결정
     bool endInclusive = true;
@@ -996,20 +1016,7 @@ std::unique_ptr<RangeForStatement> Parser::parseRangeForStatement()
     }
 
     // "반복한다" 또는 "반복" 확인 (선택적)
-    if (peekTokenIs(TokenType::BANBOKHANDA))
-    {
-        nextToken(); // "반복한다"로 이동
-    }
-    else if (peekTokenIs(TokenType::BANBOKK))
-    {
-        nextToken(); // "반복"으로 이동
-
-        // "하라" 확인 (선택적)
-        if (peekTokenIs(TokenType::HARA))
-        {
-            nextToken(); // "하라"로 이동
-        }
-    }
+    std::string loopWord = parseOptionalLoopWord();
 
     // 본문 블록
     if (!expectPeek(TokenType::LBRACE))
@@ -1027,6 +1034,8 @@ std::unique_ptr<RangeForStatement> Parser::parseRangeForStatement()
         endInclusive
     );
     stmt->setLocation(startLoc);
+    stmt->setEndWord(endWord);
+    stmt->setLoopWord(loopWord);
     return stmt;
 }
 
@@ -1663,6 +1672,7 @@ std::unique_ptr<Expression> Parser::parseRangeExpression(std::unique_ptr<Express
     // left는 시작 값, curToken은 범위 시작 키워드 (BUTEO, CHOGA, ISANG)
 
     TokenType startToken = curToken_.type;
+    std::string startWord = curToken_.literal;
     bool startInclusive = true;
 
     // 시작 키워드에 따라 inclusive 결정
@@ -1701,6 +1711,7 @@ std::unique_ptr<Expression> Parser::parseRangeExpression(std::unique_ptr<Express
     // 끝 키워드에 따라 inclusive 결정
     bool endInclusive = true;
     TokenType endToken = curToken_.type;
+    std::string endWord = curToken_.literal;
 
     if (endToken == TokenType::MIMAN)  // 미만
     {
@@ -1749,6 +1760,7 @@ std::unique_ptr<Expression> Parser::parseRangeExpression(std::unique_ptr<Express
     auto expr = std::make_unique<RangeExpression>(std::move(left), std::move(end),
                                                    startInclusive, endInclusive, std::move(step));
     expr->setLocation(startLoc);
+    expr->setWords(startWord, endWord);
     return expr;
 }
 

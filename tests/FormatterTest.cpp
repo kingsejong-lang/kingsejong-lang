@@ -560,6 +560,26 @@ TEST(FormatterSourceTest, ShouldWriteRealSyntaxForLoopsAndElseIf)
     EXPECT_EQ(formatChecked(code), expected);
 }
 
+TEST(FormatterSourceTest, ShouldKeepTheKeywordsTheAuthorChose)
+{
+    // 같은 뜻의 다른 표기(괄호 없는 조건, 동안, 이하·이상, 선택 키워드 반복)를 바꾸지 않는다
+    std::string code =
+        "만약 x > 0 {\n출력(1)\n} 아니면 만약 (x < 0) {\n출력(2)\n}\n"
+        "동안 (x > 0) {\nx = x - 1\n}\n"
+        "i가 1부터 3 이하 반복 {\n출력(i)\n}\n"
+        "j가 0부터 2까지 반복 하라 {\n출력(j)\n}\n"
+        "k가 0부터 2 미만 반복한다 {\n출력(k)\n}\n"
+        "출력(배열[1 이상 3 이하], 배열[0초과 2미만])\n";
+    std::string expected =
+        "만약 x > 0 {\n    출력(1)\n} 아니면 만약 (x < 0) {\n    출력(2)\n}\n"
+        "동안 (x > 0) {\n    x = x - 1\n}\n"
+        "i가 1부터 3 이하 반복 {\n    출력(i)\n}\n"
+        "j가 0부터 2까지 반복 하라 {\n    출력(j)\n}\n"
+        "k가 0부터 2 미만 반복한다 {\n    출력(k)\n}\n"
+        "출력(배열[1 이상 3 이하], 배열[0초과 2미만])\n";
+    EXPECT_EQ(formatChecked(code), expected);
+}
+
 TEST(FormatterSourceTest, ShouldFormatPreviouslyUnsupportedSyntax)
 {
     std::string code =

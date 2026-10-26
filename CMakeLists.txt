@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(KingSejong VERSION 0.5.0 LANGUAGES CXX)
+project(KingSejong VERSION 0.6.0 LANGUAGES CXX)
 
 # C++23 표준 사용
 set(CMAKE_CXX_STANDARD 23)

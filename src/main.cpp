@@ -350,8 +350,8 @@ int runFormatter(int argc, char* argv[])
             formatter.loadConfigFromCurrentDir();
         }
 
-        // 4. 포맷팅 실행
-        std::string formatted = formatter.format(program.get());
+        // 4. 포맷팅 실행 (원본을 주어 주석과 빈 줄을 보존한다)
+        std::string formatted = formatter.format(program.get(), source);
 
         // 포매터가 다루지 못한 노드가 있으면 원본을 건드리지 않는다.
         // 그대로 쓰면 그 노드의 코드가 파일에서 사라진다.
@@ -365,7 +365,15 @@ int runFormatter(int argc, char* argv[])
             return 1;
         }
 
-        // 5. 파일에 쓰기 (원본 덮어쓰기)
+        // 5. 결과가 원본과 같은 프로그램·같은 주석인지 확인한다. 다르면 포매터의 결함이므로 원본을 두고 알린다
+        std::string reason;
+        if (!kingsejong::formatter::Formatter::verify(program.get(), source, formatted, reason))
+        {
+            std::cerr << "에러: " << reason << ". 파일을 수정하지 않았습니다: " << filename << "\n";
+            return 1;
+        }
+
+        // 6. 파일에 쓰기 (원본 덮어쓰기)
         std::ofstream outFile(filename);
         if (!outFile.is_open())
         {

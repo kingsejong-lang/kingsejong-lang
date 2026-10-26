@@ -96,6 +96,25 @@ public:
     static std::string select(const std::string& noun, JosaType type);
 
     /**
+     * @brief 메시지에 넣을 이름 뒤에 붙일 조사를 선택
+     * @param noun 이름 (변수명, 숫자 리터럴 등)
+     * @param type 조사 타입
+     * @return 선택된 조사 문자열
+     *
+     * @details
+     * 마지막 글자가 한글이면 받침으로, 숫자면 한국어로 읽은 소리(영·일·이·...·구)로 고른다.
+     * 영문이나 기호로 끝나 읽는 법을 정할 수 없으면 "을(를)" 처럼 두 형태를 함께 돌려준다.
+     *
+     * @example
+     * \code
+     * JosaRecognizer::selectOrBoth("자신", JosaType::EUL_REUL);  // "을"
+     * JosaRecognizer::selectOrBoth("42", JosaType::EUL_REUL);    // "를"
+     * JosaRecognizer::selectOrBoth("x", JosaType::I_GA);         // "이(가)"
+     * \endcode
+     */
+    static std::string selectOrBoth(const std::string& noun, JosaType type);
+
+    /**
      * @brief JosaType을 문자열로 변환
      * @param type 조사 타입
      * @return 조사 타입의 문자열 표현

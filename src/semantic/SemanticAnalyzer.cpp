@@ -11,6 +11,7 @@
 #include "parser/Parser.h"
 #include "evaluator/Builtin.h"
 #include "lexer/Lexer.h"
+#include "lexer/JosaRecognizer.h"
 #include <iostream>
 
 namespace kingsejong {
@@ -1391,7 +1392,7 @@ void SemanticAnalyzer::checkTypesInStatement(const Statement* stmt)
                 // return 값 없음: void 타입
                 if (expectedReturnType_)
                 {
-                    addError("함수 '" + currentFunctionName_ + "'는 " +
+                    addError("함수 '" + currentFunctionName_ + "'" + lexer::JosaRecognizer::selectOrBoth(currentFunctionName_, lexer::JosaRecognizer::JosaType::EUN_NEUN) + " " +
                             expectedReturnType_->koreanName() + " 타입을 반환해야 하지만, " +
                             "값 없이 반환하고 있습니다");
                 }

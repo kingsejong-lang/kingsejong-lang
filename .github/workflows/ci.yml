@@ -179,7 +179,8 @@ jobs:
       run: |
         version=$(sed -n 's/^project(KingSejong VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
         mkdir -p build/api  # Doxygen 1.9 은 중첩된 출력 디렉터리를 만들지 못한다
-        (cat Doxyfile; echo "PROJECT_NUMBER=$version") | doxygen -
+        # 주석 경고가 다시 쌓이지 않도록 경고를 실패로 본다 (배포 워크플로는 경고가 있어도 배포한다)
+        (cat Doxyfile; echo "PROJECT_NUMBER=$version"; echo "WARN_AS_ERROR=FAIL_ON_WARNINGS") | doxygen -
         test -f build/api/html/index.html
 
   sanitizers:

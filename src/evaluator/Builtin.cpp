@@ -1030,7 +1030,8 @@ static Value builtin_제곱(const std::vector<Value>& args)
 /**
  * @brief 파일_읽기(경로) - 파일의 전체 내용을 읽어 문자열로 반환
  *
- * @param args[0] 파일 경로 (문자열)
+ * @param args 인자 배열
+ *   - `[0]` 파일 경로 (문자열)
  * @return 파일 내용 (문자열) 또는 에러
  */
 static Value builtin_파일_읽기(const std::vector<Value>& args)
@@ -1066,8 +1067,9 @@ static Value builtin_파일_읽기(const std::vector<Value>& args)
 /**
  * @brief 파일_쓰기(경로, 내용) - 파일에 내용을 씁니다 (덮어쓰기)
  *
- * @param args[0] 파일 경로 (문자열)
- * @param args[1] 파일에 쓸 내용 (문자열)
+ * @param args 인자 배열
+ *   - `[0]` 파일 경로 (문자열)
+ *   - `[1]` 파일에 쓸 내용 (문자열)
  * @return null
  */
 static Value builtin_파일_쓰기(const std::vector<Value>& args)
@@ -1106,8 +1108,9 @@ static Value builtin_파일_쓰기(const std::vector<Value>& args)
 /**
  * @brief 파일_추가(경로, 내용) - 파일에 내용을 추가합니다 (append)
  *
- * @param args[0] 파일 경로 (문자열)
- * @param args[1] 파일에 추가할 내용 (문자열)
+ * @param args 인자 배열
+ *   - `[0]` 파일 경로 (문자열)
+ *   - `[1]` 파일에 추가할 내용 (문자열)
  * @return null
  */
 static Value builtin_파일_추가(const std::vector<Value>& args)
@@ -1146,7 +1149,8 @@ static Value builtin_파일_추가(const std::vector<Value>& args)
 /**
  * @brief 파일_존재(경로) - 파일이 존재하는지 확인
  *
- * @param args[0] 파일 경로 (문자열)
+ * @param args 인자 배열
+ *   - `[0]` 파일 경로 (문자열)
  * @return 존재 여부 (불리언)
  */
 static Value builtin_파일_존재(const std::vector<Value>& args)
@@ -1174,7 +1178,8 @@ static Value builtin_파일_존재(const std::vector<Value>& args)
 /**
  * @brief 줄별_읽기(경로) - 파일을 줄별로 읽어 배열로 반환
  *
- * @param args[0] 파일 경로 (문자열)
+ * @param args 인자 배열
+ *   - `[0]` 파일 경로 (문자열)
  * @return 줄들의 배열
  */
 static Value builtin_줄별_읽기(const std::vector<Value>& args)
@@ -1213,7 +1218,8 @@ static Value builtin_줄별_읽기(const std::vector<Value>& args)
 /**
  * @brief 파일_삭제(경로) - 파일을 삭제
  *
- * @param args[0] 파일 경로 (문자열)
+ * @param args 인자 배열
+ *   - `[0]` 파일 경로 (문자열)
  * @return null
  */
 static Value builtin_파일_삭제(const std::vector<Value>& args)
@@ -1247,7 +1253,8 @@ static Value builtin_파일_삭제(const std::vector<Value>& args)
 /**
  * @brief 디렉토리_생성(경로) - 디렉토리를 생성 (중첩 디렉토리 지원)
  *
- * @param args[0] 디렉토리 경로 (문자열)
+ * @param args 인자 배열
+ *   - `[0]` 디렉토리 경로 (문자열)
  * @return null
  */
 static Value builtin_디렉토리_생성(const std::vector<Value>& args)
@@ -1279,7 +1286,8 @@ static Value builtin_디렉토리_생성(const std::vector<Value>& args)
 /**
  * @brief 디렉토리_삭제(경로) - 디렉토리를 삭제 (하위 파일/디렉토리 모두 삭제)
  *
- * @param args[0] 디렉토리 경로 (문자열)
+ * @param args 인자 배열
+ *   - `[0]` 디렉토리 경로 (문자열)
  * @return null
  */
 static Value builtin_디렉토리_삭제(const std::vector<Value>& args)
@@ -1310,7 +1318,8 @@ static Value builtin_디렉토리_삭제(const std::vector<Value>& args)
 /**
  * @brief 디렉토리_목록(경로) - 디렉토리 내 파일/디렉토리 목록을 배열로 반환
  *
- * @param args[0] 디렉토리 경로 (문자열)
+ * @param args 인자 배열
+ *   - `[0]` 디렉토리 경로 (문자열)
  * @return 파일/디렉토리 이름 배열
  */
 static Value builtin_디렉토리_목록(const std::vector<Value>& args)
@@ -2451,7 +2460,8 @@ static httplib::Result performHttpRequest(std::string method, std::string url,
 /**
  * @brief HTTP_GET(URL) - HTTP GET 요청
  *
- * @param args[0] URL (문자열)
+ * @param args 인자 배열
+ *   - `[0]` URL (문자열)
  * @return 맵 { "상태": 상태코드, "본문": 응답본문, "헤더": 헤더맵 }
  */
 static Value builtin_HTTP_GET(const std::vector<Value>& args)
@@ -2511,8 +2521,9 @@ static Value builtin_HTTP_GET(const std::vector<Value>& args)
 /**
  * @brief HTTP_POST(URL, 본문) - HTTP POST 요청
  *
- * @param args[0] URL (문자열)
- * @param args[1] 본문 (문자열)
+ * @param args 인자 배열
+ *   - `[0]` URL (문자열)
+ *   - `[1]` 본문 (문자열)
  * @return 맵 { "상태": 상태코드, "본문": 응답본문, "헤더": 헤더맵 }
  */
 static Value builtin_HTTP_POST(const std::vector<Value>& args)
@@ -2573,10 +2584,11 @@ static Value builtin_HTTP_POST(const std::vector<Value>& args)
 /**
  * @brief HTTP_요청(메서드, URL, 헤더맵, 본문) - 일반 HTTP 요청
  *
- * @param args[0] 메서드 (문자열: "GET", "POST", "PUT", "DELETE" 등)
- * @param args[1] URL (문자열)
- * @param args[2] 헤더맵 (맵, 선택)
- * @param args[3] 본문 (문자열, 선택)
+ * @param args 인자 배열
+ *   - `[0]` 메서드 (문자열: "GET", "POST", "PUT", "DELETE" 등)
+ *   - `[1]` URL (문자열)
+ *   - `[2]` 헤더맵 (맵, 선택)
+ *   - `[3]` 본문 (문자열, 선택)
  * @return 맵 { "상태": 상태코드, "본문": 응답본문, "헤더": 헤더맵 }
  */
 static Value builtin_HTTP_요청(const std::vector<Value>& args)
@@ -2669,7 +2681,8 @@ static int64_t next_db_id = 1;
 /**
  * @brief DB_열기(경로) - SQLite 데이터베이스 열기
  *
- * @param args[0] 파일 경로 (문자열)
+ * @param args 인자 배열
+ *   - `[0]` 파일 경로 (문자열)
  * @return DB 연결 ID (정수)
  */
 static Value builtin_DB_열기(const std::vector<Value>& args)
@@ -2704,7 +2717,8 @@ static Value builtin_DB_열기(const std::vector<Value>& args)
 /**
  * @brief DB_닫기(연결ID) - 데이터베이스 연결 닫기
  *
- * @param args[0] DB 연결 ID (정수)
+ * @param args 인자 배열
+ *   - `[0]` DB 연결 ID (정수)
  * @return null
  */
 static Value builtin_DB_닫기(const std::vector<Value>& args)
@@ -2808,9 +2822,10 @@ static void run_bound_statement(sqlite3* db, const std::string& sql, const std::
 /**
  * @brief DB_실행(연결ID, SQL) - SQL 실행 (INSERT, UPDATE, DELETE 등)
  *
- * @param args[0] DB 연결 ID (정수)
- * @param args[1] SQL 문장 (문자열)
- * @param args[2] (선택) `?` 자리에 넣을 값 배열. 주면 문장 하나만 실행한다
+ * @param args 인자 배열
+ *   - `[0]` DB 연결 ID (정수)
+ *   - `[1]` SQL 문장 (문자열)
+ *   - `[2]` (선택) `?` 자리에 넣을 값 배열. 주면 문장 하나만 실행한다
  * @return null
  */
 static Value builtin_DB_실행(const std::vector<Value>& args)
@@ -2853,9 +2868,10 @@ static Value builtin_DB_실행(const std::vector<Value>& args)
 /**
  * @brief DB_쿼리(연결ID, SQL) - SQL 쿼리 실행 및 결과 반환
  *
- * @param args[0] DB 연결 ID (정수)
- * @param args[1] SQL SELECT 문장 (문자열)
- * @param args[2] (선택) `?` 자리에 넣을 값 배열
+ * @param args 인자 배열
+ *   - `[0]` DB 연결 ID (정수)
+ *   - `[1]` SQL SELECT 문장 (문자열)
+ *   - `[2]` (선택) `?` 자리에 넣을 값 배열
  * @return 결과 배열 [["col1", "col2", ...], [val1, val2, ...], ...]
  */
 static int query_callback(void* data, int argc, char** argv, char** col_names)
@@ -2926,7 +2942,8 @@ static Value builtin_DB_쿼리(const std::vector<Value>& args)
 /**
  * @brief DB_마지막_ID(연결ID) - 마지막 INSERT의 ROWID 반환
  *
- * @param args[0] DB 연결 ID (정수)
+ * @param args 인자 배열
+ *   - `[0]` DB 연결 ID (정수)
  * @return 마지막 삽입 ID (정수)
  */
 static Value builtin_DB_마지막_ID(const std::vector<Value>& args)
@@ -2951,7 +2968,8 @@ static Value builtin_DB_마지막_ID(const std::vector<Value>& args)
 /**
  * @brief DB_영향받은_행수(연결ID) - 마지막 쿼리로 영향받은 행 수
  *
- * @param args[0] DB 연결 ID (정수)
+ * @param args 인자 배열
+ *   - `[0]` DB 연결 ID (정수)
  * @return 영향받은 행 수 (정수)
  */
 static Value builtin_DB_영향받은_행수(const std::vector<Value>& args)

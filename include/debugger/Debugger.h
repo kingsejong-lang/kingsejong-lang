@@ -249,16 +249,16 @@ public:
      * 사용자 명령어를 받아서 실행하고, 결과를 출력합니다.
      *
      * 지원 명령어:
-     * - break <file>:<line> [condition] : 브레이크포인트 설정
-     * - delete <id> : 브레이크포인트 삭제
+     * - `break <file>:<line> [condition]` : 브레이크포인트 설정
+     * - `delete <id>` : 브레이크포인트 삭제
      * - step/s : 단계 실행
      * - next/n : 다음 줄
      * - continue/c : 계속 실행
-     * - print/p <expr> : 표현식 출력
+     * - `print/p <expr>` : 표현식 출력
      * - backtrace/bt : 호출 스택 출력
      * - list/l [line] : 소스 코드 표시
-     * - watch/w <var> : 와치포인트 설정
-     * - unwatch/uw <var> : 와치포인트 삭제
+     * - `watch/w <var>` : 와치포인트 설정
+     * - `unwatch/uw <var>` : 와치포인트 삭제
      * - help/h : 도움말
      * - quit/q : 종료
      */
@@ -270,7 +270,7 @@ public:
     );
 
     /**
-     * @brief 실행 중 멈췼을 때 쓸 입출력 스트림 (기본 std::cin/std::cout)
+     * @brief 실행 중 멈췼을 때 쓸 입출력 스트림 (기본 `std::cin`/`std::cout`)
      */
     void setStreams(std::istream& input, std::ostream& output) {
         input_ = &input;

@@ -747,7 +747,7 @@ void Formatter::writeParameters(const std::vector<std::string>& names, const std
     write(")");
 }
 
-void Formatter::writeParameters(const std::vector<Parameter>& params)
+void Formatter::writeParameters(const std::vector<ast::Parameter>& params)
 {
     write("(");
     for (size_t i = 0; i < params.size(); ++i)

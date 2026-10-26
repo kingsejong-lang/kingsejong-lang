@@ -279,7 +279,7 @@ inline int byteColumnToCharColumn(const std::string& line, int byteColumn)
 }
 
 /**
- * @brief 소스 텍스트에서 1부터 세는 line 번째 줄을 꺼낸다 (줄 끝 \r 제외). 없으면 빈 문자열
+ * @brief 소스 텍스트에서 1부터 세는 line 번째 줄을 꺼낸다 (줄 끝 `\r` 제외). 없으면 빈 문자열
  */
 inline std::string sourceLine(const std::string& source, int line)
 {

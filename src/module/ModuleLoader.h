@@ -94,6 +94,7 @@ public:
     /**
      * @brief 경로 해석
      * @param modulePath 모듈 경로
+     * @param fromFile 가져오기를 쓴 파일 경로 (상대 경로의 기준, 비어 있으면 작업 디렉터리)
      * @return 절대 경로
      */
     std::string resolvePath(const std::string& modulePath, const std::string& fromFile = "") const;

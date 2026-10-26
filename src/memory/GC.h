@@ -224,7 +224,7 @@ public:
 
     /**
      * @brief Environment를 등록 해제
-     * @param env Environment 포인터
+     * @param envPtr Environment 포인터
      */
     void unregisterEnvironment(void* envPtr);
 

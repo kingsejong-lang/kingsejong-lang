@@ -41,7 +41,7 @@ static std::vector<std::string> g_moduleSearchPaths;
  * @brief 실행 파일 위치를 기준으로 stdlib 를 찾을 수 있는 디렉터리를 모은다.
  *
  * build/bin/kingsejong 처럼 빌드 트리에서 실행하면 저장소 루트(../..)에 stdlib/ 가 있고,
- * 설치본은 <prefix>/bin/kingsejong 옆의 ../share/kingsejong 에 있다. argv[0] 이 PATH 로
+ * 설치본은 `<prefix>/bin/kingsejong` 옆의 ../share/kingsejong 에 있다. argv[0] 이 PATH 로
  * 찾은 이름이면 디렉터리를 알 수 없으므로 아무것도 추가하지 않는다.
  */
 static void collectModuleSearchPaths(const char* argv0)
@@ -71,6 +71,7 @@ static void collectModuleSearchPaths(const char* argv0)
 /**
  * @brief 파일을 읽고 실행
  * @param filename 실행할 파일 경로
+ * @param useVm 평가기 대신 바이트코드 VM 으로 실행할지
  * @return 종료 코드 (0: 성공, 1: 실패)
  */
 int executeFile(const std::string& filename, bool useVm = false)

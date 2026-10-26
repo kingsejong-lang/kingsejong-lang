@@ -96,17 +96,17 @@ public:
      * @throws std::invalid_argument 입력이 빈 문자열인 경우
      *
      * 지원 명령어:
-     * - break <file>:<line> [condition]  : 브레이크포인트 설정
-     * - delete <id>                      : 브레이크포인트 삭제
+     * - `break <file>:<line> [condition]` : 브레이크포인트 설정
+     * - `delete <id>`                    : 브레이크포인트 삭제
      * - run                              : 프로그램 실행
      * - continue                         : 실행 계속
      * - step                             : 단계 실행 (함수 내부 진입)
      * - next                             : 다음 줄 실행 (함수 건너뛰기)
-     * - print <expr>                     : 변수/표현식 출력
+     * - `print <expr>`                   : 변수/표현식 출력
      * - backtrace                        : 호출 스택 출력
      * - list [line]                      : 소스 코드 표시
-     * - watch <variable>                 : 와치포인트 설정
-     * - unwatch <variable>               : 와치포인트 삭제
+     * - `watch <variable>`               : 와치포인트 설정
+     * - `unwatch <variable>`             : 와치포인트 삭제
      * - help                             : 도움말
      * - quit                             : 종료
      *

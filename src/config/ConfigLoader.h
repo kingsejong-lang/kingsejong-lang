@@ -27,6 +27,7 @@ public:
     /**
      * @brief 설정 파일 로드
      * @param filepath 설정 파일 경로
+     * @param config 읽은 설정을 담을 JSON 객체
      * @return 로드 성공 시 true
      */
     static bool loadFromFile(const std::string& filepath, json& config);
@@ -34,6 +35,7 @@ public:
     /**
      * @brief JSON 문자열에서 설정 로드
      * @param jsonString JSON 문자열
+     * @param config 읽은 설정을 담을 JSON 객체
      * @return 파싱 성공 시 true
      */
     static bool loadFromString(const std::string& jsonString, json& config);

@@ -1084,7 +1084,7 @@ std::unique_ptr<ImportStatement> Parser::parseImportStatement()
 /**
  * @brief 던지다 문장 파싱
  *
- * 문법: 던지다 <expression> ;
+ * 문법: `던지다 <expression> ;`
  *
  * @example
  * 던지다 "에러 메시지";
@@ -2068,7 +2068,7 @@ std::unique_ptr<Expression> Parser::parseAsyncFunctionRest(const ast::SourceLoca
 /**
  * @brief await 표현식 파싱
  *
- * 문법: 대기 <표현식>
+ * 문법: `대기 <표현식>`
  * Promise를 반환하는 표현식을 기다립니다.
  *
  * @return AwaitExpression 표현식
@@ -2254,7 +2254,7 @@ std::unique_ptr<Pattern> Parser::parseArrayPattern()
 /**
  * @brief 클래스 정의 파싱
  *
- * 문법: 클래스 <이름> [상속 <부모클래스>] { ... }
+ * 문법: `클래스 <이름> [상속 <부모클래스>] { ... }`
  *
  * @example
  * 클래스 사람 {
@@ -2392,7 +2392,7 @@ std::unique_ptr<ClassStatement> Parser::parseClassStatement()
 /**
  * @brief 필드 선언 파싱
  *
- * 문법: [공개|비공개] <타입> <이름> [= <초기값>]
+ * 문법: `[공개|비공개] <타입> <이름> [= <초기값>]`
  *
  * @example
  * 비공개 문자열 이름 = "홍길동"
@@ -2437,7 +2437,7 @@ std::unique_ptr<FieldDeclaration> Parser::parseFieldDeclaration(AccessModifier a
 /**
  * @brief 메서드 선언 파싱
  *
- * 문법: [공개|비공개] 함수 <이름>(<매개변수>) { ... }
+ * 문법: `[공개|비공개] 함수 <이름>(<매개변수>) { ... }`
  *
  * @example
  * 공개 함수 인사하기() {
@@ -2523,7 +2523,7 @@ std::unique_ptr<MethodDeclaration> Parser::parseMethodDeclaration(AccessModifier
 /**
  * @brief 생성자 선언 파싱
  *
- * 문법: 생성자(<매개변수>) { ... }
+ * 문법: `생성자(<매개변수>) { ... }`
  *
  * @example
  * 생성자(이름, 나이) {
@@ -2672,7 +2672,7 @@ std::unique_ptr<Expression> Parser::parseThisExpression()
 /**
  * @brief 객체 생성 표현식 파싱
  *
- * 문법: <클래스이름>(<인자...>)
+ * 문법: `<클래스이름>(<인자...>)`
  *
  * Note: new 키워드 없이 클래스 이름으로 직접 생성
  *

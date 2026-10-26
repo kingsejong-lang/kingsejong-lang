@@ -926,8 +926,7 @@ void SemanticAnalyzer::registerFunction(const std::string& name, FunctionLiteral
 
 void SemanticAnalyzer::resolveNames(Program* program)
 {
-    // TODO: 모든 식별자가 정의된 심볼인지 확인
-    // 현재는 skeleton만 구현
+    // 레거시: analyze() 는 analyzeAndResolve() 로 이름을 해석하며 이 함수는 부르지 않는다
     for (auto& stmt : program->statements())
     {
         resolveNamesInStatement(stmt.get());
@@ -1212,8 +1211,8 @@ void SemanticAnalyzer::resolveNamesInExpression(const Expression* expr)
 
 void SemanticAnalyzer::checkTypes(Program* program)
 {
-    // TODO: 타입 검사 구현
-    // 현재는 skeleton
+    // 문장 단위로 검사한다: 선언·대입 값의 타입, 함수 밖의 반환, 함수 반환 타입의 일관성,
+    // 조건문·반복문 조건의 논리 타입. 연산자 피연산자와 호출 인자는 실행 중에 검사한다.
     for (auto& stmt : program->statements())
     {
         checkTypesInStatement(stmt.get());

@@ -181,7 +181,7 @@ jobs:
         (cat Doxyfile; echo "PROJECT_NUMBER=$version") | doxygen -
         test -f build/api/html/index.html
 
-    sanitizers:
+  sanitizers:
     name: Sanitizers (ASan + UBSan)
     runs-on: ubuntu-latest
 

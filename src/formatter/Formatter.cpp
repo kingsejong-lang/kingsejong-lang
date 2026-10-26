@@ -611,9 +611,19 @@ void Formatter::formatWhileStatement(const WhileStatement* stmt)
 {
     writeIndent();
     write(stmt->keyword());
-    write(options_.spaceBeforeBrace ? " (" : "(");
-    formatExpression(stmt->condition());
-    write(options_.spaceBeforeBrace ? ") " : ")");
+    if (stmt->conditionParenthesized())
+    {
+        write(options_.spaceBeforeBrace ? " (" : "(");
+        formatExpression(stmt->condition());
+        write(options_.spaceBeforeBrace ? ") " : ")");
+    }
+    else
+    {
+        // "반복 (a) && (b) {": 조건이 괄호로 시작하지만 전체를 감싸지는 않았다
+        write(" ");
+        formatExpression(stmt->condition());
+        write(options_.spaceBeforeBrace ? " " : "");
+    }
     formatBlockBody(stmt->body());
     writeLine();
 }
@@ -1260,8 +1270,11 @@ public:
                 break;
             }
             case NodeType::WHILE_STATEMENT:
-                out += " " + static_cast<WhileStatement&>(node).keyword();
+            {
+                auto& w = static_cast<WhileStatement&>(node);
+                out += " " + w.keyword() + (w.conditionParenthesized() ? " ()" : "");
                 break;
+            }
             case NodeType::CLASS_STATEMENT:
             {
                 auto& c = static_cast<ClassStatement&>(node);

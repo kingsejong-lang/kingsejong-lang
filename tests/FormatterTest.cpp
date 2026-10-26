@@ -580,6 +580,17 @@ TEST(FormatterSourceTest, ShouldKeepTheKeywordsTheAuthorChose)
     EXPECT_EQ(formatChecked(code), expected);
 }
 
+TEST(FormatterSourceTest, ShouldKeepConditionsThatStartWithParentheses)
+{
+    std::string code =
+        "만약 (a) && (b) {\n출력(1)\n}\n"
+        "반복 (x > 0) || (y > 0) {\nx = x - 1\n}\n";
+    std::string expected =
+        "만약 (a) && (b) {\n    출력(1)\n}\n"
+        "반복 (x > 0) || (y > 0) {\n    x = x - 1\n}\n";
+    EXPECT_EQ(formatChecked(code), expected);
+}
+
 TEST(FormatterSourceTest, ShouldFormatPreviouslyUnsupportedSyntax)
 {
     std::string code =

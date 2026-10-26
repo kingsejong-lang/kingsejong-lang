@@ -343,6 +343,7 @@ private:
     std::unique_ptr<Expression> condition_;
     std::unique_ptr<BlockStatement> body_;
     std::string keyword_ = "반복";  ///< 원래 쓴 키워드 ("반복" 또는 "동안")
+    bool conditionParenthesized_ = true;  ///< 조건 전체를 괄호로 감쌌는지 ("반복 (a) && (b)" 는 false)
 
 public:
     WhileStatement(
@@ -367,6 +368,10 @@ public:
     /// 원래 쓴 키워드 (포매터가 원래 형태를 지키는 데 쓴다)
     const std::string& keyword() const { return keyword_; }
     void setKeyword(const std::string& keyword) { keyword_ = keyword; }
+
+    /// 조건 전체를 괄호로 감싸 썼는지 (포매터가 원래 형태를 지키는 데 쓴다)
+    bool conditionParenthesized() const { return conditionParenthesized_; }
+    void setConditionParenthesized(bool value) { conditionParenthesized_ = value; }
 };
 
 /**

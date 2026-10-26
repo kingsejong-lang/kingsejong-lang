@@ -766,6 +766,8 @@ TEST(EvaluatorTest, ShouldRejectSuperOutsideSubclass)
 
 // ============================================================================
 // 거꾸로 세는 범위 반복문
+// =====================================================================}
+
 // ============================================================================
 
 TEST(EvaluatorTest, ShouldCountDownWhenRangeEndsWithIsang)
@@ -782,4 +784,23 @@ TEST(EvaluatorTest, ShouldCountDownWhenRangeEndsWithIsang)
     // 시작이 끝보다 작으면 돌지 않는다
     auto count = evalInput("횟수 = 0\ni가 1부터 3 이상 {\n횟수 = 횟수 + 1\n}\n횟수");
     EXPECT_EQ(count.asInteger(), 0);
+=======
+// 괄호로 시작하는 조건
+// ============================================================================
+
+TEST(EvaluatorTest, ShouldEvaluateConditionsThatStartWithParentheses)
+{
+    // 첫 ')' 에서 조건을 끝내지 않고 식 전체를 조건으로 읽는다
+    auto ifResult = evalInput(
+        "결과 = 0\n"
+        "만약 (1 > 0) && (2 > 1) {\n결과 = 1\n}\n"
+        "만약 (1 > 0) && (2 < 1) {\n결과 = 2\n}\n"
+        "결과");
+    EXPECT_EQ(ifResult.asInteger(), 1);
+
+    auto whileResult = evalInput(
+        "x = 0\n"
+        "반복 (x < 10) && (x != 3) {\nx = x + 1\n}\n"
+        "x");
+    EXPECT_EQ(whileResult.asInteger(), 3);
 }

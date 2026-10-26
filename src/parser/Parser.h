@@ -188,6 +188,8 @@ private:
     std::unique_ptr<RangeForStatement> parseRangeForStatement();
     /// 범위 반복문 끝의 선택 키워드("반복한다", "반복", "반복 하라")를 읽어 원래 표기를 돌려준다. 없으면 빈 문자열.
     std::string parseOptionalLoopWord();
+    /// 만약·반복 문의 조건을 읽는다. 조건 전체가 괄호로 감싸였으면 wrapped 를 true 로 한다.
+    std::unique_ptr<Expression> parseCondition(bool& wrapped);
     std::unique_ptr<BlockStatement> parseBlockStatement();
     std::unique_ptr<ImportStatement> parseImportStatement();
     std::unique_ptr<ThrowStatement> parseThrowStatement();

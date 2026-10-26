@@ -240,6 +240,8 @@ std::string Lexer::readIdentifier()
         size_t josaBytes = josa.length();
         position -= josaBytes;
         readPosition = position + 1;
+        // 열도 함께 되돌린다. 그대로 두면 이 줄의 뒤쪽 토큰 열이 조사 길이만큼 밀린다 ("시작부터 끝까지 {")
+        currentColumn -= static_cast<int>(josaBytes);
         if (position < input.length())
         {
             ch = input[position];
@@ -612,6 +614,8 @@ Token Lexer::nextToken()
                     size_t savedPos = position;
                     size_t savedReadPos = readPosition;
                     char savedCh = ch;
+                    int savedLine = currentLine;
+                    int savedColumn = currentColumn;
 
                     skipWhitespace();
                     std::string next = readIdentifier();
@@ -626,6 +630,8 @@ Token Lexer::nextToken()
                         position = savedPos;
                         readPosition = savedReadPos;
                         ch = savedCh;
+                        currentLine = savedLine;
+                        currentColumn = savedColumn;
                         // 조사 "에"로 처리
                         TokenType type = lookupKeyword(identifier);
                         token = Token(type, identifier);

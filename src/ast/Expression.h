@@ -430,6 +430,7 @@ class FunctionLiteral : public Expression
 {
 private:
     std::vector<std::string> parameters_;          ///< 매개변수 이름 리스트
+    std::vector<std::string> parameterTypes_;      ///< 매개변수 타입 이름 ("배열 arr" 의 "배열", 없으면 빈 문자열)
     std::unique_ptr<Statement> body_;              ///< 함수 본문 (BlockStatement)
 
 public:
@@ -457,6 +458,9 @@ public:
     }
 
     const std::vector<std::string>& parameters() const { return parameters_; }
+    /// 매개변수 타입 이름. 실행에는 쓰이지 않고 포매터가 원래 표기를 지키는 데 쓴다
+    const std::vector<std::string>& parameterTypes() const { return parameterTypes_; }
+    void setParameterTypes(std::vector<std::string> types) { parameterTypes_ = std::move(types); }
     Statement* body() const { return body_.get(); }
 };
 
@@ -988,6 +992,7 @@ class AsyncFunctionLiteral : public Expression
 {
 private:
     std::vector<std::string> parameters_;          ///< 매개변수 이름 리스트
+    std::vector<std::string> parameterTypes_;      ///< 매개변수 타입 이름 ("배열 arr" 의 "배열", 없으면 빈 문자열)
     std::unique_ptr<Statement> body_;              ///< 함수 본문 (BlockStatement)
 
 public:
@@ -1015,6 +1020,9 @@ public:
     }
 
     const std::vector<std::string>& parameters() const { return parameters_; }
+    /// 매개변수 타입 이름. 실행에는 쓰이지 않고 포매터가 원래 표기를 지키는 데 쓴다
+    const std::vector<std::string>& parameterTypes() const { return parameterTypes_; }
+    void setParameterTypes(std::vector<std::string> types) { parameterTypes_ = std::move(types); }
     Statement* body() const { return body_.get(); }
 };
 

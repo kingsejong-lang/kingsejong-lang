@@ -14,6 +14,7 @@ using namespace kingsejong;
 using namespace kingsejong::lexer;
 using namespace kingsejong::parser;
 using namespace kingsejong::formatter;
+using namespace kingsejong::ast;
 
 // ============================================================================
 // 기본 포맷팅 테스트
@@ -172,7 +173,7 @@ TEST(FormatterTest, ShouldFormatRepeatStatement)
     Formatter formatter;
     std::string formatted = formatter.format(program.get());
 
-    std::string expected = R"(반복 (10) {
+    std::string expected = R"(10번 반복한다 {
     출력(1)
 }
 )";
@@ -253,9 +254,10 @@ TEST(FormatterTest, ShouldFormatIIFE)
     Formatter formatter;
     std::string formatted = formatter.format(program.get());
 
-    std::string expected = R"(정수 result = 함수() {
+    // 호출되는 함수 리터럴은 괄호로 감싼다 (다시 읽어도 같은 구문 트리)
+    std::string expected = R"(정수 result = (함수() {
     반환 42
-}()
+})()
 )";
 
     EXPECT_EQ(formatted, expected);
@@ -266,8 +268,7 @@ TEST(FormatterTest, ShouldFormatIIFE)
 // ============================================================================
 
 /**
- * @test 복잡한 표현식 포맷팅
- * 참고: 파서가 괄호를 AST로 변환하면서 연산자 우선순위에 따라 재구성
+ * @test 복잡한 표현식 포맷팅: 원래 괄호를 남긴다 (예전에는 괄호를 버려 (1+2)*(3-4) 가 1+2*3-4 로 바뀌었다)
  */
 TEST(FormatterTest, ShouldFormatComplexExpression)
 {
@@ -281,8 +282,7 @@ TEST(FormatterTest, ShouldFormatComplexExpression)
     Formatter formatter;
     std::string formatted = formatter.format(program.get());
 
-    // 파서가 연산자 우선순위에 따라 AST를 구성하므로 괄호가 다를 수 있음
-    EXPECT_EQ(formatted, "정수 x = 1 + 2 * 3 - 4 / 5\n");
+    EXPECT_EQ(formatted, "정수 x = (1 + 2) * (3 - 4) / 5\n");
 }
 
 /**
@@ -453,20 +453,18 @@ TEST(FormatterTest, ShouldFormatUnaryExpression)
  */
 TEST(FormatterTest, ShouldReportUnsupportedStatements)
 {
-    std::string code = "시도 {\n  출력(1)\n} 오류 (e) {\n  출력(2)\n}\n";
-
-    Lexer lexer(code);
-    Parser parser(lexer);
-    auto program = parser.parseProgram();
-    ASSERT_NE(program, nullptr);
-    ASSERT_TRUE(parser.errors().empty());
+    // 파서가 만들지 않는 ForStatement 를 직접 넣어 미지원 분기를 확인한다
+    Program program;
+    std::vector<std::unique_ptr<Statement>> body;
+    program.addStatement(std::make_unique<ForStatement>(
+        "x", std::make_unique<Identifier>("목록"), std::make_unique<BlockStatement>(std::move(body))));
 
     Formatter formatter;
-    formatter.format(program.get());
+    formatter.format(&program);
 
     EXPECT_TRUE(formatter.hasUnsupportedNodes());
     ASSERT_FALSE(formatter.unsupportedNodes().empty());
-    EXPECT_NE(formatter.unsupportedNodes()[0].find("TRY"), std::string::npos)
+    EXPECT_NE(formatter.unsupportedNodes()[0].find("FOR"), std::string::npos)
         << formatter.unsupportedNodes()[0];
 }
 
@@ -486,4 +484,164 @@ TEST(FormatterTest, ShouldHaveNoUnsupportedNodesForPlainCode)
     formatter.format(program.get());
 
     EXPECT_FALSE(formatter.hasUnsupportedNodes());
+}
+
+// ============================================================================
+// 원본 소스를 참고하는 포맷팅과 검증
+// ============================================================================
+
+namespace {
+
+/// 원본을 포맷하고, 결과가 검증을 통과하는지와 한 번 더 포맷해도 같은지 확인한다
+std::string formatChecked(const std::string& code)
+{
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    EXPECT_TRUE(parser.errors().empty());
+
+    Formatter formatter;
+    std::string formatted = formatter.format(program.get(), code);
+    EXPECT_FALSE(formatter.hasUnsupportedNodes());
+
+    std::string reason;
+    EXPECT_TRUE(Formatter::verify(program.get(), code, formatted, reason)) << reason << "\n" << formatted;
+
+    Lexer lexer2(formatted);
+    Parser parser2(lexer2);
+    auto program2 = parser2.parseProgram();
+    Formatter formatter2;
+    EXPECT_EQ(formatter2.format(program2.get(), formatted), formatted) << "두 번 포맷한 결과가 다르다";
+    return formatted;
+}
+
+} // namespace
+
+TEST(FormatterSourceTest, ShouldKeepCommentsAndBlankLines)
+{
+    std::string code =
+        "# 머리 주석\n"
+        "x = 1  # 끝 주석\n"
+        "\n"
+        "\n"
+        "# 함수 설명\n"
+        "두배 = 함수(n) {\n"
+        "    # 안쪽\n"
+        "    반환 n * 2\n"
+        "    # 블록 끝\n"
+        "}\n"
+        "# 파일 끝\n";
+    std::string expected =
+        "# 머리 주석\n"
+        "x = 1  # 끝 주석\n"
+        "\n"
+        "# 함수 설명\n"
+        "두배 = 함수(n) {\n"
+        "    # 안쪽\n"
+        "    반환 n * 2\n"
+        "    # 블록 끝\n"
+        "}\n"
+        "# 파일 끝\n";
+    EXPECT_EQ(formatChecked(code), expected);
+}
+
+TEST(FormatterSourceTest, ShouldWriteRealSyntaxForLoopsAndElseIf)
+{
+    std::string code =
+        "i가 1부터 3까지 {\n출력(i)\n}\n"
+        "j가 0부터 3 미만 {\n출력(j)\n}\n"
+        "3번 반복한다 {\n출력(1)\n}\n"
+        "만약 (x > 1) {\n출력(1)\n} 아니면 만약 (x > 0) {\n출력(2)\n} 아니면 {\n출력(3)\n}\n";
+    std::string expected =
+        "i가 1부터 3까지 {\n    출력(i)\n}\n"
+        "j가 0부터 3 미만 {\n    출력(j)\n}\n"
+        "3번 반복한다 {\n    출력(1)\n}\n"
+        "만약 (x > 1) {\n    출력(1)\n} 아니면 만약 (x > 0) {\n    출력(2)\n} 아니면 {\n    출력(3)\n}\n";
+    EXPECT_EQ(formatChecked(code), expected);
+}
+
+TEST(FormatterSourceTest, ShouldFormatPreviouslyUnsupportedSyntax)
+{
+    std::string code =
+        "가져오기 \"stdlib/math\"\n"
+        "클래스 개 상속 동물 {\n"
+        "    비공개 문자열 이름\n"
+        "    생성자(이름) {\n"
+        "        자신.이름 = 이름\n"
+        "    }\n"
+        "    공개 함수 소리() {\n"
+        "        반환 \"멍멍 ${자신.이름}\"\n"
+        "    }\n"
+        "}\n"
+        "시도 {\n"
+        "    던지다 \"x\"\n"
+        "} 오류 (e) {\n"
+        "    출력(e)\n"
+        "} 마지막 {\n"
+        "    출력(\"끝\")\n"
+        "}\n"
+        "사전 = {\"a\": 1, \"b\": [1, 2]}\n"
+        "정렬됨 = [3, 1, 2]를 정렬한다\n"
+        "일부 = 목록[2부터 5까지]\n"
+        "결과 = 값 에 대해 {\n"
+        "    0 -> \"영\"\n"
+        "    n when n > 0 -> \"양수\"\n"
+        "    _ -> \"음수\"\n"
+        "}\n"
+        "비동기 함수 가져와() {\n"
+        "    반환 대기 다른것()\n"
+        "}\n";
+    EXPECT_EQ(formatChecked(code), code);
+}
+
+TEST(FormatterSourceTest, ShouldKeepMultilineLiterals)
+{
+    std::string code =
+        "목록 = [\n"
+        "    \"가\",\n"
+        "    # 둘째\n"
+        "    \"나\"\n"
+        "]\n";
+    EXPECT_EQ(formatChecked(code), code);
+}
+
+TEST(FormatterSourceTest, ShouldRejectOutputThatChangesTheProgram)
+{
+    std::string code = "x = (1 + 2) * 3  # 9\n";
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+
+    std::string reason;
+    EXPECT_FALSE(Formatter::verify(program.get(), code, "x = 1 + 2 * 3  # 9\n", reason));
+    EXPECT_FALSE(Formatter::verify(program.get(), code, "x = (1 + 2) * 3\n", reason));
+    EXPECT_FALSE(Formatter::verify(program.get(), code, "x = (1 + 2 *\n", reason));
+    EXPECT_TRUE(Formatter::verify(program.get(), code, "x = (1 + 2) * 3 # 9\n", reason)) << reason;
+}
+
+TEST(FormatterSourceTest, ShouldFindCommentsOutsideStrings)
+{
+    auto comments = Formatter::extractComments("a = \"#아님\"  # 맞음\n# 줄\n");
+    ASSERT_EQ(comments.size(), 2u);
+    EXPECT_EQ(comments[0].text, "# 맞음");
+    EXPECT_TRUE(comments[0].trailing);
+    EXPECT_EQ(comments[1].line, 2);
+    EXPECT_FALSE(comments[1].trailing);
+}
+
+TEST(FormatterSourceTest, ShouldKeepSlashCommentsAndOneLineBlocks)
+{
+    // '//' 도 렉서가 주석으로 건너뛰므로 지우면 안 된다. 한 줄 블록은 한 줄로 둔다
+    std::string code =
+        "// 머리\n"
+        "# 둘째\n"
+        "\n"
+        "짝수 = 숫자들을 걸러낸다(함수(x) { 반환 x % 2 == 0 })  // 끝\n"
+        "빈것 = 함수() {}\n";
+    EXPECT_EQ(formatChecked(code), code);
+
+    auto comments = Formatter::extractComments(code);
+    ASSERT_EQ(comments.size(), 3u);
+    EXPECT_EQ(comments[0].text, "// 머리");
+    EXPECT_EQ(comments[2].text, "// 끝");
 }

@@ -369,15 +369,14 @@ kingsejong lint --config .ksjlint.json myfile.ksj
 ### 2.4 사용 예제
 
 ```bash
-# Formatter 실행 (표준 출력)
-kingsejong fmt myfile.ksj
-
-# 파일에 직접 적용 (in-place)
+# 파일을 제자리에서 포맷한다 (표준 출력으로 내보내는 옵션은 없다)
 kingsejong fmt myfile.ksj
 
 # 설정 파일 지정
 kingsejong fmt --config .ksjfmt.json myfile.ksj
 ```
+
+포매터는 쓰기 전에 결과를 다시 파싱해 원본과 구문 트리·주석이 같은지 확인한다. 다르면 파일을 그대로 두고 종료 코드 1 로 끝난다.
 
 ---
 

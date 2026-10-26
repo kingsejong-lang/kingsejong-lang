@@ -157,6 +157,7 @@ class AssignmentStatement : public Statement
 private:
     std::string varName_;       ///< 변수 이름
     std::unique_ptr<Expression> value_;  ///< 할당할 값
+    bool declarationForm_ = false;  ///< 선언 형태(함수 이름(...))로 썼는지
 
 public:
     AssignmentStatement(
@@ -166,6 +167,10 @@ public:
         : varName_(varName)
         , value_(std::move(value))
     {}
+
+    /// "함수 이름(...) { }" 처럼 선언 형태로 쓴 함수인지 (포매터가 원래 형태를 지키는 데 쓴다)
+    bool declarationForm() const { return declarationForm_; }
+    void setDeclarationForm(bool value) { declarationForm_ = value; }
 
     static constexpr NodeType kType = NodeType::ASSIGNMENT_STATEMENT;
     NodeType type() const override { return kType; }
@@ -277,6 +282,7 @@ public:
 class IfStatement : public Statement
 {
 private:
+    bool elseIf_ = false;  ///< "아니면 만약" 으로 썼는지
     std::unique_ptr<Expression> condition_;
     std::unique_ptr<BlockStatement> thenBranch_;
     std::unique_ptr<BlockStatement> elseBranch_;  ///< optional
@@ -311,6 +317,10 @@ public:
     const Expression* condition() const { return condition_.get(); }
     const BlockStatement* thenBranch() const { return thenBranch_.get(); }
     const BlockStatement* elseBranch() const { return elseBranch_.get(); }
+
+    /// "아니면 만약" 으로 쓴 else-if 인지 (포매터가 원래 형태를 지키는 데 쓴다)
+    bool elseIf() const { return elseIf_; }
+    void setElseIf(bool value) { elseIf_ = value; }
 };
 
 /**

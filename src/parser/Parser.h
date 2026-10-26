@@ -182,7 +182,7 @@ private:
     bool isNameToken(const Token& token) const;
 
     /// 매개변수 이름을 읽는다. 식별자, 타입 키워드("함수(배열)"), 타입 있는 선언("배열 arr")을 받는다.
-    bool readParameterName(std::string& name);
+    bool readParameterName(std::string& name, std::string* typeName = nullptr);
     std::unique_ptr<WhileStatement> parseWhileStatement();
     std::unique_ptr<RepeatStatement> parseRepeatStatement();
     std::unique_ptr<RangeForStatement> parseRangeForStatement();

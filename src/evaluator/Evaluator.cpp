@@ -1347,7 +1347,20 @@ Value Evaluator::evalRangeForStatement(ast::RangeForStatement* stmt)
     // 범위 반복 (끝 값 포함 여부에 따라 조건 변경)
     bool endInclusive = stmt->endInclusive();
 
-    if (endInclusive)
+    if (stmt->descending())
+    {
+        // 끝 값 이상인 동안 거꾸로 (이상)
+        for (int64_t i = start; i >= end; --i)
+        {
+            if (hotPathDetector_)
+            {
+                hotPathDetector_->trackLoopBackedge(loopId);
+            }
+            env_->set(stmt->varName(), Value::createInteger(i));
+            result = eval(const_cast<ast::BlockStatement*>(stmt->body()));
+        }
+    }
+    else if (endInclusive)
     {
         // 끝 값 포함 (까지, 이하, 이상)
         for (int64_t i = start; i <= end; ++i)

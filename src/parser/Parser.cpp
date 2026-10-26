@@ -577,6 +577,7 @@ std::unique_ptr<Statement> Parser::parseStatement()
             loop->setLocation(startLoc);
             loop->setEndWord(endWord);
             loop->setLoopWord(loopWord);
+            loop->setDescending(endWord == "이상");
             return loop;
         }
     }
@@ -1032,6 +1033,7 @@ std::unique_ptr<RangeForStatement> Parser::parseRangeForStatement()
     stmt->setLocation(startLoc);
     stmt->setEndWord(endWord);
     stmt->setLoopWord(loopWord);
+    stmt->setDescending(endToken == TokenType::ISANG);
     return stmt;
 }
 
@@ -1729,7 +1731,9 @@ std::unique_ptr<Expression> Parser::parseRangeExpression(std::unique_ptr<Express
     // Phase 7.2: Step 파싱 ("씩" 키워드)
     // 문법: [0부터 10까지 2씩] - step 값이 "씩" 앞에 옴
     std::unique_ptr<Expression> step = nullptr;
-    if (peekTokenIs(TokenType::INTEGER) || peekTokenIs(TokenType::IDENTIFIER))
+    // 다음 줄의 식별자를 step 으로 읽지 않도록 같은 줄에 있을 때만 step 으로 본다
+    bool stepOnSameLine = peekToken_.location.line == curToken_.location.line;
+    if (stepOnSameLine && (peekTokenIs(TokenType::INTEGER) || peekTokenIs(TokenType::IDENTIFIER)))
     {
         // step 값 파싱
         nextToken(); // step 값으로 이동

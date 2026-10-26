@@ -568,6 +568,23 @@ TEST(VMLoopTest, ShouldRunRangeForAndRepeat) {
     EXPECT_EQ(run.global("i").asInteger(), 10);  // 반복 변수는 평가기처럼 바깥에 남는다
 }
 
+TEST(VMLoopTest, ShouldCountDownWhenRangeEndsWithIsang) {
+    // "이상" 으로 끝나면 끝 값 이상인 동안 1씩 줄인다 (평가기와 같다)
+    VmRun run(R"(
+        정수 자리 = 0
+        i가 3부터 1 이상 {
+            자리 = 자리 * 10 + i
+        }
+        정수 횟수 = 0
+        j가 1부터 3 이상 {
+            횟수 = 횟수 + 1
+        }
+    )");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("자리").asInteger(), 321);
+    EXPECT_EQ(run.global("횟수").asInteger(), 0);
+}
+
 TEST(VMLoopTest, ShouldHandleHighIterationCount) {
     VmRun run(R"(
         정수 합 = 0

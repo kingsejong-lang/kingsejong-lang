@@ -765,6 +765,26 @@ TEST(EvaluatorTest, ShouldRejectSuperOutsideSubclass)
 }
 
 // ============================================================================
+// 거꾸로 세는 범위 반복문
+// ============================================================================
+
+TEST(EvaluatorTest, ShouldCountDownWhenRangeEndsWithIsang)
+{
+    evaluator::Builtin::registerAllBuiltins();  // 길이() — ctest 는 테스트마다 따로 실행한다
+    auto digits = evalInput(
+        "자리 = 0\n"
+        "i가 3부터 1 이상 {\n자리 = 자리 * 10 + i\n}\n"
+        "경로 = \"a/b\"\n"
+        "j가 길이(경로) - 1부터 0 이상 반복한다 {\n자리 = 자리 * 10 + j\n}\n"
+        "자리");
+    EXPECT_EQ(digits.asInteger(), 321210);
+
+    // 시작이 끝보다 작으면 돌지 않는다
+    auto count = evalInput("횟수 = 0\ni가 1부터 3 이상 {\n횟수 = 횟수 + 1\n}\n횟수");
+    EXPECT_EQ(count.asInteger(), 0);
+}
+
+// ============================================================================
 // 괄호로 시작하는 조건
 // ============================================================================
 

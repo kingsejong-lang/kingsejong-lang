@@ -726,8 +726,8 @@ Value Evaluator::evalClassMethodCall(
         methodEnv->set(method->parameters()[i], args[i]);
     }
 
-    // '자신' 키워드를 인스턴스에 바인딩
-    methodEnv->set("자신", instanceObj);
+    // '자신' 과 '상위' 를 바인딩 (상위 프록시로 부른 메서드면 원래 인스턴스가 자신이다)
+    bindSelf(*methodEnv, instanceObj, method);
 
     // 기존 환경 저장
     auto previousEnv = env_;
@@ -771,6 +771,49 @@ Value Evaluator::evalClassMethodCall(
     return result;
 }
 
+void Evaluator::bindSelf(Environment& env, const Value& self, const std::shared_ptr<Function>& func)
+{
+    auto instance = self.asClassInstance();
+    if (instance->isSuperProxy())
+    {
+        instance = instance->target();
+    }
+    env.set("자신", Value::createClassInstance(instance));
+    if (func && func->superClassDef())
+    {
+        env.set("상위", Value::createClassInstance(std::make_shared<ClassInstance>(func->superClassDef(), instance)));
+    }
+}
+
+Value Evaluator::callSuperConstructor(const Value& proxy, const std::vector<Value>& args)
+{
+    auto parent = proxy.asClassInstance()->classDef();
+    auto ctor = parent->constructor();
+    if (!ctor)
+    {
+        if (!args.empty())
+        {
+            throw error::ArgumentError("부모 클래스 " + parent->className() + " 에는 생성자가 없어 인자를 받을 수 없습니다");
+        }
+        return Value::createNull();
+    }
+    if (args.size() != ctor->parameters().size())
+    {
+        throw error::ArgumentError(
+            "생성자 인자 개수가 일치하지 않습니다: 필요 " + std::to_string(ctor->parameters().size()) + "개, " +
+            "전달 " + std::to_string(args.size()) + "개"
+        );
+    }
+    auto ctorEnv = std::make_shared<Environment>(ctor->closure());
+    for (size_t i = 0; i < ctor->parameters().size(); ++i)
+    {
+        ctorEnv->set(ctor->parameters()[i], args[i]);
+    }
+    bindSelf(*ctorEnv, proxy, ctor);
+    runBody(ctor->body(), std::move(ctorEnv));
+    return Value::createNull();
+}
+
 /**
  * @brief 클래스 생성자 호출
  */
@@ -810,8 +853,8 @@ Value Evaluator::constructInstance(const std::shared_ptr<Function>& func, const 
             ctorEnv->set(ctor->parameters()[i], args[i]);
         }
 
-        // '자신' 키워드를 인스턴스에 바인딩
-        ctorEnv->set("자신", Value::createClassInstance(instance));
+        // '자신' 과 '상위' 를 바인딩
+        bindSelf(*ctorEnv, Value::createClassInstance(instance), ctor);
 
         // 생성자 본문 실행 (생성자에서 return 은 무시한다). 에러에는 "클래스.생성자" 프레임을 더한다
         const ast::Statement* callerStatement = currentStatement_;
@@ -1090,6 +1133,12 @@ Value Evaluator::evalCallExpression(ast::CallExpression* expr)
     if (funcValue.isBuiltinFunction())
     {
         return callBuiltin(funcValue, args);
+    }
+
+    // '상위(인자...)': 부모 생성자
+    if (funcValue.isClassInstance() && funcValue.asClassInstance()->isSuperProxy())
+    {
+        return callSuperConstructor(funcValue, args);
     }
 
     // 4. 사용자 정의 함수인지 확인
@@ -2547,6 +2596,16 @@ Value Evaluator::makeClass(const ast::ClassStatement* stmt, const std::shared_pt
         if (!parent)
         {
             throw std::runtime_error("부모 클래스를 찾을 수 없습니다: " + stmt->superClass());
+        }
+
+        // 이 클래스에서 정의한 메서드·생성자의 '상위' 는 부모를 가리킨다 (물려받은 것은 원래 값을 지킨다)
+        for (const auto& method : stmt->methods())
+        {
+            methods[method->methodName()]->setSuperClassDef(parent);
+        }
+        if (constructor)
+        {
+            constructor->setSuperClassDef(parent);
         }
 
         std::vector<std::string> inheritedFields = parent->fieldNames();

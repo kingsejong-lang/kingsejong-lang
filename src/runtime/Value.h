@@ -46,6 +46,7 @@ private:
     bool isBuiltin_;                               ///< 내장 함수 또는 특수 함수 여부
     bool isAsync_;                                 ///< 비동기 함수 여부 (Phase 7.3)
     std::shared_ptr<ClassDefinition> classDef_;    ///< 클래스 생성자인 경우 클래스 정의
+    std::shared_ptr<ClassDefinition> superClassDef_;  ///< 메서드·생성자를 정의한 클래스의 부모 ('상위' 가 가리킨다)
 
 public:
     /**
@@ -70,6 +71,10 @@ public:
         , isAsync_(isAsync)
         , classDef_(nullptr)
     {}
+
+    /// 이 메서드·생성자를 정의한 클래스의 부모 클래스. 없으면 nullptr ('상위' 를 묶지 않는다)
+    const std::shared_ptr<ClassDefinition>& superClassDef() const { return superClassDef_; }
+    void setSuperClassDef(std::shared_ptr<ClassDefinition> def) { superClassDef_ = std::move(def); }
 
     const std::vector<std::string>& parameters() const { return parameters_; }
     ast::Statement* body() const { return body_; }
@@ -181,6 +186,7 @@ class ClassInstance
 private:
     std::shared_ptr<ClassDefinition> classDef_;      ///< 클래스 정의
     std::unordered_map<std::string, Value> fields_;  ///< 필드 값 맵 (필드이름 -> 값)
+    std::shared_ptr<ClassInstance> target_;          ///< '상위' 프록시면 원래 인스턴스
 
 public:
     /**
@@ -189,7 +195,17 @@ public:
      */
     explicit ClassInstance(std::shared_ptr<ClassDefinition> classDef);
 
+    /**
+     * @brief '상위' 프록시 생성자: 메서드는 classDef(부모)에서 찾고, 필드와 '자신' 은 target 을 쓴다
+     */
+    ClassInstance(std::shared_ptr<ClassDefinition> classDef, std::shared_ptr<ClassInstance> target);
+
     const std::shared_ptr<ClassDefinition>& classDef() const { return classDef_; }
+
+    /// '상위' 프록시인지
+    bool isSuperProxy() const { return target_ != nullptr; }
+    /// 프록시가 가리키는 원래 인스턴스 (프록시가 아니면 nullptr)
+    const std::shared_ptr<ClassInstance>& target() const { return target_; }
 
     /**
      * @brief 필드 값 가져오기

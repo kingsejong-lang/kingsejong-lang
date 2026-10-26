@@ -1163,3 +1163,42 @@ TEST(VMClassTest, ShouldInheritFieldsMethodsAndConstructor)
     EXPECT_EQ(run.result, VMResult::OK);
     EXPECT_EQ(run.global("결과").asString(), "바둑이:멍멍 초코:멍멍 냥:...");
 }
+
+TEST(VMClassTest, ShouldCallParentConstructorAndMethodsWithSuper)
+{
+    VmRun run(R"KSJ(
+        클래스 동물 {
+            공개 문자열 이름
+            생성자(이름) {
+                자신.이름 = 이름
+            }
+            공개 함수 소개() {
+                반환 "나는 " + 자신.이름 + ", " + 자신.소리()
+            }
+            공개 함수 소리() {
+                반환 "..."
+            }
+        }
+        클래스 개 상속 동물 {
+            공개 정수 나이
+            생성자(이름, 나이) {
+                상위(이름)
+                자신.나이 = 나이
+            }
+            공개 함수 소리() {
+                반환 "멍멍 (원래: " + 상위.소리() + ")"
+            }
+            공개 함수 소개() {
+                반환 상위.소개() + ", " + 문자열(자신.나이) + "살"
+            }
+        }
+        클래스 강아지 상속 개 {
+            공개 함수 소리() {
+                반환 "낑낑 / " + 상위.소리()
+            }
+        }
+        결과 = 개("바둑이", 3).소개() + " | " + 강아지("초코", 1).소개()
+    )KSJ");
+    EXPECT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("결과").asString(), "나는 바둑이, 멍멍 (원래: ...), 3살 | 나는 초코, 낑낑 / 멍멍 (원래: ...), 1살");
+}

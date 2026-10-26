@@ -7,6 +7,7 @@
 
 #include <gtest/gtest.h>
 #include "evaluator/Evaluator.h"
+#include "evaluator/Builtin.h"
 #include "parser/Parser.h"
 #include "lexer/Lexer.h"
 
@@ -711,4 +712,54 @@ TEST(EvaluatorTest, ShouldInheritFieldsMethodsAndConstructor)
 TEST(EvaluatorTest, ShouldRejectUnknownSuperClass)
 {
     EXPECT_THROW(evalInput("클래스 개 상속 없는클래스 {\n}\n"), std::runtime_error);
+}
+
+/**
+ * @brief 상위: 부모 생성자·메서드를 원래 인스턴스로 부르고, 여러 단계 상속에서도 정의한 클래스의 부모를 가리킨다
+ */
+TEST(EvaluatorTest, ShouldCallParentConstructorAndMethodsWithSuper)
+{
+    // 아래 프로그램은 내장 함수 문자열() 을 쓴다. ctest 는 테스트마다 프로세스를 따로 띄우므로 직접 등록한다
+    evaluator::Builtin::registerAllBuiltins();
+    auto result = evalInput(R"KSJ(
+        클래스 동물 {
+            공개 문자열 이름
+            생성자(이름) {
+                자신.이름 = 이름
+            }
+            공개 함수 소개() {
+                반환 "나는 " + 자신.이름 + ", " + 자신.소리()
+            }
+            공개 함수 소리() {
+                반환 "..."
+            }
+        }
+        클래스 개 상속 동물 {
+            공개 정수 나이
+            생성자(이름, 나이) {
+                상위(이름)
+                자신.나이 = 나이
+            }
+            공개 함수 소리() {
+                반환 "멍멍 (원래: " + 상위.소리() + ")"
+            }
+            공개 함수 소개() {
+                반환 상위.소개() + ", " + 문자열(자신.나이) + "살"
+            }
+        }
+        클래스 강아지 상속 개 {
+            공개 함수 소리() {
+                반환 "낑낑 / " + 상위.소리()
+            }
+        }
+        결과 = 개("바둑이", 3).소개() + " | " + 강아지("초코", 1).소개()
+        결과
+    )KSJ");
+    EXPECT_EQ(result.asString(), "나는 바둑이, 멍멍 (원래: ...), 3살 | 나는 초코, 낑낑 / 멍멍 (원래: ...), 1살");
+}
+
+TEST(EvaluatorTest, ShouldRejectSuperOutsideSubclass)
+{
+    EXPECT_THROW(evalInput("클래스 단독 {\n    공개 함수 f() {\n        반환 상위.f()\n    }\n}\n단독().f()\n"),
+                 std::runtime_error);
 }

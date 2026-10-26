@@ -778,25 +778,11 @@ std::unique_ptr<IfStatement> Parser::parseIfStatement()
     auto startLoc = curToken_.location;  // "만약" 키워드 위치 저장
 
     // 조건식 파싱: 괄호는 선택사항
-    // "만약 (조건) {" 또는 "만약 조건 {" 모두 지원
-    bool hasParentheses = peekTokenIs(TokenType::LPAREN);
-
-    if (hasParentheses)
-    {
-        nextToken(); // '(' 로 이동
-    }
-
+    // "만약 (조건) {", "만약 조건 {", "만약 (a) && (b) {" 모두 지원
     nextToken(); // 조건식 시작
 
-    auto condition = parseExpression(Precedence::LOWEST);
-
-    if (hasParentheses)
-    {
-        if (!expectPeek(TokenType::RPAREN))
-        {
-            return nullptr;
-        }
-    }
+    bool hasParentheses = false;
+    auto condition = parseCondition(hasParentheses);
 
     // then 블록 파싱
     if (!expectPeek(TokenType::LBRACE))
@@ -856,18 +842,15 @@ std::unique_ptr<WhileStatement> Parser::parseWhileStatement()
     auto startLoc = curToken_.location;  // "반복" 또는 "동안" 위치
     std::string keyword = curToken_.literal;
 
+    // 조건은 '(' 로 시작한다. "반복 (a) && (b) {" 처럼 괄호 뒤로 이어질 수 있다
     if (!expectPeek(TokenType::LPAREN))
     {
         return nullptr;
     }
-    nextToken(); // 조건식 시작
 
-    auto condition = parseExpression(Precedence::LOWEST);
+    bool wrapped = false;
+    auto condition = parseCondition(wrapped);
 
-    if (!expectPeek(TokenType::RPAREN))
-    {
-        return nullptr;
-    }
     if (!expectPeek(TokenType::LBRACE))
     {
         return nullptr;
@@ -878,6 +861,7 @@ std::unique_ptr<WhileStatement> Parser::parseWhileStatement()
     auto stmt = std::make_unique<WhileStatement>(std::move(condition), std::move(body));
     stmt->setLocation(startLoc);
     stmt->setKeyword(keyword);
+    stmt->setConditionParenthesized(wrapped);
     return stmt;
 }
 
@@ -924,6 +908,18 @@ std::unique_ptr<RepeatStatement> Parser::parseRepeatStatement()
     );
     stmt->setLocation(startLoc);
     return stmt;
+}
+
+std::unique_ptr<Expression> Parser::parseCondition(bool& wrapped)
+{
+    // 조건 전체를 감싼 괄호는 문장의 괄호로 보고 식에서는 지운다 (포매터가 문장 쪽에서 쓴다)
+    auto condition = parseExpression(Precedence::LOWEST);
+    wrapped = condition && condition->parenthesized();
+    if (wrapped)
+    {
+        condition->setParenthesized(false);
+    }
+    return condition;
 }
 
 std::string Parser::parseOptionalLoopWord()

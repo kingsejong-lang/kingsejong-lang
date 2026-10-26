@@ -763,3 +763,24 @@ TEST(EvaluatorTest, ShouldRejectSuperOutsideSubclass)
     EXPECT_THROW(evalInput("클래스 단독 {\n    공개 함수 f() {\n        반환 상위.f()\n    }\n}\n단독().f()\n"),
                  std::runtime_error);
 }
+
+// ============================================================================
+// 괄호로 시작하는 조건
+// ============================================================================
+
+TEST(EvaluatorTest, ShouldEvaluateConditionsThatStartWithParentheses)
+{
+    // 첫 ')' 에서 조건을 끝내지 않고 식 전체를 조건으로 읽는다
+    auto ifResult = evalInput(
+        "결과 = 0\n"
+        "만약 (1 > 0) && (2 > 1) {\n결과 = 1\n}\n"
+        "만약 (1 > 0) && (2 < 1) {\n결과 = 2\n}\n"
+        "결과");
+    EXPECT_EQ(ifResult.asInteger(), 1);
+
+    auto whileResult = evalInput(
+        "x = 0\n"
+        "반복 (x < 10) && (x != 3) {\nx = x + 1\n}\n"
+        "x");
+    EXPECT_EQ(whileResult.asInteger(), 3);
+}

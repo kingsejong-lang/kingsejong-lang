@@ -229,6 +229,19 @@ public:
     static Value runCallback(const Value& callback, const std::vector<Value>& args);
     /// 클래스 생성자 함수(classDef 가 붙은 Function)로 인스턴스를 만든다
     static Value constructInstance(const std::shared_ptr<Function>& func, const std::vector<Value>& args);
+
+    /**
+     * @brief 메서드·생성자 환경에 '자신' 과 '상위' 를 묶는다 (평가기·VM 공통)
+     *
+     * self 가 '상위' 프록시면 원래 인스턴스를 '자신' 으로 쓴다. func 를 정의한 클래스에 부모가 있으면
+     * '상위' 를 그 부모를 가리키는 프록시로 묶는다.
+     */
+    static void bindSelf(Environment& env, const Value& self, const std::shared_ptr<Function>& func);
+
+    /**
+     * @brief '상위(인자...)': 프록시가 가리키는 부모 클래스의 생성자를 원래 인스턴스에 대해 실행한다
+     */
+    static Value callSuperConstructor(const Value& proxy, const std::vector<Value>& args);
     /// 비동기 함수의 결과를 Promise 로 감싼다 (에러 값이면 reject)
     static Value wrapAsync(const Value& result);
     /// 대기: Promise 면 이벤트 루프를 돌려 끝날 때까지 기다린 뒤 그 값(거부면 이유)을 돌려준다.

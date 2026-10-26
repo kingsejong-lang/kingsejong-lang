@@ -44,6 +44,8 @@ void Parser::registerParseFunctions()
     registerPrefixFn(TokenType::LBRACE, [this]() { return parseDictionaryLiteral(); });  // Phase 7.2
     registerPrefixFn(TokenType::HAMSU, [this]() { return parseFunctionLiteral(); });
     registerPrefixFn(TokenType::BIDONGGI, [this]() { return parseAsyncFunctionLiteral(); });  // Phase 7.3
+    // '상위' 는 메서드·생성자 안에서 부모 클래스를 가리키는 이름이다 (실행기가 환경에 묶는다)
+    registerPrefixFn(TokenType::SANGWI, [this]() { return parseIdentifier(); });
     registerPrefixFn(TokenType::DAEGI, [this]() { return parseAwaitExpression(); });  // Phase 7.3
 
     // 타입 키워드도 식별자로 사용 가능 (builtin 함수 이름으로 사용)

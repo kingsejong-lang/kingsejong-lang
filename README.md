@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![C++23](https://img.shields.io/badge/C++-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![CI](https://github.com/kingsejong-lang/kingsejong-lang/workflows/CI/badge.svg)](https://github.com/kingsejong-lang/kingsejong-lang/actions)
-[![Version](https://img.shields.io/badge/version-v0.5.0-blue)](https://github.com/kingsejong-lang/kingsejong-lang/releases)
+[![Version](https://img.shields.io/badge/version-v0.6.0-blue)](https://github.com/kingsejong-lang/kingsejong-lang/releases)
 [![VS Code](https://img.shields.io/badge/VS%20Code-Extension-blue)](vscode-extension/)
 
 [빠른 시작](#빠른-시작) |

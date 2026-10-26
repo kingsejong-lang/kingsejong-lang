@@ -1295,6 +1295,7 @@ std::unique_ptr<Expression> Parser::parseExpression(Precedence precedence, Parse
         }
 
         nextToken();
+        infixContext_ = precedence;  // 조사식이 바깥 연산자보다 약한 연산자를 끌어가지 않도록 알린다
         leftExp = infixIt->second(std::move(leftExp));
     }
 
@@ -1577,11 +1578,14 @@ std::unique_ptr<Expression> Parser::parseJosaExpression(std::unique_ptr<Expressi
     // 현재 토큰은 조사 (EUL, REUL, I, GA 등)
     lexer::JosaRecognizer::JosaType josaType = tokenToJosaType(curToken_.type);
     std::string particle = curToken_.literal;
+    // 이 조사식을 부른 식의 우선순위. "10 - x를 f() - 3" 에서 조사식은 "- 3" 을 가져가면 안 된다
+    Precedence context = infixContext_;
 
     nextToken(); // 조사 다음 토큰으로 이동 (메서드/명사)
 
-    // 메서드/명사 파싱. 범위("1부터 10까지")가 올 수 있어 가장 낮은 우선순위로 읽는다.
-    auto method = parseExpression(Precedence::LOWEST);
+    // 메서드/명사 파싱. 문장 수준에서는 범위("1부터 10까지")가 올 수 있어 가장 낮은 우선순위로 읽고,
+    // 이항 연산자의 오른쪽처럼 더 센 자리에서는 그 우선순위보다 센 연산자만 가져온다.
+    auto method = parseExpression(context);
     if (!method)
     {
         return nullptr;

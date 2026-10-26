@@ -178,6 +178,7 @@ jobs:
     - name: Generate API reference
       run: |
         version=$(sed -n 's/^project(KingSejong VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+        mkdir -p build/api  # Doxygen 1.9 은 중첩된 출력 디렉터리를 만들지 못한다
         (cat Doxyfile; echo "PROJECT_NUMBER=$version") | doxygen -
         test -f build/api/html/index.html
 

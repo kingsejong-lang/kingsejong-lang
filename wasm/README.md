@@ -110,7 +110,7 @@ createKingSejong().then(module => {
 
     // 버전 확인
     console.log(interpreter.version());
-    // => "KingSejong v0.5.0 (WebAssembly)" (CMakeLists.txt 의 버전)
+    // => "KingSejong v0.6.0 (WebAssembly)" (CMakeLists.txt 의 버전)
 
     // 코드 실행
     const result = interpreter.evaluate(`

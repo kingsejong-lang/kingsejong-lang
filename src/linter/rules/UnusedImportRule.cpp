@@ -8,6 +8,7 @@
 #include "UnusedImportRule.h"
 #include "linter/Linter.h"
 #include "linter/IssueSeverity.h"
+#include "lexer/JosaRecognizer.h"
 
 namespace kingsejong {
 namespace linter {
@@ -31,7 +32,8 @@ void UnusedImportRule::analyze(ast::Program* program)
         if (usedModules_.find(moduleName) == usedModules_.end())
         {
             reportIssue(
-                "import된 모듈 '" + importInfo.modulePath + "'이(가) 사용되지 않습니다",
+                "import된 모듈 '" + importInfo.modulePath + "'" +
+                    lexer::JosaRecognizer::selectOrBoth(importInfo.modulePath, lexer::JosaRecognizer::JosaType::I_GA) + " 사용되지 않습니다",
                 IssueSeverity::WARNING,
                 importInfo.line,
                 importInfo.column

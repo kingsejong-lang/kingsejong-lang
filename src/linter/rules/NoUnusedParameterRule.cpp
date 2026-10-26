@@ -8,6 +8,7 @@
 #include "linter/rules/NoUnusedParameterRule.h"
 #include "ast/Visitor.h"
 #include "linter/Linter.h"
+#include "lexer/JosaRecognizer.h"
 #include <unordered_map>
 #include <unordered_set>
 
@@ -83,8 +84,8 @@ void NoUnusedParameterRule::onFunctionLiteral(FunctionLiteral* expr)
         if (collector.identifiers.find(param) == collector.identifiers.end())
         {
             reportIssue(
-                "함수 매개변수 '" + param + "'이(가) 사용되지 않습니다. "
-                "의도적인 경우 '_" + param + "'로 표시하세요",
+                "함수 매개변수 '" + param + "'" + lexer::JosaRecognizer::selectOrBoth(param, lexer::JosaRecognizer::JosaType::I_GA) + " 사용되지 않습니다. "
+                "의도적인 경우 '_" + param + "'" + lexer::JosaRecognizer::selectOrBoth(param, lexer::JosaRecognizer::JosaType::RO_EURO) + " 표시하세요",
                 IssueSeverity::WARNING,
                 expr->location().line,
                 expr->location().column

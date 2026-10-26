@@ -9,6 +9,7 @@
 #include <algorithm>
 #include "../error/Error.h"
 #include "../types/Type.h"
+#include "lexer/JosaRecognizer.h"
 #include <sstream>
 #include <cmath>
 
@@ -52,7 +53,7 @@ Value ClassInstance::getField(const std::string& fieldName) const
     {
         return it->second;
     }
-    throw std::runtime_error("필드 '" + fieldName + "'이(가) 존재하지 않습니다.");
+    throw std::runtime_error("필드 '" + fieldName + "'" + lexer::JosaRecognizer::selectOrBoth(fieldName, lexer::JosaRecognizer::JosaType::I_GA) + " 존재하지 않습니다.");
 }
 
 void ClassInstance::setField(const std::string& fieldName, const Value& value)
@@ -68,7 +69,7 @@ void ClassInstance::setField(const std::string& fieldName, const Value& value)
     }
     else
     {
-        throw std::runtime_error("필드 '" + fieldName + "'이(가) 존재하지 않습니다.");
+        throw std::runtime_error("필드 '" + fieldName + "'" + lexer::JosaRecognizer::selectOrBoth(fieldName, lexer::JosaRecognizer::JosaType::I_GA) + " 존재하지 않습니다.");
     }
 }
 

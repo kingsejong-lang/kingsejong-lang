@@ -160,7 +160,26 @@ jobs:
         name: coverage-report
         path: coverage.info
 
-  sanitizers:
+  api-docs:
+    name: API Reference (Doxygen)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Doxygen
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y doxygen
+
+    - name: Generate API reference
+      run: |
+        version=$(sed -n 's/^project(KingSejong VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+        (cat Doxyfile; echo "PROJECT_NUMBER=$version") | doxygen -
+        test -f build/api/html/index.html
+
+    sanitizers:
     name: Sanitizers (ASan + UBSan)
     runs-on: ubuntu-latest
 

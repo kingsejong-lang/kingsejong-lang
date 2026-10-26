@@ -5,10 +5,10 @@
 #---------------------------------------------------------------------------
 
 PROJECT_NAME           = "KingSejong Language"
-PROJECT_NUMBER         = "v0.8.0"
+PROJECT_NUMBER         =  # CI 가 CMakeLists.txt 의 project(VERSION) 을 넘긴다
 PROJECT_BRIEF          = "한글 프로그래밍 언어"
 PROJECT_LOGO           =
-OUTPUT_DIRECTORY       = docs/api
+OUTPUT_DIRECTORY       = build/api
 CREATE_SUBDIRS         = NO
 ALLOW_UNICODE_NAMES    = YES
 OUTPUT_LANGUAGE        = Korean
@@ -88,7 +88,7 @@ INPUT                  = src include
 INPUT_ENCODING         = UTF-8
 FILE_PATTERNS          = *.cpp *.h *.hpp
 RECURSIVE              = YES
-EXCLUDE                =
+EXCLUDE                = include/third_party
 EXCLUDE_SYMLINKS       = NO
 EXCLUDE_PATTERNS       = */tests/* */build/*
 EXCLUDE_SYMBOLS        =
@@ -252,3 +252,6 @@ DOT_TRANSPARENT        = NO
 DOT_MULTI_TARGETS      = NO
 GENERATE_LEGEND        = YES
 DOT_CLEANUP            = YES
+
+# 소스 주석의 "@example" 은 짧은 사용 예를 적는 문단으로 쓴다 (Doxygen 기본 의미인 예제 파일이 아니다)
+ALIASES                = "example=@par 예:^^"

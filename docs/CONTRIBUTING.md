@@ -454,7 +454,7 @@ ctest -V
 
 1. **README.md**: 프로젝트 개요, 빌드 방법
 2. **TODOLIST.md**: 작업 목록, 진행 상황
-3. **코드 주석**: API 문서, 복잡한 로직 설명
+3. **코드 주석**: API 문서, 복잡한 로직 설명. C++ API 레퍼런스는 주석에서 Doxygen 으로 만든다: `doxygen Doxyfile` 을 돌리면 `build/api/html/index.html` 이 생기고, main 에 푸시하면 [사이트의 /api/](https://kingsejong-lang.github.io/kingsejong-lang/api/) 에 배포된다
 4. **예제**: examples/ 디렉토리에 샘플 코드
 
 ### 주석 작성

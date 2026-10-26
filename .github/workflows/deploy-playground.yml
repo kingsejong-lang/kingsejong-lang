@@ -101,6 +101,14 @@ jobs:
       - name: Add docs site to the Pages artifact
         run: cp -r site/.vitepress/dist web/dist/docs
 
+      - name: Build C++ API reference (Doxygen)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen
+          version=$(sed -n 's/^project(KingSejong VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+          (cat Doxyfile; echo "PROJECT_NUMBER=$version") | doxygen -
+          cp -r build/api/html web/dist/api
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
@@ -123,3 +131,4 @@ jobs:
         run: |
           echo "Playground deployed: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
           echo "Docs deployed: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/docs/"
+          echo "API reference deployed: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/api/"

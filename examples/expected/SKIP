@@ -3,3 +3,4 @@ stdlib_db.ksj SQLite 파일 상태에 따라 출력이 달라진다
 stdlib_time.ksj 현재 시각을 출력한다
 stdlib_os.ksj 운영체제·사용자·경로 정보를 출력한다
 stdlib_crypto.ksj 랜덤 문자열·토큰·비밀번호를 출력한다
+stdlib_http.ksj 외부 서버(httpbin.org)의 응답에 따라 출력이 달라진다

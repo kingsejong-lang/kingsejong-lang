@@ -341,6 +341,7 @@ private:
         edge(parent, fn, true, [this](Function& f) {
             edgeEnvironment(&f, f.closure());
             edgeClassDef(&f, f.classDef());
+            edgeClassDef(&f, f.superClassDef());  // '상위' 가 가리킬 부모 클래스
         });
     }
 
@@ -352,6 +353,23 @@ private:
                 edgeFunction(&d, method);
             }
             edgeFunction(&d, d.constructor());
+        });
+    }
+
+    void edgeInstance(const void* parent, const std::shared_ptr<ClassInstance>& instance)
+    {
+        edge(parent, instance, true, [this](ClassInstance& inst) {
+            edgeClassDef(&inst, inst.classDef());
+            if (inst.isSuperProxy())
+            {
+                // '상위' 프록시의 필드는 원래 인스턴스의 것이다. 원래 인스턴스로 가는 참조 하나만 센다
+                edgeInstance(&inst, inst.target());
+                return;
+            }
+            for (const auto& [k, v] : inst.fields())
+            {
+                visitValue(&inst, v);
+            }
         });
     }
 
@@ -384,13 +402,7 @@ private:
                 }
                 else if constexpr (std::is_same_v<T, std::shared_ptr<ClassInstance>>)
                 {
-                    edge(parent, item, true, [this](ClassInstance& inst) {
-                        edgeClassDef(&inst, inst.classDef());
-                        for (const auto& [k, v] : inst.fields())
-                        {
-                            visitValue(&inst, v);
-                        }
-                    });
+                    edgeInstance(parent, item);
                 }
                 // Promise 는 콜백 안에 함수를 숨기고 있을 수 있는데 들여다볼 수 없다.
                 // 세지 않으면 그 함수의 closure 참조가 발견되지 않아 보수적으로 포기된다.

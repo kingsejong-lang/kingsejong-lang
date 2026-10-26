@@ -10,6 +10,7 @@ import type MarkdownIt from 'markdown-it'
 const REPO = 'https://github.com/kingsejong-lang/kingsejong-lang'
 const vueDir = dirname(createRequire(import.meta.url).resolve('vue/package.json'))
 const PLAYGROUND = 'https://kingsejong-lang.github.io/kingsejong-lang/'
+const API_REFERENCE = 'https://kingsejong-lang.github.io/kingsejong-lang/api/'
 const SITE = PLAYGROUND + 'docs/'
 /** 공유 미리보기 이미지. web/public/og.png 가 플레이그라운드 루트에 배포된다 (scripts/generate_og_image.py 로 만든다) */
 const OG_IMAGE = PLAYGROUND + 'og.png'
@@ -132,6 +133,7 @@ export default defineConfig({
       { text: '언어 레퍼런스', link: '/LANGUAGE_REFERENCE' },
       { text: '표준 라이브러리', link: '/STDLIB_REFERENCE' },
       { text: '플레이그라운드', link: PLAYGROUND },
+      { text: 'C++ API', link: API_REFERENCE },
     ],
 
     sidebar: [
@@ -161,6 +163,7 @@ export default defineConfig({
           { text: 'v0.6 마이그레이션', link: '/MIGRATION_v0.6' },
           { text: '기여 가이드', link: '/CONTRIBUTING' },
           { text: '코딩 스타일', link: '/CODING_STYLE' },
+          { text: 'C++ API 레퍼런스 (Doxygen)', link: API_REFERENCE },
           { text: '플레이그라운드 개발', link: '/PLAYGROUND_TUTORIAL' },
           { text: 'Phase 9 리팩토링 계획', link: '/PHASE9_REFACTORING_PLAN' },
         ],

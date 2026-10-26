@@ -33,6 +33,7 @@ jobs:
   # 1. WebAssembly 빌드
   build-wasm:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -66,6 +67,7 @@ jobs:
   build-and-deploy:
     needs: build-wasm
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -126,6 +128,7 @@ jobs:
   verify:
     needs: build-and-deploy
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Check deployment

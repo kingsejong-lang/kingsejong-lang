@@ -357,3 +357,39 @@ TEST(NameResolutionTest, ShouldRejectRangeOutsideIndex)
     SemanticAnalyzer okAnalyzer;
     EXPECT_TRUE(okAnalyzer.analyze(okProgram.get()));
 }
+
+TEST(NameResolutionTest, ShouldRejectSelfAndSuperOutsideClassMembers)
+{
+    // 메서드·생성자 밖의 자신·상위는 실행 전에 알려 준다 (호출되지 않는 함수 안이라도)
+    for (const char* code : {"출력(자신)\n", "함수 f() {\n    반환 자신\n}\n", "출력(상위.소리())\n"})
+    {
+        Lexer lexer(code);
+        Parser parser(lexer);
+        auto program = parser.parseProgram();
+        ASSERT_TRUE(parser.errors().empty()) << parser.errors()[0];
+
+        SemanticAnalyzer analyzer;
+        EXPECT_FALSE(analyzer.analyze(program.get())) << code;
+        ASSERT_FALSE(analyzer.errors().empty()) << code;
+        EXPECT_NE(analyzer.errors()[0].message.find("메서드나 생성자 안에서만"), std::string::npos)
+            << analyzer.errors()[0].message;
+    }
+
+    // 메서드·생성자 안, 그 안의 함수 리터럴에서는 그대로 쓸 수 있다
+    Lexer okLexer(
+        "클래스 동물 {\n"
+        "    비공개 문자열 이름\n"
+        "    생성자(이름) {\n        자신.이름 = 이름\n    }\n"
+        "    공개 함수 소리() {\n        반환 \"...\"\n    }\n"
+        "}\n"
+        "클래스 개 상속 동물 {\n"
+        "    생성자(이름) {\n        상위(이름)\n    }\n"
+        "    공개 함수 소리() {\n        f = 함수() {\n            반환 상위.소리() + 자신.이름\n        }\n        반환 f()\n    }\n"
+        "}\n");
+    Parser okParser(okLexer);
+    auto okProgram = okParser.parseProgram();
+    ASSERT_TRUE(okParser.errors().empty()) << okParser.errors()[0];
+    SemanticAnalyzer okAnalyzer;
+    EXPECT_TRUE(okAnalyzer.analyze(okProgram.get()))
+        << (okAnalyzer.errors().empty() ? "" : okAnalyzer.errors()[0].message);
+}

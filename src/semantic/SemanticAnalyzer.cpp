@@ -502,10 +502,12 @@ void SemanticAnalyzer::analyzeAndResolveStatement(const Statement* stmt)
                 }
 
                 // 메서드 본문 분석
+                classMemberDepth_++;
                 if (method->body())
                 {
                     analyzeAndResolveStatement(method->body());
                 }
+                classMemberDepth_--;
 
                 symbolTable_.exitScope();
             }
@@ -524,10 +526,12 @@ void SemanticAnalyzer::analyzeAndResolveStatement(const Statement* stmt)
                 }
 
                 // 생성자 본문 분석
+                classMemberDepth_++;
                 if (ctor->body())
                 {
                     analyzeAndResolveStatement(ctor->body());
                 }
+                classMemberDepth_--;
 
                 symbolTable_.exitScope();
             }
@@ -615,6 +619,12 @@ void SemanticAnalyzer::analyzeAndResolveExpression(const Expression* expr)
         case NodeType::IDENTIFIER:
         {
             auto ident = static_cast<const Identifier*>(expr);
+            if (ident->name() == "상위" && classMemberDepth_ == 0)
+            {
+                addError("'상위'는 클래스의 메서드나 생성자 안에서만 쓸 수 있습니다",
+                        expr->location().line, expr->location().column);
+                break;
+            }
             if (!symbolTable_.lookup(ident->name()) &&
                 !isBuiltinFunction(ident->name()))
             {
@@ -738,7 +748,11 @@ void SemanticAnalyzer::analyzeAndResolveExpression(const Expression* expr)
         case NodeType::THIS_EXPRESSION:
         {
             // this는 메서드나 생성자 내부에서만 사용 가능
-            // 현재는 스코프 체크 없이 허용 (TODO: 향후 메서드/생성자 스코프 추적 추가)
+            if (classMemberDepth_ == 0)
+            {
+                addError("'자신'은 클래스의 메서드나 생성자 안에서만 쓸 수 있습니다",
+                        expr->location().line, expr->location().column);
+            }
             break;
         }
         // Phase 7.3: 비동기 함수 리터럴

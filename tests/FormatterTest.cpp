@@ -591,6 +591,13 @@ TEST(FormatterSourceTest, ShouldKeepConditionsThatStartWithParentheses)
     EXPECT_EQ(formatChecked(code), expected);
 }
 
+TEST(FormatterSourceTest, ShouldKeepNestedParentheses)
+{
+    // 겹친 괄호도 쓴 만큼 남긴다
+    std::string code = "x = ((1 + 2)) * 3\n반복 ((x > 0)) {\n    x = x - 1\n}\n만약 ((x)) {\n    출력(x)\n}\n";
+    EXPECT_EQ(formatChecked(code), code);
+}
+
 TEST(FormatterSourceTest, ShouldFormatPreviouslyUnsupportedSyntax)
 {
     std::string code =

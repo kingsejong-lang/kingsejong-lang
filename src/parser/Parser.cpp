@@ -913,12 +913,12 @@ std::unique_ptr<RepeatStatement> Parser::parseRepeatStatement()
 
 std::unique_ptr<Expression> Parser::parseCondition(bool& wrapped)
 {
-    // 조건 전체를 감싼 괄호는 문장의 괄호로 보고 식에서는 지운다 (포매터가 문장 쪽에서 쓴다)
+    // 조건 전체를 감싼 괄호 한 겹은 문장의 괄호로 보고 식에서는 지운다 (포매터가 문장 쪽에서 쓴다)
     auto condition = parseExpression(Precedence::LOWEST);
     wrapped = condition && condition->parenthesized();
     if (wrapped)
     {
-        condition->setParenthesized(false);
+        condition->removeParentheses();
     }
     return condition;
 }
@@ -1443,7 +1443,7 @@ std::unique_ptr<Expression> Parser::parseGroupedExpression()
 
     if (expr)
     {
-        expr->setParenthesized(true);
+        expr->addParentheses();
     }
     return expr;
 }

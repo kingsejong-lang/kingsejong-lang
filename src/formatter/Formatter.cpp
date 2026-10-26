@@ -809,15 +809,9 @@ void Formatter::formatExpression(const Expression* expr)
     if (!expr) return;
 
     // 원래 괄호로 감싼 식은 의미에 필요 없어도 괄호를 남긴다 (작성자가 묶어 둔 의도)
-    if (expr->parenthesized())
-    {
-        write("(");
-    }
+    write(std::string(expr->parenDepth(), '('));
     formatExpressionBody(expr);
-    if (expr->parenthesized())
-    {
-        write(")");
-    }
+    write(std::string(expr->parenDepth(), ')'));
 }
 
 void Formatter::formatExpressionBody(const Expression* expr)

@@ -181,11 +181,14 @@ public:
     virtual ~Expression() = default;
 
     /// 소스에서 괄호로 감싸여 있었는지. 의미에는 영향이 없고, 포매터가 원래 괄호를 남기는 데 쓴다
-    bool parenthesized() const { return parenthesized_; }
-    void setParenthesized(bool value) { parenthesized_ = value; }
+    bool parenthesized() const { return parenDepth_ > 0; }
+    /// 몇 겹의 괄호로 감싸였는지 ("((x))" 는 2)
+    int parenDepth() const { return parenDepth_; }
+    void addParentheses() { ++parenDepth_; }
+    void removeParentheses() { if (parenDepth_ > 0) --parenDepth_; }
 
 private:
-    bool parenthesized_ = false;
+    int parenDepth_ = 0;
 };
 
 /**

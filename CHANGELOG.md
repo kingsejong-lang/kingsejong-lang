@@ -11,6 +11,9 @@
 - 범위 반복문을 `이상` 으로 끝내면 거꾸로 센다. `i가 10부터 1 이상 {` 은 10, 9, ..., 1 을 돈다(평가기·VM 공통). 전에는 `까지` 처럼 올라가며 세서 이 반복문은 한 번도 돌지 않았고, `i가 1부터 3 이상` 은 1~3 을 돌았지만 이제는 돌지 않는다.
 
 ### 고침
+- VS Code 확장을 `.vsix` 로 묶으면 `.vscodeignore` 가 `node_modules` 를 빼서 언어 서버 클라이언트(`vscode-languageclient`)가 빠지고, 설치하면 활성화하자마자 모듈을 찾지 못해 실패하던 문제.
+- VS Code 확장의 포맷 설정이 적용되지 않던 문제. 확장이 `--config=경로` 한 덩어리로 넘겨 CLI 가 무시했고, CLI 가 읽는 `.ksjfmt.json` 대신 `.ksjfmtrc` 를 찾았으며, `kingsejong.formatter.*` 설정은 읽지 않았다. 이제 편집기 설정 위에 작업 공간의 `.ksjfmt.json` 을 덮어 `--config 경로` 로 넘긴다. 임시 파일은 확장 설치 폴더 대신 OS 임시 폴더에 쓰고, 셸을 거치지 않고 실행해 경로의 공백·따옴표에 안전하다.
+- VS Code 확장의 `kingsejong.trace.server` 설정이 적용되지 않던 문제(클라이언트 id 가 `kingsejonglsp` 였다), 선언만 있고 등록되지 않아 "명령을 찾을 수 없음" 이 나던 `KingSejong: Format Document` 명령, 없는 아이콘 파일 참조, Windows 에서 `kingsejong.exe` 를 찾지 못하던 문제.
 - 메서드·생성자 밖에서 `자신` 이나 `상위` 를 쓰면 실행 중에야 "정의되지 않은 변수" 오류가 나고, 도움말이 `정수 자신 = 값` 처럼 키워드를 변수로 선언하라고 안내하던 문제. 의미 분석이 실행 전에 "메서드나 생성자 안에서만 쓸 수 있습니다" 라고 알린다. 호출되지 않는 함수 안에서 쓴 것도 잡는다.
 - 오류·경고 메시지가 이름 뒤에 조사를 받침과 상관없이 붙여 `'자신'를 사용하려고 합니다` 처럼 틀린 문장이 나오던 문제와, 한글 이름에도 `'사용안함'이(가)` 처럼 두 형태를 함께 쓰던 문제. 이름이 한글로 끝나면 받침으로, 숫자로 끝나면 읽는 소리로 조사를 고른다. 영문이나 기호로 끝나 읽는 법을 정할 수 없을 때만 `이(가)` 처럼 두 형태를 쓴다.
 - `kingsejong fmt` 가 겹친 괄호 `((x))` 를 한 겹 `(x)` 로 줄이던 문제. 구문 트리가 괄호 유무만 기록했다. 이제 몇 겹인지 기록해 쓴 만큼 남긴다.
@@ -23,10 +26,12 @@
 - 예제 테스트가 `stdlib_http` 의 출력까지 비교해, 외부 서버(httpbin.org)가 일시적으로 502 를 돌려주면 코드와 무관하게 CI 가 실패하던 문제. 네트워크 결과에 따라 달라지는 예제이므로 SKIP 목록에 넣어 종료 코드만 확인한다.
 
 ### 추가
+- VS Code 확장의 `npm test`(실제 `kingsejong fmt` 로 포맷 설정 적용 확인), `npm run package`(`.vsix` 생성), ESLint 설정. CI 의 `VS Code Extension` 잡이 확장을 검사·테스트하고 `.vsix` 를 아티팩트로 남긴다.
 - C++ API 레퍼런스. 소스의 Doxygen 주석으로 만든 HTML 을 Pages 의 `/api/` 에 배포하고 문서 사이트 상단 메뉴에 연결했다. `Doxyfile` 은 버전을 `CMakeLists.txt` 에서 받고(남아 있던 `v0.8.0` 을 지웠다), 출력을 `build/api` 에 두며, `include/third_party` 를 뺀다. 주석의 `@example` 은 예제 파일이 아니라 사용 예 문단으로 읽게 했다(한글 이름의 예제 파일을 만들려다 생성이 실패했다). CI 에 생성 확인 잡을 더했다.
 - 부모 클래스 호출 `상위`. 메서드·생성자 안에서 `상위.메서드(...)` 는 그 메서드를 정의한 클래스의 부모 메서드를, `상위(...)` 는 부모 생성자를 같은 인스턴스(`자신`)에 대해 부른다. 메서드를 정의할 때 부모 클래스를 기억해 두므로 여러 단계 상속에서도 각 단계의 부모를 가리키고, 부모 메서드 안의 `자신.메서드()` 는 계속 자식 쪽으로 간다. 평가기·VM 공통(`Evaluator::bindSelf`, `callSuperConstructor`).
 
 ### 제거
+- VS Code 확장에서 아무 효과가 없던 설정 `kingsejong.maxNumberOfProblems`, `kingsejong.formatter.insertFinalNewline`, `kingsejong.formatter.trimTrailingWhitespace`. 언어 서버와 포매터가 읽지 않았다. 파일 끝 줄바꿈과 줄 끝 공백은 VS Code 의 `files.*` 설정을 쓴다.
 - 의미 분석기에서 어디서도 부르지 않던 이전 방식의 심볼 등록·이름 해석 함수 7개(`buildSymbolTable`, `resolveNames` 등 약 470줄). `analyze()` 는 이미 둘을 합친 `analyzeAndResolve()` 를 쓴다.
 
 ## [v0.6.0] - 2026-10-26

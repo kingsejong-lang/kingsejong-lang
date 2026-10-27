@@ -189,6 +189,46 @@ jobs:
         (cat Doxyfile; echo "PROJECT_NUMBER=$version"; echo "WARN_AS_ERROR=FAIL_ON_WARNINGS") | doxygen -
         test -f build/api/html/index.html
 
+  vscode-extension:
+    name: VS Code Extension
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y g++-13
+        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100
+
+    # 확장 테스트가 build/bin/kingsejong 으로 실제 포맷을 돌린다
+    - name: Build kingsejong
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=Release
+        cmake --build build --target kingsejong -j
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Lint, test and package
+      working-directory: vscode-extension
+      run: |
+        npm ci --no-audit --no-fund
+        npm run lint
+        npm test
+        npm run package
+
+    - name: Upload extension package
+      uses: actions/upload-artifact@v4
+      with:
+        name: kingsejong-vscode
+        path: vscode-extension/*.vsix
+
   sanitizers:
     name: Sanitizers (ASan + UBSan)
     runs-on: ubuntu-latest

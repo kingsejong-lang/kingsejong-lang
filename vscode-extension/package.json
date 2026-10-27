@@ -37,11 +37,7 @@
           ".ksj",
           ".kingsejong"
         ],
-        "configuration": "./language-configuration.json",
-        "icon": {
-          "light": "./images/icon.png",
-          "dark": "./images/icon.png"
-        }
+        "configuration": "./language-configuration.json"
       }
     ],
     "grammars": [
@@ -64,11 +60,6 @@
           "default": "off",
           "description": "LSP 서버와의 통신 로그 레벨"
         },
-        "kingsejong.maxNumberOfProblems": {
-          "type": "number",
-          "default": 100,
-          "description": "표시할 최대 문제(에러/경고) 개수"
-        },
         "kingsejong.formatter.enable": {
           "type": "boolean",
           "default": true,
@@ -77,27 +68,17 @@
         "kingsejong.formatter.indentSize": {
           "type": "number",
           "default": 4,
-          "description": "들여쓰기 크기"
+          "description": "들여쓰기 크기 (프로젝트의 .ksjfmt.json 이 있으면 그 값이 우선한다)"
         },
         "kingsejong.formatter.useSpaces": {
           "type": "boolean",
           "default": true,
-          "description": "탭 대신 스페이스 사용"
+          "description": "탭 대신 스페이스 사용 (프로젝트의 .ksjfmt.json 이 있으면 그 값이 우선한다)"
         },
         "kingsejong.formatter.maxLineLength": {
           "type": "number",
           "default": 100,
-          "description": "최대 줄 길이"
-        },
-        "kingsejong.formatter.insertFinalNewline": {
-          "type": "boolean",
-          "default": true,
-          "description": "파일 끝에 빈 줄 추가"
-        },
-        "kingsejong.formatter.trimTrailingWhitespace": {
-          "type": "boolean",
-          "default": true,
-          "description": "줄 끝 공백 제거"
+          "description": "최대 줄 길이 (프로젝트의 .ksjfmt.json 이 있으면 그 값이 우선한다)"
         }
       }
     },
@@ -112,7 +93,9 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint src --ext ts"
+    "lint": "eslint src --ext ts",
+    "test": "npm run compile && node --test \"out/test/**/*.test.js\"",
+    "package": "vsce package"
   },
   "dependencies": {
     "vscode-languageclient": "^8.1.0"
@@ -122,6 +105,7 @@
     "@types/vscode": "^1.75.0",
     "@typescript-eslint/eslint-plugin": "^5.0.0",
     "@typescript-eslint/parser": "^5.0.0",
+    "@vscode/vsce": "3.2.1",
     "eslint": "^8.0.0",
     "typescript": "^5.0.0"
   }

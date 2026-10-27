@@ -46,6 +46,7 @@ KingSejong 프로젝트에 관심을 가져주셔서 감사합니다! 이 문서
   - MSVC 2022 이상
 - CMake 3.20 이상
 - Git 2.30 이상
+- Node.js 24 LTS (최소 22.12): 플레이그라운드(`web/`), 문서 사이트(`site/`), VS Code 확장(`vscode-extension/`)을 고칠 때만 필요하다. 저장소 루트의 `.nvmrc` 가 CI 와 같은 버전을 가리킨다
 
 ### 저장소 설정
 

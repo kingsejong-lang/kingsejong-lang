@@ -9,6 +9,7 @@
 
 ### 변경
 - 범위 반복문을 `이상` 으로 끝내면 거꾸로 센다. `i가 10부터 1 이상 {` 은 10, 9, ..., 1 을 돈다(평가기·VM 공통). 전에는 `까지` 처럼 올라가며 세서 이 반복문은 한 번도 돌지 않았고, `i가 1부터 3 이상` 은 1~3 을 돌았지만 이제는 돌지 않는다.
+- npm 의존성을 보안 패치가 들어간 버전으로 올렸다. `npm audit` 이 알린 취약점(플레이그라운드 2개, 문서 사이트 3개, VS Code 확장 8개)이 모두 없어졌다. 플레이그라운드는 Vite 8 과 Monaco 0.57 을 쓰고(Monaco 가 끌어오는 DOMPurify 는 3.4.17 이상으로 고정), 문서 사이트는 VitePress 1.6.4 가 아직 Vite 5 를 요구해 Vite 를 6.4.5 이상으로 고정했다. VS Code 확장은 `vscode-languageclient` 11, TypeScript 6, ESLint 10(설정을 `eslint.config.mjs` 로 옮김), `@vscode/vsce` 4 를 쓰며, 이에 따라 지원하는 VS Code 최소 버전이 1.75 에서 1.91 로 올라갔다. 플레이그라운드와 문서 사이트의 `package-lock.json` 을 저장소에 넣고 Pages 배포가 Node 22 에서 `npm ci` 로 설치해, 배포 때마다 의존성 버전이 달라지지 않는다.
 
 ### 고침
 - VS Code 확장을 `.vsix` 로 묶으면 `.vscodeignore` 가 `node_modules` 를 빼서 언어 서버 클라이언트(`vscode-languageclient`)가 빠지고, 설치하면 활성화하자마자 모듈을 찾지 못해 실패하던 문제.

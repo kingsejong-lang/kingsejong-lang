@@ -384,7 +384,7 @@ kingsejong fmt --config .ksjfmt.json myfile.ksj
 
 ### 3.1 설정 파일 자동 인식
 
-KingSejong VS Code 확장은 프로젝트 루트의 `.ksjlint.json`와 `.ksjfmt.json`를 자동으로 인식합니다.
+KingSejong VS Code 확장은 문서 포맷(Shift+Alt+F, 저장 시 포맷)에 작업 공간 폴더의 `.ksjfmt.json` 을 씁니다. 이 파일의 값은 편집기 설정(`kingsejong.formatter.*`)보다 우선합니다. 린터 설정(`.ksjlint.json`)은 확장이 아직 읽지 않으므로 `kingsejong lint` 명령으로 확인하세요.
 
 ### 3.2 VS Code 설정 예제
 
@@ -392,10 +392,8 @@ KingSejong VS Code 확장은 프로젝트 루트의 `.ksjlint.json`와 `.ksjfmt.
 
 ```json
 {
-  "kingsejong.linter.enable": true,
-  "kingsejong.linter.configFile": "${workspaceFolder}/.ksjlint.json",
   "kingsejong.formatter.enable": true,
-  "kingsejong.formatter.configFile": "${workspaceFolder}/.ksjfmt.json",
+  "kingsejong.formatter.indentSize": 4,
   "editor.formatOnSave": true
 }
 ```

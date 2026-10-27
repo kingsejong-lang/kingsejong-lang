@@ -7,15 +7,15 @@
  * LSP 클라이언트를 시작하고 KingSejong 언어 서버와 통신합니다.
  */
 
-import * as path from 'path';
-import { workspace, ExtensionContext, languages } from 'vscode';
+import { workspace, ExtensionContext, languages, commands, window } from 'vscode';
 import {
     LanguageClient,
     LanguageClientOptions,
     ServerOptions,
     TransportKind
 } from 'vscode-languageclient/node';
-import { KingSejongFormattingProvider, findFormatterExecutable } from './formatter';
+import { KingSejongFormattingProvider } from './formatter';
+import { findKingsejongExecutable } from './fmtRunner';
 
 let client: LanguageClient;
 
@@ -26,12 +26,20 @@ let client: LanguageClient;
 export function activate(context: ExtensionContext) {
     console.log('KingSejong extension is now active!');
 
+    // 명령은 실행 파일이 없어도 등록해 둔다 (없으면 "명령을 찾을 수 없음" 대신 안내가 뜬다)
+    context.subscriptions.push(
+        commands.registerCommand('kingsejong.formatDocument', () =>
+            commands.executeCommand('editor.action.formatDocument'))
+    );
+
     // 서버 실행 파일 경로
-    // 빌드된 kingsejong 실행 파일을 사용
-    const serverModule = findServerExecutable(context);
+    // 빌드된 kingsejong 실행 파일을 사용 (언어 서버와 포맷터가 같은 실행 파일이다)
+    const serverModule = findKingsejongExecutable(context.extensionPath);
 
     if (!serverModule) {
-        console.error('KingSejong language server not found!');
+        window.showWarningMessage(
+            'kingsejong 실행 파일을 찾을 수 없어 언어 서버와 포맷터를 켜지 못했습니다. ' +
+            'kingsejong 을 빌드해 PATH 에 두세요.');
         return;
     }
 
@@ -55,8 +63,9 @@ export function activate(context: ExtensionContext) {
     };
 
     // LSP 클라이언트 생성 및 시작
+    // id 가 설정 이름의 앞부분이 된다: kingsejong.trace.server
     client = new LanguageClient(
-        'kingsejonglsp',
+        'kingsejong',
         'KingSejong Language Server',
         serverOptions,
         clientOptions
@@ -68,18 +77,12 @@ export function activate(context: ExtensionContext) {
     console.log('KingSejong LSP client started');
 
     // Formatter 등록
-    const formatterPath = findFormatterExecutable(context.extensionPath);
-    if (formatterPath) {
-        const formattingProvider = new KingSejongFormattingProvider(formatterPath);
-        const disposable = languages.registerDocumentFormattingEditProvider(
-            { language: 'kingsejong', scheme: 'file' },
-            formattingProvider
-        );
-        context.subscriptions.push(disposable);
-        console.log('KingSejong formatter registered');
-    } else {
-        console.warn('KingSejong formatter not found - formatting disabled');
-    }
+    const formattingProvider = new KingSejongFormattingProvider(serverModule);
+    context.subscriptions.push(languages.registerDocumentFormattingEditProvider(
+        { language: 'kingsejong', scheme: 'file' },
+        formattingProvider
+    ));
+    console.log('KingSejong formatter registered');
 }
 
 /**
@@ -91,46 +94,4 @@ export function deactivate(): Thenable<void> | undefined {
         return undefined;
     }
     return client.stop();
-}
-
-/**
- * KingSejong 언어 서버 실행 파일을 찾습니다.
- *
- * 우선순위:
- * 1. Extension 번들에 포함된 서버
- * 2. 개발 환경의 빌드 디렉토리
- * 3. 시스템 PATH
- */
-function findServerExecutable(context: ExtensionContext): string | null {
-    const fs = require('fs');
-
-    // 1. Extension 번들에 포함된 서버
-    const bundledServer = path.join(context.extensionPath, 'server', 'kingsejong');
-    if (fs.existsSync(bundledServer)) {
-        console.log('Using bundled server:', bundledServer);
-        return bundledServer;
-    }
-
-    // 2. 개발 환경 - 상위 디렉토리의 build/bin/kingsejong
-    const devServer = path.join(context.extensionPath, '..', 'build', 'bin', 'kingsejong');
-    if (fs.existsSync(devServer)) {
-        console.log('Using development server:', devServer);
-        return devServer;
-    }
-
-    // 3. 시스템 PATH에서 찾기
-    const whichCommand = process.platform === 'win32' ? 'where' : 'which';
-    try {
-        const { execSync } = require('child_process');
-        const systemServer = execSync(`${whichCommand} kingsejong`, { encoding: 'utf8' }).trim();
-        if (systemServer) {
-            console.log('Using system server:', systemServer);
-            return systemServer;
-        }
-    } catch (e) {
-        // kingsejong가 PATH에 없음
-    }
-
-    console.error('KingSejong server not found in any location');
-    return null;
 }

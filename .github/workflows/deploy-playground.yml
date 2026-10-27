@@ -76,7 +76,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Download WASM artifacts
         uses: actions/download-artifact@v4
@@ -86,7 +86,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./web
-        run: npm install
+        run: npm ci --no-audit --no-fund
 
       - name: Build
         working-directory: ./web
@@ -94,7 +94,7 @@ jobs:
 
       - name: Install docs site dependencies
         working-directory: ./site
-        run: npm install
+        run: npm ci --no-audit --no-fund
 
       - name: Build docs site
         working-directory: ./site

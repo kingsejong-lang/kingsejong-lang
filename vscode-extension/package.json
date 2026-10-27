@@ -10,7 +10,7 @@
     "url": "https://github.com/kingsejong-lang/kingsejong-lang"
   },
   "engines": {
-    "vscode": "^1.75.0"
+    "vscode": "^1.91.0"
   },
   "categories": [
     "Programming Languages"
@@ -93,20 +93,23 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint src --ext ts",
+    "lint": "eslint src",
     "test": "npm run compile && node --test \"out/test/**/*.test.js\"",
     "package": "vsce package"
   },
   "dependencies": {
-    "vscode-languageclient": "^8.1.0"
+    "vscode-languageclient": "^11.0.0"
   },
   "devDependencies": {
-    "@types/node": "^18.0.0",
-    "@types/vscode": "^1.75.0",
-    "@typescript-eslint/eslint-plugin": "^5.0.0",
-    "@typescript-eslint/parser": "^5.0.0",
-    "@vscode/vsce": "3.2.1",
-    "eslint": "^8.0.0",
-    "typescript": "^5.0.0"
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^20.19.43",
+    "@types/vscode": "~1.91.0",
+    "@vscode/vsce": "^4.0.0",
+    "eslint": "^10.13.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.1"
+  },
+  "overrides": {
+    "@azure/msal-node": "^7.1.1"
   }
 }

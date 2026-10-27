@@ -210,6 +210,7 @@ jobs:
       uses: actions/setup-node@v7
       with:
         node-version-file: .nvmrc
+        check-latest: true  # 러너 캐시의 이전 패치 대신 최신 24.x(보안 패치 포함)를 받는다
 
     - name: Lint, test and package
       working-directory: vscode-extension

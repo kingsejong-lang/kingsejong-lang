@@ -84,7 +84,7 @@ kingsejong hello.ksj
 cmake -S . -B build && cmake --build build -j8   # 언어 서버(kingsejong 실행 파일) 빌드
 cd vscode-extension
 npm install
-npm run compile
+npm run bundle
 ```
 
 VS Code 에서 `vscode-extension` 디렉토리를 열고 F5 를 누르면 확장이 켜진 창이 뜬다. 그 창에서 `.ksj` 파일을 연다.

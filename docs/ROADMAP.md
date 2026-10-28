@@ -39,7 +39,7 @@
 - [x] CHANGELOG 의 Unreleased 를 `[v0.6.0]` 절로 옮기기
 - [x] `CMakeLists.txt` 의 `project(... VERSION 0.6.0)`
 - [x] 태그 `v0.6.0` (릴리스 커밋 `468a788`)
-- [ ] GitHub 릴리스
+- [x] GitHub 릴리스 — https://github.com/kingsejong-lang/kingsejong-lang/releases/tag/v0.6.0
 
 ### 완료된 작업 (2025-11-24)
 

@@ -32,6 +32,7 @@
 - 예제 테스트가 `stdlib_http` 의 출력까지 비교해, 외부 서버(httpbin.org)가 일시적으로 502 를 돌려주면 코드와 무관하게 CI 가 실패하던 문제. 네트워크 결과에 따라 달라지는 예제이므로 SKIP 목록에 넣어 종료 코드만 확인한다.
 
 ### 추가
+- VS Code 확장(언어 서버)이 린터 결과를 편집기 진단으로 보여 준다. 구문 오류가 없는 문서에 `kingsejong lint` 와 같은 규칙을 돌려 출처 `kingsejong-lint`, 코드는 규칙 이름(`unused-variable` 등)으로 보내며, 심각도는 오류·경고·정보·힌트를 LSP 의 1~4 로 옮긴다. 규칙 설정은 문서 디렉터리부터 상위로 찾은 첫 `.ksjlint.json` 을 매번 다시 읽고, 없으면 기본 설정을 쓴다. 새 설정 `kingsejong.lint.enable`(기본 켜짐)로 끌 수 있고, 바꾸면 재시작 없이 열린 문서의 진단을 다시 보낸다. 언어 서버는 `initializationOptions` 와 `workspace/didChangeConfiguration` 의 `{"lint": {"enable": bool}}` 를 읽는다.
 - Dependabot 설정(`.github/dependabot.yml`). 플레이그라운드·문서 사이트·VS Code 확장의 npm 의존성과 GitHub Actions 를 매주 점검해 생태계마다 묶은 PR 하나로 올린다. 보안 업데이트는 따로 바로 올라온다.
 - VS Code 확장의 `npm test`(실제 `kingsejong fmt` 로 포맷 설정 적용 확인), `npm run package`(`.vsix` 생성), ESLint 설정. CI 의 `VS Code Extension` 잡이 확장을 검사·테스트하고 `.vsix` 를 아티팩트로 남긴다.
 - C++ API 레퍼런스. 소스의 Doxygen 주석으로 만든 HTML 을 Pages 의 `/api/` 에 배포하고 문서 사이트 상단 메뉴에 연결했다. `Doxyfile` 은 버전을 `CMakeLists.txt` 에서 받고(남아 있던 `v0.8.0` 을 지웠다), 출력을 `build/api` 에 두며, `include/third_party` 를 뺀다. 주석의 `@example` 은 예제 파일이 아니라 사용 예 문단으로 읽게 했다(한글 이름의 예제 파일을 만들려다 생성이 실패했다). CI 에 생성 확인 잡을 더했다.

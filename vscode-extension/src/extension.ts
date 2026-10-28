@@ -9,6 +9,7 @@
 
 import { workspace, ExtensionContext, languages, commands, window } from 'vscode';
 import {
+    DidChangeConfigurationNotification,
     LanguageClient,
     LanguageClientOptions,
     ServerOptions,
@@ -18,6 +19,14 @@ import { KingSejongFormattingProvider } from './formatter';
 import { findKingsejongExecutable } from './fmtRunner';
 
 let client: LanguageClient;
+
+/**
+ * 언어 서버가 읽는 린터 설정 ({ lint: { enable } }).
+ * initializationOptions 와 workspace/didChangeConfiguration 의 settings.kingsejong 이 같은 모양이다.
+ */
+function lintSettings(): { lint: { enable: boolean } } {
+    return { lint: { enable: workspace.getConfiguration('kingsejong').get<boolean>('lint.enable', true) } };
+}
 
 /**
  * Extension 활성화 시 호출됩니다.
@@ -55,6 +64,9 @@ export function activate(context: ExtensionContext) {
         // LSP를 적용할 언어 (KingSejong)
         documentSelector: [{ scheme: 'file', language: 'kingsejong' }],
 
+        // 서버가 시작할 때 읽는 설정 (린터 진단 켜기/끄기)
+        initializationOptions: lintSettings(),
+
         // 작업 공간 설정
         synchronize: {
             // workspace에서 .ksj 파일 변경 감지
@@ -73,6 +85,15 @@ export function activate(context: ExtensionContext) {
 
     // 클라이언트 시작
     client.start();
+
+    // kingsejong.lint.enable 이 바뀌면 서버에 알려 열린 문서의 진단을 다시 받는다 (재시작 불필요)
+    context.subscriptions.push(workspace.onDidChangeConfiguration(event => {
+        if (event.affectsConfiguration('kingsejong.lint.enable')) {
+            void client.sendNotification(DidChangeConfigurationNotification.type, {
+                settings: { kingsejong: lintSettings() }
+            });
+        }
+    }));
 
     console.log('KingSejong LSP client started');
 

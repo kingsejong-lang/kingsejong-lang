@@ -32,6 +32,7 @@ namespace lsp {
  * 지원하는 LSP 메서드:
  * - initialize: 서버 초기화
  * - initialized: 초기화 완료 알림
+ * - workspace/didChangeConfiguration: 설정 변경 (kingsejong.lint.enable)
  * - textDocument/didOpen: 문서 열기
  * - textDocument/didChange: 문서 변경
  * - textDocument/didClose: 문서 닫기
@@ -195,6 +196,20 @@ private:
      * Complexity: O(1)
      */
     void handleInitialized(const nlohmann::json& params);
+
+    /**
+     * @brief workspace/didChangeConfiguration 핸들러 (notification)
+     * @param params { "settings": { "kingsejong": { "lint": { "enable": bool } } } }
+     *
+     * 린터 사용 여부가 바뀌면 열린 문서의 진단을 다시 계산해 보낸다.
+     */
+    void handleDidChangeConfiguration(const nlohmann::json& params);
+
+    /**
+     * @brief { "lint": { "enable": bool } } 형태의 설정을 진단 제공자에 반영한다
+     * @return 린터 사용 여부가 바뀌었으면 true
+     */
+    bool applyLintSettings(const nlohmann::json& options);
 
     /**
      * @brief textDocument/didOpen 핸들러

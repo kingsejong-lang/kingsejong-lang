@@ -485,7 +485,7 @@ Token nextToken();
 
 ### 질문하기
 
-- **GitHub Discussions**: 일반적인 질문
+- **[GitHub Discussions](https://github.com/kingsejong-lang/kingsejong-lang/discussions)**: 일반적인 질문
 - **GitHub Issues**: 버그, 기능 제안
 - **코드 리뷰**: 구체적인 구현 질문
 

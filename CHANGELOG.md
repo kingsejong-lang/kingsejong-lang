@@ -8,6 +8,7 @@
 ## [Unreleased]
 
 ### 변경
+- 플레이그라운드가 monaco-editor 의 언어 정의 80여 개와 언어 워커(TypeScript·CSS·HTML·JSON), LSP 클라이언트를 빌드에 넣지 않는다. 편집기는 일반 텍스트만 다루므로 쓰이지 않던 파일이다. 배포 결과물이 99개 파일 15MB 에서 8개 파일 5.3MB 로 줄었다. 찾기·명령 팔레트 같은 편집 기능은 그대로다.
 - 범위 반복문을 `이상` 으로 끝내면 거꾸로 센다. `i가 10부터 1 이상 {` 은 10, 9, ..., 1 을 돈다(평가기·VM 공통). 전에는 `까지` 처럼 올라가며 세서 이 반복문은 한 번도 돌지 않았고, `i가 1부터 3 이상` 은 1~3 을 돌았지만 이제는 돌지 않는다.
 - npm 의존성을 보안 패치가 들어간 버전으로 올렸다. `npm audit` 이 알린 취약점(플레이그라운드 2개, 문서 사이트 3개, VS Code 확장 8개)이 모두 없어졌다. 플레이그라운드는 Vite 8 과 Monaco 0.57 을 쓰고(Monaco 가 끌어오는 DOMPurify 는 3.4.17 이상으로 고정), 문서 사이트는 VitePress 1.6.4 가 아직 Vite 5 를 요구해 Vite 를 6.4.5 이상으로 고정했다. VS Code 확장은 `vscode-languageclient` 11, TypeScript 6, ESLint 10(설정을 `eslint.config.mjs` 로 옮김), `@vscode/vsce` 4 를 쓰며, 이에 따라 지원하는 VS Code 최소 버전이 1.75 에서 1.91 로 올라갔다. 플레이그라운드와 문서 사이트의 `package-lock.json` 을 저장소에 넣고 Pages 배포가 Node 22 에서 `npm ci` 로 설치해, 배포 때마다 의존성 버전이 달라지지 않는다.
 - CI 와 Pages 배포가 Node.js 24 LTS 를 쓴다(전에는 22). 버전은 저장소 루트의 `.nvmrc` 한 곳에서 읽고, 러너에 캐시된 이전 패치 대신 최신 24.x 를 받는다. 플레이그라운드와 문서 사이트의 `package.json` 에 최소 버전(`engines.node` `>=22.12.0`)을 적었다. GitHub Actions 는 Node 24 런타임을 쓰는 버전으로 올렸다(`checkout` v7, `setup-node` v7, `upload-artifact` v7, `download-artifact` v8, `github-script` v9, `configure-pages` v6, `upload-pages-artifact` v5, `deploy-pages` v5). Node 20 런타임 action 에 대한 폐기 경고가 더는 나오지 않는다. Windows 빌드의 `ilammy/msvc-dev-cmd` 는 Node 24 판이 없고, CMake 의 Visual Studio 생성기가 MSVC 를 직접 찾으므로 뺐다. VS Code 확장의 `@types/node` 는 확장이 도는 VS Code 1.91 의 Node 20 에 맞춰 20 으로 둔다.

@@ -15,6 +15,7 @@
 - CI 와 Pages 배포가 Node.js 24 LTS 를 쓴다(전에는 22). 버전은 저장소 루트의 `.nvmrc` 한 곳에서 읽고, 러너에 캐시된 이전 패치 대신 최신 24.x 를 받는다. 플레이그라운드와 문서 사이트의 `package.json` 에 최소 버전(`engines.node` `>=22.12.0`)을 적었다. GitHub Actions 는 Node 24 런타임을 쓰는 버전으로 올렸다(`checkout` v7, `setup-node` v7, `upload-artifact` v7, `download-artifact` v8, `github-script` v9, `configure-pages` v6, `upload-pages-artifact` v5, `deploy-pages` v5). Node 20 런타임 action 에 대한 폐기 경고가 더는 나오지 않는다. Windows 빌드의 `ilammy/msvc-dev-cmd` 는 Node 24 판이 없고, CMake 의 Visual Studio 생성기가 MSVC 를 직접 찾으므로 뺐다. VS Code 확장의 `@types/node` 는 확장이 도는 VS Code 1.91 의 Node 20 에 맞춰 20 으로 둔다.
 
 ### 고침
+- 사용자 설정의 `editor.defaultFormatter` 가 Prettier 같은 다른 확장을 가리키면 `.ksj` 파일에서 "'Prettier - Code formatter'이(가) 포맷터로 구성되어 있지만 'KingSejong'-파일을 포맷할 수 없습니다" 가 나오고 포맷되지 않던 문제. 확장이 `[kingsejong]` 언어의 기본 포맷터를 자기 자신으로 지정한다. 언어별 설정은 전역 설정보다 앞서므로 전역 기본 포맷터를 바꾸지 않아도 된다.
 - 성능 회귀가 나면 PR 에 댓글을 다는 CI 단계가 저장소 이름으로 없는 `context.repo.name` 을 넘겨 댓글을 달지 못하던 문제. `context.repo.repo` 로 고쳤다.
 - VS Code 확장을 `.vsix` 로 묶으면 `.vscodeignore` 가 `node_modules` 를 빼서 언어 서버 클라이언트(`vscode-languageclient`)가 빠지고, 설치하면 활성화하자마자 모듈을 찾지 못해 실패하던 문제.
 - VS Code 확장의 포맷 설정이 적용되지 않던 문제. 확장이 `--config=경로` 한 덩어리로 넘겨 CLI 가 무시했고, CLI 가 읽는 `.ksjfmt.json` 대신 `.ksjfmtrc` 를 찾았으며, `kingsejong.formatter.*` 설정은 읽지 않았다. 이제 편집기 설정 위에 작업 공간의 `.ksjfmt.json` 을 덮어 `--config 경로` 로 넘긴다. 임시 파일은 확장 설치 폴더 대신 OS 임시 폴더에 쓰고, 셸을 거치지 않고 실행해 경로의 공백·따옴표에 안전하다.

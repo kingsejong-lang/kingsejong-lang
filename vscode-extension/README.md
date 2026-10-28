@@ -43,7 +43,7 @@ cmake ..
 make -j8
 ```
 
-2. Extension 의존성 설치 (Node.js 24 LTS 권장, 최소 22.12. 저장소 루트의 `.nvmrc` 가 CI 와 같은 버전을 가리킨다):
+2. Extension 의존성 설치 (Node.js 26 LTS 권장, 최소 22.12. 저장소 루트의 `.nvmrc` 가 CI 와 같은 버전을 가리킨다):
 ```bash
 cd vscode-extension
 npm install

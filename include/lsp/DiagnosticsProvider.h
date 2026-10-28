@@ -163,6 +163,7 @@ private:
     /**
      * @brief 구문 에러 검사
      * @param content 문서 내용
+     * @param uri 문서 URI (린터가 .ksjlint.json 을 찾는 기준 경로)
      * @return 진단 목록
      *
      * Lexer와 Parser를 사용하여 구문 에러를 검출합니다.

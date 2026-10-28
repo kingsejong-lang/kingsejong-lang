@@ -9,6 +9,7 @@
 
 ### 변경
 - 플레이그라운드가 monaco-editor 의 언어 정의 80여 개와 언어 워커(TypeScript·CSS·HTML·JSON), LSP 클라이언트를 빌드에 넣지 않는다. 편집기는 일반 텍스트만 다루므로 쓰이지 않던 파일이다. 배포 결과물이 99개 파일 15MB 에서 8개 파일 5.3MB 로 줄었다. 찾기·명령 팔레트 같은 편집 기능은 그대로다.
+- VS Code 확장을 esbuild 로 한 파일(`dist/extension.js`)에 묶는다. `.vsix` 가 233개 파일(398KB)에서 8개 파일(105KB)로 줄고, 활성화할 때 `node_modules` 의 파일 180여 개를 읽지 않는다. 개발할 때는 `npm run compile` 대신 `npm run bundle`(또는 `npm run watch`)을 쓴다. 테스트는 전처럼 `tsc` 로 `out/` 에 컴파일해 돈다.
 - 범위 반복문을 `이상` 으로 끝내면 거꾸로 센다. `i가 10부터 1 이상 {` 은 10, 9, ..., 1 을 돈다(평가기·VM 공통). 전에는 `까지` 처럼 올라가며 세서 이 반복문은 한 번도 돌지 않았고, `i가 1부터 3 이상` 은 1~3 을 돌았지만 이제는 돌지 않는다.
 - npm 의존성을 보안 패치가 들어간 버전으로 올렸다. `npm audit` 이 알린 취약점(플레이그라운드 2개, 문서 사이트 3개, VS Code 확장 8개)이 모두 없어졌다. 플레이그라운드는 Vite 8 과 Monaco 0.57 을 쓰고(Monaco 가 끌어오는 DOMPurify 는 3.4.17 이상으로 고정), 문서 사이트는 VitePress 1.6.4 가 아직 Vite 5 를 요구해 Vite 를 6.4.5 이상으로 고정했다. VS Code 확장은 `vscode-languageclient` 11, TypeScript 6, ESLint 10(설정을 `eslint.config.mjs` 로 옮김), `@vscode/vsce` 4 를 쓰며, 이에 따라 지원하는 VS Code 최소 버전이 1.75 에서 1.91 로 올라갔다. 플레이그라운드와 문서 사이트의 `package-lock.json` 을 저장소에 넣고 Pages 배포가 Node 22 에서 `npm ci` 로 설치해, 배포 때마다 의존성 버전이 달라지지 않는다.
 - CI 와 Pages 배포가 Node.js 24 LTS 를 쓴다(전에는 22). 버전은 저장소 루트의 `.nvmrc` 한 곳에서 읽고, 러너에 캐시된 이전 패치 대신 최신 24.x 를 받는다. 플레이그라운드와 문서 사이트의 `package.json` 에 최소 버전(`engines.node` `>=22.12.0`)을 적었다. GitHub Actions 는 Node 24 런타임을 쓰는 버전으로 올렸다(`checkout` v7, `setup-node` v7, `upload-artifact` v7, `download-artifact` v8, `github-script` v9, `configure-pages` v6, `upload-pages-artifact` v5, `deploy-pages` v5). Node 20 런타임 action 에 대한 폐기 경고가 더는 나오지 않는다. Windows 빌드의 `ilammy/msvc-dev-cmd` 는 Node 24 판이 없고, CMake 의 Visual Studio 생성기가 MSVC 를 직접 찾으므로 뺐다. VS Code 확장의 `@types/node` 는 확장이 도는 VS Code 1.91 의 Node 20 에 맞춰 20 으로 둔다.
@@ -30,6 +31,7 @@
 - 예제 테스트가 `stdlib_http` 의 출력까지 비교해, 외부 서버(httpbin.org)가 일시적으로 502 를 돌려주면 코드와 무관하게 CI 가 실패하던 문제. 네트워크 결과에 따라 달라지는 예제이므로 SKIP 목록에 넣어 종료 코드만 확인한다.
 
 ### 추가
+- Dependabot 설정(`.github/dependabot.yml`). 플레이그라운드·문서 사이트·VS Code 확장의 npm 의존성과 GitHub Actions 를 매주 점검해 생태계마다 묶은 PR 하나로 올린다. 보안 업데이트는 따로 바로 올라온다.
 - VS Code 확장의 `npm test`(실제 `kingsejong fmt` 로 포맷 설정 적용 확인), `npm run package`(`.vsix` 생성), ESLint 설정. CI 의 `VS Code Extension` 잡이 확장을 검사·테스트하고 `.vsix` 를 아티팩트로 남긴다.
 - C++ API 레퍼런스. 소스의 Doxygen 주석으로 만든 HTML 을 Pages 의 `/api/` 에 배포하고 문서 사이트 상단 메뉴에 연결했다. `Doxyfile` 은 버전을 `CMakeLists.txt` 에서 받고(남아 있던 `v0.8.0` 을 지웠다), 출력을 `build/api` 에 두며, `include/third_party` 를 뺀다. 주석의 `@example` 은 예제 파일이 아니라 사용 예 문단으로 읽게 했다(한글 이름의 예제 파일을 만들려다 생성이 실패했다). CI 에 생성 확인 잡을 더했다.
 - 부모 클래스 호출 `상위`. 메서드·생성자 안에서 `상위.메서드(...)` 는 그 메서드를 정의한 클래스의 부모 메서드를, `상위(...)` 는 부모 생성자를 같은 인스턴스(`자신`)에 대해 부른다. 메서드를 정의할 때 부모 클래스를 기억해 두므로 여러 단계 상속에서도 각 단계의 부모를 가리키고, 부모 메서드 안의 `자신.메서드()` 는 계속 자식 쪽으로 간다. 평가기·VM 공통(`Evaluator::bindSelf`, `callSuperConstructor`).

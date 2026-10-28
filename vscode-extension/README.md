@@ -49,9 +49,9 @@ cd vscode-extension
 npm install
 ```
 
-3. Extension 컴파일:
+3. Extension 번들(`dist/extension.js`):
 ```bash
-npm run compile
+npm run bundle
 ```
 
 4. VS Code에서 실행:
@@ -168,10 +168,10 @@ vscode-extension/
 ### 빌드 및 디버깅
 
 ```bash
-# 컴파일
-npm run compile
+# 번들 (dist/extension.js)
+npm run bundle
 
-# Watch 모드 (자동 재컴파일)
+# Watch 모드 (자동 재번들)
 npm run watch
 
 # 린트

@@ -24,7 +24,7 @@
   "activationEvents": [
     "onLanguage:kingsejong"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "languages": [
       {
@@ -90,9 +90,11 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run check-types && npm run bundle",
+    "bundle": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --target=node20 --minify --sourcemap",
+    "check-types": "tsc -p ./ --noEmit",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "watch": "npm run bundle -- --watch",
     "lint": "eslint src",
     "test": "npm run compile && node --test \"out/test/**/*.test.js\"",
     "package": "vsce package"
@@ -105,6 +107,7 @@
     "@types/node": "^20.19.43",
     "@types/vscode": "~1.91.0",
     "@vscode/vsce": "^4.0.0",
+    "esbuild": "^0.28.2",
     "eslint": "^10.13.0",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.1"

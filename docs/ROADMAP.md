@@ -38,7 +38,8 @@
 - [x] 마이그레이션 가이드 ([MIGRATION_v0.6.md](./MIGRATION_v0.6.md))
 - [x] CHANGELOG 의 Unreleased 를 `[v0.6.0]` 절로 옮기기
 - [x] `CMakeLists.txt` 의 `project(... VERSION 0.6.0)`
-- [ ] 태그와 GitHub 릴리스
+- [x] 태그 `v0.6.0` (릴리스 커밋 `468a788`)
+- [ ] GitHub 릴리스
 
 ### 완료된 작업 (2025-11-24)
 
@@ -88,7 +89,7 @@
 **우선순위**: 낮음 | **예상 기간**: 1주
 
 - [ ] Formatter VS Code 확장 Marketplace 배포
-  - [ ] 확장 패키징
+  - [x] 확장 패키징 — `npm run package` 가 `.vsix` 를 만들고 CI 가 아티팩트로 남긴다
   - [ ] VS Code Marketplace 등록
   - [ ] 배포 및 홍보
 

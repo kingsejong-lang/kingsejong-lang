@@ -34,12 +34,12 @@ make -j8
 
 빌드가 완료되면 `build/bin/kingsejong` 실행 파일이 생성됩니다.
 
-### 2. Extension 컴파일
+### 2. Extension 번들
 
 ```bash
 cd vscode-extension
 npm install
-npm run compile
+npm run bundle
 ```
 
 ---

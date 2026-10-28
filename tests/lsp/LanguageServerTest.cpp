@@ -585,6 +585,8 @@ TEST_F(LanguageServerTest, ShouldQueuePublishDiagnosticsOnOpen) {
 
 /**
  * @test 에러가 없어도 빈 진단을 보내 이전 밑줄을 지운다
+ *
+ * 린터가 기본으로 켜져 있으므로 린터 경고도 없는 코드(선언한 변수를 쓴다)를 연다.
  */
 TEST_F(LanguageServerTest, ShouldPublishEmptyDiagnosticsForValidCode) {
     LanguageServer server;
@@ -594,7 +596,7 @@ TEST_F(LanguageServerTest, ShouldPublishEmptyDiagnosticsForValidCode) {
     server.handleRequest({
         {"jsonrpc", "2.0"},
         {"method", "textDocument/didOpen"},
-        {"params", {{"textDocument", {{"uri", "file:///ok.ksj"}, {"languageId", "kingsejong"}, {"version", 1}, {"text", "정수 x = 1\n"}}}}}
+        {"params", {{"textDocument", {{"uri", "file:///ok.ksj"}, {"languageId", "kingsejong"}, {"version", 1}, {"text", "정수 x = 1\n출력(x)\n"}}}}}
     });
     auto notifications = server.takePendingNotifications();
     ASSERT_EQ(notifications.size(), 1u);

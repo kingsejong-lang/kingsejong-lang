@@ -72,5 +72,14 @@ int utf16Length(const std::string& text);
 /// byteOffset 이 가리키는 식별자의 시작 바이트 오프셋 (식별자가 아니면 byteOffset 그대로)
 size_t wordStartOffset(const std::string& line, size_t byteOffset);
 
+/**
+ * @brief file:// URI 를 로컬 파일 경로로 바꾼다
+ * @return 파일 경로. file 스킴이 아니면 빈 문자열
+ *
+ * 퍼센트 인코딩(한글 경로는 %EC%A0%95 처럼 온다)을 풀고, Windows 드라이브 경로
+ * (file:///c%3A/dir/a.ksj)는 앞의 '/' 를 떼어 c:/dir/a.ksj 로 돌려준다.
+ */
+std::string uriToFilePath(const std::string& uri);
+
 } // namespace lsp
 } // namespace kingsejong

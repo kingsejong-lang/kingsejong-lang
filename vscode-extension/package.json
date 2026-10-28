@@ -79,6 +79,11 @@
           "type": "number",
           "default": 100,
           "description": "최대 줄 길이 (프로젝트의 .ksjfmt.json 이 있으면 그 값이 우선한다)"
+        },
+        "kingsejong.lint.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "린터 결과를 편집기 진단(경고 밑줄)으로 표시 (규칙별 설정은 프로젝트의 .ksjlint.json 을 따른다)"
         }
       }
     },

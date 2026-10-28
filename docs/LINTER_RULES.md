@@ -423,6 +423,13 @@ kingsejong lint --config .ksjlint.json myfile.ksj
 
 오류 등급 이슈가 하나라도 있으면 종료 코드 1, 경고만 있으면 0 입니다. 자동 수정(`--fix`)은 없습니다.
 
+### 편집기(LSP)에서 보기
+
+언어 서버(`kingsejong --lsp`)는 구문 오류가 없는 문서에 같은 규칙을 돌려 결과를 진단으로 보냅니다. VS Code 확장에서는 경고 밑줄로 보이며, 출처는 `kingsejong-lint`, 코드는 규칙 이름(`unused-variable` 등)입니다. 구문 오류가 있는 동안에는 구문 진단만 나옵니다.
+
+- 설정 파일은 문서가 있는 디렉터리부터 상위로 올라가며 찾은 첫 `.ksjlint.json` 이고, 없으면 기본 설정입니다. 문서를 열거나 고칠 때마다 다시 읽으므로 설정을 바꾼 뒤 문서를 한 번 고치면 반영됩니다.
+- 편집기에서 린터 결과를 끄려면 VS Code 설정 `kingsejong.lint.enable` 을 `false` 로 둡니다(재시작 없이 반영). 다른 LSP 클라이언트는 `initializationOptions` 또는 `workspace/didChangeConfiguration` 의 `settings.kingsejong` 에 `{"lint": {"enable": false}}` 를 넘깁니다.
+
 ### CI/CD 통합
 
 #### GitHub Actions

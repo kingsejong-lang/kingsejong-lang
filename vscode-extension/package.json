@@ -82,6 +82,11 @@
         }
       }
     },
+    "configurationDefaults": {
+      "[kingsejong]": {
+        "editor.defaultFormatter": "kingsejong-team.kingsejong"
+      }
+    },
     "commands": [
       {
         "command": "kingsejong.formatDocument",

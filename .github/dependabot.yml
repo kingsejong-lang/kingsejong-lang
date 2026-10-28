@@ -9,6 +9,15 @@ updates:
       - /vscode-extension
     schedule:
       interval: weekly
+    ignore:
+      # Type packages must match the oldest runtime the extension supports
+      # (engines.vscode ^1.91.0, which runs on Node 20). Newer types let code use
+      # APIs that do not exist there, and vsce rejects @types/vscode > engines.vscode.
+      # Raise these by hand together with engines.vscode.
+      - dependency-name: "@types/vscode"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       npm:
         patterns: ["*"]

@@ -1,0 +1,26 @@
+# Weekly dependency updates. Each ecosystem opens at most one grouped PR per week;
+# security updates are still raised immediately as separate PRs.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directories:
+      - /web
+      - /site
+      - /vscode-extension
+    schedule:
+      interval: weekly
+    groups:
+      npm:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "ci(deps)"

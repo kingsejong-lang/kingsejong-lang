@@ -92,16 +92,30 @@
   - [x] 확장 패키징 — `npm run package` 가 `.vsix` 를 만들고 CI 가 아티팩트로 남긴다
   - [ ] VS Code Marketplace 등록
   - [ ] 배포 및 홍보
+- [x] 편집기 린터 진단 — 언어 서버가 `kingsejong lint` 와 같은 규칙을 돌려 경고 밑줄로 보낸다. `.ksjlint.json` 을 따르고 `kingsejong.lint.enable` 로 끈다
 
 ---
 
 ## 🔮 장기 계획 (Phase 10+)
 
+### 네이티브 확장 모듈 API (v0.7.0)
+
+**우선순위**: 중간 | **예상 기간**: 3-4주
+
+지금은 네이티브(C++) 함수가 모두 인터프리터 안(`src/evaluator/Builtin.cpp`)에 있고, `가져오기` 는 `.ksj` 파일만 불러온다. 외부 C/C++ 라이브러리가 필요한 GUI·ML 모듈을 본체 빌드에 넣으면 의존성과 CI 가 무거워지므로, 별도 저장소에서 만들어 불러올 수 있는 길을 먼저 연다.
+
+- [ ] 공유 라이브러리(`.so`/`.dylib`/`.dll`)로 내장 함수를 등록하는 C ABI 와 버전 검사
+- [ ] `가져오기` 가 네이티브 모듈을 찾는 규칙 (`KINGSEJONG_PATH` 와 같은 탐색 순서)
+- [ ] `--sandbox`·`--untrusted` 에서 네이티브 모듈을 막거나 허용 목록으로만 여는 정책
+- [ ] 예제 네이티브 모듈과 개발 가이드
+
+이 API 가 생기면 `stdlib/gui`·`stdlib/ml` 은 `kingsejong-gui`·`kingsejong-ml` 같은 별도 저장소로 시작한다. `stdlib/network`·`collections` 는 본체에 둔다(이미 포함된 `httplib` 와 샌드박스 권한 검사, 순수 `.ksj` 구현).
+
 ### 표준 라이브러리 고도화 (v0.7.0)
 
 **우선순위**: 중간 | **예상 기간**: 각 2-3주
 
-- [ ] **stdlib/gui.ksj** - GUI 프로그래밍
+- [ ] **stdlib/gui.ksj** - GUI 프로그래밍 (네이티브 확장 모듈 API 이후, 별도 저장소)
 
   - [ ] 윈도우 생성 및 관리
   - [ ] Canvas 2D 그래픽
@@ -115,7 +129,7 @@
   - [ ] WebSocket 지원
   - [ ] 비동기 네트워크 I/O
 
-- [ ] **stdlib/ml.ksj** - 머신러닝/수치 계산
+- [ ] **stdlib/ml.ksj** - 머신러닝/수치 계산 (네이티브 확장 모듈 API 이후, 별도 저장소)
 
   - [ ] NumPy 스타일 배열 연산
   - [ ] 선형대수 연산

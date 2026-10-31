@@ -15,6 +15,7 @@
 #include <optional>
 #include <sstream>
 #include <cctype>
+#include <filesystem>
 
 namespace kingsejong {
 namespace lsp {
@@ -311,13 +312,12 @@ void LanguageServer::handleDidChangeWatchedFiles(const nlohmann::json& params)
     if (!diagnosticsProvider_.isLintEnabled() || !params.contains("changes") || !params["changes"].is_array()) {
         return;
     }
-    static const std::string configName = "/.ksjlint.json";
     bool lintConfigChanged = false;
     for (const auto& change : params["changes"]) {
         if (!change.contains("uri") || !change["uri"].is_string()) continue;
-        const std::string uri = change["uri"].get<std::string>();
-        if (uri.size() >= configName.size() &&
-            uri.compare(uri.size() - configName.size(), configName.size(), configName) == 0) {
+        // URI 를 경로로 풀어 파일 이름만 비교한다 (Windows 의 `\` 구분자도 같이 다룬다)
+        const std::string path = uriToFilePath(change["uri"].get<std::string>());
+        if (!path.empty() && std::filesystem::path(path).filename() == ".ksjlint.json") {
             lintConfigChanged = true;
             break;
         }

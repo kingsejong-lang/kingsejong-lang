@@ -8,6 +8,7 @@
 ## [Unreleased]
 
 ### 변경
+- CI 와 Pages 배포가 Node.js 26 LTS 를 쓴다(전에는 24). 지원 기간이 2028-04 에서 2029-04 로 늘어난다. 버전은 전처럼 `.nvmrc` 한 곳에서 읽는다. 최소 버전(`engines.node` `>=22.12.0`)과 VS Code 확장의 `@types/node`(VS Code 1.91 이 쓰는 Node 20)는 그대로다.
 - `.ksjlint.json` 을 고치면 편집기의 린터 경고가 바로 바뀐다. 전에는 설정을 바꾼 뒤 문서를 한 번 고쳐야 반영됐다. VS Code 확장이 `.ksjlint.json` 변경을 감시해 언어 서버에 알리고(`workspace/didChangeWatchedFiles`), 서버는 열린 문서를 다시 진단한다.
 - 플레이그라운드가 monaco-editor 의 언어 정의 80여 개와 언어 워커(TypeScript·CSS·HTML·JSON), LSP 클라이언트를 빌드에 넣지 않는다. 편집기는 일반 텍스트만 다루므로 쓰이지 않던 파일이다. 배포 결과물이 99개 파일 15MB 에서 8개 파일 5.3MB 로 줄었다. 찾기·명령 팔레트 같은 편집 기능은 그대로다.
 - VS Code 확장을 esbuild 로 한 파일(`dist/extension.js`)에 묶는다. `.vsix` 가 233개 파일(398KB)에서 8개 파일(105KB)로 줄고, 활성화할 때 `node_modules` 의 파일 180여 개를 읽지 않는다. 개발할 때는 `npm run compile` 대신 `npm run bundle`(또는 `npm run watch`)을 쓴다. 테스트는 전처럼 `tsc` 로 `out/` 에 컴파일해 돈다.

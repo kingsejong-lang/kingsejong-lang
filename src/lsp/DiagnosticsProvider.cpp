@@ -11,6 +11,7 @@
 #include "parser/Parser.h"
 #include "error/ErrorReporter.h"
 #include "linter/Linter.h"
+#include "lexer/JosaRecognizer.h"
 #include <filesystem>
 
 namespace kingsejong {
@@ -156,6 +157,23 @@ std::vector<DiagnosticsProvider::Diagnostic> DiagnosticsProvider::checkLintIssue
             std::string word = extractWordAtOffset(text, byteOffset);
             if (!word.empty() && wordStartOffset(text, byteOffset) == byteOffset) {
                 endCharacter = character + utf16Length(word);
+            }
+
+            // 규칙이 가리키는 이름(변수·매개변수)이 있으면 문장 첫머리(`정수`) 대신 그 이름에 밑줄을 긋는다
+            if (!issue.subject.empty()) {
+                for (size_t pos = text.find(issue.subject, byteOffset); pos != std::string::npos;
+                     pos = text.find(issue.subject, pos + 1)) {
+                    // 이름 뒤에 조사가 붙은 단어(`i가`)도 이름 부분만 가리킨다
+                    std::string found = extractWordAtOffset(text, pos);
+                    bool sameWord = found == issue.subject ||
+                        (found.size() > issue.subject.size() && found.compare(0, issue.subject.size(), issue.subject) == 0 &&
+                         lexer::JosaRecognizer::isJosa(found.substr(issue.subject.size())));
+                    if (wordStartOffset(text, pos) == pos && sameWord) {
+                        character = byteColumnToUtf16(text, static_cast<int>(pos) + 1);
+                        endCharacter = character + utf16Length(issue.subject);
+                        break;
+                    }
+                }
             }
 
             diagnostics.emplace_back(

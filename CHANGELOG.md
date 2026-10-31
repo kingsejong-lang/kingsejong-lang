@@ -15,6 +15,7 @@
 - CI 와 Pages 배포가 Node.js 24 LTS 를 쓴다(전에는 22). 버전은 저장소 루트의 `.nvmrc` 한 곳에서 읽고, 러너에 캐시된 이전 패치 대신 최신 24.x 를 받는다. 플레이그라운드와 문서 사이트의 `package.json` 에 최소 버전(`engines.node` `>=22.12.0`)을 적었다. GitHub Actions 는 Node 24 런타임을 쓰는 버전으로 올렸다(`checkout` v7, `setup-node` v7, `upload-artifact` v7, `download-artifact` v8, `github-script` v9, `configure-pages` v6, `upload-pages-artifact` v5, `deploy-pages` v5). Node 20 런타임 action 에 대한 폐기 경고가 더는 나오지 않는다. Windows 빌드의 `ilammy/msvc-dev-cmd` 는 Node 24 판이 없고, CMake 의 Visual Studio 생성기가 MSVC 를 직접 찾으므로 뺐다. VS Code 확장의 `@types/node` 는 확장이 도는 VS Code 1.91 의 Node 20 에 맞춰 20 으로 둔다.
 
 ### 고침
+- 편집기의 린터 경고 밑줄이 변수 이름이 아니라 선언의 첫 단어(`정수 안씀 = 5` 의 `정수`)에 그어지던 문제. 규칙이 가리키는 이름(`unused-variable`, `no-unused-parameter`, `no-shadowing`, `naming-convention`)을 함께 보고해 그 이름에 밑줄을 긋는다. 이름 뒤에 조사가 붙은 `i가` 는 `i` 만 가리킨다. 또 `naming-convention` 이 줄 번호 없이 보고해 `kingsejong lint` 출력에 위치가 빠지고 편집기에서는 늘 첫 줄에 뜨던 것을 선언 위치로 고쳤다.
 - VS Code 확장의 의존성이 쓰는 `minimatch` 10.x 에 서비스 거부 취약점(GHSA-g3hv-75wg-m249)이 공개되어 `npm audit` 이 중간 심각도 13건을 알리던 문제. `vsce`, ESLint, `vscode-languageclient` 가 아직 10.x 를 요구하므로 `overrides` 로 고쳐진 11.0.3 이상을 쓴다.
 - 사용자 설정의 `editor.defaultFormatter` 가 Prettier 같은 다른 확장을 가리키면 `.ksj` 파일에서 "'Prettier - Code formatter'이(가) 포맷터로 구성되어 있지만 'KingSejong'-파일을 포맷할 수 없습니다" 가 나오고 포맷되지 않던 문제. 확장이 `[kingsejong]` 언어의 기본 포맷터를 자기 자신으로 지정한다. 언어별 설정은 전역 설정보다 앞서므로 전역 기본 포맷터를 바꾸지 않아도 된다.
 - 성능 회귀가 나면 PR 에 댓글을 다는 CI 단계가 저장소 이름으로 없는 `context.repo.name` 을 넘겨 댓글을 달지 못하던 문제. `context.repo.repo` 로 고쳤다.

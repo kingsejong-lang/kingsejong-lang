@@ -69,12 +69,14 @@ protected:
      * @param severity 심각도
      * @param line 줄 번호
      * @param column 열 번호
+     * @param subject 이슈가 가리키는 이름. 편집기가 문장 첫머리 대신 이 이름에 밑줄을 긋는다
      */
     void reportIssue(
         const std::string& message,
         IssueSeverity severity,
         int line = 0,
-        int column = 0
+        int column = 0,
+        const std::string& subject = ""
     );
 
     /**

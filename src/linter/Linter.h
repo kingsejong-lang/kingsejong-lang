@@ -33,6 +33,7 @@ struct LinterIssue
     int line;                   ///< 발생 줄
     int column;                 ///< 발생 열
     std::string filename;       ///< 파일 이름
+    std::string subject;        ///< 이슈가 가리키는 이름(변수·매개변수 등). 없으면 빈 문자열
 
     LinterIssue(
         const std::string& msg,
@@ -40,10 +41,11 @@ struct LinterIssue
         const std::string& rule,
         int l = 0,
         int c = 0,
-        const std::string& file = ""
+        const std::string& file = "",
+        const std::string& subj = ""
     )
         : message(msg), severity(sev), ruleId(rule),
-          line(l), column(c), filename(file)
+          line(l), column(c), filename(file), subject(subj)
     {
     }
 

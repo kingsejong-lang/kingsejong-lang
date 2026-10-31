@@ -44,7 +44,8 @@ void UnusedVariableRule::analyze(Program* program)
                 "변수 '" + varName + "'" + lexer::JosaRecognizer::selectOrBoth(varName, lexer::JosaRecognizer::JosaType::I_GA) + " 선언되었지만 사용되지 않습니다",
                 IssueSeverity::WARNING,
                 decl->location().line,
-                decl->location().column
+                decl->location().column,
+                varName
             );
         }
     }

@@ -19,6 +19,7 @@
 - 구문 오류 감지
 - 타입 오류 표시
 - 실시간 에러 밑줄 표시
+- 린터 경고 표시 (`kingsejong lint` 와 같은 규칙, 프로젝트의 `.ksjlint.json` 을 따른다. `kingsejong.lint.enable` 로 끌 수 있다)
 
 ### ✅ 편집 기능
 - 자동 괄호 닫기
@@ -102,7 +103,8 @@ code --install-extension kingsejong-*.vsix
   "kingsejong.formatter.enable": true,
   "kingsejong.formatter.indentSize": 4,
   "kingsejong.formatter.useSpaces": true,
-  "kingsejong.formatter.maxLineLength": 100
+  "kingsejong.formatter.maxLineLength": 100,
+  "kingsejong.lint.enable": true
 }
 ```
 
@@ -114,6 +116,9 @@ code --install-extension kingsejong-*.vsix
 - `kingsejong.formatter.indentSize`: 들여쓰기 크기 (기본값: `4`)
 - `kingsejong.formatter.useSpaces`: 탭 대신 스페이스 사용 (기본값: `true`)
 - `kingsejong.formatter.maxLineLength`: 최대 줄 길이 (기본값: `100`)
+
+#### Linter 설정
+- `kingsejong.lint.enable`: 린터 결과를 진단(경고 밑줄)으로 표시 (기본값: `true`). 바꾸면 재시작 없이 열린 문서에 반영됩니다. 규칙별 켜고 끄기와 심각도는 문서 디렉터리부터 상위로 찾은 `.ksjlint.json` 을 따릅니다([규칙 가이드](../docs/LINTER_RULES.md)).
 
 파일 끝 줄바꿈과 줄 끝 공백은 VS Code 의 `files.insertFinalNewline`, `files.trimTrailingWhitespace` 를 쓰세요.
 

@@ -213,5 +213,35 @@ std::string extractWordAtOffset(const std::string& line, size_t byteOffset)
     return line.substr(start, end - start);
 }
 
+std::string uriToFilePath(const std::string& uri)
+{
+    const std::string scheme = "file://";
+    if (uri.compare(0, scheme.size(), scheme) != 0) {
+        return "";
+    }
+
+    // authority(호스트)는 비어 있다고 보고 경로 부분만 쓴다
+    std::string encoded = uri.substr(scheme.size());
+    std::string path;
+    path.reserve(encoded.size());
+    for (size_t i = 0; i < encoded.size(); ++i) {
+        if (encoded[i] == '%' && i + 2 < encoded.size() &&
+            std::isxdigit(static_cast<unsigned char>(encoded[i + 1])) &&
+            std::isxdigit(static_cast<unsigned char>(encoded[i + 2]))) {
+            path.push_back(static_cast<char>(std::stoi(encoded.substr(i + 1, 2), nullptr, 16)));
+            i += 2;
+        } else {
+            path.push_back(encoded[i]);
+        }
+    }
+
+    // Windows: /c:/dir -> c:/dir
+    if (path.size() >= 3 && path[0] == '/' &&
+        std::isalpha(static_cast<unsigned char>(path[1])) && path[2] == ':') {
+        path.erase(0, 1);
+    }
+    return path;
+}
+
 } // namespace lsp
 } // namespace kingsejong

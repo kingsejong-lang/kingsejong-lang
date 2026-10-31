@@ -713,7 +713,7 @@ y = "문자열"   # OK: 타입 없이 만든 변수는 동적
 
 **A**:
 - GitHub Issues: 버그 리포트 및 기능 요청
-- GitHub Discussions: 질문 및 토론
+- [GitHub Discussions](https://github.com/kingsejong-lang/kingsejong-lang/discussions): 질문 및 토론
 - 문서: https://kingsejong-lang.github.io/kingsejong-lang/docs/
 
 ---

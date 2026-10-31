@@ -75,8 +75,8 @@
   - [x] API 문서 자동 생성 (Doxygen) — main 에 푸시할 때마다 Pages 의 `/api/` 에 배포한다
   - [ ] 튜토리얼 시리즈 확장
 
-- [ ] **커뮤니티 구축**
-  - [ ] GitHub Discussions 활성화
+- [x] **커뮤니티 구축**
+  - [x] GitHub Discussions 활성화 — https://github.com/kingsejong-lang/kingsejong-lang/discussions
   - [x] 기여자 가이드 작성 — [CONTRIBUTING.md](./CONTRIBUTING.md)
   - [x] 코드 리뷰 프로세스 정립 — CONTRIBUTING 의 "Pull Request 프로세스"·"코드 리뷰 가이드"
 

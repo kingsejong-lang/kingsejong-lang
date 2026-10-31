@@ -23,6 +23,8 @@ LanguageServer::LanguageServer()
     : initialized_(false)
     , shutdown_(false)
 {
+    // 린터 진단은 기본으로 켠다 (initializationOptions·설정 변경으로 끌 수 있다)
+    diagnosticsProvider_.setLintEnabled(true);
 }
 
 nlohmann::json LanguageServer::handleRequest(const nlohmann::json& request)
@@ -66,6 +68,10 @@ nlohmann::json LanguageServer::handleRequest(const nlohmann::json& request)
         }
         else if (method == "initialized") {
             handleInitialized(params);
+            return nlohmann::json();  // notification - no response
+        }
+        else if (method == "workspace/didChangeConfiguration") {
+            handleDidChangeConfiguration(params);
             return nlohmann::json();  // notification - no response
         }
         else if (method == "textDocument/didOpen") {
@@ -241,7 +247,10 @@ const DocumentManager::Document* LanguageServer::getDocument(const std::string& 
 
 nlohmann::json LanguageServer::handleInitialize(const nlohmann::json& params)
 {
-    (void)params;  // 현재는 사용하지 않음
+    // initializationOptions: { "lint": { "enable": bool } }
+    if (params.contains("initializationOptions") && params["initializationOptions"].is_object()) {
+        applyLintSettings(params["initializationOptions"]);
+    }
 
     // 서버 capabilities 반환
     nlohmann::json capabilities = {
@@ -270,6 +279,43 @@ void LanguageServer::handleInitialized(const nlohmann::json& params)
 {
     // initialized notification - 아무 작업 없음
     (void)params;
+}
+
+void LanguageServer::handleDidChangeConfiguration(const nlohmann::json& params)
+{
+    // settings: { "kingsejong": { "lint": { "enable": bool }, ... } }
+    if (!params.contains("settings") || !params["settings"].is_object()) {
+        return;
+    }
+    const auto& settings = params["settings"];
+    if (!settings.contains("kingsejong") || !settings["kingsejong"].is_object()) {
+        return;
+    }
+    if (!applyLintSettings(settings["kingsejong"])) {
+        return;
+    }
+    // 바뀐 설정으로 열린 문서의 진단을 다시 보낸다 (끄면 린터 밑줄이 지워진다)
+    for (const auto& [uri, document] : documentManager_.getAllDocuments()) {
+        (void)document;
+        queueDiagnostics(uri);
+    }
+}
+
+bool LanguageServer::applyLintSettings(const nlohmann::json& options)
+{
+    if (!options.contains("lint") || !options["lint"].is_object()) {
+        return false;
+    }
+    const auto& lint = options["lint"];
+    if (!lint.contains("enable") || !lint["enable"].is_boolean()) {
+        return false;
+    }
+    bool enabled = lint["enable"].get<bool>();
+    if (enabled == diagnosticsProvider_.isLintEnabled()) {
+        return false;
+    }
+    diagnosticsProvider_.setLintEnabled(enabled);
+    return true;
 }
 
 void LanguageServer::handleTextDocumentDidOpen(const nlohmann::json& params)
@@ -507,6 +553,9 @@ nlohmann::json LanguageServer::createPublishDiagnosticsNotification(
             {"source", diag.source},
             {"message", diag.message}
         };
+        if (!diag.code.empty()) {
+            jsonDiag["code"] = diag.code;  // 린터 규칙 이름
+        }
 
         diagnosticsArray.push_back(jsonDiag);
     }

@@ -88,7 +88,8 @@ void NoUnusedParameterRule::onFunctionLiteral(FunctionLiteral* expr)
                 "의도적인 경우 '_" + param + "'" + lexer::JosaRecognizer::selectOrBoth(param, lexer::JosaRecognizer::JosaType::RO_EURO) + " 표시하세요",
                 IssueSeverity::WARNING,
                 expr->location().line,
-                expr->location().column
+                expr->location().column,
+                param
             );
         }
     }

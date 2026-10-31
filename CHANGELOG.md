@@ -9,6 +9,7 @@
 
 ### 변경
 - CI 와 Pages 배포가 Node.js 26 LTS 를 쓴다(전에는 24). 지원 기간이 2028-04 에서 2029-04 로 늘어난다. 버전은 전처럼 `.nvmrc` 한 곳에서 읽는다. 최소 버전(`engines.node` `>=22.12.0`)과 VS Code 확장의 `@types/node`(VS Code 1.91 이 쓰는 Node 20)는 그대로다.
+- `.ksjlint.json` 을 고치면 편집기의 린터 경고가 바로 바뀐다. 전에는 설정을 바꾼 뒤 문서를 한 번 고쳐야 반영됐다. VS Code 확장이 `.ksjlint.json` 변경을 감시해 언어 서버에 알리고(`workspace/didChangeWatchedFiles`), 서버는 열린 문서를 다시 진단한다.
 - 플레이그라운드가 monaco-editor 의 언어 정의 80여 개와 언어 워커(TypeScript·CSS·HTML·JSON), LSP 클라이언트를 빌드에 넣지 않는다. 편집기는 일반 텍스트만 다루므로 쓰이지 않던 파일이다. 배포 결과물이 99개 파일 15MB 에서 8개 파일 5.3MB 로 줄었다. 찾기·명령 팔레트 같은 편집 기능은 그대로다.
 - VS Code 확장을 esbuild 로 한 파일(`dist/extension.js`)에 묶는다. `.vsix` 가 233개 파일(398KB)에서 8개 파일(105KB)로 줄고, 활성화할 때 `node_modules` 의 파일 180여 개를 읽지 않는다. 개발할 때는 `npm run compile` 대신 `npm run bundle`(또는 `npm run watch`)을 쓴다. 테스트는 전처럼 `tsc` 로 `out/` 에 컴파일해 돈다.
 - 범위 반복문을 `이상` 으로 끝내면 거꾸로 센다. `i가 10부터 1 이상 {` 은 10, 9, ..., 1 을 돈다(평가기·VM 공통). 전에는 `까지` 처럼 올라가며 세서 이 반복문은 한 번도 돌지 않았고, `i가 1부터 3 이상` 은 1~3 을 돌았지만 이제는 돌지 않는다.
@@ -16,6 +17,8 @@
 - CI 와 Pages 배포가 Node.js 24 LTS 를 쓴다(전에는 22). 버전은 저장소 루트의 `.nvmrc` 한 곳에서 읽고, 러너에 캐시된 이전 패치 대신 최신 24.x 를 받는다. 플레이그라운드와 문서 사이트의 `package.json` 에 최소 버전(`engines.node` `>=22.12.0`)을 적었다. GitHub Actions 는 Node 24 런타임을 쓰는 버전으로 올렸다(`checkout` v7, `setup-node` v7, `upload-artifact` v7, `download-artifact` v8, `github-script` v9, `configure-pages` v6, `upload-pages-artifact` v5, `deploy-pages` v5). Node 20 런타임 action 에 대한 폐기 경고가 더는 나오지 않는다. Windows 빌드의 `ilammy/msvc-dev-cmd` 는 Node 24 판이 없고, CMake 의 Visual Studio 생성기가 MSVC 를 직접 찾으므로 뺐다. VS Code 확장의 `@types/node` 는 확장이 도는 VS Code 1.91 의 Node 20 에 맞춰 20 으로 둔다.
 
 ### 고침
+- 편집기의 린터 경고 밑줄이 변수 이름이 아니라 선언의 첫 단어(`정수 안씀 = 5` 의 `정수`)에 그어지던 문제. 규칙이 가리키는 이름(`unused-variable`, `no-unused-parameter`, `no-shadowing`, `naming-convention`)을 함께 보고해 그 이름에 밑줄을 긋는다. 이름 뒤에 조사가 붙은 `i가` 는 `i` 만 가리킨다. 또 `naming-convention` 이 줄 번호 없이 보고해 `kingsejong lint` 출력에 위치가 빠지고 편집기에서는 늘 첫 줄에 뜨던 것을 선언 위치로 고쳤다.
+- VS Code 확장의 의존성이 쓰는 `minimatch` 10.x 에 서비스 거부 취약점(GHSA-g3hv-75wg-m249)이 공개되어 `npm audit` 이 중간 심각도 13건을 알리던 문제. `vsce`, ESLint, `vscode-languageclient` 가 아직 10.x 를 요구하므로 `overrides` 로 고쳐진 11.0.3 이상을 쓴다.
 - 사용자 설정의 `editor.defaultFormatter` 가 Prettier 같은 다른 확장을 가리키면 `.ksj` 파일에서 "'Prettier - Code formatter'이(가) 포맷터로 구성되어 있지만 'KingSejong'-파일을 포맷할 수 없습니다" 가 나오고 포맷되지 않던 문제. 확장이 `[kingsejong]` 언어의 기본 포맷터를 자기 자신으로 지정한다. 언어별 설정은 전역 설정보다 앞서므로 전역 기본 포맷터를 바꾸지 않아도 된다.
 - 성능 회귀가 나면 PR 에 댓글을 다는 CI 단계가 저장소 이름으로 없는 `context.repo.name` 을 넘겨 댓글을 달지 못하던 문제. `context.repo.repo` 로 고쳤다.
 - VS Code 확장을 `.vsix` 로 묶으면 `.vscodeignore` 가 `node_modules` 를 빼서 언어 서버 클라이언트(`vscode-languageclient`)가 빠지고, 설치하면 활성화하자마자 모듈을 찾지 못해 실패하던 문제.

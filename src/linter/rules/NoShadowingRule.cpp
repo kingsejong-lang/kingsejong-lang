@@ -50,7 +50,8 @@ void NoShadowingRule::onVarDeclaration(VarDeclaration* stmt)
             "(외부 정의: " + std::to_string(outerDecl->location().line) + "줄)",
             IssueSeverity::WARNING,
             stmt->location().line,
-            stmt->location().column
+            stmt->location().column,
+            varName
         );
     }
 
@@ -61,7 +62,8 @@ void NoShadowingRule::onVarDeclaration(VarDeclaration* stmt)
             "변수 '" + varName + "'" + lexer::JosaRecognizer::selectOrBoth(varName, lexer::JosaRecognizer::JosaType::I_GA) + " 외부 함수의 매개변수를 가립니다",
             IssueSeverity::WARNING,
             stmt->location().line,
-            stmt->location().column
+            stmt->location().column,
+            varName
         );
     }
 
@@ -139,7 +141,8 @@ void NoShadowingRule::onRangeForStatement(RangeForStatement* stmt)
             "(외부 정의: " + std::to_string(outerDecl->location().line) + "줄)",
             IssueSeverity::WARNING,
             stmt->location().line,
-            stmt->location().column
+            stmt->location().column,
+            loopVar
         );
     }
 

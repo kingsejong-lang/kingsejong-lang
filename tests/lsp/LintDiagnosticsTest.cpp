@@ -89,7 +89,7 @@ protected:
 };
 
 /**
- * @test 쓰지 않는 변수는 warning 진단이 되고, 위치는 선언 첫 토큰(UTF-16 단위)이다
+ * @test 쓰지 않는 변수는 warning 진단이 되고, 밑줄은 변수 이름(UTF-16 단위)에 그어진다
  */
 TEST_F(LintDiagnosticsTest, ShouldReportUnusedVariableAsWarning) {
     auto diagnostics = diagnose("출력(1)\n    정수 값 = 2\n");
@@ -99,12 +99,54 @@ TEST_F(LintDiagnosticsTest, ShouldReportUnusedVariableAsWarning) {
     EXPECT_EQ(d.source, "kingsejong-lint");
     EXPECT_EQ(d.code, "unused-variable");
     EXPECT_EQ(d.severity, DiagnosticsProvider::DiagnosticSeverity::Warning);
-    // 린터는 2:5 (1-based 줄, 바이트 열) 를 보고한다 -> LSP 0-based 1:4, "정수" 두 글자
+    // 린터는 선언 위치 2:5 와 이름 "값" 을 보고한다 -> LSP 0-based 1:7, "값" 한 글자
     EXPECT_EQ(d.startLine, 1);
-    EXPECT_EQ(d.startCharacter, 4);
+    EXPECT_EQ(d.startCharacter, 7);
     EXPECT_EQ(d.endLine, 1);
-    EXPECT_EQ(d.endCharacter, 6);
+    EXPECT_EQ(d.endCharacter, 8);
     EXPECT_NE(d.message.find("값"), std::string::npos);
+}
+
+/**
+ * @test 쓰지 않는 매개변수는 함수 선언 첫머리가 아니라 그 매개변수 이름에 밑줄을 긋는다
+ */
+TEST_F(LintDiagnosticsTest, ShouldUnderlineUnusedParameterName) {
+    auto diagnostics = lintOnly(diagnose("함수 더하기(a, b) {\n    반환 a\n}\n출력(더하기(1, 2))\n"));
+
+    ASSERT_EQ(diagnostics.size(), 1u);
+    EXPECT_EQ(diagnostics[0].code, "no-unused-parameter");
+    EXPECT_EQ(diagnostics[0].startLine, 0);
+    EXPECT_EQ(diagnostics[0].startCharacter, 10);
+    EXPECT_EQ(diagnostics[0].endCharacter, 11);
+}
+
+/**
+ * @test naming-convention 은 선언 줄의 변수 이름을 가리킨다 (전에는 줄 정보가 없어 첫 줄에 떴다)
+ */
+TEST_F(LintDiagnosticsTest, ShouldPlaceNamingConventionOnDeclaration) {
+    auto diagnostics = lintOnly(diagnose("출력(1)\n정수 MyVar = 1\n출력(MyVar)\n"));
+
+    ASSERT_EQ(diagnostics.size(), 1u);
+    EXPECT_EQ(diagnostics[0].code, "naming-convention");
+    EXPECT_EQ(diagnostics[0].startLine, 1);
+    EXPECT_EQ(diagnostics[0].startCharacter, 3);
+    EXPECT_EQ(diagnostics[0].endCharacter, 8);
+}
+
+/**
+ * @test 이름 뒤에 조사가 붙어 있어도(`i가`) 이름 부분에만 밑줄을 긋는다
+ */
+TEST_F(LintDiagnosticsTest, ShouldUnderlineNameBeforeParticle) {
+    auto diagnostics = lintOnly(diagnose("정수 i = 0\n출력(i)\ni가 1부터 3까지 {\n    출력(i)\n}\n"));
+
+    const DiagnosticsProvider::Diagnostic* shadow = nullptr;
+    for (const auto& d : diagnostics) {
+        if (d.code == "no-shadowing") shadow = &d;
+    }
+    ASSERT_NE(shadow, nullptr);
+    EXPECT_EQ(shadow->startLine, 2);
+    EXPECT_EQ(shadow->startCharacter, 0);
+    EXPECT_EQ(shadow->endCharacter, 1);
 }
 
 /**
@@ -191,8 +233,8 @@ TEST(LintLanguageServerTest, ShouldPublishLintDiagnosticWithCodeAndSource) {
     EXPECT_EQ(diagnostics[0]["code"], "unused-variable");
     EXPECT_EQ(diagnostics[0]["severity"], 2);
     EXPECT_EQ(diagnostics[0]["range"]["start"]["line"], 0);
-    EXPECT_EQ(diagnostics[0]["range"]["start"]["character"], 0);
-    EXPECT_EQ(diagnostics[0]["range"]["end"]["character"], 2);
+    EXPECT_EQ(diagnostics[0]["range"]["start"]["character"], 3);
+    EXPECT_EQ(diagnostics[0]["range"]["end"]["character"], 4);
 }
 
 /**
@@ -239,6 +281,46 @@ TEST(LintLanguageServerTest, ShouldRepublishOnConfigurationChange) {
     auto on = server.takePendingNotifications();
     ASSERT_EQ(on.size(), 1u);
     EXPECT_EQ(on[0]["params"]["diagnostics"].size(), 1u);
+}
+
+/**
+ * @test .ksjlint.json 이 바뀌었다는 알림을 받으면 문서를 고치지 않아도 열린 문서를 다시 진단한다
+ */
+TEST(LintLanguageServerTest, ShouldRepublishWhenLintConfigFileChanges) {
+    fs::path dir = fs::temp_directory_path() / "ksj_lsp_lint_watch" / "설정";
+    fs::remove_all(dir.parent_path());
+    fs::create_directories(dir);
+    const std::string docUri = toFileUri((dir / "예제.ksj").string());
+    const std::string configUri = toFileUri((dir / ".ksjlint.json").string());
+
+    auto watched = [](const std::string& uri) {
+        return nlohmann::json{
+            {"jsonrpc", "2.0"},
+            {"method", "workspace/didChangeWatchedFiles"},
+            {"params", {{"changes", nlohmann::json::array({{{"uri", uri}, {"type", 1}}})}}}
+        };
+    };
+
+    LanguageServer server;
+    server.handleRequest(initializeRequest(nullptr));
+    server.handleRequest(didOpen(docUri, "정수 x = 1\n"));
+    auto first = server.takePendingNotifications();
+    ASSERT_EQ(first.size(), 1u);
+    EXPECT_EQ(first[0]["params"]["diagnostics"].size(), 1u);
+
+    // .ksj 파일만 바뀐 알림은 다시 진단하지 않는다
+    server.handleRequest(watched(toFileUri((dir / "다른.ksj").string())));
+    EXPECT_TRUE(server.takePendingNotifications().empty());
+
+    std::ofstream(dir / ".ksjlint.json") << R"({"rules": {"unused-variable": "off"}})";
+    server.handleRequest(watched(configUri));
+    auto after = server.takePendingNotifications();
+    ASSERT_EQ(after.size(), 1u);
+    EXPECT_EQ(after[0]["params"]["uri"], docUri);
+    EXPECT_TRUE(after[0]["params"]["diagnostics"].empty());
+
+    std::error_code ec;
+    fs::remove_all(dir.parent_path(), ec);
 }
 
 // ============================================================================

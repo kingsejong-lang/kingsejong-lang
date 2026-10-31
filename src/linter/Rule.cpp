@@ -18,7 +18,8 @@ void Rule::reportIssue(
     const std::string& message,
     IssueSeverity severity,
     int line,
-    int column
+    int column,
+    const std::string& subject
 )
 {
     if (linter_)
@@ -27,7 +28,7 @@ void Rule::reportIssue(
         auto overrideSeverity = linter_->getRuleSeverity(ruleId_);
         IssueSeverity finalSeverity = overrideSeverity.has_value() ? overrideSeverity.value() : severity;
 
-        linter_->addIssue(LinterIssue{message, finalSeverity, ruleId_, line, column, linter_->filename_});
+        linter_->addIssue(LinterIssue{message, finalSeverity, ruleId_, line, column, linter_->filename_, subject});
     }
 }
 

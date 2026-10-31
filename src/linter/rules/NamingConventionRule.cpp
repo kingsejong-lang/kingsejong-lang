@@ -42,7 +42,10 @@ void NamingConventionRule::onVarDeclaration(ast::VarDeclaration* stmt)
         {
             reportIssue(
                 "상수 변수 '" + name + "'" + lexer::JosaRecognizer::selectOrBoth(name, lexer::JosaRecognizer::JosaType::EUN_NEUN) + " UPPER_SNAKE_CASE를 권장합니다 (예: MY_CONSTANT)",
-                IssueSeverity::WARNING
+                IssueSeverity::WARNING,
+                stmt->location().line,
+                stmt->location().column,
+                name
             );
         }
         return;
@@ -53,7 +56,10 @@ void NamingConventionRule::onVarDeclaration(ast::VarDeclaration* stmt)
     {
         reportIssue(
             "변수명 '" + name + "'" + lexer::JosaRecognizer::selectOrBoth(name, lexer::JosaRecognizer::JosaType::EUN_NEUN) + " snake_case 또는 camelCase를 권장합니다 (예: my_variable, myVariable)",
-            IssueSeverity::WARNING
+            IssueSeverity::WARNING,
+            stmt->location().line,
+            stmt->location().column,
+            name
         );
     }
 }

@@ -241,6 +241,46 @@ TEST(LintLanguageServerTest, ShouldRepublishOnConfigurationChange) {
     EXPECT_EQ(on[0]["params"]["diagnostics"].size(), 1u);
 }
 
+/**
+ * @test .ksjlint.json 이 바뀌었다는 알림을 받으면 문서를 고치지 않아도 열린 문서를 다시 진단한다
+ */
+TEST(LintLanguageServerTest, ShouldRepublishWhenLintConfigFileChanges) {
+    fs::path dir = fs::temp_directory_path() / "ksj_lsp_lint_watch" / "설정";
+    fs::remove_all(dir.parent_path());
+    fs::create_directories(dir);
+    const std::string docUri = toFileUri((dir / "예제.ksj").string());
+    const std::string configUri = toFileUri((dir / ".ksjlint.json").string());
+
+    auto watched = [](const std::string& uri) {
+        return nlohmann::json{
+            {"jsonrpc", "2.0"},
+            {"method", "workspace/didChangeWatchedFiles"},
+            {"params", {{"changes", nlohmann::json::array({{{"uri", uri}, {"type", 1}}})}}}
+        };
+    };
+
+    LanguageServer server;
+    server.handleRequest(initializeRequest(nullptr));
+    server.handleRequest(didOpen(docUri, "정수 x = 1\n"));
+    auto first = server.takePendingNotifications();
+    ASSERT_EQ(first.size(), 1u);
+    EXPECT_EQ(first[0]["params"]["diagnostics"].size(), 1u);
+
+    // .ksj 파일만 바뀐 알림은 다시 진단하지 않는다
+    server.handleRequest(watched(toFileUri((dir / "다른.ksj").string())));
+    EXPECT_TRUE(server.takePendingNotifications().empty());
+
+    std::ofstream(dir / ".ksjlint.json") << R"({"rules": {"unused-variable": "off"}})";
+    server.handleRequest(watched(configUri));
+    auto after = server.takePendingNotifications();
+    ASSERT_EQ(after.size(), 1u);
+    EXPECT_EQ(after[0]["params"]["uri"], docUri);
+    EXPECT_TRUE(after[0]["params"]["diagnostics"].empty());
+
+    std::error_code ec;
+    fs::remove_all(dir.parent_path(), ec);
+}
+
 // ============================================================================
 // uriToFilePath
 // ============================================================================

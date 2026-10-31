@@ -33,6 +33,7 @@ namespace lsp {
  * - initialize: 서버 초기화
  * - initialized: 초기화 완료 알림
  * - workspace/didChangeConfiguration: 설정 변경 (kingsejong.lint.enable)
+ * - workspace/didChangeWatchedFiles: .ksjlint.json 변경 시 열린 문서 다시 진단
  * - textDocument/didOpen: 문서 열기
  * - textDocument/didChange: 문서 변경
  * - textDocument/didClose: 문서 닫기
@@ -204,6 +205,15 @@ private:
      * 린터 사용 여부가 바뀌면 열린 문서의 진단을 다시 계산해 보낸다.
      */
     void handleDidChangeConfiguration(const nlohmann::json& params);
+
+    /**
+     * @brief workspace/didChangeWatchedFiles 핸들러 (notification)
+     * @param params { "changes": [ { "uri": string, "type": number } ] }
+     *
+     * 바뀐 파일 중 .ksjlint.json 이 있으면 열린 문서의 진단을 다시 계산해 보낸다.
+     * 문서를 편집하지 않아도 규칙 설정 변경이 바로 반영된다.
+     */
+    void handleDidChangeWatchedFiles(const nlohmann::json& params);
 
     /**
      * @brief { "lint": { "enable": bool } } 형태의 설정을 진단 제공자에 반영한다

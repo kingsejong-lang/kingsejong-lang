@@ -74,6 +74,10 @@ nlohmann::json LanguageServer::handleRequest(const nlohmann::json& request)
             handleDidChangeConfiguration(params);
             return nlohmann::json();  // notification - no response
         }
+        else if (method == "workspace/didChangeWatchedFiles") {
+            handleDidChangeWatchedFiles(params);
+            return nlohmann::json();  // notification - no response
+        }
         else if (method == "textDocument/didOpen") {
             try {
                 handleTextDocumentDidOpen(params);
@@ -295,6 +299,33 @@ void LanguageServer::handleDidChangeConfiguration(const nlohmann::json& params)
         return;
     }
     // 바뀐 설정으로 열린 문서의 진단을 다시 보낸다 (끄면 린터 밑줄이 지워진다)
+    for (const auto& [uri, document] : documentManager_.getAllDocuments()) {
+        (void)document;
+        queueDiagnostics(uri);
+    }
+}
+
+void LanguageServer::handleDidChangeWatchedFiles(const nlohmann::json& params)
+{
+    // changes: [{ "uri": "...", "type": 1|2|3 }] 중 .ksjlint.json 이 있으면 린터 설정이 바뀐 것이다
+    if (!diagnosticsProvider_.isLintEnabled() || !params.contains("changes") || !params["changes"].is_array()) {
+        return;
+    }
+    static const std::string configName = "/.ksjlint.json";
+    bool lintConfigChanged = false;
+    for (const auto& change : params["changes"]) {
+        if (!change.contains("uri") || !change["uri"].is_string()) continue;
+        const std::string uri = change["uri"].get<std::string>();
+        if (uri.size() >= configName.size() &&
+            uri.compare(uri.size() - configName.size(), configName.size(), configName) == 0) {
+            lintConfigChanged = true;
+            break;
+        }
+    }
+    if (!lintConfigChanged) {
+        return;
+    }
+    // 설정 파일은 진단할 때마다 다시 읽으므로, 열린 문서의 진단만 다시 보내면 된다
     for (const auto& [uri, document] : documentManager_.getAllDocuments()) {
         (void)document;
         queueDiagnostics(uri);

@@ -69,8 +69,12 @@ export function activate(context: ExtensionContext) {
 
         // 작업 공간 설정
         synchronize: {
-            // workspace에서 .ksj 파일 변경 감지
-            fileEvents: workspace.createFileSystemWatcher('**/*.ksj')
+            // workspace에서 .ksj 파일과 린터 설정(.ksjlint.json) 변경 감지.
+            // 설정이 바뀌면 서버가 열린 문서를 다시 진단한다
+            fileEvents: [
+                workspace.createFileSystemWatcher('**/*.ksj'),
+                workspace.createFileSystemWatcher('**/.ksjlint.json')
+            ]
         }
     };
 

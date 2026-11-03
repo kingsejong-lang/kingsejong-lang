@@ -6,6 +6,7 @@
 #include "Compiler.h"
 #include "evaluator/Evaluator.h"
 #include "lexer/JosaRecognizer.h"
+#include "common/CheckedInt.h"
 #include <iostream>
 
 namespace kingsejong {
@@ -115,6 +116,12 @@ void Compiler::compileStatement(ast::Statement* stmt) {
         case ast::NodeType::THROW_STATEMENT:
             compileThrowStatement(static_cast<ast::ThrowStatement*>(stmt));
             break;
+        case ast::NodeType::BREAK_STATEMENT:
+            compileLoopControlStatement(true);
+            break;
+        case ast::NodeType::CONTINUE_STATEMENT:
+            compileLoopControlStatement(false);
+            break;
         default:
             // 평가기도 처리하지 않는 문장 (일반 for 문 등)
             error("지원되지 않는 문장: " + ast::nodeTypeToString(stmt->type()));
@@ -167,9 +174,11 @@ void Compiler::compileWhileStatement(ast::WhileStatement* stmt) {
     size_t loopStart = currentOffset();
     compileExpression(const_cast<ast::Expression*>(stmt->condition()));
     size_t exitJump = emitJump(OpCode::JUMP_IF_FALSE);
-    compileBlock(stmt->body());
+    compileLoopBody(stmt->body(), loopStart, 0);
     emitLoop(loopStart);
     patchJump(exitJump);
+    for (size_t jump : loopStack_.back().breakJumps) patchJump(jump);
+    loopStack_.pop_back();
 }
 
 void Compiler::compileRepeatStatement(ast::RepeatStatement* stmt) {
@@ -178,9 +187,11 @@ void Compiler::compileRepeatStatement(ast::RepeatStatement* stmt) {
     emit(OpCode::REPEAT_INIT);
     size_t loopStart = currentOffset();
     size_t exitJump = emitJump(OpCode::REPEAT_NEXT);
-    compileBlock(stmt->body());
+    compileLoopBody(stmt->body(), loopStart, 1);
     emitLoop(loopStart);
     patchJump(exitJump);
+    for (size_t jump : loopStack_.back().breakJumps) patchJump(jump);
+    loopStack_.pop_back();
 }
 
 void Compiler::compileRangeForStatement(ast::RangeForStatement* stmt) {
@@ -194,9 +205,64 @@ void Compiler::compileRangeForStatement(ast::RangeForStatement* stmt) {
     size_t exitOperand = currentOffset();
     emit16(0);
     emitByte(stmt->descending() ? 2 : (stmt->endInclusive() ? 1 : 0));  // 0 미만, 1 까지, 2 거꾸로(이상)
-    compileBlock(stmt->body());
+    compileLoopBody(stmt->body(), loopStart, 2);
     emitLoop(loopStart);
     patchJump(exitOperand, 1);  // 탈출 오프셋 뒤에 끝포함 플래그 1바이트가 더 있다
+    for (size_t jump : loopStack_.back().breakJumps) patchJump(jump);
+    loopStack_.pop_back();
+}
+
+void Compiler::compileLoopBody(const ast::BlockStatement* body, size_t loopStart, int stateSlots) {
+    // 호출한 쪽이 반복문 끝에서 breakJumps 를 채우고 loopStack_ 에서 뺀다
+    loopStack_.push_back(LoopContext{loopStart, stateSlots, tryStack_.size(), {}});
+    compileBlock(body);
+}
+
+void Compiler::compileLoopControlStatement(bool isBreak) {
+    const char* keyword = isBreak ? "중단" : "계속";
+    if (loopStack_.empty()) {
+        error(std::string("'") + keyword + "' 은 반복문 안에서만 쓸 수 있습니다");
+        return;
+    }
+    // 마지막 블록을 컴파일하다 loopStack_ 이 다시 할당될 수 있으므로 값을 복사해 둔다
+    const size_t loopStart = loopStack_.back().loopStart;
+    const int stateSlots = loopStack_.back().stateSlots;
+    const size_t loopTryDepth = loopStack_.back().tryDepth;
+
+    // 반복문 안쪽의 시도 문을 안에서부터 정리한다: 걸어 둔 핸들러를 내리고, 오류 블록의 스코프를
+    // 닫고, 마지막 블록은 이 자리에 한 번 더 컴파일해 돌린다 (평가기도 마지막 블록을 돌린다).
+    // 마지막 블록을 컴파일하는 동안에는 그 시도 문 바깥에 있는 것으로 둔다.
+    std::vector<TryContext> saved = tryStack_;
+    for (size_t i = tryStack_.size(); i > loopTryDepth; --i) {
+        TryContext ctx = saved[i - 1];
+        bool hasCatch = !ctx.stmt->catchClauses().empty();
+        bool hasFinally = ctx.stmt->finallyBlock() != nullptr;
+        if (ctx.region == TryContext::Region::FINALLY) {
+            // 예외로 들어온 마지막 블록은 VM 이 보류한 예외를 END_FINALLY 에서 다시 던지는데,
+            // 여기서 빠져나가면 그 보류를 정리할 방법이 없다
+            error(std::string("VM 은 마지막 블록 안의 '") + keyword + "' 을 아직 지원하지 않습니다 (평가기는 지원)");
+            return;
+        }
+        if (ctx.region == TryContext::Region::TRY && hasCatch) {
+            emit(OpCode::TRY_POP);
+        }
+        if (ctx.region == TryContext::Region::CATCH) {
+            emit(OpCode::POP_SCOPE);
+        }
+        if (hasFinally) {
+            emit(OpCode::TRY_POP);
+            tryStack_.resize(i - 1);
+            compileBlock(ctx.stmt->finallyBlock());
+        }
+    }
+    tryStack_ = saved;
+
+    if (isBreak) {
+        for (int k = 0; k < stateSlots; ++k) emit(OpCode::POP);
+        loopStack_.back().breakJumps.push_back(emitJump(OpCode::JUMP));
+    } else {
+        emitLoop(loopStart);
+    }
 }
 
 void Compiler::compileReturnStatement(ast::ReturnStatement* stmt) {
@@ -272,6 +338,7 @@ void Compiler::compileTryStatement(ast::TryStatement* stmt) {
         emit16(NO_OFFSET);
     }
 
+    tryStack_.push_back(TryContext{stmt, TryContext::Region::TRY});
     compileBlock(stmt->tryBlock());
 
     if (hasCatch) {
@@ -282,6 +349,7 @@ void Compiler::compileTryStatement(ast::TryStatement* stmt) {
         const auto& clause = stmt->catchClauses()[0];  // 현재는 단일 catch 만 (평가기와 같다)
         emit(OpCode::PUSH_SCOPE);
         emitName(OpCode::DECLARE, clause->errorVarName());
+        tryStack_.back().region = TryContext::Region::CATCH;
         compileBlock(clause->body());
         emit(OpCode::POP_SCOPE);
 
@@ -291,9 +359,11 @@ void Compiler::compileTryStatement(ast::TryStatement* stmt) {
     if (hasFinally) {
         emit(OpCode::TRY_POP);
         patchJump(finallyOperand);
+        tryStack_.back().region = TryContext::Region::FINALLY;
         compileBlock(stmt->finallyBlock());
         emit(OpCode::END_FINALLY);
     }
+    tryStack_.pop_back();
 }
 
 void Compiler::compileThrowStatement(ast::ThrowStatement* stmt) {
@@ -681,6 +751,12 @@ size_t Compiler::compileFunctionBody(const std::vector<std::string>& params, ast
     size_t skip = emitJump(OpCode::JUMP);
     size_t entry = currentOffset();
 
+    // 함수 본문은 바깥 반복문·시도 문을 보지 않는다 (중단·계속이 함수 밖으로 나가지 않는다)
+    std::vector<LoopContext> outerLoops;
+    std::vector<TryContext> outerTries;
+    outerLoops.swap(loopStack_);
+    outerTries.swap(tryStack_);
+
     if (body && body->type() == ast::NodeType::BLOCK_STATEMENT) {
         compileBlock(static_cast<const ast::BlockStatement*>(body));
     } else if (body) {
@@ -689,6 +765,9 @@ size_t Compiler::compileFunctionBody(const std::vector<std::string>& params, ast
     // 암시적 반환
     emit(OpCode::LOAD_NULL);
     emit(OpCode::RETURN);
+
+    loopStack_.swap(outerLoops);
+    tryStack_.swap(outerTries);
 
     patchJump(skip);
 
@@ -714,11 +793,13 @@ bool Compiler::tryConstantFoldBinary(ast::BinaryExpression* expr) {
     if (left->type() == ast::NodeType::INTEGER_LITERAL && right->type() == ast::NodeType::INTEGER_LITERAL) {
         int64_t a = static_cast<const ast::IntegerLiteral*>(left)->value();
         int64_t b = static_cast<const ast::IntegerLiteral*>(right)->value();
-        if (op == "+") { emitConstant(evaluator::Value::createInteger(a + b)); return true; }
-        if (op == "-") { emitConstant(evaluator::Value::createInteger(a - b)); return true; }
-        if (op == "*") { emitConstant(evaluator::Value::createInteger(a * b)); return true; }
-        if (op == "/" && b != 0) { emitConstant(evaluator::Value::createInteger(a / b)); return true; }
-        if (op == "%" && b != 0) { emitConstant(evaluator::Value::createInteger(a % b)); return true; }
+        // 넘치는 식은 접지 않고 실행 시점에 맡긴다 (평가기와 같은 정수 오버플로 오류가 나도록)
+        int64_t folded = 0;
+        if (op == "+" && common::checkedAdd(a, b, folded)) { emitConstant(evaluator::Value::createInteger(folded)); return true; }
+        if (op == "-" && common::checkedSub(a, b, folded)) { emitConstant(evaluator::Value::createInteger(folded)); return true; }
+        if (op == "*" && common::checkedMul(a, b, folded)) { emitConstant(evaluator::Value::createInteger(folded)); return true; }
+        if (op == "/" && b != 0 && b != -1) { emitConstant(evaluator::Value::createInteger(a / b)); return true; }
+        if (op == "%" && b != 0 && b != -1) { emitConstant(evaluator::Value::createInteger(a % b)); return true; }
         if (op == "==") { emit(a == b ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE); return true; }
         if (op == "!=") { emit(a != b ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE); return true; }
         if (op == "<")  { emit(a < b ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE); return true; }
@@ -749,7 +830,8 @@ bool Compiler::tryConstantFoldBinary(ast::BinaryExpression* expr) {
 
 bool Compiler::tryConstantFoldUnary(ast::UnaryExpression* expr) {
     const ast::Expression* operand = expr->operand();
-    if (expr->op() == "-" && operand->type() == ast::NodeType::INTEGER_LITERAL) {
+    if (expr->op() == "-" && operand->type() == ast::NodeType::INTEGER_LITERAL &&
+        !common::negationOverflows(static_cast<const ast::IntegerLiteral*>(operand)->value())) {
         emitConstant(evaluator::Value::createInteger(-static_cast<const ast::IntegerLiteral*>(operand)->value()));
         return true;
     }

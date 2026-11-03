@@ -62,6 +62,8 @@ static const std::unordered_map<std::string, TokenType> keywords = {
     // 함수 키워드
     {"함수", TokenType::HAMSU},
     {"반환", TokenType::BANHWAN},
+    {"중단", TokenType::JUNGDAN},
+    {"계속", TokenType::GYESOK},
 
     // 모듈 키워드
     {"가져오기", TokenType::GAJYEOOGI},
@@ -166,6 +168,8 @@ std::string tokenTypeToString(TokenType type)
         case TokenType::ANIMYEON:     return "ANIMYEON";
         case TokenType::ANIMYEON_MANYAK: return "ANIMYEON_MANYAK";
         case TokenType::DONGAN:       return "DONGAN";
+        case TokenType::JUNGDAN:      return "JUNGDAN";
+        case TokenType::GYESOK:       return "GYESOK";
 
         case TokenType::HAMSU:        return "HAMSU";
         case TokenType::BANHWAN:      return "BANHWAN";

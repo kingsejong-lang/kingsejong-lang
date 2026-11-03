@@ -18,6 +18,8 @@ bool isStatementType(NodeType type)
         case NodeType::VAR_DECLARATION:
         case NodeType::ASSIGNMENT_STATEMENT:
         case NodeType::RETURN_STATEMENT:
+        case NodeType::BREAK_STATEMENT:
+        case NodeType::CONTINUE_STATEMENT:
         case NodeType::IF_STATEMENT:
         case NodeType::WHILE_STATEMENT:
         case NodeType::FOR_STATEMENT:
@@ -51,6 +53,10 @@ std::string nodeTypeToString(NodeType type)
             return "ASSIGNMENT_STATEMENT";
         case NodeType::RETURN_STATEMENT:
             return "RETURN_STATEMENT";
+        case NodeType::BREAK_STATEMENT:
+            return "BREAK_STATEMENT";
+        case NodeType::CONTINUE_STATEMENT:
+            return "CONTINUE_STATEMENT";
         case NodeType::IF_STATEMENT:
             return "IF_STATEMENT";
         case NodeType::WHILE_STATEMENT:

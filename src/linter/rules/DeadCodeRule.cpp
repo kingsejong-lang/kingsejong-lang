@@ -67,13 +67,18 @@ void DeadCodeRule::checkBlockForDeadCode(BlockStatement* block)
     bool foundReturn = false;
     size_t returnIndex = 0;
 
-    // return 문 찾기
+    // return / 중단 / 계속 문 찾기: 같은 블록에서 그 뒤의 문장은 실행되지 않는다
+    std::string exitKeyword = "return";
     for (size_t i = 0; i < statements.size(); ++i)
     {
-        if (node_cast<ReturnStatement>(statements[i].get()))
+        const auto* candidate = statements[i].get();
+        if (node_cast<ReturnStatement>(candidate) || node_cast<BreakStatement>(candidate) ||
+            node_cast<ContinueStatement>(candidate))
         {
             foundReturn = true;
             returnIndex = i;
+            if (node_cast<BreakStatement>(candidate)) exitKeyword = "중단";
+            if (node_cast<ContinueStatement>(candidate)) exitKeyword = "계속";
             break;
         }
     }
@@ -83,7 +88,7 @@ void DeadCodeRule::checkBlockForDeadCode(BlockStatement* block)
     {
         auto* deadStmt = statements[returnIndex + 1].get();
         reportIssue(
-            "return 문 이후의 코드는 실행되지 않습니다",
+            exitKeyword + " 문 이후의 코드는 실행되지 않습니다",
             IssueSeverity::WARNING,
             deadStmt->location().line,
             deadStmt->location().column

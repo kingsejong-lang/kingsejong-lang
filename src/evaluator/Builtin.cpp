@@ -9,6 +9,7 @@
 #include "security/SecurityManager.h"
 #include "security/NetworkSecurityManager.h"
 #include "common/UTF8Utils.h"
+#include "common/CheckedInt.h"
 #include <iostream>
 #include <stdexcept>
 #include <cmath>
@@ -89,6 +90,19 @@ bool Builtin::hasBuiltin(const std::string& name)
 // ============================================================================
 // 내장 함수 구현
 // ============================================================================
+
+/**
+ * @brief 실수를 정수로 바꾼다. 정수 범위 밖이거나 NaN 이면 실행 오류 (범위 밖 변환은 C++ 에서 정의되지 않은 동작)
+ */
+static Value floatToInteger(double value, const std::string& functionName)
+{
+    if (!common::fitsInInt64(value))
+    {
+        throw std::runtime_error(functionName + "() 함수: 실수 " + Value::createFloat(value).toString() +
+                                 " 은(는) 정수 범위를 벗어납니다");
+    }
+    return Value::createInteger(static_cast<int64_t>(value));
+}
 
 /**
  * @brief 출력(값1, 값2, ...) - 콘솔에 출력
@@ -724,7 +738,7 @@ static Value builtin_정수(const std::vector<Value>& args)
     // 실수를 정수로 변환
     if (arg.isFloat())
     {
-        return Value::createInteger(static_cast<int64_t>(arg.asFloat()));
+        return floatToInteger(arg.asFloat(), "정수");
     }
 
     // 문자열을 정수로 변환
@@ -837,7 +851,7 @@ static Value builtin_반올림(const std::vector<Value>& args)
         // floor(value + 0.5) works for both positive and negative
         // 2.5 → floor(3.0) = 3
         // -2.5 → floor(-2.0) = -2
-        return Value::createInteger(static_cast<int64_t>(std::floor(value + 0.5)));
+        return floatToInteger(std::floor(value + 0.5), "반올림");
     }
 
     throw std::runtime_error("반올림() 함수의 인자는 정수 또는 실수여야 합니다");
@@ -866,7 +880,7 @@ static Value builtin_올림(const std::vector<Value>& args)
 
     if (arg.isFloat())
     {
-        return Value::createInteger(static_cast<int64_t>(std::ceil(arg.asFloat())));
+        return floatToInteger(std::ceil(arg.asFloat()), "올림");
     }
 
     throw std::runtime_error("올림() 함수의 인자는 정수 또는 실수여야 합니다");
@@ -895,7 +909,7 @@ static Value builtin_내림(const std::vector<Value>& args)
 
     if (arg.isFloat())
     {
-        return Value::createInteger(static_cast<int64_t>(std::floor(arg.asFloat())));
+        return floatToInteger(std::floor(arg.asFloat()), "내림");
     }
 
     throw std::runtime_error("내림() 함수의 인자는 정수 또는 실수여야 합니다");
@@ -920,6 +934,10 @@ static Value builtin_절대값(const std::vector<Value>& args)
     if (arg.isInteger())
     {
         int64_t value = arg.asInteger();
+        if (common::negationOverflows(value))
+        {
+            throw std::runtime_error("절대값() 함수: 정수 최솟값의 절대값은 정수 범위를 벗어납니다");
+        }
         return Value::createInteger(value < 0 ? -value : value);
     }
 
@@ -983,6 +1001,27 @@ static Value builtin_제곱(const std::vector<Value>& args)
         throw std::runtime_error("제곱() 함수는 정확히 2개의 인자가 필요합니다");
     }
 
+    // 정수 ** 음이 아닌 정수는 정수로 정확히 계산한다 (double 은 2^53 을 넘으면 정밀도를 잃고, 범위 밖 변환은 정의되지 않은 동작)
+    if (args[0].isInteger() && args[1].isInteger() && args[1].asInteger() >= 0)
+    {
+        int64_t base = args[0].asInteger();
+        int64_t exponent = args[1].asInteger();
+        int64_t result = 1;
+        while (exponent > 0)
+        {
+            if ((exponent & 1) && !common::checkedMul(result, base, result))
+            {
+                throw std::runtime_error("제곱() 함수: 결과가 정수 범위를 벗어납니다 (실수로 계산하려면 밑을 실수로 주세요)");
+            }
+            exponent >>= 1;
+            if (exponent > 0 && !common::checkedMul(base, base, base))
+            {
+                throw std::runtime_error("제곱() 함수: 결과가 정수 범위를 벗어납니다 (실수로 계산하려면 밑을 실수로 주세요)");
+            }
+        }
+        return Value::createInteger(result);
+    }
+
     double base = 0.0;
     double exponent = 0.0;
 
@@ -1012,15 +1051,52 @@ static Value builtin_제곱(const std::vector<Value>& args)
         throw std::runtime_error("제곱() 함수의 두 번째 인자는 정수 또는 실수여야 합니다");
     }
 
-    double result = std::pow(base, exponent);
+    return Value::createFloat(std::pow(base, exponent));
+}
 
-    // 결과가 정수인지 확인 (지수가 양의 정수이고 밑이 정수인 경우)
-    if (args[0].isInteger() && args[1].isInteger() && args[1].asInteger() >= 0)
+/**
+ * @brief 감싸 도는 정수 연산의 공통 인자 검사. 두 인자 모두 정수여야 한다.
+ */
+static void requireTwoIntegers(const std::vector<Value>& args, const std::string& functionName)
+{
+    if (args.size() != 2)
     {
-        return Value::createInteger(static_cast<int64_t>(result));
+        throw std::runtime_error(functionName + "() 함수는 정확히 2개의 인자가 필요합니다");
     }
+    if (!args[0].isInteger() || !args[1].isInteger())
+    {
+        throw std::runtime_error(functionName + "() 함수의 인자는 정수여야 합니다");
+    }
+}
 
-    return Value::createFloat(result);
+/**
+ * @brief 감싸더하기(a, b) - 64비트 2의 보수로 감싸 도는 덧셈
+ *
+ * 일반 + 는 넘치면 실행 오류다. 해시·체크섬처럼 넘쳐서 감싸 도는 것이 의도인 계산에 쓴다.
+ * 예: 감싸더하기(9223372036854775807, 1) → -9223372036854775808
+ */
+static Value builtin_감싸더하기(const std::vector<Value>& args)
+{
+    requireTwoIntegers(args, "감싸더하기");
+    return Value::createInteger(common::wrappingAdd(args[0].asInteger(), args[1].asInteger()));
+}
+
+/**
+ * @brief 감싸빼기(a, b) - 64비트 2의 보수로 감싸 도는 뺄셈
+ */
+static Value builtin_감싸빼기(const std::vector<Value>& args)
+{
+    requireTwoIntegers(args, "감싸빼기");
+    return Value::createInteger(common::wrappingSub(args[0].asInteger(), args[1].asInteger()));
+}
+
+/**
+ * @brief 감싸곱하기(a, b) - 64비트 2의 보수로 감싸 도는 곱셈 (FNV 같은 해시의 곱셈)
+ */
+static Value builtin_감싸곱하기(const std::vector<Value>& args)
+{
+    requireTwoIntegers(args, "감싸곱하기");
+    return Value::createInteger(common::wrappingMul(args[0].asInteger(), args[1].asInteger()));
 }
 
 // ============================================================================
@@ -3705,6 +3781,9 @@ void Builtin::registerAllBuiltins()
     registerBuiltin("절대값", builtin_절대값);
     registerBuiltin("제곱근", builtin_제곱근);
     registerBuiltin("제곱", builtin_제곱);
+    registerBuiltin("감싸더하기", builtin_감싸더하기);
+    registerBuiltin("감싸빼기", builtin_감싸빼기);
+    registerBuiltin("감싸곱하기", builtin_감싸곱하기);
 
     // ========== 파일 I/O ==========
     registerBuiltin("파일_읽기", builtin_파일_읽기);

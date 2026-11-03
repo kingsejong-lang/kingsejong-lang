@@ -191,6 +191,37 @@ TEST(ArrayTest, ShouldThrowOnNegativeOutOfBoundsIndex)
     }, std::runtime_error);
 }
 
+/// 인덱스 오류 메시지를 꺼낸다 (오류가 나지 않으면 빈 문자열)
+static std::string indexErrorMessage(const std::string& input)
+{
+    try
+    {
+        evalInput(input);
+    }
+    catch (const std::exception& e)
+    {
+        return e.what();
+    }
+    return "";
+}
+
+TEST(ArrayTest, IndexErrorHintShouldNotUnderflowOnEmptyArray)
+{
+    // 빈 배열의 안내가 "0부터 18446744073709551615" 로 나오던 문제 (부호 없는 크기에서 1 을 뺐다)
+    std::string message = indexErrorMessage("[][0]");
+    EXPECT_NE(message.find("빈 배열"), std::string::npos) << message;
+    EXPECT_EQ(message.find("18446744073709551615"), std::string::npos) << message;
+}
+
+TEST(ArrayTest, IndexErrorShouldShowRequestedIndexAndValidRange)
+{
+    // 음수 인덱스는 고쳐 쓰기 전 값을 보인다 (전에는 [-10] 이 "인덱스 -7" 로 나왔다)
+    std::string message = indexErrorMessage("[1, 2, 3][-10]");
+    EXPECT_NE(message.find("인덱스 -10"), std::string::npos) << message;
+    EXPECT_NE(message.find("0부터 2 사이"), std::string::npos) << message;
+    EXPECT_NE(message.find("-3부터 -1 사이"), std::string::npos) << message;
+}
+
 TEST(ArrayTest, ShouldThrowOnIndexingNonArray)
 {
     EXPECT_THROW({

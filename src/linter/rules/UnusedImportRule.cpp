@@ -9,27 +9,78 @@
 #include "linter/Linter.h"
 #include "linter/IssueSeverity.h"
 #include "lexer/JosaRecognizer.h"
+#include "lexer/Lexer.h"
+#include "parser/Parser.h"
+#include "ast/Visitor.h"
+#include <fstream>
+#include <sstream>
 
 namespace kingsejong {
 namespace linter {
 namespace rules {
+
+namespace {
+
+/// 프로그램 전체에서 쓰인 식별자 이름을 모은다 (호출뿐 아니라 값으로 넘긴 함수 이름도 포함)
+class NameCollector : public ast::Visitor
+{
+public:
+    std::unordered_set<std::string>& names;
+    explicit NameCollector(std::unordered_set<std::string>& out) : names(out) {}
+
+    bool enter(ast::Node& node) override
+    {
+        if (node.type() == ast::NodeType::IDENTIFIER)
+        {
+            names.insert(static_cast<const ast::Identifier&>(node).name());
+        }
+        return true;
+    }
+};
+
+} // namespace
 
 void UnusedImportRule::analyze(ast::Program* program)
 {
     // 1단계: 모든 import 수집
     importedModules_.clear();
     usedModules_.clear();
+    usedNames_.clear();
 
     // 2단계: AST 순회
     for (auto& stmt : program->statements())
     {
         visitStatement(stmt.get());
+        NameCollector collector(usedNames_);
+        ast::walk(stmt.get(), collector);
     }
 
     // 3단계: 사용되지 않은 import 보고
     for (const auto& [moduleName, importInfo] : importedModules_)
     {
-        if (usedModules_.find(moduleName) == usedModules_.end())
+        // 모듈 파일을 읽을 수 있으면 그 모듈이 정의한 이름이 하나라도 쓰였는지 본다.
+        // 읽지 못하면 함수 이름 목록으로 추정한다 (예전 동작).
+        std::unordered_set<std::string> moduleNames;
+        std::unordered_set<std::string> visited;
+        bool known = collectModuleNames(importInfo.modulePath, linter() ? linter()->filename() : "", moduleNames, visited);
+        bool used = false;
+        if (known)
+        {
+            for (const auto& name : moduleNames)
+            {
+                if (usedNames_.count(name))
+                {
+                    used = true;
+                    break;
+                }
+            }
+        }
+        else
+        {
+            used = usedModules_.find(moduleName) != usedModules_.end();
+        }
+
+        if (!used)
         {
             reportIssue(
                 "import된 모듈 '" + importInfo.modulePath + "'" +
@@ -42,10 +93,69 @@ void UnusedImportRule::analyze(ast::Program* program)
     }
 }
 
+bool UnusedImportRule::collectModuleNames(const std::string& modulePath, const std::string& fromFile,
+                                          std::unordered_set<std::string>& names,
+                                          std::unordered_set<std::string>& visited) const
+{
+    if (!linter() || !linter()->moduleResolver())
+    {
+        return false;
+    }
+    std::string path = linter()->moduleResolver()(modulePath, fromFile);
+    if (path.empty())
+    {
+        return false;
+    }
+    if (!visited.insert(path).second)
+    {
+        return true;
+    }
+
+    std::ifstream file(path);
+    if (!file.is_open())
+    {
+        return false;
+    }
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+
+    lexer::Lexer lexer(buffer.str(), path);
+    parser::Parser parser(lexer);
+    auto program = parser.parseProgram();
+    if (!program || !parser.errors().empty())
+    {
+        return false;
+    }
+
+    // 의미 분석기(declareModuleSymbols)와 같은 규칙: 최상위 대입·선언·클래스, 그리고 모듈이 다시
+    // 가져온 이름 (평가기가 모듈 환경 전체를 복사한다)
+    for (const auto& stmt : program->statements())
+    {
+        switch (stmt->type())
+        {
+            case ast::NodeType::ASSIGNMENT_STATEMENT:
+                names.insert(static_cast<const ast::AssignmentStatement*>(stmt.get())->varName());
+                break;
+            case ast::NodeType::VAR_DECLARATION:
+                names.insert(static_cast<const ast::VarDeclaration*>(stmt.get())->varName());
+                break;
+            case ast::NodeType::CLASS_STATEMENT:
+                names.insert(static_cast<const ast::ClassStatement*>(stmt.get())->className());
+                break;
+            case ast::NodeType::IMPORT_STATEMENT:
+                collectModuleNames(static_cast<const ast::ImportStatement*>(stmt.get())->modulePath(), path, names, visited);
+                break;
+            default:
+                break;
+        }
+    }
+    return true;
+}
+
 void UnusedImportRule::onImportStatement(ast::ImportStatement* stmt)
 {
     std::string moduleName = extractModuleName(stmt->modulePath());
-    importedModules_[moduleName] = ImportInfo{stmt->modulePath(), 0, 0};
+    importedModules_[moduleName] = ImportInfo{stmt->modulePath(), stmt->location().line, stmt->location().column};
 }
 
 void UnusedImportRule::onCallExpression(ast::CallExpression* expr)

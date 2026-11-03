@@ -11,6 +11,7 @@
 #include "parser/Parser.h"
 #include "error/ErrorReporter.h"
 #include "linter/Linter.h"
+#include "module/ModuleLoader.h"
 #include "lexer/JosaRecognizer.h"
 #include <filesystem>
 
@@ -137,6 +138,12 @@ std::vector<DiagnosticsProvider::Diagnostic> DiagnosticsProvider::checkLintIssue
 
         linter::Linter linter;
         linter.addDefaultRules();
+        // unused-import 가 가져온 모듈 파일을 읽도록 문서 위치 기준으로 모듈을 찾는다
+        // (설치된 stdlib 와 KINGSEJONG_PATH 도 본다)
+        linter.setModuleResolver([](const std::string& modulePath, const std::string& fromFile) {
+            module::ModuleLoader loader(".");
+            return loader.resolvePath(modulePath, fromFile);
+        });
         // 설정 파일이 없거나 읽지 못하면 기본 설정(모든 규칙 켜짐)으로 돈다
         const std::string configPath = findLintConfig(filePath);
         if (!configPath.empty()) {

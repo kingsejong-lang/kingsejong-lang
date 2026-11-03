@@ -8,6 +8,10 @@
 #include <algorithm>
 #include <cstdint>
 
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
+
 #if defined(_WIN32)
 #include <windows.h>
 #elif defined(__EMSCRIPTEN__)
@@ -81,9 +85,14 @@ bool isStackNearlyExhausted()
     {
         return false;
     }
-    // 지원하는 모든 플랫폼에서 스택은 낮은 주소 쪽으로 자란다
-    char marker = 0;
-    auto current = reinterpret_cast<std::uintptr_t>(&marker);
+    // 지원하는 모든 플랫폼에서 스택은 낮은 주소 쪽으로 자란다.
+    // 지역 변수 주소 대신 프레임 주소를 쓴다. ASan 의 use-after-return 검사는 지역 변수를 힙의
+    // 가짜 스택에 두므로 그 주소로는 실제 스택 위치를 알 수 없다.
+#if defined(_MSC_VER)
+    auto current = reinterpret_cast<std::uintptr_t>(_AddressOfReturnAddress());
+#else
+    auto current = reinterpret_cast<std::uintptr_t>(__builtin_frame_address(0));
+#endif
     return current < range.low + range.margin;
 }
 

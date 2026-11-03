@@ -14,6 +14,7 @@
 #include "lexer/JosaRecognizer.h"
 #include "common/StackGuard.h"
 #include <sstream>
+#include <exception>
 #include <cmath>
 #include <algorithm>
 #include <cctype>
@@ -91,8 +92,20 @@ Value Evaluator::eval(ast::Node* node)
         {
             errorExpression_ = dynamic_cast<const ast::Expression*>(node);
         }
-        throw;
+        pendingException_ = std::current_exception();
     }
+    // 다시 던지기는 catch 블록 밖에서 한다. MSVC 는 catch 블록을 스택을 풀기 전에 돌리므로,
+    // 안에서 throw; 하면 깊은 재귀의 에러가 단계마다 스택을 더 쌓아 넘친다. 아래 다른 다시 던지기도
+    // 같은 이유로 catch 밖에서 한다. 노드마다 불리는 함수라 예외 포인터는 지역 변수 대신 멤버에 두어
+    // 프레임을 키우지 않는다.
+    rethrowPending();
+}
+
+void Evaluator::rethrowPending()
+{
+    std::exception_ptr pending = std::move(pendingException_);
+    pendingException_ = nullptr;
+    std::rethrow_exception(pending);
 }
 
 Value Evaluator::evalNode(ast::Node* node)
@@ -741,6 +754,7 @@ Value Evaluator::evalClassMethodCall(
     const std::string frameName = classDef->className() + "." + memberAccess->memberName();
     const ast::Statement* callerStatement = currentStatement_;
     Value result = Value::createNull();
+    std::exception_ptr pending;
     try
     {
         result = eval(method->body());
@@ -752,17 +766,18 @@ Value Evaluator::evalClassMethodCall(
     catch (error::KingSejongError& error)
     {
         addStackFrame(error, frameName);
-        currentStatement_ = callerStatement;
-        env_ = previousEnv;
-        leaveScope(methodEnv);
-        throw;
+        pending = std::current_exception();
     }
     catch (...)
+    {
+        pending = std::current_exception();
+    }
+    if (pending)
     {
         currentStatement_ = callerStatement;
         env_ = previousEnv;
         leaveScope(methodEnv);
-        throw;
+        std::rethrow_exception(pending);
     }
     currentStatement_ = callerStatement;
 
@@ -860,6 +875,7 @@ Value Evaluator::constructInstance(const std::shared_ptr<Function>& func, const 
 
         // 생성자 본문 실행 (생성자에서 return 은 무시한다). 에러에는 "클래스.생성자" 프레임을 더한다
         const ast::Statement* callerStatement = currentStatement_;
+        std::exception_ptr pending;
         try
         {
             runBody(ctor->body(), std::move(ctorEnv));
@@ -867,13 +883,16 @@ Value Evaluator::constructInstance(const std::shared_ptr<Function>& func, const 
         catch (error::KingSejongError& error)
         {
             addStackFrame(error, classDef->className() + ".생성자");
-            currentStatement_ = callerStatement;
-            throw;
+            pending = std::current_exception();
         }
         catch (...)
         {
+            pending = std::current_exception();
+        }
+        if (pending)
+        {
             currentStatement_ = callerStatement;
-            throw;
+            std::rethrow_exception(pending);
         }
         currentStatement_ = callerStatement;
     }
@@ -901,23 +920,25 @@ void Evaluator::addStackFrame(error::KingSejongError& error, const std::string& 
 
 Value Evaluator::callBuiltin(const Value& callee, const std::vector<Value>& args)
 {
+    std::exception_ptr pending;
     try
     {
         return callee.asBuiltinFunction()(args);
     }
     catch (const error::KingSejongError&)
     {
-        throw;
+        pending = std::current_exception();
     }
     catch (const ReturnValue&)
     {
-        throw;
+        pending = std::current_exception();
     }
     catch (const std::exception& e)
     {
         // 내장 함수의 std::runtime_error 를 실행 에러로 바꿔 호출 스택을 붙일 수 있게 한다 (메시지는 그대로)
-        throw error::RuntimeError(e.what());
+        pending = std::make_exception_ptr(error::RuntimeError(e.what()));
     }
+    std::rethrow_exception(pending);
 }
 
 Value Evaluator::runBody(ast::Statement* body, std::shared_ptr<Environment> env)
@@ -1013,6 +1034,7 @@ Value Evaluator::evalRegularFunctionCall(
     // 함수 본문 실행. 돌아오면(정상·예외 모두) 호출한 쪽의 문장을 다시 현재 문장으로 둔다
     const ast::Statement* callerStatement = currentStatement_;
     Value result = Value::createNull();
+    std::exception_ptr pending;
     try
     {
         result = eval(func->body());
@@ -1028,27 +1050,28 @@ Value Evaluator::evalRegularFunctionCall(
         if (!func->isAsync())
         {
             addStackFrame(signal, frameName);
-            currentStatement_ = callerStatement;
-            env_ = previousEnv;
-            leaveScope(funcEnv);
-            throw;
+            pending = std::current_exception();
         }
-        result = signal.value();
+        else
+        {
+            result = signal.value();
+        }
     }
     catch (error::KingSejongError& error)
     {
         addStackFrame(error, frameName);
-        currentStatement_ = callerStatement;
-        env_ = previousEnv;
-        leaveScope(funcEnv);
-        throw;
+        pending = std::current_exception();
     }
     catch (...)
+    {
+        pending = std::current_exception();
+    }
+    if (pending)
     {
         currentStatement_ = callerStatement;
         env_ = previousEnv;
         leaveScope(funcEnv);
-        throw;
+        std::rethrow_exception(pending);
     }
     currentStatement_ = callerStatement;
 
@@ -1835,6 +1858,7 @@ Value Evaluator::evalTryStatement(ast::TryStatement* stmt)
     bool hasError = false;
 
     // 1. 시도 블록
+    std::exception_ptr returning;
     try
     {
         result = eval(const_cast<ast::BlockStatement*>(stmt->tryBlock()));
@@ -1848,12 +1872,8 @@ Value Evaluator::evalTryStatement(ast::TryStatement* stmt)
     }
     catch (const ReturnValue&)
     {
-        // 반환문은 시도 블록을 통과한다. 마지막 블록만 돌리고 다시 던진다
-        if (stmt->finallyBlock())
-        {
-            eval(const_cast<ast::BlockStatement*>(stmt->finallyBlock()));
-        }
-        throw;
+        // 반환문은 시도 블록을 통과한다. 마지막 블록만 돌리고 다시 던진다 (catch 밖에서)
+        returning = std::current_exception();
     }
     catch (const ThrowSignal& signal)
     {
@@ -1867,6 +1887,15 @@ Value Evaluator::evalTryStatement(ast::TryStatement* stmt)
         hasError = true;
     }
 
+    if (returning)
+    {
+        if (stmt->finallyBlock())
+        {
+            eval(const_cast<ast::BlockStatement*>(stmt->finallyBlock()));
+        }
+        std::rethrow_exception(returning);
+    }
+
     // 2. 오류 블록 (에러가 있고 오류 절이 있을 때)
     if (hasError && !stmt->catchClauses().empty())
     {
@@ -1878,11 +1907,16 @@ Value Evaluator::evalTryStatement(ast::TryStatement* stmt)
         env_ = catchEnv;
         env_->set(catchClause->errorVarName(), Value::createString(caughtError.toString()));
 
+        std::exception_ptr rethrown;
         try
         {
             result = eval(const_cast<ast::BlockStatement*>(catchClause->body()));
         }
         catch (...)
+        {
+            rethrown = std::current_exception();
+        }
+        if (rethrown)
         {
             // 오류 블록이 다시 던지면 마지막 블록은 돌리고 전파한다
             env_ = prevEnv;
@@ -1894,7 +1928,7 @@ Value Evaluator::evalTryStatement(ast::TryStatement* stmt)
                 eval(const_cast<ast::BlockStatement*>(stmt->finallyBlock()));
                 currentStatement_ = thrownAt;
             }
-            throw;
+            std::rethrow_exception(rethrown);
         }
 
         env_ = prevEnv;
@@ -1971,6 +2005,7 @@ Value Evaluator::callValue(const Value& callee, const std::vector<Value>& args,
     // 돌아오면(정상·예외 모두) 호출한 쪽의 문장을 다시 현재 문장으로 둔다
     const ast::Statement* callerStatement = currentStatement_;
     Value result = Value::createNull();
+    std::exception_ptr pending;
     try
     {
         result = eval(func->body());
@@ -1985,27 +2020,28 @@ Value Evaluator::callValue(const Value& callee, const std::vector<Value>& args,
         if (!func->isAsync())
         {
             addStackFrame(signal, name);
-            currentStatement_ = callerStatement;
-            env_ = previousEnv;
-            leaveScope(funcEnv);
-            throw;
+            pending = std::current_exception();
         }
-        result = signal.value();
+        else
+        {
+            result = signal.value();
+        }
     }
     catch (error::KingSejongError& error)
     {
         addStackFrame(error, name);
-        currentStatement_ = callerStatement;
-        env_ = previousEnv;
-        leaveScope(funcEnv);
-        throw;
+        pending = std::current_exception();
     }
     catch (...)
+    {
+        pending = std::current_exception();
+    }
+    if (pending)
     {
         currentStatement_ = callerStatement;
         env_ = previousEnv;
         leaveScope(funcEnv);
-        throw;
+        std::rethrow_exception(pending);
     }
     currentStatement_ = callerStatement;
     env_ = previousEnv;
@@ -2054,6 +2090,9 @@ Value Evaluator::invokeFunction(const Value& callee, const std::vector<Value>& a
     // 돌아오면(정상·예외 모두) 호출한 쪽의 문장을 다시 현재 문장으로 둔다
     const ast::Statement* callerStatement = currentStatement_;
     Value result;
+    std::exception_ptr pending;
+    bool rejected = false;
+    Value rejection;
     try
     {
         result = runBody(func->body(), std::move(funcEnv));
@@ -2064,22 +2103,32 @@ Value Evaluator::invokeFunction(const Value& callee, const std::vector<Value>& a
         if (!func->isAsync())
         {
             addStackFrame(signal, name);
-            currentStatement_ = callerStatement;
-            throw;
+            pending = std::current_exception();
         }
-        currentStatement_ = callerStatement;
-        return wrapAsync(signal.value());
+        else
+        {
+            rejected = true;
+            rejection = signal.value();
+        }
     }
     catch (error::KingSejongError& error)
     {
         addStackFrame(error, name);
-        currentStatement_ = callerStatement;
-        throw;
+        pending = std::current_exception();
     }
     catch (...)
     {
+        pending = std::current_exception();
+    }
+    if (pending)
+    {
         currentStatement_ = callerStatement;
-        throw;
+        std::rethrow_exception(pending);
+    }
+    if (rejected)
+    {
+        currentStatement_ = callerStatement;
+        return wrapAsync(rejection);
     }
     currentStatement_ = callerStatement;
     if (func->isAsync())
@@ -2491,15 +2540,20 @@ Value Evaluator::evalMatchExpression(ast::MatchExpression* node)
             auto prevEnv = env_;
             env_ = caseEnv;
             Value result;
+            std::exception_ptr pending;
             try
             {
                 result = eval(const_cast<ast::Expression*>(matchCase.body()));
             }
             catch (...)
             {
+                pending = std::current_exception();
+            }
+            if (pending)
+            {
                 env_ = prevEnv;
                 leaveScope(caseEnv);
-                throw;
+                std::rethrow_exception(pending);
             }
             env_ = prevEnv;
             leaveScope(caseEnv);

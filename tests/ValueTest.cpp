@@ -288,17 +288,68 @@ TEST(ValueTest, NullEquality)
 }
 
 /**
- * @test 다른 타입 간 동등 비교는 false
+ * @test 다른 타입 간 동등 비교는 false (정수와 실수는 예외)
  */
 TEST(ValueTest, DifferentTypesAreNotEqual)
 {
     Value intVal = Value::createInteger(42);
-    Value floatVal = Value::createFloat(42.0);
     Value stringVal = Value::createString("42");
+    Value floatVal = Value::createFloat(42.0);
 
-    EXPECT_FALSE(intVal.equals(floatVal));
     EXPECT_FALSE(intVal.equals(stringVal));
     EXPECT_FALSE(floatVal.equals(stringVal));
+    EXPECT_FALSE(intVal.equals(Value::createNull()));
+}
+
+/**
+ * @test 정수와 실수는 수의 크기로 비교한다 (lessThan 과 같은 규칙)
+ */
+TEST(ValueTest, IntegerAndFloatCompareByMagnitude)
+{
+    EXPECT_TRUE(Value::createInteger(42).equals(Value::createFloat(42.0)));
+    EXPECT_TRUE(Value::createFloat(42.0).equals(Value::createInteger(42)));
+    EXPECT_FALSE(Value::createInteger(1).equals(Value::createFloat(1.5)));
+}
+
+/**
+ * @test 배열과 딕셔너리는 내용으로 비교한다
+ */
+TEST(ValueTest, ContainersCompareByContent)
+{
+    Value a = Value::createArray({Value::createInteger(1), Value::createArray({Value::createString("x")})});
+    Value b = Value::createArray({Value::createInteger(1), Value::createArray({Value::createString("x")})});
+    Value c = Value::createArray({Value::createInteger(1)});
+
+    EXPECT_TRUE(a.equals(a));
+    EXPECT_TRUE(a.equals(b));
+    EXPECT_FALSE(a.equals(c));
+    EXPECT_FALSE(Value::createArray({Value::createInteger(1), Value::createInteger(2)})
+                     .equals(Value::createArray({Value::createInteger(2), Value::createInteger(1)})));
+
+    Value d1 = Value::createDictionary({{"k", Value::createInteger(1)}});
+    Value d2 = Value::createDictionary({{"k", Value::createInteger(1)}});
+    Value d3 = Value::createDictionary({{"k", Value::createInteger(2)}});
+    EXPECT_TRUE(d1.equals(d2));
+    EXPECT_FALSE(d1.equals(d3));
+    EXPECT_FALSE(a.equals(d1));
+}
+
+/**
+ * @test 자기 자신을 담은 배열도 무한 재귀 없이 비교한다
+ */
+TEST(ValueTest, CyclicArraysCompareWithoutRecursingForever)
+{
+    Value a = Value::createArray({Value::createInteger(1)});
+    a.asArray()[0] = a;
+    Value b = Value::createArray({Value::createInteger(1)});
+    b.asArray()[0] = b;
+
+    EXPECT_TRUE(a.equals(a));
+    EXPECT_TRUE(a.equals(b));
+
+    // 순환을 끊지 않으면 shared_ptr 가 서로를 붙잡아 새므로 비운다
+    a.asArray().clear();
+    b.asArray().clear();
 }
 
 /**

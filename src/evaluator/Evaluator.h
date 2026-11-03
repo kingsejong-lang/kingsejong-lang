@@ -1,5 +1,7 @@
 #pragma once
 
+#include <exception>
+
 /**
  * @file Evaluator.h
  * @brief KingSejong 언어의 AST 실행 엔진
@@ -627,6 +629,11 @@ private:
      * 평가 횟수와 실행 시간을 체크하여 제한을 초과하면 예외를 던집니다.
      */
     void checkSafetyLimits();
+
+    /// @brief eval() 이 catch 밖에서 다시 던질 예외를 꺼내 던진다 (프레임을 키우지 않도록 따로 둔다)
+    [[noreturn]] void rethrowPending();
+
+    std::exception_ptr pendingException_;  ///< eval() 의 catch 가 잡아 둔, 다시 던질 예외
 };
 
 } // namespace evaluator

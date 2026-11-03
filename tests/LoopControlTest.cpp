@@ -32,14 +32,17 @@ std::string runEvaluator(const std::string& source)
     auto program = parser.parseProgram();
     EXPECT_TRUE(parser.errors().empty()) << (parser.errors().empty() ? "" : parser.errors()[0]);
     auto env = std::make_shared<evaluator::Environment>();
+    // 테스트가 env 를 쥐고 있어 평가기 소멸자가 함수-환경 순환 참조를 끊지 못하므로 직접 비운다 (예외로 끝나도)
+    struct ClearOnExit
+    {
+        std::shared_ptr<evaluator::Environment> env;
+        ~ClearOnExit() { env->clear(); }
+    } clearOnExit{env};
     {
         evaluator::Evaluator evaluator(env);
         evaluator.evalProgram(program.get());
     }
-    std::string recorded = env->get("기록").toString();
-    // 테스트가 env 를 쥐고 있어 평가기 소멸자가 함수-환경 순환 참조를 끊지 못하므로 직접 비운다
-    env->clear();
-    return recorded;
+    return env->get("기록").toString();
 }
 
 /// VM 으로 돌리고 전역 변수 '기록' 을 문자열로 돌려준다. 컴파일이 실패하면 오류 메시지를 돌려준다

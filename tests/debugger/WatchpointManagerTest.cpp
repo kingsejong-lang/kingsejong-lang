@@ -340,3 +340,35 @@ TEST_F(WatchpointManagerTest, ShouldHandleMultipleConsecutiveChanges) {
     // Assert
     EXPECT_EQ(manager->getChangeCount("x"), 5);
 }
+
+// ============================================================================
+// 배열과 딕셔너리
+// ============================================================================
+
+TEST_F(WatchpointManagerTest, ShouldDetectInPlaceArrayChange) {
+    // Arrange: 값 비교는 내용 기준이므로, 기록 시점의 내용을 따로 떠 두어야 한다
+    Value list = Value::createArray({Value::createInteger(1)});
+    env->set("목록", list);
+    manager->add("목록", *env);
+
+    // Act: 같은 배열 객체를 그 자리에서 고친다
+    list.asArray()[0] = Value::createInteger(2);
+    auto changed = manager->checkChanges(*env);
+
+    // Assert
+    ASSERT_EQ(changed.size(), 1u);
+    EXPECT_EQ(changed[0], "목록");
+}
+
+TEST_F(WatchpointManagerTest, ShouldNotReportUnchangedArray) {
+    // Arrange
+    env->set("목록", Value::createArray({Value::createInteger(1)}));
+    manager->add("목록", *env);
+
+    // Act: 내용이 같은 새 배열로 바꿔도 변경이 아니다
+    env->set("목록", Value::createArray({Value::createInteger(1)}));
+    auto changed = manager->checkChanges(*env);
+
+    // Assert
+    EXPECT_TRUE(changed.empty());
+}

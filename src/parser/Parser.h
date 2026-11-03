@@ -176,6 +176,8 @@ private:
     std::unique_ptr<VarDeclaration> parseVarDeclaration();
     std::unique_ptr<AssignmentStatement> parseAssignmentStatement();
     std::unique_ptr<ReturnStatement> parseReturnStatement();
+    /// @brief 중단 / 계속 (뒤에 아무것도 받지 않는다)
+    std::unique_ptr<Statement> parseLoopControlStatement();
     std::unique_ptr<IfStatement> parseIfStatement();
 
     /// 멤버·메서드 이름 자리에 올 수 있는 토큰인가. 식별자와, 글자로 된 키워드("가져오기", "마지막")를 허용한다.

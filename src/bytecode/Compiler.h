@@ -41,6 +41,22 @@ private:
     std::string currentFile_;   ///< 지금 컴파일 중인 노드의 소스 파일 (청크의 파일 표에 바뀌는 자리를 적는다)
     std::vector<std::string> errors_;
 
+    /// 컴파일 중인 반복문. 중단·계속이 어디로 점프하고 무엇을 정리할지 안다
+    struct LoopContext {
+        size_t loopStart;                 ///< 계속이 돌아갈 곳 (조건 검사·다음 회차 명령)
+        int stateSlots;                   ///< 반복문이 스택에 둔 값 수 (조건 0, N번 1, 범위 2)
+        size_t tryDepth;                  ///< 반복문에 들어갈 때의 tryStack_ 크기
+        std::vector<size_t> breakJumps;   ///< 반복문 끝으로 채울 중단 점프들
+    };
+    /// 컴파일 중인 시도 문과, 지금 그 문의 어느 블록 안인지
+    struct TryContext {
+        enum class Region { TRY, CATCH, FINALLY };
+        const ast::TryStatement* stmt;
+        Region region;
+    };
+    std::vector<LoopContext> loopStack_;
+    std::vector<TryContext> tryStack_;
+
     // ---- 문장 ----
     void compileVarDeclaration(ast::VarDeclaration* decl);
     void compileAssignmentStatement(ast::AssignmentStatement* stmt);
@@ -54,6 +70,9 @@ private:
     void compileClassStatement(ast::ClassStatement* stmt);
     void compileTryStatement(ast::TryStatement* stmt);
     void compileThrowStatement(ast::ThrowStatement* stmt);
+    void compileLoopControlStatement(bool isBreak);
+    /// 반복문 본문을 컴파일하고 그 안의 중단 점프를 반복문 끝(지금 위치 다음)으로 채울 준비를 한다
+    void compileLoopBody(const ast::BlockStatement* body, size_t loopStart, int stateSlots);
 
     // ---- 표현식 ----
     void compileInterpolatedString(ast::InterpolatedString* interp);

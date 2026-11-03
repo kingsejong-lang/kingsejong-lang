@@ -97,6 +97,8 @@ void walkChildren(Node* node, Visitor& visitor)
             walkEach(static_cast<BlockStatement*>(node)->statements(), visitor);
             break;
         case NodeType::IMPORT_STATEMENT:
+        case NodeType::BREAK_STATEMENT:
+        case NodeType::CONTINUE_STATEMENT:
             break;
         case NodeType::TRY_STATEMENT:
         {

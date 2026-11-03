@@ -258,6 +258,8 @@ void Parser::synchronize()
             // 함수 키워드
             case TokenType::HAMSU:      // 함수
             case TokenType::BANHWAN:    // 반환 (return)
+            case TokenType::JUNGDAN:    // 중단 (break)
+            case TokenType::GYESOK:     // 계속 (continue)
 
             // 모듈 키워드
             case TokenType::GAJYEOOGI:  // 가져오기 (import)
@@ -531,6 +533,13 @@ std::unique_ptr<Statement> Parser::parseStatement()
         return parseAssignmentStatement();
     }
 
+    // 반복 제어: 중단 / 계속. 위의 할당 검사 뒤에 두어 "중단 = 1" 처럼 같은 이름을 변수로
+    // 쓰던 코드는 그대로 할당문으로 읽는다
+    if (curTokenIs(TokenType::JUNGDAN) || curTokenIs(TokenType::GYESOK))
+    {
+        return parseLoopControlStatement();
+    }
+
     // 범위 반복문: LL(4) lookahead로 패턴 확인 (휴리스틱 완전 제거!)
     // 패턴: IDENTIFIER + 가/이 + <simple-expr> + 부터/초과/이상
     if (isRangeForPattern())
@@ -771,6 +780,29 @@ std::unique_ptr<ReturnStatement> Parser::parseReturnStatement()
     }
 
     auto stmt = std::make_unique<ReturnStatement>(std::move(returnValue));
+    stmt->setLocation(startLoc);
+    return stmt;
+}
+
+std::unique_ptr<Statement> Parser::parseLoopControlStatement()
+{
+    auto startLoc = curToken_.location;
+    std::unique_ptr<Statement> stmt;
+    if (curTokenIs(TokenType::JUNGDAN))
+    {
+        stmt = std::make_unique<BreakStatement>();
+    }
+    else
+    {
+        stmt = std::make_unique<ContinueStatement>();
+    }
+
+    // 선택적 세미콜론
+    if (peekTokenIs(TokenType::SEMICOLON))
+    {
+        nextToken();
+    }
+
     stmt->setLocation(startLoc);
     return stmt;
 }

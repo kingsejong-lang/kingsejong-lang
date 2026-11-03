@@ -507,6 +507,24 @@ Value Evaluator::evalUnaryExpression(ast::UnaryExpression* expr)
     return unaryOperation(expr->op(), operand);
 }
 
+bool Evaluator::conditionValue(const Value& condition)
+{
+    if (condition.isBoolean())
+    {
+        return condition.asBoolean();
+    }
+    // 의미 분석기는 타입을 아는 식만 검사하므로, 변수에 담긴 값도 실행 중에 같은 규칙으로 막는다
+    std::string shown = condition.toString();
+    if (shown.size() > 40)
+    {
+        shown = shown.substr(0, 40) + "...";
+    }
+    throw error::TypeError(
+        "조건은 참 또는 거짓이어야 합니다 (현재 값: " + shown + ").\n"
+        "해결 방법: 비교식으로 쓰세요. 예: 만약 (x != 0), 만약 (길이(목록) > 0)"
+    );
+}
+
 Value Evaluator::unaryOperation(const std::string& op, const Value& operand)
 {
     if (op == "-")
@@ -1257,7 +1275,7 @@ Value Evaluator::evalWhileStatement(ast::WhileStatement* stmt)
         // 본문을 돌고 나면 현재 문장이 본문의 마지막 문장이므로, 조건식의 에러 위치를 반복문으로 되돌린다
         currentStatement_ = stmt;
         Value condition = eval(const_cast<ast::Expression*>(stmt->condition()));
-        if (!condition.isTruthy())
+        if (!conditionValue(condition))
         {
             break;
         }
@@ -1336,7 +1354,7 @@ Value Evaluator::evalIfStatement(ast::IfStatement* stmt)
     Value condition = eval(const_cast<ast::Expression*>(stmt->condition()));
 
     // 조건이 참이면 then 블록 실행
-    if (condition.isTruthy())
+    if (conditionValue(condition))
     {
         return eval(const_cast<ast::BlockStatement*>(stmt->thenBranch()));
     }
@@ -2657,7 +2675,7 @@ Value Evaluator::evalMatchExpression(ast::MatchExpression* node)
                 Value guardResult = eval(const_cast<ast::Expression*>(matchCase.guard()));
                 env_ = prevEnv;
 
-                if (guardResult.getType() != types::TypeKind::BOOLEAN || !guardResult.asBoolean())
+                if (!conditionValue(guardResult))
                 {
                     continue;
                 }

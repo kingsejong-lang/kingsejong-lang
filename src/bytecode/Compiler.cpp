@@ -851,10 +851,6 @@ bool Compiler::isConstantCondition(const ast::Expression* expr, bool& result) {
         result = static_cast<const ast::BooleanLiteral*>(expr)->value();
         return true;
     }
-    if (expr->type() == ast::NodeType::INTEGER_LITERAL) {
-        result = static_cast<const ast::IntegerLiteral*>(expr)->value() != 0;
-        return true;
-    }
     return false;
 }
 

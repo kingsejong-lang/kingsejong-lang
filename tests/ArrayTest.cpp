@@ -297,20 +297,16 @@ TEST(ArrayTest, ShouldConvertNestedArrayToString)
 // 배열 Truthy 테스트
 // ============================================================================
 
-TEST(ArrayTest, EmptyArrayShouldBeFalsy)
+TEST(ArrayTest, EmptyArrayConditionShouldBeError)
 {
-    auto result = evalInput("만약 ([]) { 참 } 아니면 { 거짓 }");
-
-    EXPECT_TRUE(result.isBoolean());
-    EXPECT_FALSE(result.asBoolean());
+    // 조건은 참/거짓만 받는다. 진리값으로 바꾸지 않고 실행 오류가 된다
+    EXPECT_THROW(evalInput("만약 ([]) { 참 } 아니면 { 거짓 }"), std::runtime_error);
 }
 
-TEST(ArrayTest, NonEmptyArrayShouldBeTruthy)
+TEST(ArrayTest, NonEmptyArrayConditionShouldBeError)
 {
-    auto result = evalInput("만약 ([1, 2, 3]) { 참 } 아니면 { 거짓 }");
-
-    EXPECT_TRUE(result.isBoolean());
-    EXPECT_TRUE(result.asBoolean());
+    // 조건은 참/거짓만 받는다. 진리값으로 바꾸지 않고 실행 오류가 된다
+    EXPECT_THROW(evalInput("만약 ([1, 2, 3]) { 참 } 아니면 { 거짓 }"), std::runtime_error);
 }
 
 // ============================================================================

@@ -920,3 +920,38 @@ TEST(LexerTest, ShouldNumberColumnsFromOneOnEveryLine)
     EXPECT_EQ(z.literal, "z");
     EXPECT_EQ(z.location.column, 8);  // "정수" 6바이트 + 공백 뒤
 }
+
+/**
+ * @test 짧은 영문 이름이나 숫자로 끝나는 이름 뒤에 붙은 범위 표시를 떼어 낸다
+ *
+ * 2글자 조사 분리가 기본형을 한글 1글자(3바이트) 이상으로 가정해 "n까지"(7바이트)를 놓쳤고,
+ * 숫자로 끝나는 이름("x1까지")은 범위 표시 후보에 없었다.
+ */
+TEST(LexerTest, ShouldSplitRangeMarkerAfterShortOrDigitEndingName)
+{
+    for (const std::string name : {"n", "ab", "x1", "끝"})
+    {
+        Lexer lexer("i가 1부터 " + name + "까지 {");
+        EXPECT_EQ(lexer.nextToken().literal, "i");
+        EXPECT_EQ(lexer.nextToken().type, TokenType::JOSA_GA);
+        EXPECT_EQ(lexer.nextToken().literal, "1");
+        EXPECT_EQ(lexer.nextToken().type, TokenType::BUTEO);
+        auto ident = lexer.nextToken();
+        EXPECT_EQ(ident.type, TokenType::IDENTIFIER) << name;
+        EXPECT_EQ(ident.literal, name);
+        EXPECT_EQ(lexer.nextToken().type, TokenType::KKAJI) << name;
+        EXPECT_EQ(lexer.nextToken().type, TokenType::LBRACE) << name;
+    }
+}
+
+/**
+ * @test 밑줄 뒤 한글로 이어진 이름 끝의 범위 표시는 이름의 일부로 둔다
+ */
+TEST(LexerTest, ShouldKeepRangeMarkerInsideUnderscoreName)
+{
+    Lexer lexer("Set_배열로부터 = 1");
+    auto ident = lexer.nextToken();
+    EXPECT_EQ(ident.type, TokenType::IDENTIFIER);
+    EXPECT_EQ(ident.literal, "Set_배열로부터");
+    EXPECT_EQ(lexer.nextToken().type, TokenType::ASSIGN);
+}

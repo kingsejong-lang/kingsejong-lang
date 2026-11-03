@@ -87,6 +87,7 @@ set(LIB_SOURCES
     src/morphology/Dictionary.cpp
     src/morphology/MorphologicalAnalyzer.cpp
     src/common/Logger.cpp
+    src/common/StackGuard.cpp
 )
 
 # 라이브러리 생성 (kingsejong_lib)

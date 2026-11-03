@@ -12,6 +12,7 @@
 #include "../module/ModuleLoader.h"
 #include "jit/HotPathDetector.h"
 #include "lexer/JosaRecognizer.h"
+#include "common/StackGuard.h"
 #include <sstream>
 #include <cmath>
 #include <algorithm>
@@ -2668,6 +2669,14 @@ Value Evaluator::makeClass(const ast::ClassStatement* stmt, const std::shared_pt
 
 void Evaluator::checkSafetyLimits()
 {
+    // 끝나지 않는 재귀가 OS 스택을 넘겨 프로세스가 죽기 전에 실행 오류로 멈춘다
+    if (common::isStackNearlyExhausted())
+    {
+        throw error::RuntimeError(
+            "함수 호출 깊이가 너무 깊습니다 (네이티브 스택 한도 근처). 끝나지 않는 재귀 호출인지 확인하세요."
+        );
+    }
+
     // 평가 횟수 체크
     if (++evaluationCount_ > maxEvaluations_)
     {

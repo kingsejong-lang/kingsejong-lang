@@ -565,7 +565,8 @@ TEST(VMLoopTest, ShouldRunRangeForAndRepeat) {
     EXPECT_EQ(run.result, VMResult::OK);
     EXPECT_EQ(run.global("합").asInteger(), 55);
     EXPECT_EQ(run.global("횟수").asInteger(), 3);
-    EXPECT_EQ(run.global("i").asInteger(), 10);  // 반복 변수는 평가기처럼 바깥에 남는다
+    // 반복 변수는 회차 스코프에만 있어 반복문 뒤에는 없다 (평가기와 같다)
+    EXPECT_THROW(run.global("i"), std::exception);
 }
 
 TEST(VMLoopTest, ShouldCountDownWhenRangeEndsWithIsang) {

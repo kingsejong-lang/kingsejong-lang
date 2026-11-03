@@ -170,10 +170,13 @@ void Compiler::compileIfStatement(ast::IfStatement* stmt) {
 }
 
 void Compiler::compileWhileStatement(ast::WhileStatement* stmt) {
+    // 조건은 바깥 환경에서 보고, 본문은 회차마다 새 스코프에서 돈다 (평가기와 같다)
     size_t loopStart = currentOffset();
     compileExpression(const_cast<ast::Expression*>(stmt->condition()));
     size_t exitJump = emitJump(OpCode::JUMP_IF_FALSE);
+    emit(OpCode::PUSH_SCOPE);
     compileLoopBody(stmt->body(), loopStart, 0);
+    emit(OpCode::POP_SCOPE);
     emitLoop(loopStart);
     patchJump(exitJump);
     for (size_t jump : loopStack_.back().breakJumps) patchJump(jump);
@@ -186,7 +189,9 @@ void Compiler::compileRepeatStatement(ast::RepeatStatement* stmt) {
     emit(OpCode::REPEAT_INIT);
     size_t loopStart = currentOffset();
     size_t exitJump = emitJump(OpCode::REPEAT_NEXT);
+    emit(OpCode::PUSH_SCOPE);
     compileLoopBody(stmt->body(), loopStart, 1);
+    emit(OpCode::POP_SCOPE);
     emitLoop(loopStart);
     patchJump(exitJump);
     for (size_t jump : loopStack_.back().breakJumps) patchJump(jump);
@@ -194,19 +199,23 @@ void Compiler::compileRepeatStatement(ast::RepeatStatement* stmt) {
 }
 
 void Compiler::compileRangeForStatement(ast::RangeForStatement* stmt) {
-    // [끝, i] 를 스택에 두고, 매 회 반복 변수를 현재 환경에 넣는다 (평가기와 같다)
+    // [끝, i] 를 스택에 두고, 회차마다 새 스코프를 연 뒤 반복 변수를 그 안에 넣는다 (평가기와 같다).
+    // RANGE_FOR_NEXT 가 현재 환경에 변수를 넣으므로 스코프를 먼저 열고, 끝나서 빠져나온 경로에서 닫는다.
     compileExpression(const_cast<ast::Expression*>(stmt->start()));
     compileExpression(const_cast<ast::Expression*>(stmt->end()));
     emit(OpCode::RANGE_FOR_INIT);
     size_t loopStart = currentOffset();
+    emit(OpCode::PUSH_SCOPE);
     emit(OpCode::RANGE_FOR_NEXT);
     emit16(nameIndex(stmt->varName()));
     size_t exitOperand = currentOffset();
     emit16(0);
     emitByte(stmt->descending() ? 2 : (stmt->endInclusive() ? 1 : 0));  // 0 미만, 1 까지, 2 거꾸로(이상)
     compileLoopBody(stmt->body(), loopStart, 2);
+    emit(OpCode::POP_SCOPE);
     emitLoop(loopStart);
     patchJump(exitOperand, 1);  // 탈출 오프셋 뒤에 끝포함 플래그 1바이트가 더 있다
+    emit(OpCode::POP_SCOPE);    // 마지막 검사에서 연 스코프 (중단은 스스로 닫고 이 뒤로 온다)
     for (size_t jump : loopStack_.back().breakJumps) patchJump(jump);
     loopStack_.pop_back();
 }
@@ -255,6 +264,9 @@ void Compiler::compileLoopControlStatement(bool isBreak) {
         }
     }
     tryStack_ = saved;
+
+    // 회차 스코프를 닫는다 (반복문마다 본문을 회차 스코프 안에서 돈다)
+    emit(OpCode::POP_SCOPE);
 
     if (isBreak) {
         for (int k = 0; k < stateSlots; ++k) emit(OpCode::POP);

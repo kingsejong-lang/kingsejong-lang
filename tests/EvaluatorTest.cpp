@@ -10,6 +10,7 @@
 #include "evaluator/Builtin.h"
 #include "parser/Parser.h"
 #include "lexer/Lexer.h"
+#include "error/Error.h"
 
 using namespace kingsejong;
 
@@ -818,4 +819,41 @@ TEST(EvaluatorTest, ShouldNotLetJosaExpressionTakeWeakerOperatorsOfItsParent)
     EXPECT_EQ(evalInput("x = \"5\"\n1 + x를 정수로 변환한다 * 2").asInteger(), 11);
     // 문장 수준에서는 그대로: (5 - 3)
     EXPECT_EQ(evalInput("x = \"5\"\nx를 정수로 변환한다 - 3").asInteger(), 2);
+}
+
+/**
+ * @test 끝나지 않는 재귀는 프로세스를 죽이지 않고 실행 오류로 멈춘다
+ *
+ * 전에는 평가기의 C++ 재귀가 OS 스택을 넘겨 segfault 로 끝났다.
+ */
+TEST(EvaluatorTest, ShouldStopRunawayRecursionWithRuntimeError)
+{
+    const std::string input =
+        "f = 함수(n) {\n"
+        "    반환 1 + f(n + 1)\n"
+        "}\n"
+        "f(0)";
+    EXPECT_THROW(evalInput(input), error::KingSejongError);
+
+    // 오류 뒤에도 평가기를 계속 쓸 수 있다
+    EXPECT_EQ(evalInput("1 + 2").asInteger(), 3);
+}
+
+/**
+ * @test 시도 블록으로 깊은 재귀 오류를 잡을 수 있다
+ */
+TEST(EvaluatorTest, ShouldCatchRunawayRecursionInTryBlock)
+{
+    const std::string input =
+        "f = 함수(n) {\n"
+        "    반환 1 + f(n + 1)\n"
+        "}\n"
+        "결과 = \"없음\"\n"
+        "시도 {\n"
+        "    f(0)\n"
+        "} 오류 (e) {\n"
+        "    결과 = \"잡음\"\n"
+        "}\n"
+        "결과";
+    EXPECT_EQ(evalInput(input).asString(), "잡음");
 }

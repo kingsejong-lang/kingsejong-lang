@@ -69,9 +69,9 @@ std::vector<Morpheme> MorphologicalAnalyzer::analyze(const std::string& word) co
 
 std::vector<Morpheme> MorphologicalAnalyzer::tryTwoCharJosa(const std::string& word) const
 {
-    // 최소 3글자 필요 (기본형 1글자 + 조사 2글자)
-    // UTF-8: 1글자 = 3바이트 → 3글자 = 9바이트
-    if (word.length() < 9)
+    // 조사 2글자(6바이트) 앞에 기본형이 있어야 한다. 기본형은 한글 1글자(3바이트)일 수도,
+    // 영문 1글자(1바이트)일 수도 있다 ("끝까지", "n까지")
+    if (word.length() < 7)
     {
         return {};
     }

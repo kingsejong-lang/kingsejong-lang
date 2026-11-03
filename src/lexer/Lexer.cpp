@@ -219,6 +219,22 @@ std::string Lexer::readIdentifier()
                 break;
             }
         }
+
+        // 범위 표시는 영문·숫자 바로 뒤에 붙었을 때만 뗀다 ("x1까지 {"). 한글 뒤라면 이름의 일부다
+        // ("Set_배열로부터 = 함수").
+        static const char* const kRangeMarkers[] = {"부터", "까지", "미만", "초과", "이하", "이상"};
+        for (const char* marker : kRangeMarkers)
+        {
+            std::string m(marker);
+            if (josa.empty() && identifier.size() > m.size() &&
+                identifier.compare(identifier.size() - m.size(), m.size(), m) == 0 &&
+                std::isalnum(static_cast<unsigned char>(identifier[identifier.size() - m.size() - 1])))
+            {
+                base = identifier.substr(0, identifier.size() - m.size());
+                josa = m;
+                break;
+            }
+        }
     }
 
     // 3. 조사로 볼지 결정한다. 어간 사전이 없으므로 접미사만으로는 "마을"과 "마+을"을 구분할 수

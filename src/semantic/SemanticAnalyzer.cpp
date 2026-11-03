@@ -62,6 +62,9 @@ void SemanticAnalyzer::initBuiltinFunctions()
     builtins_.insert("절대값");
     builtins_.insert("제곱근");
     builtins_.insert("제곱");
+    builtins_.insert("감싸더하기");
+    builtins_.insert("감싸빼기");
+    builtins_.insert("감싸곱하기");
 
     // 파일 I/O
     builtins_.insert("파일_읽기");

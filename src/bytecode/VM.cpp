@@ -15,6 +15,7 @@
 #include "common/Logger.h"
 #include "error/ErrorMessages.h"
 #include "lexer/JosaRecognizer.h"
+#include <limits>
 
 namespace kingsejong {
 namespace bytecode {
@@ -308,12 +309,13 @@ VM::Step VM::executeInstruction() {
         }
         case OpCode::JUMP_IF_FALSE: {
             uint16_t offset = readShort();
-            if (!pop().isTruthy()) ip_ += offset;
+            // 만약·반복·경우 가드의 조건이다. 평가기와 같이 참/거짓만 받는다
+            if (!Evaluator::conditionValue(pop())) ip_ += offset;
             break;
         }
         case OpCode::JUMP_IF_TRUE: {
             uint16_t offset = readShort();
-            if (pop().isTruthy()) ip_ += offset;
+            if (Evaluator::conditionValue(pop())) ip_ += offset;
             break;
         }
         case OpCode::LOOP: {
@@ -371,7 +373,13 @@ VM::Step VM::executeInstruction() {
             bool inRange = mode == 2 ? (i >= end) : mode == 1 ? (i <= end) : (i < end);
             if (inRange) {
                 env_->set(name, Value::createInteger(i));
-                stack_.back() = Value::createInteger(mode == 2 ? i - 1 : i + 1);
+                if ((mode == 1 && i == std::numeric_limits<int64_t>::max()) ||
+                    (mode == 2 && i == std::numeric_limits<int64_t>::min())) {
+                    // 정수 끝에서 i ± 1 이 넘치므로, 대신 끝 값을 안쪽으로 옮겨 다음 검사에서 반복을 끝낸다
+                    stack_[stack_.size() - 2] = Value::createInteger(mode == 2 ? i + 1 : i - 1);
+                } else {
+                    stack_.back() = Value::createInteger(mode == 2 ? i - 1 : i + 1);
+                }
             } else {
                 pop();
                 pop();

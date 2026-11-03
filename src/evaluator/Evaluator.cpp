@@ -13,6 +13,7 @@
 #include "jit/HotPathDetector.h"
 #include "lexer/JosaRecognizer.h"
 #include "common/StackGuard.h"
+#include "common/CheckedInt.h"
 #include <sstream>
 #include <exception>
 #include <cmath>
@@ -506,12 +507,34 @@ Value Evaluator::evalUnaryExpression(ast::UnaryExpression* expr)
     return unaryOperation(expr->op(), operand);
 }
 
+bool Evaluator::conditionValue(const Value& condition)
+{
+    if (condition.isBoolean())
+    {
+        return condition.asBoolean();
+    }
+    // 의미 분석기는 타입을 아는 식만 검사하므로, 변수에 담긴 값도 실행 중에 같은 규칙으로 막는다
+    std::string shown = condition.toString();
+    if (shown.size() > 40)
+    {
+        shown = shown.substr(0, 40) + "...";
+    }
+    throw error::TypeError(
+        "조건은 참 또는 거짓이어야 합니다 (현재 값: " + shown + ").\n"
+        "해결 방법: 비교식으로 쓰세요. 예: 만약 (x != 0), 만약 (길이(목록) > 0)"
+    );
+}
+
 Value Evaluator::unaryOperation(const std::string& op, const Value& operand)
 {
     if (op == "-")
     {
         if (operand.isInteger())
         {
+            if (common::negationOverflows(operand.asInteger()))
+            {
+                throw error::RuntimeError("정수 오버플로: 정수 최솟값의 부호를 바꾸면 정수 범위를 벗어납니다.");
+            }
             return Value::createInteger(-operand.asInteger());
         }
         if (operand.isFloat())
@@ -1252,7 +1275,7 @@ Value Evaluator::evalWhileStatement(ast::WhileStatement* stmt)
         // 본문을 돌고 나면 현재 문장이 본문의 마지막 문장이므로, 조건식의 에러 위치를 반복문으로 되돌린다
         currentStatement_ = stmt;
         Value condition = eval(const_cast<ast::Expression*>(stmt->condition()));
-        if (!condition.isTruthy())
+        if (!conditionValue(condition))
         {
             break;
         }
@@ -1331,7 +1354,7 @@ Value Evaluator::evalIfStatement(ast::IfStatement* stmt)
     Value condition = eval(const_cast<ast::Expression*>(stmt->condition()));
 
     // 조건이 참이면 then 블록 실행
-    if (condition.isTruthy())
+    if (conditionValue(condition))
     {
         return eval(const_cast<ast::BlockStatement*>(stmt->thenBranch()));
     }
@@ -1478,6 +1501,8 @@ Value Evaluator::evalRangeForStatement(ast::RangeForStatement* stmt)
             {
                 break;
             }
+            // 끝 값이 정수 최솟값이면 --i 가 넘치므로 끝 값에서 멈춘다
+            if (i == end) break;
         }
     }
     else if (endInclusive)
@@ -1497,6 +1522,8 @@ Value Evaluator::evalRangeForStatement(ast::RangeForStatement* stmt)
             {
                 break;
             }
+            // 끝 값이 정수 최댓값이면 ++i 가 넘치므로 끝 값에서 멈춘다
+            if (i == end) break;
         }
     }
     else
@@ -1526,11 +1553,43 @@ Value Evaluator::evalRangeForStatement(ast::RangeForStatement* stmt)
 // 헬퍼 함수들
 // ============================================================================
 
+namespace
+{
+// 정수 연산이 int64 범위를 넘으면 시도 블록으로 잡을 수 있는 실행 오류로 알린다 (감싸 돌기는 감싸더하기 등으로)
+[[noreturn]] void throwIntegerOverflow(int64_t left, const std::string& op, int64_t right)
+{
+    throw error::RuntimeError(
+        "정수 오버플로: " + std::to_string(left) + " " + op + " " + std::to_string(right) +
+        " 의 결과가 정수 범위를 벗어납니다.\n"
+        "해결 방법: 실수로 계산하거나, 감싸 돌기를 의도했다면 감싸더하기·감싸빼기·감싸곱하기를 쓰세요."
+    );
+}
+} // namespace
+
 Value Evaluator::applyIntegerOperation(int64_t left, const std::string& op, int64_t right)
 {
-    if (op == "+") return Value::createInteger(left + right);
-    if (op == "-") return Value::createInteger(left - right);
-    if (op == "*") return Value::createInteger(left * right);
+    int64_t value = 0;
+    if (op == "+")
+    {
+        if (!common::checkedAdd(left, right, value)) throwIntegerOverflow(left, op, right);
+        return Value::createInteger(value);
+    }
+    if (op == "-")
+    {
+        if (!common::checkedSub(left, right, value)) throwIntegerOverflow(left, op, right);
+        return Value::createInteger(value);
+    }
+    if (op == "*")
+    {
+        if (!common::checkedMul(left, right, value)) throwIntegerOverflow(left, op, right);
+        return Value::createInteger(value);
+    }
+    // 정수 최솟값 / -1 은 몫이 넘친다. 최솟값 % -1 은 수학적으로 0 이지만 C++ 에서는 정의되지 않은 동작이다.
+    if ((op == "/" || op == "%") && right == -1 && common::negationOverflows(left))
+    {
+        if (op == "%") return Value::createInteger(0);
+        throwIntegerOverflow(left, op, right);
+    }
     if (op == "/")
     {
         if (right == 0)
@@ -1715,21 +1774,26 @@ Value Evaluator::indexValue(const Value& container, const Value& index)
     }
 
     int64_t idx = index.asInteger();
+    const int64_t requested = idx;  // 오류 메시지에는 사용자가 쓴 값을 보인다
+    const int64_t size = static_cast<int64_t>(arr.size());
 
     // 음수 인덱스 처리 (Python 스타일)
     if (idx < 0)
     {
-        idx = static_cast<int64_t>(arr.size()) + idx;
+        idx = size + idx;
     }
 
     // 범위 검사
-    if (idx < 0 || idx >= static_cast<int64_t>(arr.size()))
+    if (idx < 0 || idx >= size)
     {
+        // 빈 배열이면 size - 1 이 -1 이라 범위를 말할 수 없다 (부호 없는 크기로 빼면 2^64 - 1 이 나왔다)
+        std::string hint = size == 0
+            ? "해결 방법: 빈 배열에는 인덱스로 접근할 수 없습니다. 먼저 길이(배열) > 0 인지 확인하세요."
+            : "해결 방법: 인덱스는 0부터 " + std::to_string(size - 1) + " 사이(뒤에서 세면 -" +
+              std::to_string(size) + "부터 -1 사이)여야 합니다.";
         throw error::IndexError(
-            "배열 인덱스 범위를 벗어났습니다: 인덱스 " + std::to_string(idx) +
-            ", 배열 크기 " + std::to_string(arr.size()) + "\n" +
-            "해결 방법: 인덱스는 0부터 " + std::to_string(arr.size() - 1) + " 사이여야 합니다. " +
-            "음수 인덱스(-1, -2 등)도 사용할 수 있습니다."
+            "배열 인덱스 범위를 벗어났습니다: 인덱스 " + std::to_string(requested) +
+            ", 배열 크기 " + std::to_string(size) + "\n" + hint
         );
     }
 
@@ -2634,7 +2698,7 @@ Value Evaluator::evalMatchExpression(ast::MatchExpression* node)
                 Value guardResult = eval(const_cast<ast::Expression*>(matchCase.guard()));
                 env_ = prevEnv;
 
-                if (guardResult.getType() != types::TypeKind::BOOLEAN || !guardResult.asBoolean())
+                if (!conditionValue(guardResult))
                 {
                     continue;
                 }

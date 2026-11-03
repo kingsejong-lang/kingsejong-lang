@@ -59,6 +59,41 @@ void Evaluator::leaveScope(std::shared_ptr<Environment>& scope)
 // 메인 평가 함수
 // ============================================================================
 
+namespace
+{
+/// 반복문 본문을 도는 동안 loopDepth_ 를 하나 올려 둔다
+struct LoopDepthGuard
+{
+    int& depth;
+    explicit LoopDepthGuard(int& d) : depth(d) { ++depth; }
+    ~LoopDepthGuard() { --depth; }
+};
+
+/// 함수 본문은 바깥 반복문을 보지 않는다. 들어가며 0 으로 두고 나오며 되돌린다
+struct FunctionLoopScope
+{
+    int& depth;
+    int saved;
+    explicit FunctionLoopScope(int& d) : depth(d), saved(d) { depth = 0; }
+    ~FunctionLoopScope() { depth = saved; }
+};
+
+/// 반복문 본문을 한 번 돈다. 중단이면 false 를 돌려준다 (계속은 다음 회차로)
+template <typename EvalBody>
+bool runLoopBody(EvalBody&& evalBody)
+{
+    try
+    {
+        evalBody();
+    }
+    catch (const LoopSignal& signal)
+    {
+        return signal.kind() != LoopSignal::Kind::BREAK;
+    }
+    return true;
+}
+} // namespace
+
 Value Evaluator::eval(ast::Node* node)
 {
     if (!node)
@@ -186,6 +221,12 @@ Value Evaluator::evalNode(ast::Node* node)
 
         case ast::NodeType::RETURN_STATEMENT:
             return evalReturnStatement(static_cast<ast::ReturnStatement*>(node));
+
+        case ast::NodeType::BREAK_STATEMENT:
+            return evalLoopControlStatement(true);
+
+        case ast::NodeType::CONTINUE_STATEMENT:
+            return evalLoopControlStatement(false);
 
         case ast::NodeType::IF_STATEMENT:
             return evalIfStatement(static_cast<ast::IfStatement*>(node));
@@ -757,6 +798,7 @@ Value Evaluator::evalClassMethodCall(
 
     // 메서드 본문 실행. 예외로 나가더라도 환경을 되돌리고, 에러에는 "클래스.메서드" 프레임을 더한다
     const std::string frameName = classDef->className() + "." + memberAccess->memberName();
+    FunctionLoopScope loopScope(loopDepth_);
     const ast::Statement* callerStatement = currentStatement_;
     Value result = Value::createNull();
     std::exception_ptr pending;
@@ -1035,6 +1077,7 @@ Value Evaluator::evalRegularFunctionCall(
         observer_->onFunctionEnter(functionName, expr->location(), funcEnv);
     }
     ObserverExitGuard exitGuard{observer_};
+    FunctionLoopScope loopScope(loopDepth_);
 
     // 함수 본문 실행. 돌아오면(정상·예외 모두) 호출한 쪽의 문장을 다시 현재 문장으로 둔다
     const ast::Statement* callerStatement = currentStatement_;
@@ -1219,7 +1262,11 @@ Value Evaluator::evalWhileStatement(ast::WhileStatement* stmt)
             break;
         }
         // 안전 한도(최대 평가 횟수·시간)는 eval 이 매 노드마다 검사한다
-        result = eval(const_cast<ast::BlockStatement*>(stmt->body()));
+        LoopDepthGuard depth(loopDepth_);
+        if (!runLoopBody([&] { result = eval(const_cast<ast::BlockStatement*>(stmt->body())); }))
+        {
+            break;
+        }
     }
     return result;
 }
@@ -1270,6 +1317,17 @@ Value Evaluator::evalReturnStatement(ast::ReturnStatement* stmt)
 
     // return 문은 예외를 던져서 블록 실행을 중단합니다
     throw ReturnValue(returnValue);
+}
+
+Value Evaluator::evalLoopControlStatement(bool isBreak)
+{
+    // 의미 분석기도 막지만, 분석 없이 평가하는 경로(REPL, 테스트)에서도 함수 밖으로 새지 않게 한다
+    if (loopDepth_ == 0)
+    {
+        throw error::RuntimeError(std::string("'") + (isBreak ? "중단" : "계속") +
+                                  "' 은 반복문 안에서만 쓸 수 있습니다");
+    }
+    throw LoopSignal(isBreak ? LoopSignal::Kind::BREAK : LoopSignal::Kind::CONTINUE);
 }
 
 Value Evaluator::evalIfStatement(ast::IfStatement* stmt)
@@ -1342,7 +1400,11 @@ Value Evaluator::evalRepeatStatement(ast::RepeatStatement* stmt)
             hotPathDetector_->trackLoopBackedge(loopId);
         }
 
-        result = eval(const_cast<ast::BlockStatement*>(stmt->body()));
+        LoopDepthGuard depth(loopDepth_);
+        if (!runLoopBody([&] { result = eval(const_cast<ast::BlockStatement*>(stmt->body())); }))
+        {
+            break;
+        }
     }
 
     return result;
@@ -1387,7 +1449,11 @@ Value Evaluator::evalRangeForStatement(ast::RangeForStatement* stmt)
                 hotPathDetector_->trackLoopBackedge(loopId);
             }
             env_->set(stmt->varName(), Value::createInteger(i));
-            result = eval(const_cast<ast::BlockStatement*>(stmt->body()));
+            LoopDepthGuard depth(loopDepth_);
+            if (!runLoopBody([&] { result = eval(const_cast<ast::BlockStatement*>(stmt->body())); }))
+            {
+                break;
+            }
             // 끝 값이 정수 최솟값이면 --i 가 넘치므로 끝 값에서 멈춘다
             if (i == end) break;
         }
@@ -1407,8 +1473,11 @@ Value Evaluator::evalRangeForStatement(ast::RangeForStatement* stmt)
             env_->set(stmt->varName(), Value::createInteger(i));
 
             // 본문 실행
-            result = eval(const_cast<ast::BlockStatement*>(stmt->body()));
-
+            LoopDepthGuard depth(loopDepth_);
+            if (!runLoopBody([&] { result = eval(const_cast<ast::BlockStatement*>(stmt->body())); }))
+            {
+                break;
+            }
             // 끝 값이 정수 최댓값이면 ++i 가 넘치므로 끝 값에서 멈춘다
             if (i == end) break;
         }
@@ -1428,7 +1497,11 @@ Value Evaluator::evalRangeForStatement(ast::RangeForStatement* stmt)
             env_->set(stmt->varName(), Value::createInteger(i));
 
             // 본문 실행
-            result = eval(const_cast<ast::BlockStatement*>(stmt->body()));
+            LoopDepthGuard depth(loopDepth_);
+            if (!runLoopBody([&] { result = eval(const_cast<ast::BlockStatement*>(stmt->body())); }))
+            {
+                break;
+            }
         }
     }
 
@@ -1660,21 +1733,26 @@ Value Evaluator::indexValue(const Value& container, const Value& index)
     }
 
     int64_t idx = index.asInteger();
+    const int64_t requested = idx;  // 오류 메시지에는 사용자가 쓴 값을 보인다
+    const int64_t size = static_cast<int64_t>(arr.size());
 
     // 음수 인덱스 처리 (Python 스타일)
     if (idx < 0)
     {
-        idx = static_cast<int64_t>(arr.size()) + idx;
+        idx = size + idx;
     }
 
     // 범위 검사
-    if (idx < 0 || idx >= static_cast<int64_t>(arr.size()))
+    if (idx < 0 || idx >= size)
     {
+        // 빈 배열이면 size - 1 이 -1 이라 범위를 말할 수 없다 (부호 없는 크기로 빼면 2^64 - 1 이 나왔다)
+        std::string hint = size == 0
+            ? "해결 방법: 빈 배열에는 인덱스로 접근할 수 없습니다. 먼저 길이(배열) > 0 인지 확인하세요."
+            : "해결 방법: 인덱스는 0부터 " + std::to_string(size - 1) + " 사이(뒤에서 세면 -" +
+              std::to_string(size) + "부터 -1 사이)여야 합니다.";
         throw error::IndexError(
-            "배열 인덱스 범위를 벗어났습니다: 인덱스 " + std::to_string(idx) +
-            ", 배열 크기 " + std::to_string(arr.size()) + "\n" +
-            "해결 방법: 인덱스는 0부터 " + std::to_string(arr.size() - 1) + " 사이여야 합니다. " +
-            "음수 인덱스(-1, -2 등)도 사용할 수 있습니다."
+            "배열 인덱스 범위를 벗어났습니다: 인덱스 " + std::to_string(requested) +
+            ", 배열 크기 " + std::to_string(size) + "\n" + hint
         );
     }
 
@@ -1917,6 +1995,11 @@ Value Evaluator::evalTryStatement(ast::TryStatement* stmt)
         // 반환문은 시도 블록을 통과한다. 마지막 블록만 돌리고 다시 던진다 (catch 밖에서)
         returning = std::current_exception();
     }
+    catch (const LoopSignal&)
+    {
+        // 중단·계속도 반환처럼 시도 블록을 통과한다 (에러가 아니므로 오류 블록은 건너뛴다)
+        returning = std::current_exception();
+    }
     catch (const ThrowSignal& signal)
     {
         caughtError = signal.value();
@@ -2043,6 +2126,7 @@ Value Evaluator::callValue(const Value& callee, const std::vector<Value>& args,
     };
     observer_->onFunctionEnter(name, callSite, funcEnv);
     ObserverExitGuard exitGuard{observer_};
+    FunctionLoopScope loopScope(loopDepth_);
 
     // 돌아오면(정상·예외 모두) 호출한 쪽의 문장을 다시 현재 문장으로 둔다
     const ast::Statement* callerStatement = currentStatement_;

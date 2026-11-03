@@ -21,6 +21,8 @@ CompletionProvider::CompletionProvider()
         CompletionItem("상수", CompletionItemKind::Keyword, "상수 선언", "불변 상수를 선언합니다. 예: 상수 PI = 3.14"),
         CompletionItem("함수", CompletionItemKind::Keyword, "함수 선언", "함수를 선언합니다. 예: 함수 더하기(a, b) { 반환 a + b }"),
         CompletionItem("반환", CompletionItemKind::Keyword, "함수 반환", "함수에서 값을 반환합니다. 예: 반환 결과"),
+        CompletionItem("중단", CompletionItemKind::Keyword, "반복 중단", "가장 안쪽 반복문을 끝냅니다. 예: 만약 (찾음) { 중단 }"),
+        CompletionItem("계속", CompletionItemKind::Keyword, "다음 반복", "이번 회차의 나머지를 건너뛰고 다음 회차로 갑니다. 예: 만약 (i % 2 == 0) { 계속 }"),
 
         // 제어 흐름 키워드
         CompletionItem("만약", CompletionItemKind::Keyword, "조건문", "조건에 따라 분기합니다. 예: 만약 (x > 0) { ... }"),

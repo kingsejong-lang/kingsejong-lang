@@ -15,7 +15,7 @@
       "patterns": [
         {
           "name": "keyword.control.kingsejong",
-          "match": "\\b(만약|아니면|반환|반복한다|반복|번|가져오기)\\b"
+          "match": "\\b(만약|아니면|반환|중단|계속|반복한다|반복|번|가져오기)\\b"
         },
         {
           "name": "keyword.other.kingsejong",

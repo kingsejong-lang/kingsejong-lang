@@ -18,12 +18,12 @@ namespace rules {
 
 using namespace ast;
 
-// Helper: 함수 내에서 사용된 식별자 수집
 /**
  * @brief 함수 본문에서 쓰인 식별자 이름을 모은다
  *
- * 중첩 함수 안은 들어가지 않는다 (예전 동작 유지: 안쪽 함수가 바깥 매개변수를 쓰는지는
- * 클로저 문제라 이 규칙이 다루지 않는다).
+ * 중첩 함수 안도 들어간다. 안쪽 함수가 바깥 매개변수를 쓰는 클로저("반환 함수(x) { 반환 x * n }")에서
+ * 바깥 매개변수는 쓰인 것이다. 다만 안쪽 함수가 같은 이름의 매개변수를 다시 선언하면 안쪽의 그 이름은
+ * 안쪽 매개변수를 가리키므로 바깥 쪽 사용으로 세지 않는다.
  */
 class IdentifierCollector : public ast::Visitor
 {
@@ -40,9 +40,40 @@ public:
         if (node.type() == ast::NodeType::IDENTIFIER)
         {
             identifiers.insert(static_cast<const Identifier&>(node).name());
+            return true;
         }
-        return node.type() != ast::NodeType::FUNCTION_LITERAL &&
-               node.type() != ast::NodeType::ASYNC_FUNCTION_LITERAL;
+        if (node.type() == ast::NodeType::FUNCTION_LITERAL)
+        {
+            const auto& fn = static_cast<const FunctionLiteral&>(node);
+            collectNested(fn.parameters(), fn.body());
+            return false;
+        }
+        if (node.type() == ast::NodeType::ASYNC_FUNCTION_LITERAL)
+        {
+            const auto& fn = static_cast<const AsyncFunctionLiteral&>(node);
+            collectNested(fn.parameters(), fn.body());
+            return false;
+        }
+        return true;
+    }
+
+private:
+    void collectNested(const std::vector<std::string>& params, const Statement* body)
+    {
+        if (!body)
+        {
+            return;
+        }
+        IdentifierCollector inner;
+        inner.collect(body);
+        std::unordered_set<std::string> shadowed(params.begin(), params.end());
+        for (const auto& name : inner.identifiers)
+        {
+            if (shadowed.find(name) == shadowed.end())
+            {
+                identifiers.insert(name);
+            }
+        }
     }
 };
 

@@ -13,6 +13,7 @@
 #include "jit/HotPathDetector.h"
 #include "lexer/JosaRecognizer.h"
 #include "common/StackGuard.h"
+#include "common/CheckedInt.h"
 #include <sstream>
 #include <exception>
 #include <cmath>
@@ -471,6 +472,10 @@ Value Evaluator::unaryOperation(const std::string& op, const Value& operand)
     {
         if (operand.isInteger())
         {
+            if (common::negationOverflows(operand.asInteger()))
+            {
+                throw error::RuntimeError("정수 오버플로: 정수 최솟값의 부호를 바꾸면 정수 범위를 벗어납니다.");
+            }
             return Value::createInteger(-operand.asInteger());
         }
         if (operand.isFloat())
@@ -1383,6 +1388,8 @@ Value Evaluator::evalRangeForStatement(ast::RangeForStatement* stmt)
             }
             env_->set(stmt->varName(), Value::createInteger(i));
             result = eval(const_cast<ast::BlockStatement*>(stmt->body()));
+            // 끝 값이 정수 최솟값이면 --i 가 넘치므로 끝 값에서 멈춘다
+            if (i == end) break;
         }
     }
     else if (endInclusive)
@@ -1401,6 +1408,9 @@ Value Evaluator::evalRangeForStatement(ast::RangeForStatement* stmt)
 
             // 본문 실행
             result = eval(const_cast<ast::BlockStatement*>(stmt->body()));
+
+            // 끝 값이 정수 최댓값이면 ++i 가 넘치므로 끝 값에서 멈춘다
+            if (i == end) break;
         }
     }
     else
@@ -1429,11 +1439,43 @@ Value Evaluator::evalRangeForStatement(ast::RangeForStatement* stmt)
 // 헬퍼 함수들
 // ============================================================================
 
+namespace
+{
+// 정수 연산이 int64 범위를 넘으면 시도 블록으로 잡을 수 있는 실행 오류로 알린다 (감싸 돌기는 감싸더하기 등으로)
+[[noreturn]] void throwIntegerOverflow(int64_t left, const std::string& op, int64_t right)
+{
+    throw error::RuntimeError(
+        "정수 오버플로: " + std::to_string(left) + " " + op + " " + std::to_string(right) +
+        " 의 결과가 정수 범위를 벗어납니다.\n"
+        "해결 방법: 실수로 계산하거나, 감싸 돌기를 의도했다면 감싸더하기·감싸빼기·감싸곱하기를 쓰세요."
+    );
+}
+} // namespace
+
 Value Evaluator::applyIntegerOperation(int64_t left, const std::string& op, int64_t right)
 {
-    if (op == "+") return Value::createInteger(left + right);
-    if (op == "-") return Value::createInteger(left - right);
-    if (op == "*") return Value::createInteger(left * right);
+    int64_t value = 0;
+    if (op == "+")
+    {
+        if (!common::checkedAdd(left, right, value)) throwIntegerOverflow(left, op, right);
+        return Value::createInteger(value);
+    }
+    if (op == "-")
+    {
+        if (!common::checkedSub(left, right, value)) throwIntegerOverflow(left, op, right);
+        return Value::createInteger(value);
+    }
+    if (op == "*")
+    {
+        if (!common::checkedMul(left, right, value)) throwIntegerOverflow(left, op, right);
+        return Value::createInteger(value);
+    }
+    // 정수 최솟값 / -1 은 몫이 넘친다. 최솟값 % -1 은 수학적으로 0 이지만 C++ 에서는 정의되지 않은 동작이다.
+    if ((op == "/" || op == "%") && right == -1 && common::negationOverflows(left))
+    {
+        if (op == "%") return Value::createInteger(0);
+        throwIntegerOverflow(left, op, right);
+    }
     if (op == "/")
     {
         if (right == 0)

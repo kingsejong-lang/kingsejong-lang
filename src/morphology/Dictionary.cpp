@@ -176,6 +176,9 @@ void Dictionary::initializeDefaultDictionary()
     addBuiltinFunc("절대값");
     addBuiltinFunc("제곱근");
     addBuiltinFunc("제곱");
+    addBuiltinFunc("감싸더하기");
+    addBuiltinFunc("감싸빼기");
+    addBuiltinFunc("감싸곱하기");
 
     // 파일 I/O
     addBuiltinFunc("파일_읽기");

@@ -6,6 +6,7 @@
 #include "Compiler.h"
 #include "evaluator/Evaluator.h"
 #include "lexer/JosaRecognizer.h"
+#include "common/CheckedInt.h"
 #include <iostream>
 
 namespace kingsejong {
@@ -714,11 +715,13 @@ bool Compiler::tryConstantFoldBinary(ast::BinaryExpression* expr) {
     if (left->type() == ast::NodeType::INTEGER_LITERAL && right->type() == ast::NodeType::INTEGER_LITERAL) {
         int64_t a = static_cast<const ast::IntegerLiteral*>(left)->value();
         int64_t b = static_cast<const ast::IntegerLiteral*>(right)->value();
-        if (op == "+") { emitConstant(evaluator::Value::createInteger(a + b)); return true; }
-        if (op == "-") { emitConstant(evaluator::Value::createInteger(a - b)); return true; }
-        if (op == "*") { emitConstant(evaluator::Value::createInteger(a * b)); return true; }
-        if (op == "/" && b != 0) { emitConstant(evaluator::Value::createInteger(a / b)); return true; }
-        if (op == "%" && b != 0) { emitConstant(evaluator::Value::createInteger(a % b)); return true; }
+        // 넘치는 식은 접지 않고 실행 시점에 맡긴다 (평가기와 같은 정수 오버플로 오류가 나도록)
+        int64_t folded = 0;
+        if (op == "+" && common::checkedAdd(a, b, folded)) { emitConstant(evaluator::Value::createInteger(folded)); return true; }
+        if (op == "-" && common::checkedSub(a, b, folded)) { emitConstant(evaluator::Value::createInteger(folded)); return true; }
+        if (op == "*" && common::checkedMul(a, b, folded)) { emitConstant(evaluator::Value::createInteger(folded)); return true; }
+        if (op == "/" && b != 0 && b != -1) { emitConstant(evaluator::Value::createInteger(a / b)); return true; }
+        if (op == "%" && b != 0 && b != -1) { emitConstant(evaluator::Value::createInteger(a % b)); return true; }
         if (op == "==") { emit(a == b ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE); return true; }
         if (op == "!=") { emit(a != b ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE); return true; }
         if (op == "<")  { emit(a < b ? OpCode::LOAD_TRUE : OpCode::LOAD_FALSE); return true; }
@@ -749,7 +752,8 @@ bool Compiler::tryConstantFoldBinary(ast::BinaryExpression* expr) {
 
 bool Compiler::tryConstantFoldUnary(ast::UnaryExpression* expr) {
     const ast::Expression* operand = expr->operand();
-    if (expr->op() == "-" && operand->type() == ast::NodeType::INTEGER_LITERAL) {
+    if (expr->op() == "-" && operand->type() == ast::NodeType::INTEGER_LITERAL &&
+        !common::negationOverflows(static_cast<const ast::IntegerLiteral*>(operand)->value())) {
         emitConstant(evaluator::Value::createInteger(-static_cast<const ast::IntegerLiteral*>(operand)->value()));
         return true;
     }

@@ -1692,21 +1692,26 @@ Value Evaluator::indexValue(const Value& container, const Value& index)
     }
 
     int64_t idx = index.asInteger();
+    const int64_t requested = idx;  // 오류 메시지에는 사용자가 쓴 값을 보인다
+    const int64_t size = static_cast<int64_t>(arr.size());
 
     // 음수 인덱스 처리 (Python 스타일)
     if (idx < 0)
     {
-        idx = static_cast<int64_t>(arr.size()) + idx;
+        idx = size + idx;
     }
 
     // 범위 검사
-    if (idx < 0 || idx >= static_cast<int64_t>(arr.size()))
+    if (idx < 0 || idx >= size)
     {
+        // 빈 배열이면 size - 1 이 -1 이라 범위를 말할 수 없다 (부호 없는 크기로 빼면 2^64 - 1 이 나왔다)
+        std::string hint = size == 0
+            ? "해결 방법: 빈 배열에는 인덱스로 접근할 수 없습니다. 먼저 길이(배열) > 0 인지 확인하세요."
+            : "해결 방법: 인덱스는 0부터 " + std::to_string(size - 1) + " 사이(뒤에서 세면 -" +
+              std::to_string(size) + "부터 -1 사이)여야 합니다.";
         throw error::IndexError(
-            "배열 인덱스 범위를 벗어났습니다: 인덱스 " + std::to_string(idx) +
-            ", 배열 크기 " + std::to_string(arr.size()) + "\n" +
-            "해결 방법: 인덱스는 0부터 " + std::to_string(arr.size() - 1) + " 사이여야 합니다. " +
-            "음수 인덱스(-1, -2 등)도 사용할 수 있습니다."
+            "배열 인덱스 범위를 벗어났습니다: 인덱스 " + std::to_string(requested) +
+            ", 배열 크기 " + std::to_string(size) + "\n" + hint
         );
     }
 

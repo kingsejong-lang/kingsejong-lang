@@ -575,6 +575,18 @@ private:
     Value evalRangeForStatement(ast::RangeForStatement* stmt);
 
     /**
+     * @brief 반복문 본문을 한 회차 돈다. 회차마다 새 환경을 만들어 반복 변수와 본문에서 처음 만든 변수를 그 안에 둔다
+     *
+     * 그래서 본문에서 만든 클로저는 그 회차의 값을 잡는다. 바깥에 이미 있는 변수에 대입하면 바깥 변수가 바뀐다.
+     * @param body 반복문 본문
+     * @param varName 반복 변수 이름 (없으면 nullptr)
+     * @param value 반복 변수에 넣을 값 (varName 이 없으면 쓰지 않는다)
+     * @param result 본문의 마지막 값을 받는다
+     * @return 중단이면 false
+     */
+    bool runLoopIteration(ast::BlockStatement* body, const std::string* varName, int64_t value, Value& result);
+
+    /**
      * @brief 블록 문장 실행
      * @param stmt 블록 문장 노드
      * @return 마지막 문장의 평가 결과

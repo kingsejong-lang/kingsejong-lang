@@ -1281,7 +1281,7 @@ Value Evaluator::evalWhileStatement(ast::WhileStatement* stmt)
         }
         // 안전 한도(최대 평가 횟수·시간)는 eval 이 매 노드마다 검사한다
         LoopDepthGuard depth(loopDepth_);
-        if (!runLoopBody([&] { result = eval(const_cast<ast::BlockStatement*>(stmt->body())); }))
+        if (!runLoopIteration(const_cast<ast::BlockStatement*>(stmt->body()), nullptr, 0, result))
         {
             break;
         }
@@ -1419,13 +1419,43 @@ Value Evaluator::evalRepeatStatement(ast::RepeatStatement* stmt)
         }
 
         LoopDepthGuard depth(loopDepth_);
-        if (!runLoopBody([&] { result = eval(const_cast<ast::BlockStatement*>(stmt->body())); }))
+        if (!runLoopIteration(const_cast<ast::BlockStatement*>(stmt->body()), nullptr, 0, result))
         {
             break;
         }
     }
 
     return result;
+}
+
+bool Evaluator::runLoopIteration(ast::BlockStatement* body, const std::string* varName, int64_t value, Value& result)
+{
+    auto previousEnv = env_;
+    auto iterationEnv = std::make_shared<Environment>(previousEnv);
+    if (varName)
+    {
+        iterationEnv->set(*varName, Value::createInteger(value));
+    }
+    env_ = iterationEnv;
+
+    // 예외는 catch 밖에서 다시 던진다 (MSVC 는 catch 블록 안에서 스택을 풀지 않는다)
+    bool keepGoing = true;
+    std::exception_ptr pending;
+    try
+    {
+        keepGoing = runLoopBody([&] { result = eval(body); });
+    }
+    catch (...)
+    {
+        pending = std::current_exception();
+    }
+    env_ = previousEnv;
+    leaveScope(iterationEnv);
+    if (pending)
+    {
+        std::rethrow_exception(pending);
+    }
+    return keepGoing;
 }
 
 Value Evaluator::evalRangeForStatement(ast::RangeForStatement* stmt)
@@ -1466,9 +1496,8 @@ Value Evaluator::evalRangeForStatement(ast::RangeForStatement* stmt)
             {
                 hotPathDetector_->trackLoopBackedge(loopId);
             }
-            env_->set(stmt->varName(), Value::createInteger(i));
             LoopDepthGuard depth(loopDepth_);
-            if (!runLoopBody([&] { result = eval(const_cast<ast::BlockStatement*>(stmt->body())); }))
+            if (!runLoopIteration(const_cast<ast::BlockStatement*>(stmt->body()), &stmt->varName(), i, result))
             {
                 break;
             }
@@ -1487,12 +1516,9 @@ Value Evaluator::evalRangeForStatement(ast::RangeForStatement* stmt)
                 hotPathDetector_->trackLoopBackedge(loopId);
             }
 
-            // 반복 변수 설정
-            env_->set(stmt->varName(), Value::createInteger(i));
-
-            // 본문 실행
+            // 반복 변수는 회차 환경에 두고 본문을 돈다
             LoopDepthGuard depth(loopDepth_);
-            if (!runLoopBody([&] { result = eval(const_cast<ast::BlockStatement*>(stmt->body())); }))
+            if (!runLoopIteration(const_cast<ast::BlockStatement*>(stmt->body()), &stmt->varName(), i, result))
             {
                 break;
             }
@@ -1511,12 +1537,9 @@ Value Evaluator::evalRangeForStatement(ast::RangeForStatement* stmt)
                 hotPathDetector_->trackLoopBackedge(loopId);
             }
 
-            // 반복 변수 설정
-            env_->set(stmt->varName(), Value::createInteger(i));
-
-            // 본문 실행
+            // 반복 변수는 회차 환경에 두고 본문을 돈다
             LoopDepthGuard depth(loopDepth_);
-            if (!runLoopBody([&] { result = eval(const_cast<ast::BlockStatement*>(stmt->body())); }))
+            if (!runLoopIteration(const_cast<ast::BlockStatement*>(stmt->body()), &stmt->varName(), i, result))
             {
                 break;
             }

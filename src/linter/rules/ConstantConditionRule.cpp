@@ -7,6 +7,7 @@
 
 #include "linter/rules/ConstantConditionRule.h"
 #include "linter/Linter.h"
+#include "ast/Visitor.h"
 
 namespace kingsejong {
 namespace linter {
@@ -53,6 +54,42 @@ void ConstantConditionRule::onIfStatement(IfStatement* stmt)
     }
 }
 
+namespace
+{
+/// 이 반복문을 끝내는 '중단' 이 본문에 있는지. 안쪽 반복문과 함수 안의 중단은 이 반복문을 끝내지 않는다
+class BreakFinder : public ast::Visitor
+{
+public:
+    bool found = false;
+
+    bool enter(ast::Node& node) override
+    {
+        switch (node.type())
+        {
+            case NodeType::BREAK_STATEMENT:
+                found = true;
+                return false;
+            case NodeType::WHILE_STATEMENT:
+            case NodeType::REPEAT_STATEMENT:
+            case NodeType::RANGE_FOR_STATEMENT:
+            case NodeType::FUNCTION_LITERAL:
+            case NodeType::ASYNC_FUNCTION_LITERAL:
+                return false;
+            default:
+                return !found;
+        }
+    }
+};
+
+bool bodyBreaksOut(const Statement* body)
+{
+    if (!body) return false;
+    BreakFinder finder;
+    ast::walk(const_cast<Statement*>(body), finder);
+    return finder.found;
+}
+} // namespace
+
 void ConstantConditionRule::onWhileStatement(WhileStatement* stmt)
 {
     if (!stmt) return;
@@ -62,12 +99,16 @@ void ConstantConditionRule::onWhileStatement(WhileStatement* stmt)
     {
         if (value)
         {
-            reportIssue(
-                "조건이 항상 참입니다. 무한 루프가 발생합니다",
-                IssueSeverity::WARNING,
-                stmt->location().line,
-                stmt->location().column
-            );
+            // 반복 (참) { ... 중단 } 은 의도한 무한 루프가 아니다
+            if (!bodyBreaksOut(stmt->body()))
+            {
+                reportIssue(
+                    "조건이 항상 참입니다. 무한 루프가 발생합니다",
+                    IssueSeverity::WARNING,
+                    stmt->location().line,
+                    stmt->location().column
+                );
+            }
         }
         else
         {

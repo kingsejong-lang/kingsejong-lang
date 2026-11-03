@@ -382,6 +382,16 @@ void Formatter::formatStatement(const Statement* stmt)
         case NodeType::RETURN_STATEMENT:
             formatReturnStatement(static_cast<const ReturnStatement*>(stmt));
             break;
+        case NodeType::BREAK_STATEMENT:
+            writeIndent();
+            write("중단");
+            writeLine();
+            break;
+        case NodeType::CONTINUE_STATEMENT:
+            writeIndent();
+            write("계속");
+            writeLine();
+            break;
         case NodeType::IF_STATEMENT:
             formatIfStatement(static_cast<const IfStatement*>(stmt));
             break;

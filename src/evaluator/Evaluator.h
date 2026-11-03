@@ -47,6 +47,25 @@ public:
 };
 
 /**
+ * @class LoopSignal
+ * @brief 중단 / 계속 이 가장 안쪽 반복문에 보내는 신호
+ *
+ * std::exception 을 상속하지 않는다. 시도 문과 내장 함수 호출이 std::exception 을 잡아 실행
+ * 에러로 바꾸는데, 반복 제어는 에러가 아니므로 거기에 잡히면 안 된다. 함수 경계를 넘지 않도록
+ * 평가기가 반복문 안에서만 던진다 (loopDepth_).
+ */
+class LoopSignal
+{
+public:
+    enum class Kind { BREAK, CONTINUE };
+    explicit LoopSignal(Kind kind) : kind_(kind) {}
+    Kind kind() const { return kind_; }
+
+private:
+    Kind kind_;
+};
+
+/**
  * @class Evaluator
  * @brief AST를 실행하여 Value를 생성하는 평가기
  *
@@ -295,6 +314,7 @@ private:
 
     // 안전 장치
     size_t evaluationCount_ = 0;  ///< 평가 카운터
+    int loopDepth_ = 0;  ///< 지금 함수 본문 안에서 감싸고 있는 반복문 수 (함수에 들어가면 0 부터 센다)
     size_t maxEvaluations_ = 10000000;  ///< 최대 평가 횟수 (기본: 10,000,000)
     std::chrono::steady_clock::time_point startTime_;  ///< 실행 시작 시간
     std::chrono::milliseconds maxExecutionTime_ = std::chrono::milliseconds(5000);  ///< 최대 실행 시간 (기본: 5000ms)
@@ -523,6 +543,8 @@ private:
      * @return 반환할 Value
      */
     Value evalReturnStatement(ast::ReturnStatement* stmt);
+    /// @brief 중단 / 계속. 지금 함수 안의 반복문 밖이면 실행 에러
+    Value evalLoopControlStatement(bool isBreak);
 
     /**
      * @brief 조건 문장 실행

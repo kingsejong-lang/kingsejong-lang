@@ -269,7 +269,10 @@ void SemanticAnalyzer::analyzeAndResolveStatement(const Statement* stmt)
                 // 함수 body 분석
                 if (funcLit->body())
                 {
+                    int prevLoopDepth = loopDepth_;
+                    loopDepth_ = 0;  // 함수 본문은 바깥 반복문을 보지 않는다
                     analyzeAndResolveStatement(funcLit->body());
+                    loopDepth_ = prevLoopDepth;
                 }
 
                 // 컨텍스트 복원
@@ -303,7 +306,10 @@ void SemanticAnalyzer::analyzeAndResolveStatement(const Statement* stmt)
                 // 함수 body 분석
                 if (asyncFuncLit->body())
                 {
+                    int prevLoopDepth = loopDepth_;
+                    loopDepth_ = 0;  // 함수 본문은 바깥 반복문을 보지 않는다
                     analyzeAndResolveStatement(asyncFuncLit->body());
+                    loopDepth_ = prevLoopDepth;
                 }
 
                 // 컨텍스트 복원
@@ -383,7 +389,9 @@ void SemanticAnalyzer::analyzeAndResolveStatement(const Statement* stmt)
             if (whileStmt->body())
             {
                 symbolTable_.enterScope();
+                ++loopDepth_;
                 analyzeAndResolveStatement(whileStmt->body());
+                --loopDepth_;
                 symbolTable_.exitScope();
             }
             break;
@@ -411,7 +419,9 @@ void SemanticAnalyzer::analyzeAndResolveStatement(const Statement* stmt)
             // body 분석
             if (forStmt->body())
             {
+                ++loopDepth_;
                 analyzeAndResolveStatement(forStmt->body());
+                --loopDepth_;
             }
 
             symbolTable_.exitScope();
@@ -431,8 +441,22 @@ void SemanticAnalyzer::analyzeAndResolveStatement(const Statement* stmt)
             if (repeatStmt->body())
             {
                 symbolTable_.enterScope();
+                ++loopDepth_;
                 analyzeAndResolveStatement(repeatStmt->body());
+                --loopDepth_;
                 symbolTable_.exitScope();
+            }
+            break;
+        }
+        // 중단 / 계속: 지금 함수 안의 반복문 안에서만 쓸 수 있다
+        case NodeType::BREAK_STATEMENT:
+        case NodeType::CONTINUE_STATEMENT:
+        {
+            if (loopDepth_ == 0)
+            {
+                const char* keyword = stmt->type() == NodeType::BREAK_STATEMENT ? "중단" : "계속";
+                addError(std::string("'") + keyword + "' 은 반복문 안에서만 쓸 수 있습니다",
+                         stmt->location().line, stmt->location().column);
             }
             break;
         }
@@ -506,7 +530,10 @@ void SemanticAnalyzer::analyzeAndResolveStatement(const Statement* stmt)
                 classMemberDepth_++;
                 if (method->body())
                 {
+                    int prevLoopDepth = loopDepth_;
+                    loopDepth_ = 0;  // 함수 본문은 바깥 반복문을 보지 않는다
                     analyzeAndResolveStatement(method->body());
+                    loopDepth_ = prevLoopDepth;
                 }
                 classMemberDepth_--;
 
@@ -530,7 +557,10 @@ void SemanticAnalyzer::analyzeAndResolveStatement(const Statement* stmt)
                 classMemberDepth_++;
                 if (ctor->body())
                 {
+                    int prevLoopDepth = loopDepth_;
+                    loopDepth_ = 0;  // 함수 본문은 바깥 반복문을 보지 않는다
                     analyzeAndResolveStatement(ctor->body());
+                    loopDepth_ = prevLoopDepth;
                 }
                 classMemberDepth_--;
 
@@ -767,7 +797,10 @@ void SemanticAnalyzer::analyzeAndResolveExpression(const Expression* expr)
                 bool prevInAsyncFunction = inAsyncFunction_;
                 inAsyncFunction_ = true;
 
-                analyzeAndResolveStatement(asyncFunc->body());
+                int prevLoopDepth = loopDepth_;
+                    loopDepth_ = 0;  // 함수 본문은 바깥 반복문을 보지 않는다
+                    analyzeAndResolveStatement(asyncFunc->body());
+                    loopDepth_ = prevLoopDepth;
 
                 // 컨텍스트 복원
                 inAsyncFunction_ = prevInAsyncFunction;

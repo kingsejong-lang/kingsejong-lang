@@ -218,6 +218,41 @@ public:
 };
 
 /**
+ * @class BreakStatement
+ * @brief 가장 안쪽 반복문을 끝내는 문장
+ *
+ * @example
+ * 반복 (참) {
+ *     만약 (찾음) { 중단 }
+ * }
+ */
+class BreakStatement : public Statement
+{
+public:
+    static constexpr NodeType kType = NodeType::BREAK_STATEMENT;
+    NodeType type() const override { return kType; }
+    std::string toString() const override { return "중단;"; }
+};
+
+/**
+ * @class ContinueStatement
+ * @brief 가장 안쪽 반복문의 이번 회차를 건너뛰고 다음 회차로 가는 문장
+ *
+ * @example
+ * i가 1부터 10까지 {
+ *     만약 (i % 2 == 0) { 계속 }
+ *     출력(i)
+ * }
+ */
+class ContinueStatement : public Statement
+{
+public:
+    static constexpr NodeType kType = NodeType::CONTINUE_STATEMENT;
+    NodeType type() const override { return kType; }
+    std::string toString() const override { return "계속;"; }
+};
+
+/**
  * @class BlockStatement
  * @brief 블록 문장
  *

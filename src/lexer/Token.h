@@ -97,6 +97,8 @@ enum class TokenType
 
     // 반복문 키워드
     DONGAN,       ///< 동안 (while)
+    JUNGDAN,      ///< 중단 (break)
+    GYESOK,       ///< 계속 (continue)
 
     // 함수 키워드
     HAMSU,        ///< 함수

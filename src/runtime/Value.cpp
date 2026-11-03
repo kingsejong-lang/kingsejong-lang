@@ -455,45 +455,148 @@ bool Value::isTruthy() const
 // 값 비교
 // ============================================================================
 
-bool Value::equals(const Value& other) const
+namespace
 {
+/// 순환 참조가 있는 배열·딕셔너리를 비교할 때 이미 비교 중인 쌍을 기록한다.
+using EqualsSeen = std::vector<std::pair<const void*, const void*>>;
+
+bool valueEquals(const Value& a, const Value& b, EqualsSeen& seen);
+
+/// 같은 컨테이너 쌍을 다시 만나면 참으로 보고 순환을 끊는다.
+bool enterPair(const void* a, const void* b, EqualsSeen& seen)
+{
+    for (const auto& [x, y] : seen)
+    {
+        if (x == a && y == b)
+        {
+            return false;
+        }
+    }
+    seen.emplace_back(a, b);
+    return true;
+}
+
+bool arrayEquals(const std::vector<Value>& a, const std::vector<Value>& b, EqualsSeen& seen)
+{
+    if (&a == &b)
+    {
+        return true;
+    }
+    if (a.size() != b.size())
+    {
+        return false;
+    }
+    if (!enterPair(&a, &b, seen))
+    {
+        return true;
+    }
+    for (size_t i = 0; i < a.size(); ++i)
+    {
+        if (!valueEquals(a[i], b[i], seen))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool dictEquals(const std::unordered_map<std::string, Value>& a,
+                const std::unordered_map<std::string, Value>& b, EqualsSeen& seen)
+{
+    if (&a == &b)
+    {
+        return true;
+    }
+    if (a.size() != b.size())
+    {
+        return false;
+    }
+    if (!enterPair(&a, &b, seen))
+    {
+        return true;
+    }
+    for (const auto& [key, value] : a)
+    {
+        auto it = b.find(key);
+        if (it == b.end() || !valueEquals(value, it->second, seen))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool valueEquals(const Value& a, const Value& b, EqualsSeen& seen)
+{
+    // 정수와 실수는 수의 크기로 비교한다 (lessThan 과 같은 규칙, 1 == 1.0)
+    if ((a.isInteger() && b.isFloat()) || (a.isFloat() && b.isInteger()))
+    {
+        double x = a.isInteger() ? static_cast<double>(a.asInteger()) : a.asFloat();
+        double y = b.isInteger() ? static_cast<double>(b.asInteger()) : b.asFloat();
+        return std::abs(x - y) < 1e-9;
+    }
+
     // 타입이 다르면 false
-    if (type_ != other.type_)
+    if (a.getType() != b.getType())
     {
         return false;
     }
 
-    switch (type_)
+    switch (a.getType())
     {
         case types::TypeKind::INTEGER:
-            return std::get<int64_t>(data_) == std::get<int64_t>(other.data_);
+            return a.asInteger() == b.asInteger();
 
         case types::TypeKind::FLOAT:
         {
             // 부동소수점 비교 시 epsilon 사용
-            double diff = std::abs(std::get<double>(data_) - std::get<double>(other.data_));
+            double diff = std::abs(a.asFloat() - b.asFloat());
             return diff < 1e-9;
         }
 
         case types::TypeKind::STRING:
-            return std::get<std::string>(data_) == std::get<std::string>(other.data_);
+            return a.asString() == b.asString();
 
         case types::TypeKind::BOOLEAN:
-            return std::get<bool>(data_) == std::get<bool>(other.data_);
+            return a.asBoolean() == b.asBoolean();
 
         case types::TypeKind::NULL_TYPE:
             return true;  // null == null
 
         case types::TypeKind::ERROR:
         {
-            auto err1 = std::get<std::shared_ptr<ErrorObject>>(data_);
-            auto err2 = std::get<std::shared_ptr<ErrorObject>>(other.data_);
+            auto err1 = a.asError();
+            auto err2 = b.asError();
             return err1->message() == err2->message() && err1->type() == err2->type();
         }
+
+        // 배열과 딕셔너리는 내용으로 비교한다
+        case types::TypeKind::ARRAY:
+            return arrayEquals(a.asArray(), b.asArray(), seen);
+
+        case types::TypeKind::DICTIONARY:
+            return dictEquals(a.asDictionary(), b.asDictionary(), seen);
+
+        // 함수, 인스턴스, 프로미스는 같은 객체일 때만 같다
+        case types::TypeKind::FUNCTION:
+            return a.asFunction() == b.asFunction();
+
+        case types::TypeKind::CLASS:
+            return a.asClassInstance() == b.asClassInstance();
+
+        case types::TypeKind::PROMISE:
+            return a.asPromise() == b.asPromise();
 
         default:
             return false;
     }
+}
+} // namespace
+
+bool Value::equals(const Value& other) const
+{
+    EqualsSeen seen;
+    return valueEquals(*this, other, seen);
 }
 
 bool Value::lessThan(const Value& other) const

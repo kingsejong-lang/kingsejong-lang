@@ -408,12 +408,17 @@ TEST(FloatTest, ShouldCompareFloatAndInteger)
 {
     auto result1 = evalInput("3.0 == 3");
     auto result2 = evalInput("3.5 > 3");
+    auto result3 = evalInput("3 <= 3.0");
 
+    // 정수와 실수는 < 와 같은 규칙으로 수의 크기를 비교한다
     EXPECT_TRUE(result1.isBoolean());
-    EXPECT_FALSE(result1.asBoolean());  // 타입이 다름
+    EXPECT_TRUE(result1.asBoolean());
 
     EXPECT_TRUE(result2.isBoolean());
     EXPECT_TRUE(result2.asBoolean());
+
+    EXPECT_TRUE(result3.isBoolean());
+    EXPECT_TRUE(result3.asBoolean());
 }
 
 // ============================================================================

@@ -197,6 +197,8 @@ public:
     static Value binaryOperation(const Value& left, const std::string& op, const Value& right);
     /// 단항 연산 (-, !)
     static Value unaryOperation(const std::string& op, const Value& operand);
+    /// 만약·반복·경우 가드의 조건 값을 논리값으로 꺼낸다. 참/거짓이 아니면 TypeError (진리값으로 바꾸지 않는다)
+    static bool conditionValue(const Value& condition);
     /// 배열[정수] / 사전["키"] 읽기
     static Value indexValue(const Value& container, const Value& index);
     /// 배열 슬라이싱 (step 은 없으면 nullptr)

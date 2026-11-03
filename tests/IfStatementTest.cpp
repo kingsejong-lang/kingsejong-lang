@@ -209,58 +209,50 @@ TEST(IfStatementTest, ShouldReturnValueFromBlock)
 // Truthiness 테스트
 // ============================================================================
 
-TEST(IfStatementTest, ShouldEvaluateTruthinessZero)
+TEST(IfStatementTest, ShouldRejectZeroCondition)
 {
-    auto result = evalInput(R"(
+    // 조건은 참/거짓만 받는다. 진리값으로 바꾸지 않고 실행 오류가 된다
+    EXPECT_THROW(evalInput(R"(
         만약 (0) {
             "참"
         } 아니면 {
             "거짓"
         }
-    )");
-
-    EXPECT_TRUE(result.isString());
-    EXPECT_EQ(result.asString(), "거짓");
+    )"), std::runtime_error);
 }
 
-TEST(IfStatementTest, ShouldEvaluateTruthinessNonZero)
+TEST(IfStatementTest, ShouldRejectNonZeroCondition)
 {
-    auto result = evalInput(R"(
+    // 조건은 참/거짓만 받는다. 진리값으로 바꾸지 않고 실행 오류가 된다
+    EXPECT_THROW(evalInput(R"(
         만약 (42) {
             "참"
         } 아니면 {
             "거짓"
         }
-    )");
-
-    EXPECT_TRUE(result.isString());
-    EXPECT_EQ(result.asString(), "참");
+    )"), std::runtime_error);
 }
 
-TEST(IfStatementTest, ShouldEvaluateTruthinessEmptyString)
+TEST(IfStatementTest, ShouldRejectEmptyStringCondition)
 {
-    auto result = evalInput(R"(
+    // 조건은 참/거짓만 받는다. 진리값으로 바꾸지 않고 실행 오류가 된다
+    EXPECT_THROW(evalInput(R"(
         만약 ("") {
             "참"
         } 아니면 {
             "거짓"
         }
-    )");
-
-    EXPECT_TRUE(result.isString());
-    EXPECT_EQ(result.asString(), "거짓");
+    )"), std::runtime_error);
 }
 
-TEST(IfStatementTest, ShouldEvaluateTruthinessNonEmptyString)
+TEST(IfStatementTest, ShouldRejectNonEmptyStringCondition)
 {
-    auto result = evalInput(R"(
+    // 조건은 참/거짓만 받는다. 진리값으로 바꾸지 않고 실행 오류가 된다
+    EXPECT_THROW(evalInput(R"(
         만약 ("hello") {
             "참"
         } 아니면 {
             "거짓"
         }
-    )");
-
-    EXPECT_TRUE(result.isString());
-    EXPECT_EQ(result.asString(), "참");
+    )"), std::runtime_error);
 }

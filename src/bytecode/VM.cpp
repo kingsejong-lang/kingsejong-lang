@@ -308,12 +308,13 @@ VM::Step VM::executeInstruction() {
         }
         case OpCode::JUMP_IF_FALSE: {
             uint16_t offset = readShort();
-            if (!pop().isTruthy()) ip_ += offset;
+            // 만약·반복·경우 가드의 조건이다. 평가기와 같이 참/거짓만 받는다
+            if (!Evaluator::conditionValue(pop())) ip_ += offset;
             break;
         }
         case OpCode::JUMP_IF_TRUE: {
             uint16_t offset = readShort();
-            if (pop().isTruthy()) ip_ += offset;
+            if (Evaluator::conditionValue(pop())) ip_ += offset;
             break;
         }
         case OpCode::LOOP: {

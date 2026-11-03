@@ -425,28 +425,22 @@ TEST(FloatTest, ShouldCompareFloatAndInteger)
 // 실수 Truthy 테스트
 // ============================================================================
 
-TEST(FloatTest, ZeroFloatShouldBeFalsy)
+TEST(FloatTest, ZeroFloatConditionShouldBeError)
 {
-    auto result = evalInput("만약 (0.0) { 참 } 아니면 { 거짓 }");
-
-    EXPECT_TRUE(result.isBoolean());
-    EXPECT_FALSE(result.asBoolean());
+    // 조건은 참/거짓만 받는다. 진리값으로 바꾸지 않고 실행 오류가 된다
+    EXPECT_THROW(evalInput("만약 (0.0) { 참 } 아니면 { 거짓 }"), std::runtime_error);
 }
 
-TEST(FloatTest, NonZeroFloatShouldBeTruthy)
+TEST(FloatTest, NonZeroFloatConditionShouldBeError)
 {
-    auto result = evalInput("만약 (3.14) { 참 } 아니면 { 거짓 }");
-
-    EXPECT_TRUE(result.isBoolean());
-    EXPECT_TRUE(result.asBoolean());
+    // 조건은 참/거짓만 받는다. 진리값으로 바꾸지 않고 실행 오류가 된다
+    EXPECT_THROW(evalInput("만약 (3.14) { 참 } 아니면 { 거짓 }"), std::runtime_error);
 }
 
-TEST(FloatTest, NegativeFloatShouldBeTruthy)
+TEST(FloatTest, NegativeFloatConditionShouldBeError)
 {
-    auto result = evalInput("만약 (-1.5) { 참 } 아니면 { 거짓 }");
-
-    EXPECT_TRUE(result.isBoolean());
-    EXPECT_TRUE(result.asBoolean());
+    // 조건은 참/거짓만 받는다. 진리값으로 바꾸지 않고 실행 오류가 된다
+    EXPECT_THROW(evalInput("만약 (-1.5) { 참 } 아니면 { 거짓 }"), std::runtime_error);
 }
 
 // ============================================================================

@@ -36,7 +36,10 @@ std::string runEvaluator(const std::string& source)
         evaluator::Evaluator evaluator(env);
         evaluator.evalProgram(program.get());
     }
-    return env->get("기록").toString();
+    std::string recorded = env->get("기록").toString();
+    // 테스트가 env 를 쥐고 있어 평가기 소멸자가 함수-환경 순환 참조를 끊지 못하므로 직접 비운다
+    env->clear();
+    return recorded;
 }
 
 /// VM 으로 돌리고 전역 변수 '기록' 을 문자열로 돌려준다. 컴파일이 실패하면 오류 메시지를 돌려준다

@@ -463,6 +463,15 @@ int runLinter(int argc, char* argv[])
 
         kingsejong::linter::Linter linter;
         linter.addDefaultRules();
+        // unused-import 가 가져온 모듈 파일을 읽어 정의된 이름을 알도록 실행할 때와 같은 경로로 찾는다
+        auto lintModuleLoader = std::make_shared<kingsejong::module::ModuleLoader>(".");
+        for (const auto& dir : g_moduleSearchPaths)
+        {
+            lintModuleLoader->addSearchPath(dir);
+        }
+        linter.setModuleResolver([lintModuleLoader](const std::string& modulePath, const std::string& fromFile) {
+            return lintModuleLoader->resolvePath(modulePath, fromFile);
+        });
         if (!configFile.empty())
         {
             if (!linter.loadConfig(configFile))

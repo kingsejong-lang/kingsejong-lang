@@ -21,6 +21,8 @@
 #include "linter/rules/FunctionComplexityRule.h"
 #include "linter/rules/UnusedImportRule.h"
 #include "linter/rules/ImportOrderRule.h"
+#include <filesystem>
+#include <fstream>
 
 using namespace kingsejong;
 using namespace kingsejong::lexer;
@@ -1471,4 +1473,77 @@ TEST(LinterJosaAgreementTest, ShouldCheckParticleAfterPossessiveChain)
         }
     }
     EXPECT_TRUE(found);
+}
+
+/**
+ * @test 모듈 파일을 읽을 수 있으면 그 모듈이 정의한 이름의 사용으로 판단한다
+ *
+ * 함수 이름 목록으로만 추정하던 때는 목록에 없는 함수(결합, 범위)나 값으로 넘긴 함수
+ * (`걸러낸다(소수인가)`)를 쓰는 가져오기도 "사용되지 않습니다" 로 보고했다.
+ */
+TEST(LinterTest, ShouldUseModuleDefinitionsForUnusedImport)
+{
+    namespace fs = std::filesystem;
+    fs::path dir = fs::temp_directory_path() / "ksj_unused_import_test";
+    fs::create_directories(dir);
+    // Windows 에서 std::string 경로는 ANSI 코드 페이지로 해석되므로 모듈 파일 이름은 영문으로 둔다
+    {
+        std::ofstream(dir / "tools.ksj") << "결합하기 = 함수(a, b) { 반환 a + b }\n";
+        std::ofstream(dir / "check.ksj") << "짝수인가 = 함수(x) { 반환 x % 2 == 0 }\n";
+        std::ofstream(dir / "unused.ksj") << "아무것 = 1\n";
+    }
+
+    std::string code =
+        "가져오기 \"tools\"\n"
+        "가져오기 \"check\"\n"
+        "가져오기 \"unused\"\n"
+        "출력(결합하기(1, 2))\n"
+        "출력([1, 2, 3]을 걸러낸다(짝수인가))\n";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<UnusedImportRule>());
+    linter.setModuleResolver([&dir](const std::string& modulePath, const std::string&) {
+        fs::path candidate = dir / (modulePath + ".ksj");
+        return fs::exists(candidate) ? candidate.string() : std::string();
+    });
+    linter.analyze(program.get(), (dir / "main.ksj").string());
+
+    ASSERT_EQ(linter.issues().size(), 1u);
+    EXPECT_NE(linter.issues()[0].message.find("unused"), std::string::npos);
+    EXPECT_EQ(linter.issues()[0].line, 3);  // 가져오기 문 위치를 함께 보고한다
+
+    fs::remove_all(dir);
+}
+
+/**
+ * @test 클로저가 쓰는 바깥 매개변수는 사용된 것이다
+ */
+TEST(LinterTest, ShouldTreatParameterUsedByClosureAsUsed)
+{
+    std::string code =
+        "곱하기_만들기 = 함수(n) {\n"
+        "    반환 함수(x) { 반환 x * n }\n"
+        "}\n"
+        "가림 = 함수(n) {\n"
+        "    반환 함수(n) { 반환 n }\n"
+        "}\n";
+
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_NE(program, nullptr);
+
+    Linter linter;
+    linter.addRule(std::make_unique<NoUnusedParameterRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    // 안쪽 함수가 같은 이름을 다시 선언한 '가림' 의 n 만 쓰이지 않은 것이다
+    ASSERT_EQ(linter.issues().size(), 1u);
+    EXPECT_EQ(linter.issues()[0].line, 4);
+    EXPECT_EQ(linter.issues()[0].subject, "n");
 }

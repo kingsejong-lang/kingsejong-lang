@@ -61,6 +61,11 @@ private:
      */
     std::string guessModuleFromFunction(const std::string& functionName) const;
 
+    /// @brief 모듈 파일을 읽어 최상위에서 정의한 이름을 모은다. 읽지 못하면 false
+    bool collectModuleNames(const std::string& modulePath, const std::string& fromFile,
+                            std::unordered_set<std::string>& names,
+                            std::unordered_set<std::string>& visited) const;
+
     struct ImportInfo
     {
         std::string modulePath;   ///< 전체 모듈 경로
@@ -70,6 +75,7 @@ private:
 
     std::unordered_map<std::string, ImportInfo> importedModules_;  ///< 모듈명 -> Import 정보
     std::unordered_set<std::string> usedModules_;  ///< 사용된 모듈명 목록
+    std::unordered_set<std::string> usedNames_;    ///< 프로그램에서 쓰인 식별자 이름
 };
 
 } // namespace rules

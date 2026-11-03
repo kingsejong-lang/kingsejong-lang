@@ -17,6 +17,7 @@
 #include <vector>
 #include <memory>
 #include <optional>
+#include <functional>
 
 namespace kingsejong {
 namespace linter {
@@ -166,6 +167,19 @@ public:
     const LinterConfig& getConfig() const { return config_; }
 
     /**
+     * @brief 가져오기 경로를 실제 파일 경로로 바꾸는 함수
+     *
+     * 모듈 경로와 가져오는 파일을 받아 찾은 파일 경로를, 못 찾으면 빈 문자열을 돌려준다.
+     * 설정하면 규칙이 가져온 모듈 파일을 읽어 그 모듈이 정의한 이름을 알 수 있다.
+     */
+    using ModuleResolver = std::function<std::string(const std::string& modulePath, const std::string& fromFile)>;
+    void setModuleResolver(ModuleResolver resolver) { moduleResolver_ = std::move(resolver); }
+    const ModuleResolver& moduleResolver() const { return moduleResolver_; }
+
+    /// @brief 현재 분석 중인 파일 이름
+    const std::string& filename() const { return filename_; }
+
+    /**
      * @brief 규칙이 활성화되어 있는지 확인
      */
     bool isRuleEnabled(const std::string& ruleId) const;
@@ -179,6 +193,7 @@ private:
     std::vector<std::unique_ptr<Rule>> rules_;   ///< 검사 규칙 목록
     std::vector<LinterIssue> issues_;            ///< 발견된 이슈 목록
     std::string filename_;                        ///< 현재 분석 중인 파일
+    ModuleResolver moduleResolver_;               ///< 가져오기 경로 해석기 (없으면 모듈 파일을 읽지 않음)
     LinterConfig config_;                         ///< Linter 설정
 
     /**

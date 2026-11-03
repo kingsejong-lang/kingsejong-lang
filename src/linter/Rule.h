@@ -63,6 +63,9 @@ public:
     void setLinter(Linter* linter) { linter_ = linter; }
 
 protected:
+    /// @brief 이 규칙을 돌리는 Linter (설정 전이면 nullptr)
+    Linter* linter() const { return linter_; }
+
     /**
      * @brief 이슈 보고
      * @param message 이슈 메시지

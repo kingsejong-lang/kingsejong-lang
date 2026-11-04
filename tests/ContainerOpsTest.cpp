@@ -114,6 +114,18 @@ TEST(ContainerOpsTest, ShouldSortWithComparator)
     EXPECT_EQ(tryExpression(setup, "a를 정렬한다"), "[1, 2, 3]");
 }
 
+TEST(ContainerOpsTest, ShouldMatchDefaultOrderOnLargerArrays)
+{
+    // 길이가 2의 거듭제곱이 아닌 배열(병합 정렬의 끝 조각)도 기본 정렬과 같은 결과를 낸다
+    std::string source =
+        "a = []\n"
+        "i가 0부터 37 미만 {\n"
+        "    a = a + [(i * 17) % 37]\n"
+        "}\n"
+        "기록 = (a를 정렬한다(함수(x, y) { 반환 x - y })) == (a를 정렬한다)\n";
+    EXPECT_EQ(runBoth(source), "참");
+}
+
 TEST(ContainerOpsTest, ShouldKeepOrderOfEqualElements)
 {
     const std::string setup = "사람들 = [[\"철수\", 30], [\"영희\", 25], [\"민수\", 30], [\"지수\", 25]]";
@@ -150,15 +162,20 @@ TEST(ContainerOpsTest, ShouldPropagateComparatorErrors)
 
 TEST(ContainerOpsTest, ShouldNotLoseElementsWithInconsistentComparator)
 {
-    // 늘 -1 을 돌려주는 비교 함수: 순서는 정해지지 않지만 요소를 잃거나 배열 밖을 읽지 않는다
+    // 늘 -1 을 돌려주는 비교 함수: 순서는 정해지지 않지만 요소를 잃거나 배열 밖을 읽지 않는다.
+    // (std::sort 계열에 넘기면 MSVC 디버그 STL 이 invalid comparator 로 프로세스를 끝냈다)
     std::string source =
         "a = []\n"
         "i가 0부터 100 미만 {\n"
         "    a = a + [i]\n"
         "}\n"
         "b = a를 정렬한다(함수(x, y) { 반환 -1 })\n"
-        "기록 = 길이(b)\n";
-    EXPECT_EQ(runBoth(source), "100");
+        "합 = 0\n"
+        "i가 0부터 길이(b) 미만 {\n"
+        "    합 = 합 + b[i]\n"
+        "}\n"
+        "기록 = [길이(b), 합]\n";
+    EXPECT_EQ(runBoth(source), "[100, 4950]");  // 요소가 그대로 다 있다
 }
 
 TEST(ContainerOpsTest, ShouldPassSemanticAnalysis)

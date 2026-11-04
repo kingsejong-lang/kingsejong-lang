@@ -2545,9 +2545,29 @@ Value Evaluator::applyJosaMethod(const Value& object, lexer::JosaRecognizer::Jos
                     "'정렬한다' 의 비교 함수는 수를 돌려줘야 합니다: " + order.toString() + "\n" +
                     "해결 방법: a 가 앞이면 음수, 뒤면 양수, 같으면 0 을 반환하세요. 예: 함수(a, b) { 반환 a - b }");
             };
-            // 안정 정렬: 비교 결과가 0 인 요소는 원래 순서를 지킨다. 일관되지 않은 비교 함수에도 배열 밖을 읽지 않는다
+            // 직접 짠 병합 정렬(안정 정렬): 비교 결과가 0 인 요소는 원래 순서를 지킨다.
+            // std::sort·stable_sort 는 비교 함수가 엄격 약순서라고 가정해서, 일관되지 않은 사용자 비교 함수를
+            // 받으면 정의되지 않은 동작이고 MSVC 디버그 STL 은 프로세스를 끝낸다. 병합 정렬은 비교 결과와
+            // 상관없이 각 요소를 정확히 한 번씩 옮기므로 요소를 잃거나 배열 밖을 읽지 않는다.
             std::vector<Value> sorted = arr;
-            std::stable_sort(sorted.begin(), sorted.end(), comesFirst);
+            std::vector<Value> buffer(sorted.size());
+            for (size_t width = 1; width < sorted.size(); width *= 2)
+            {
+                for (size_t lo = 0; lo < sorted.size(); lo += 2 * width)
+                {
+                    size_t mid = std::min(lo + width, sorted.size());
+                    size_t hi = std::min(lo + 2 * width, sorted.size());
+                    size_t i = lo, j = mid, k = lo;
+                    while (i < mid && j < hi)
+                    {
+                        // 오른쪽이 앞서야 할 때만 오른쪽을 먼저 둔다 (같으면 왼쪽: 안정성)
+                        buffer[k++] = comesFirst(sorted[j], sorted[i]) ? sorted[j++] : sorted[i++];
+                    }
+                    while (i < mid) buffer[k++] = sorted[i++];
+                    while (j < hi) buffer[k++] = sorted[j++];
+                }
+                sorted.swap(buffer);
+            }
             return Value::createArray(sorted);
         }
 

@@ -362,11 +362,11 @@ static Value builtin_포함(const std::vector<Value>& args)
  * @brief 길이(배열/문자열) - 길이 반환
  *
  * 문자열의 경우 UTF-8 문자 수를 반환합니다.
- * 배열의 경우 요소 개수를 반환합니다.
+ * 배열의 경우 요소 개수를, 딕셔너리의 경우 키 개수를 반환합니다.
  *
  * @param args 길이를 확인할 값 (1개)
  * @return 길이 (정수)
- * @throws std::runtime_error 인자 개수가 1개가 아니거나, 문자열/배열이 아닌 경우
+ * @throws std::runtime_error 인자 개수가 1개가 아니거나, 문자열/배열/딕셔너리가 아닌 경우
  */
 static Value builtin_길이(const std::vector<Value>& args)
 {
@@ -391,7 +391,13 @@ static Value builtin_길이(const std::vector<Value>& args)
         return Value::createInteger(static_cast<int64_t>(arg.asArray().size()));
     }
 
-    throw std::runtime_error("길이() 함수는 문자열 또는 배열 타입이어야 합니다");
+    // 딕셔너리의 경우: 키 개수 반환
+    if (arg.isDictionary())
+    {
+        return Value::createInteger(static_cast<int64_t>(arg.asDictionary().size()));
+    }
+
+    throw std::runtime_error("길이() 함수는 문자열, 배열 또는 딕셔너리 타입이어야 합니다");
 }
 
 // ============================================================================

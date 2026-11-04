@@ -618,6 +618,13 @@ void ErrorReporter::registerDefaultHints()
 
     registerHint(
         ErrorType::PARSER_ERROR,
+        "이름으로 쓸 수 없습니다",
+        "조사(을/를, 이/가, 은/는, 의, 로/으로, 에서, 에)와 예약어는 이름이 될 수 없습니다.\n"
+        "조사를 포함한 더 긴 이름(가격, 이름)은 쓸 수 있습니다."
+    );
+
+    registerHint(
+        ErrorType::PARSER_ERROR,
         "표현식을 파싱할 수 없습니다",
         "올바른 표현식 형식이 아닙니다.\n"
         "괄호, 연산자, 변수명 등을 확인하세요."

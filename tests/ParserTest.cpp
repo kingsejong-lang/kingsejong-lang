@@ -1715,3 +1715,32 @@ TEST_F(ParserTest, ShouldBindChainedJosaBeforeBinaryOperator)
     ASSERT_NE(inner, nullptr);
     EXPECT_EQ(dynamic_cast<const Identifier*>(inner->method())->name(), "정렬한다");
 }
+
+/**
+ * @brief 조사·예약어를 이름으로 쓰면 무엇이 잘못인지 알려 준다. 전에는 "'JOSA_GA'으(로) 시작하는 표현식을
+ *        파싱할 수 없습니다" 였고, `가 = 1` 은 오류 없이 받아들여 다시 읽을 수 없는 변수를 만들었다
+ */
+TEST_F(ParserTest, ShouldRejectJosaAndKeywordAsName)
+{
+    const std::vector<std::pair<std::string, std::string>> cases = {
+        {"가 = 1", "'가' 은(는) 조사라서"},
+        {"x = 가 + 1", "'가' 은(는) 조사라서"},
+        {"출력(을)", "'을' 은(는) 조사라서"},
+        {"함수 f(x, 은) { 반환 x }", "'은' 은(는) 조사라서"},
+        {"함수 f(만약) { 반환 1 }", "'만약' 은(는) 예약어라서"},
+    };
+    for (const auto& [source, expected] : cases)
+    {
+        Lexer lexer(source);
+        Parser parser(lexer);
+        parser.parseProgram();
+        ASSERT_FALSE(parser.errors().empty()) << source;
+        EXPECT_NE(parser.errors()[0].find(expected), std::string::npos) << source << " -> " << parser.errors()[0];
+    }
+
+    // 조사로 시작하거나 조사를 담은 더 긴 이름은 그대로 쓸 수 있다
+    Lexer lexer("가격 = 1\n을지로 = 가격 + 1\n함수 f(은행) { 반환 은행 }");
+    Parser parser(lexer);
+    parser.parseProgram();
+    checkParserErrors(parser);
+}

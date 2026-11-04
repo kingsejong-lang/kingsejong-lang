@@ -64,6 +64,7 @@ private:
     void compileWhileStatement(ast::WhileStatement* stmt);
     void compileRepeatStatement(ast::RepeatStatement* stmt);
     void compileRangeForStatement(ast::RangeForStatement* stmt);
+    void compileForEachStatement(ast::ForEachStatement* stmt);
     void compileReturnStatement(ast::ReturnStatement* stmt);
     void compileBlock(const ast::BlockStatement* block);
     void compileImportStatement(ast::ImportStatement* stmt);

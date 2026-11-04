@@ -241,6 +241,9 @@ Value Evaluator::evalNode(ast::Node* node)
         case ast::NodeType::RANGE_FOR_STATEMENT:
             return evalRangeForStatement(static_cast<ast::RangeForStatement*>(node));
 
+        case ast::NodeType::FOR_EACH_STATEMENT:
+            return evalForEachStatement(static_cast<ast::ForEachStatement*>(node));
+
         case ast::NodeType::BLOCK_STATEMENT:
             return evalBlockStatement(static_cast<ast::BlockStatement*>(node));
 
@@ -1452,11 +1455,17 @@ Value Evaluator::evalRepeatStatement(ast::RepeatStatement* stmt)
 
 bool Evaluator::runLoopIteration(ast::BlockStatement* body, const std::string* varName, int64_t value, Value& result)
 {
+    return runLoopIteration(body, varName, varName ? Value::createInteger(value) : Value::createNull(), result);
+}
+
+bool Evaluator::runLoopIteration(ast::BlockStatement* body, const std::string* varName, const Value& value,
+                                 Value& result)
+{
     auto previousEnv = env_;
     auto iterationEnv = std::make_shared<Environment>(previousEnv);
     if (varName)
     {
-        iterationEnv->set(*varName, Value::createInteger(value));
+        iterationEnv->set(*varName, value);
     }
     env_ = iterationEnv;
 
@@ -1568,6 +1577,66 @@ Value Evaluator::evalRangeForStatement(ast::RangeForStatement* stmt)
         }
     }
 
+    return result;
+}
+
+std::vector<Value> Evaluator::forEachItems(const Value& collection)
+{
+    // 반복 중에 배열을 바꿔도 시작할 때의 요소를 돈다 (바뀌는 배열을 따라가면 끝나지 않거나 요소를 건너뛴다)
+    if (collection.isArray())
+    {
+        return collection.asArray();
+    }
+    std::vector<Value> items;
+    if (collection.isString())
+    {
+        const std::string& str = collection.asString();
+        for (size_t i = 0; i < str.size();)
+        {
+            size_t len = std::min(common::getUTF8CharLength(static_cast<unsigned char>(str[i])), str.size() - i);
+            items.push_back(Value::createString(str.substr(i, len)));
+            i += len;
+        }
+        return items;
+    }
+    if (collection.isDictionary())
+    {
+        // unordered_map 순서는 플랫폼마다 다르므로 딕셔너리_키들 처럼 키 순으로 돈다
+        for (const auto& entry : collection.asDictionary())
+        {
+            items.push_back(Value::createString(entry.first));
+        }
+        std::sort(items.begin(), items.end(), [](const Value& a, const Value& b) {
+            return a.asString() < b.asString();
+        });
+        return items;
+    }
+    throw error::TypeError(
+        "'각각에 대해' 는 배열, 문자열, 딕셔너리만 돌 수 있습니다: " + collection.toString() + "\n" +
+        "해결 방법: 정수 범위를 돌려면 'i가 0부터 n 미만 { }' 을 쓰세요.");
+}
+
+Value Evaluator::evalForEachStatement(ast::ForEachStatement* stmt)
+{
+    std::vector<Value> items = forEachItems(eval(const_cast<ast::Expression*>(stmt->collection())));
+
+    // Hot Path Tracking: 루프 ID 생성
+    size_t loopId = reinterpret_cast<size_t>(stmt);
+
+    Value result = Value::createNull();
+    for (const Value& item : items)
+    {
+        if (hotPathDetector_)
+        {
+            hotPathDetector_->trackLoopBackedge(loopId);
+        }
+        // 반복 변수는 회차 환경에 두고 본문을 돈다
+        LoopDepthGuard depth(loopDepth_);
+        if (!runLoopIteration(const_cast<ast::BlockStatement*>(stmt->body()), &stmt->varName(), item, result))
+        {
+            break;
+        }
+    }
     return result;
 }
 

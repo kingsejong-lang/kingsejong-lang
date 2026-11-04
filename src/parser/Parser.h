@@ -192,6 +192,14 @@ private:
     std::unique_ptr<WhileStatement> parseWhileStatement();
     std::unique_ptr<RepeatStatement> parseRepeatStatement();
     std::unique_ptr<RangeForStatement> parseRangeForStatement();
+
+    /**
+     * @brief 요소 반복문의 나머지를 파싱: "<컬렉션> 각각에 대해 변수로 [반복한다] { ... }"
+     * @param collection 이미 파싱한 컬렉션 식 (현재 토큰은 그 마지막 토큰, 다음 토큰은 각각)
+     * @param startLoc 문장 시작 위치
+     */
+    std::unique_ptr<Statement> parseForEachRest(std::unique_ptr<Expression> collection,
+                                                const ast::SourceLocation& startLoc);
     /// 범위 반복문 끝의 선택 키워드("반복한다", "반복", "반복 하라")를 읽어 원래 표기를 돌려준다. 없으면 빈 문자열.
     std::string parseOptionalLoopWord();
     /// 지금 부르는 infix 함수를 감싼 parseExpression 의 우선순위 (조사식이 읽는다)

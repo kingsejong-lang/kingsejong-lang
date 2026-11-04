@@ -93,6 +93,13 @@ void walkChildren(Node* node, Visitor& visitor)
             walkOne(s->body(), visitor);
             break;
         }
+        case NodeType::FOR_EACH_STATEMENT:
+        {
+            auto* s = static_cast<ForEachStatement*>(node);
+            walkOne(s->collection(), visitor);
+            walkOne(s->body(), visitor);
+            break;
+        }
         case NodeType::BLOCK_STATEMENT:
             walkEach(static_cast<BlockStatement*>(node)->statements(), visitor);
             break;

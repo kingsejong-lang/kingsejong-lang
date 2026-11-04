@@ -106,6 +106,7 @@ protected:
     virtual void onWhileStatement(ast::WhileStatement* /* stmt */) {}
     virtual void onBlockStatement(ast::BlockStatement* /* stmt */) {}
     virtual void onRangeForStatement(ast::RangeForStatement* /* stmt */) {}
+    virtual void onForEachStatement(ast::ForEachStatement* /* stmt */) {}
     virtual void onRepeatStatement(ast::RepeatStatement* /* stmt */) {}
     virtual void onImportStatement(ast::ImportStatement* /* stmt */) {}
 

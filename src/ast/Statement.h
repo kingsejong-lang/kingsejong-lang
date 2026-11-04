@@ -550,6 +550,55 @@ public:
 };
 
 /**
+ * @class ForEachStatement
+ * @brief 요소 반복문. 배열은 요소, 문자열은 글자, 딕셔너리는 키(정렬 순)를 차례로 돈다
+ *
+ * @example
+ * 이름들 각각에 대해 이름으로 {
+ *     출력(이름);
+ * }
+ */
+class ForEachStatement : public Statement
+{
+private:
+    std::string varName_;                       ///< 반복 변수 이름 (조사 로/으로 를 뗀 이름)
+    std::unique_ptr<Expression> collection_;    ///< 돌 대상 (배열·문자열·딕셔너리)
+    std::unique_ptr<BlockStatement> body_;      ///< 반복 본문
+    std::string josa_;                          ///< 원래 쓴 조사 (로/으로)
+    std::string loopWord_;                      ///< 원래 쓴 반복 키워드 (없음/반복/반복한다/반복 하라)
+
+public:
+    ForEachStatement(
+        const std::string& varName,
+        std::unique_ptr<Expression> collection,
+        std::unique_ptr<BlockStatement> body,
+        const std::string& josa = "로"
+    )
+        : varName_(varName)
+        , collection_(std::move(collection))
+        , body_(std::move(body))
+        , josa_(josa)
+    {}
+
+    static constexpr NodeType kType = NodeType::FOR_EACH_STATEMENT;
+    NodeType type() const override { return kType; }
+
+    std::string toString() const override
+    {
+        return collection_->toString() + " 각각에 대해 " + varName_ + josa_ + " " + body_->toString();
+    }
+
+    const std::string& varName() const { return varName_; }
+    const Expression* collection() const { return collection_.get(); }
+    const BlockStatement* body() const { return body_.get(); }
+
+    /// 원래 쓴 조사와 반복 키워드 (포매터가 원래 형태를 지키는 데 쓴다)
+    const std::string& josa() const { return josa_; }
+    const std::string& loopWord() const { return loopWord_; }
+    void setLoopWord(const std::string& word) { loopWord_ = word; }
+};
+
+/**
  * @class ImportStatement
  * @brief 모듈 가져오기 문장
  *

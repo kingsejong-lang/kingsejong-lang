@@ -56,6 +56,8 @@ enum class OpCode : uint8_t {
     REPEAT_NEXT,     ///< [u16 탈출] 맨 위 남은 횟수가 0 보다 크면 1 빼고 계속, 아니면 pop 후 점프
     RANGE_FOR_INIT,  ///< pop 끝, pop 시작 → 정수 검사 → 끝, 시작(=i) 푸시
     RANGE_FOR_NEXT,  ///< [u16 변수] [u16 탈출] [u8 끝포함] i 가 범위 안이면 변수에 넣고 i+1, 아니면 둘 pop 후 점프
+    FOR_EACH_INIT,   ///< pop 컬렉션 → 돌 요소 배열(Evaluator::forEachItems), 0 푸시
+    FOR_EACH_NEXT,   ///< [u16 변수] [u16 탈출] 위치가 요소 수보다 작으면 변수에 요소를 넣고 위치+1, 아니면 둘 pop 후 점프
 
     // ---- 함수 ----
     MAKE_FUNCTION,   ///< [u16 프로토] 현재 환경을 클로저로 잡은 Function 푸시

@@ -48,6 +48,8 @@ std::string opCodeToString(OpCode op) {
         case OpCode::REPEAT_NEXT:     return "REPEAT_NEXT";
         case OpCode::RANGE_FOR_INIT:  return "RANGE_FOR_INIT";
         case OpCode::RANGE_FOR_NEXT:  return "RANGE_FOR_NEXT";
+        case OpCode::FOR_EACH_INIT:   return "FOR_EACH_INIT";
+        case OpCode::FOR_EACH_NEXT:   return "FOR_EACH_NEXT";
         case OpCode::MAKE_FUNCTION:   return "MAKE_FUNCTION";
         case OpCode::CALL:            return "CALL";
         case OpCode::CALL_METHOD:     return "CALL_METHOD";
@@ -120,6 +122,7 @@ const std::vector<uint8_t>& opCodeOperandWidths(OpCode op) {
             return u16u8;
         case OpCode::IMPORT:
         case OpCode::TRY_PUSH:
+        case OpCode::FOR_EACH_NEXT:
             return u16u16;
         case OpCode::RANGE_FOR_NEXT:
             return u16u16u8;
@@ -149,6 +152,7 @@ bool isJumpOpCode(OpCode op) {
            op == OpCode::LOOP ||
            op == OpCode::REPEAT_NEXT ||
            op == OpCode::RANGE_FOR_NEXT ||
+           op == OpCode::FOR_EACH_NEXT ||
            op == OpCode::TRY_PUSH;
 }
 

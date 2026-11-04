@@ -119,6 +119,7 @@ private:
     void formatWhileStatement(const ast::WhileStatement* stmt);
     void formatRangeForStatement(const ast::RangeForStatement* stmt);
     void formatRepeatStatement(const ast::RepeatStatement* stmt);
+    void formatForEachStatement(const ast::ForEachStatement* stmt);
     void formatBlockStatement(const ast::BlockStatement* stmt);
     void formatImportStatement(const ast::ImportStatement* stmt);
     void formatTryStatement(const ast::TryStatement* stmt);

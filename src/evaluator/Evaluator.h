@@ -218,6 +218,8 @@ public:
     static Value unaryOperation(const std::string& op, const Value& operand);
     /// 만약·반복·경우 가드의 조건 값을 논리값으로 꺼낸다. 참/거짓이 아니면 TypeError (진리값으로 바꾸지 않는다)
     static bool conditionValue(const Value& condition);
+    /// 요소 반복이 돌 값들: 배열은 시작할 때의 요소, 문자열은 글자, 딕셔너리는 키(정렬 순). 그 밖의 값은 TypeError
+    static std::vector<Value> forEachItems(const Value& collection);
     /// 배열[정수] / 사전["키"] / 문자열[정수] 읽기. 문자열은 글자(코드 포인트) 하나를 문자열로 돌려준다
     static Value indexValue(const Value& container, const Value& index);
     /// 문자열[정수]: 글자 단위, 음수는 뒤에서 센다. 범위를 벗어나면 IndexError
@@ -579,6 +581,13 @@ private:
     Value evalRangeForStatement(ast::RangeForStatement* stmt);
 
     /**
+     * @brief 요소 반복 문장 실행 (컬렉션 각각에 대해 변수로 { })
+     * @param stmt 요소 반복 문장 노드
+     * @return 마지막 반복의 평가 결과
+     */
+    Value evalForEachStatement(ast::ForEachStatement* stmt);
+
+    /**
      * @brief 반복문 본문을 한 회차 돈다. 회차마다 새 환경을 만들어 반복 변수와 본문에서 처음 만든 변수를 그 안에 둔다
      *
      * 그래서 본문에서 만든 클로저는 그 회차의 값을 잡는다. 바깥에 이미 있는 변수에 대입하면 바깥 변수가 바뀐다.
@@ -589,6 +598,8 @@ private:
      * @return 중단이면 false
      */
     bool runLoopIteration(ast::BlockStatement* body, const std::string* varName, int64_t value, Value& result);
+    /// 반복 변수에 정수가 아닌 값(요소 반복의 요소)을 넣는 판
+    bool runLoopIteration(ast::BlockStatement* body, const std::string* varName, const Value& value, Value& result);
 
     /**
      * @brief 블록 문장 실행

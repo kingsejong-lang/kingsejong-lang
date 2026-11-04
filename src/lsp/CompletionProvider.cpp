@@ -23,6 +23,7 @@ CompletionProvider::CompletionProvider()
         CompletionItem("반환", CompletionItemKind::Keyword, "함수 반환", "함수에서 값을 반환합니다. 예: 반환 결과"),
         CompletionItem("중단", CompletionItemKind::Keyword, "반복 중단", "가장 안쪽 반복문을 끝냅니다. 예: 만약 (찾음) { 중단 }"),
         CompletionItem("계속", CompletionItemKind::Keyword, "다음 반복", "이번 회차의 나머지를 건너뛰고 다음 회차로 갑니다. 예: 만약 (i % 2 == 0) { 계속 }"),
+        CompletionItem("각각", CompletionItemKind::Keyword, "요소 반복", "배열의 요소, 문자열의 글자, 딕셔너리의 키를 차례로 돕니다. 예: 이름들 각각에 대해 이름으로 { 출력(이름) }"),
 
         // 제어 흐름 키워드
         CompletionItem("만약", CompletionItemKind::Keyword, "조건문", "조건에 따라 분기합니다. 예: 만약 (x > 0) { ... }"),

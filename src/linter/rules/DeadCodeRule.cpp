@@ -131,6 +131,15 @@ void DeadCodeRule::checkBlockForDeadCode(BlockStatement* block)
                 ));
             }
         }
+        else if (auto forEachStmt = node_cast<ForEachStatement>(stmt.get()))
+        {
+            if (forEachStmt->body())
+            {
+                checkBlockForDeadCode(const_cast<BlockStatement*>(
+                    node_cast<BlockStatement>(forEachStmt->body())
+                ));
+            }
+        }
         else if (auto repeatStmt = node_cast<RepeatStatement>(stmt.get()))
         {
             if (repeatStmt->body())

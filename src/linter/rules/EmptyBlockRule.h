@@ -31,6 +31,7 @@ protected:
     void onIfStatement(ast::IfStatement* stmt) override;
     void onWhileStatement(ast::WhileStatement* stmt) override;
     void onRangeForStatement(ast::RangeForStatement* stmt) override;
+    void onForEachStatement(ast::ForEachStatement* stmt) override;
     void onRepeatStatement(ast::RepeatStatement* stmt) override;
     void onFunctionLiteral(ast::FunctionLiteral* expr) override;
 

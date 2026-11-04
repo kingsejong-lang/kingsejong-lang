@@ -222,6 +222,12 @@ bool SymbolCollector::enter(ast::Node& node)
             declare(r.varName(), SymbolKind::Variable, nameLocation(node, r.varName()));
             break;
         }
+        case NodeType::FOR_EACH_STATEMENT:
+        {
+            auto& f = static_cast<const ast::ForEachStatement&>(node);
+            declare(f.varName(), SymbolKind::Variable, nameLocation(node, f.varName()));
+            break;
+        }
         case NodeType::TRY_STATEMENT:
         {
             // CatchClause 는 노드가 아니라 위치가 없다. 시도문 줄에서 이름을 찾는다.

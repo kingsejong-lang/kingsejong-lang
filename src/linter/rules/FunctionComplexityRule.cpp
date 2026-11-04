@@ -77,6 +77,12 @@ void FunctionComplexityRule::onRangeForStatement(ast::RangeForStatement* /* stmt
     currentComplexity_++;
 }
 
+void FunctionComplexityRule::onForEachStatement(ast::ForEachStatement* /* stmt */)
+{
+    // For 문은 복잡도 +1
+    currentComplexity_++;
+}
+
 void FunctionComplexityRule::onRepeatStatement(ast::RepeatStatement* /* stmt */)
 {
     // Repeat 문은 복잡도 +1

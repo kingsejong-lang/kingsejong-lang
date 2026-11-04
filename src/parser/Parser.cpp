@@ -558,6 +558,12 @@ std::unique_ptr<Statement> Parser::parseStatement()
     auto startLoc = curToken_.location;  // 표현식 시작 위치 저장
     auto expr = parseExpression(Precedence::LOWEST);
 
+    // 요소 반복문: "이름들 각각에 대해 이름으로 {"
+    if (expr && peekTokenIs(TokenType::GAKGAK))
+    {
+        return parseForEachRest(std::move(expr), startLoc);
+    }
+
     // "i가 길이(경로) - 1부터 0 이상 {" 처럼 시작 식이 길어 LL(4) 로 잡지 못한 범위 반복문:
     // JosaExpression(i, 이/가, RangeExpression) 로 파싱되었으면 범위 반복문으로 다시 조립한다.
     if (auto* josa = node_cast<JosaExpression>(expr.get()))
@@ -978,6 +984,73 @@ std::string Parser::parseOptionalLoopWord()
         return word;
     }
     return "";
+}
+
+std::unique_ptr<Statement> Parser::parseForEachRest(std::unique_ptr<Expression> collection,
+                                                    const ast::SourceLocation& startLoc)
+{
+    nextToken();  // 각각
+    if (!expectPeek(TokenType::E_DAEHAE))
+    {
+        return nullptr;
+    }
+    nextToken();  // 반복 변수 (조사가 붙은 한 토큰: "이름으로", "x로")
+
+    auto usage = [this](const std::string& problem) {
+        recordError(problem + "\n예: 이름들 각각에 대해 이름으로 { 출력(이름) }", curToken_.location);
+    };
+    if (!curTokenIs(TokenType::IDENTIFIER) && !isNameToken(curToken_))
+    {
+        usage("'각각에 대해' 뒤에는 반복 변수 이름과 조사 '로' 또는 '으로' 가 와야 합니다.");
+        return nullptr;
+    }
+
+    // 렉서는 뒤에 '{' 가 오는 "이름으로" 를 한 식별자로 읽는다. 받침에 맞는 조사일 때만 떼어 낸다
+    // ("경로로" 는 경로 + 로, 조사를 빠뜨린 "경로" 는 경 + 로 가 아니므로 오류).
+    std::string word = curToken_.literal;
+    std::string varName;
+    std::string josa;
+    auto josaFits = [](const std::string& base, const std::string& particle) {
+        std::string expected = lexer::JosaRecognizer::selectOrBoth(base, lexer::JosaRecognizer::JosaType::RO_EURO);
+        return expected == particle || expected == "(으)로";
+    };
+    for (const std::string particle : {"으로", "로"})
+    {
+        if (word.size() > particle.size() &&
+            word.compare(word.size() - particle.size(), particle.size(), particle) == 0)
+        {
+            std::string base = word.substr(0, word.size() - particle.size());
+            if (josaFits(base, particle))
+            {
+                varName = base;
+                josa = particle;
+                break;
+            }
+        }
+    }
+    // 렉서가 조사를 따로 떼어 낸 경우 ("이름 으로" 처럼 띄어 쓴 경우)
+    if (varName.empty() && (peekTokenIs(TokenType::JOSA_RO) || peekTokenIs(TokenType::JOSA_EURO)))
+    {
+        varName = word;
+        nextToken();
+        josa = curToken_.literal;
+    }
+    if (varName.empty())
+    {
+        usage("반복 변수 '" + word + "' 뒤에 조사 '로' 또는 '으로' 가 필요합니다.");
+        return nullptr;
+    }
+
+    std::string loopWord = parseOptionalLoopWord();
+    if (!expectPeek(TokenType::LBRACE))
+    {
+        return nullptr;
+    }
+    auto body = parseBlockStatement();
+    auto loop = std::make_unique<ForEachStatement>(varName, std::move(collection), std::move(body), josa);
+    loop->setLoopWord(loopWord);
+    loop->setLocation(startLoc);
+    return loop;
 }
 
 std::unique_ptr<RangeForStatement> Parser::parseRangeForStatement()

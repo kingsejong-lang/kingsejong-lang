@@ -156,6 +156,44 @@ void NoShadowingRule::onRangeForStatement(RangeForStatement* stmt)
     popScope();
 }
 
+void NoShadowingRule::onForEachStatement(ForEachStatement* stmt)
+{
+    if (!stmt) return;
+
+    // 컬렉션 식 먼저 순회 (반복 변수 스코프 밖)
+    visitExpression(const_cast<Expression*>(stmt->collection()));
+
+    // 반복문 스코프 시작
+    pushScope();
+
+    // 반복 변수를 매개변수처럼 처리
+    const std::string& loopVar = stmt->varName();
+    scopeStack_.back().parameters.push_back(loopVar);
+
+    // 외부 스코프에서 동일한 이름 검사
+    auto* outerDecl = findInOuterScopes(loopVar);
+    if (outerDecl)
+    {
+        reportIssue(
+            "반복 변수 '" + loopVar + "'" + lexer::JosaRecognizer::selectOrBoth(loopVar, lexer::JosaRecognizer::JosaType::I_GA) + " 외부 스코프의 변수를 가립니다 "
+            "(외부 정의: " + std::to_string(outerDecl->location().line) + "줄)",
+            IssueSeverity::WARNING,
+            stmt->location().line,
+            stmt->location().column,
+            loopVar
+        );
+    }
+
+    // 반복문 본문 순회
+    if (stmt->body())
+    {
+        visitStatement(const_cast<BlockStatement*>(stmt->body()));
+    }
+
+    // 스코프 종료
+    popScope();
+}
+
 void NoShadowingRule::addVariable(const std::string& name, VarDeclaration* decl)
 {
     if (!scopeStack_.empty())

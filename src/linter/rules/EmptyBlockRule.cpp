@@ -97,6 +97,24 @@ void EmptyBlockRule::onRangeForStatement(RangeForStatement* stmt)
     }
 }
 
+void EmptyBlockRule::onForEachStatement(ForEachStatement* stmt)
+{
+    if (!stmt) return;
+
+    if (auto bodyBlock = node_cast<BlockStatement>(stmt->body()))
+    {
+        if (isEmpty(bodyBlock))
+        {
+            reportIssue(
+                "빈 for 블록입니다. 불필요한 코드를 제거하세요",
+                IssueSeverity::WARNING,
+                stmt->location().line,
+                stmt->location().column
+            );
+        }
+    }
+}
+
 void EmptyBlockRule::onRepeatStatement(RepeatStatement* stmt)
 {
     if (!stmt) return;

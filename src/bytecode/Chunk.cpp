@@ -232,6 +232,7 @@ size_t Chunk::disassembleInstruction(size_t offset, std::string* out) const {
             case OpCode::JOSA:
             case OpCode::CONVERT:
             case OpCode::RANGE_FOR_NEXT:
+            case OpCode::FOR_EACH_NEXT:
             case OpCode::IMPORT:
                 if (a < names_.size()) oss << " ('" << names_[a] << "')";
                 break;

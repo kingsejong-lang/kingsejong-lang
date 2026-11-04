@@ -388,6 +388,28 @@ VM::Step VM::executeInstruction() {
             break;
         }
 
+        case OpCode::FOR_EACH_INIT: {
+            Value collection = pop();
+            push(Value::createArray(Evaluator::forEachItems(collection)));
+            push(Value::createInteger(0));
+            break;
+        }
+        case OpCode::FOR_EACH_NEXT: {
+            const std::string& name = readName();
+            uint16_t exit = readShort();
+            int64_t i = peek(0).asInteger();
+            const auto& items = peek(1).asArray();
+            if (i < static_cast<int64_t>(items.size())) {
+                env_->set(name, items[static_cast<size_t>(i)]);
+                stack_.back() = Value::createInteger(i + 1);
+            } else {
+                pop();
+                pop();
+                ip_ += exit;
+            }
+            break;
+        }
+
         // ---- 함수 ----
         case OpCode::MAKE_FUNCTION: {
             const FunctionProto& proto = chunk_->getProto(readShort());

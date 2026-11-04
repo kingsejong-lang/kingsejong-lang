@@ -98,6 +98,9 @@ void Compiler::compileStatement(ast::Statement* stmt) {
         case ast::NodeType::RANGE_FOR_STATEMENT:
             compileRangeForStatement(static_cast<ast::RangeForStatement*>(stmt));
             break;
+        case ast::NodeType::FOR_EACH_STATEMENT:
+            compileForEachStatement(static_cast<ast::ForEachStatement*>(stmt));
+            break;
         case ast::NodeType::RETURN_STATEMENT:
             compileReturnStatement(static_cast<ast::ReturnStatement*>(stmt));
             break;
@@ -216,6 +219,26 @@ void Compiler::compileRangeForStatement(ast::RangeForStatement* stmt) {
     emit(OpCode::POP_SCOPE);
     emitLoop(loopStart);
     patchJump(exitOperand, 1);  // 탈출 오프셋 뒤에 끝포함 플래그 1바이트가 더 있다
+    emit(OpCode::POP_SCOPE);    // 마지막 검사에서 연 스코프 (중단은 스스로 닫고 이 뒤로 온다)
+    for (size_t jump : loopStack_.back().breakJumps) patchJump(jump);
+    loopStack_.pop_back();
+}
+
+void Compiler::compileForEachStatement(ast::ForEachStatement* stmt) {
+    // 범위 반복과 같은 모양: [요소 배열, 다음 위치] 를 스택에 두고 회차마다 새 스코프에 변수를 넣는다
+    compileExpression(const_cast<ast::Expression*>(stmt->collection()));
+    setLine(stmt);
+    emit(OpCode::FOR_EACH_INIT);
+    size_t loopStart = currentOffset();
+    emit(OpCode::PUSH_SCOPE);
+    emit(OpCode::FOR_EACH_NEXT);
+    emit16(nameIndex(stmt->varName()));
+    size_t exitOperand = currentOffset();
+    emit16(0);
+    compileLoopBody(stmt->body(), loopStart, 2);
+    emit(OpCode::POP_SCOPE);
+    emitLoop(loopStart);
+    patchJump(exitOperand);
     emit(OpCode::POP_SCOPE);    // 마지막 검사에서 연 스코프 (중단은 스스로 닫고 이 뒤로 온다)
     for (size_t jump : loopStack_.back().breakJumps) patchJump(jump);
     loopStack_.pop_back();

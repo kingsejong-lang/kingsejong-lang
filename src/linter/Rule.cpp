@@ -50,6 +50,7 @@ public:
             case ast::NodeType::WHILE_STATEMENT:        rule_.onWhileStatement(static_cast<WhileStatement*>(&node)); break;
             case ast::NodeType::BLOCK_STATEMENT:        rule_.onBlockStatement(static_cast<BlockStatement*>(&node)); break;
             case ast::NodeType::RANGE_FOR_STATEMENT:    rule_.onRangeForStatement(static_cast<RangeForStatement*>(&node)); break;
+            case ast::NodeType::FOR_EACH_STATEMENT:     rule_.onForEachStatement(static_cast<ForEachStatement*>(&node)); break;
             case ast::NodeType::REPEAT_STATEMENT:       rule_.onRepeatStatement(static_cast<RepeatStatement*>(&node)); break;
             case ast::NodeType::IMPORT_STATEMENT:       rule_.onImportStatement(static_cast<ImportStatement*>(&node)); break;
             case ast::NodeType::IDENTIFIER:             rule_.onIdentifier(static_cast<Identifier*>(&node)); break;

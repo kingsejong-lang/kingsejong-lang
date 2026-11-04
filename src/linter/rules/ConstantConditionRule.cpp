@@ -72,6 +72,7 @@ public:
             case NodeType::WHILE_STATEMENT:
             case NodeType::REPEAT_STATEMENT:
             case NodeType::RANGE_FOR_STATEMENT:
+            case NodeType::FOR_EACH_STATEMENT:
             case NodeType::FUNCTION_LITERAL:
             case NodeType::ASYNC_FUNCTION_LITERAL:
                 return false;

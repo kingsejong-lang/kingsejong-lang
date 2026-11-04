@@ -401,6 +401,9 @@ void Formatter::formatStatement(const Statement* stmt)
         case NodeType::RANGE_FOR_STATEMENT:
             formatRangeForStatement(static_cast<const RangeForStatement*>(stmt));
             break;
+        case NodeType::FOR_EACH_STATEMENT:
+            formatForEachStatement(static_cast<const ForEachStatement*>(stmt));
+            break;
         case NodeType::REPEAT_STATEMENT:
             formatRepeatStatement(static_cast<const RepeatStatement*>(stmt));
             break;
@@ -649,6 +652,21 @@ void Formatter::formatRangeForStatement(const RangeForStatement* stmt)
     write("부터 ");
     formatOperand(stmt->end(), kRange + 1, false);
     write(stmt->endWord() == "까지" ? "까지" : " " + stmt->endWord());
+    if (!stmt->loopWord().empty())
+    {
+        write(" " + stmt->loopWord());
+    }
+    write(options_.spaceBeforeBrace ? " " : "");
+    formatBlockBody(stmt->body());
+    writeLine();
+}
+
+void Formatter::formatForEachStatement(const ForEachStatement* stmt)
+{
+    // 이름들 각각에 대해 이름으로 { ... } (조사와 반복 키워드는 원래 쓴 대로)
+    writeIndent();
+    formatOperand(stmt->collection(), kAssign + 1, false);
+    write(" 각각에 대해 " + stmt->varName() + stmt->josa());
     if (!stmt->loopWord().empty())
     {
         write(" " + stmt->loopWord());
@@ -1254,6 +1272,12 @@ public:
                 auto& r = static_cast<RangeForStatement&>(node);
                 out += " " + r.varName() + (r.endInclusive() ? " ]" : " )");
                 out += " " + r.endWord() + " " + r.loopWord();
+                break;
+            }
+            case NodeType::FOR_EACH_STATEMENT:
+            {
+                auto& f = static_cast<ForEachStatement&>(node);
+                out += " " + f.varName() + " " + f.josa() + " " + f.loopWord();
                 break;
             }
             case NodeType::IMPORT_STATEMENT:

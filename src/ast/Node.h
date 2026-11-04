@@ -35,6 +35,7 @@ enum class NodeType
     FOR_STATEMENT,              ///< for 반복문
     REPEAT_STATEMENT,           ///< N번 반복 (10번 반복한다)
     RANGE_FOR_STATEMENT,        ///< 범위 반복문 (i가 1부터 10까지)
+    FOR_EACH_STATEMENT,         ///< 요소 반복문 (이름들 각각에 대해 이름으로)
     BLOCK_STATEMENT,            ///< 블록 문장 { ... }
     IMPORT_STATEMENT,           ///< 모듈 가져오기 (가져오기 "모듈명")
     TRY_STATEMENT,              ///< 예외 처리 (시도 { } 오류 (e) { })

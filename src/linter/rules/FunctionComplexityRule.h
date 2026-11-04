@@ -59,6 +59,7 @@ protected:
 
     /// @brief Range For 문 (복잡도 +1)
     void onRangeForStatement(ast::RangeForStatement* stmt) override;
+    void onForEachStatement(ast::ForEachStatement* stmt) override;
 
     /// @brief Repeat 문 (복잡도 +1)
     void onRepeatStatement(ast::RepeatStatement* stmt) override;

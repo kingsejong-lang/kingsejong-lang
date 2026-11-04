@@ -47,6 +47,7 @@ protected:
 
     /// @brief 범위 for문 처리
     void onRangeForStatement(ast::RangeForStatement* stmt) override;
+    void onForEachStatement(ast::ForEachStatement* stmt) override;
 
 private:
     /// @brief 스코프별 변수 정보

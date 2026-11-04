@@ -430,6 +430,38 @@ void SemanticAnalyzer::analyzeAndResolveStatement(const Statement* stmt)
             symbolTable_.exitScope();
             break;
         }
+        // 요소 반복문: 컬렉션은 바깥 스코프에서, 반복 변수와 본문은 새 스코프에서 분석
+        case NodeType::FOR_EACH_STATEMENT:
+        {
+            auto forEach = static_cast<const ForEachStatement*>(stmt);
+            analyzeAndResolveExpression(forEach->collection());
+            // 문자열·딕셔너리는 글자·키(문자열)를 돌지만 배열 요소의 타입은 알 수 없다
+            Type* itemType = nullptr;
+            if (Type* collectionType = inferType(forEach->collection()))
+            {
+                const std::string& kind = collectionType->koreanName();
+                if (kind == "문자열" || kind == "딕셔너리")
+                {
+                    itemType = Type::getBuiltin("문자열");
+                }
+                else if (kind != "배열")
+                {
+                    addError("'각각에 대해' 는 배열, 문자열, 딕셔너리만 돌 수 있습니다 (현재: " + kind + ")",
+                             stmt->location().line, stmt->location().column);
+                }
+            }
+
+            symbolTable_.enterScope();
+            symbolTable_.define(forEach->varName(), SymbolKind::VARIABLE, itemType);
+            if (forEach->body())
+            {
+                ++loopDepth_;
+                analyzeAndResolveStatement(forEach->body());
+                --loopDepth_;
+            }
+            symbolTable_.exitScope();
+            break;
+        }
         // repeat문: body를 새로운 스코프에서 분석
         case NodeType::REPEAT_STATEMENT:
         {

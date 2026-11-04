@@ -6,6 +6,8 @@
  *   출력·문자열()·문자열 보간이 같은 규칙을 쓴다 (전에는 %g 6자리와 소수 6자리 고정이 섞여 있었다).
  * - 정수()·실수() 는 앞뒤 공백만 허용하고 남는 글자가 있으면 오류다 (전에는 "12abc" 가 12 였다).
  * - 실수 나눗셈은 정확히 0 일 때만 오류다 (전에는 |나누는 수| < 1e-9 이면 오류). 실수 % 는 fmod 다.
+ * - 실수 == 는 정확히 비교한다 (전에는 차가 1e-9 미만이면 같았고, VM 의 리터럴 상수 접기만 정확히 비교했다).
+ *   오차를 허용하는 확인은 assert_근사 로 한다.
  */
 
 #include <gtest/gtest.h>
@@ -155,4 +157,35 @@ TEST(NumericFormatTest, ShouldComputeFloatModuloLikeFmod)
 TEST(NumericFormatTest, ShouldParseSubnormalLiterals)
 {
     EXPECT_EQ(runBoth("기록 = [5e-324 > 0, 1e-400 == 0]\n"), "[참, 참]");
+}
+
+TEST(NumericFormatTest, ShouldCompareFloatsExactly)
+{
+    // 변수로 비교(실행 시점)와 리터럴끼리 비교(VM 상수 접기)가 같은 규칙이다
+    EXPECT_EQ(runBoth("a = 0.1 + 0.2\n기록 = [a == 0.3, a != 0.3, 0.1 + 0.2 == 0.3]\n"), "[거짓, 참, 거짓]");
+    EXPECT_EQ(runBoth("a = 1e-300\nb = 2e-300\n기록 = [a == b, 1e-300 == 2e-300, a < b]\n"), "[거짓, 거짓, 참]");
+    EXPECT_EQ(runBoth("a = 1.0\nb = 1.0000000000000002\n기록 = [a == b, a == 1.0]\n"), "[거짓, 참]");
+    // 무한대는 자기 자신과 같고, NaN 은 자기 자신과도 다르다
+    EXPECT_EQ(runBoth("i = 1e308 * 10.0\n기록 = [i == i, i == -i, i != i]\n"), "[참, 거짓, 거짓]");
+    EXPECT_EQ(runBoth("i = 1e308 * 10.0\nn = i - i\n기록 = [n == n, n != n]\n"), "[거짓, 참]");
+    // 정수와 실수는 수의 크기로 비교한다
+    EXPECT_EQ(runBoth("기록 = [1 == 1.0, 9007199254740993 == 9007199254740992.0, 2 == 2.0000000001]\n"), "[참, 참, 거짓]");
+    EXPECT_EQ(runBoth("기록 = [[0.5, 1.5] == [0.5, 1.5], {\"a\": 0.1 + 0.2} == {\"a\": 0.3}]\n"), "[참, 거짓]");
+}
+
+TEST(NumericFormatTest, ShouldAssertFloatsExactlyOrApproximately)
+{
+    EXPECT_EQ(tryExpression("", "assert_같음(0.1 + 0.2, 0.3)"), "오류");
+    EXPECT_EQ(tryExpression("", "assert_같음(1e-300, 2e-300)"), "오류");
+    EXPECT_EQ(tryExpression("i = 1e308 * 10.0", "assert_같음(i, i)"), "없음");
+    EXPECT_EQ(tryExpression("", "assert_근사(0.1 + 0.2, 0.3)"), "없음");
+    EXPECT_EQ(tryExpression("", "assert_근사(1e20 + 1e5, 1e20)"), "없음");
+    EXPECT_EQ(tryExpression("", "assert_근사(1.001, 1.0)"), "오류");
+    EXPECT_EQ(tryExpression("", "assert_근사(1.001, 1.0, 0.01)"), "없음");
+    EXPECT_EQ(tryExpression("", "assert_근사(3, 3.0)"), "없음");
+    EXPECT_EQ(tryExpression("i = 1e308 * 10.0", "assert_근사(i, i)"), "없음");
+    EXPECT_EQ(tryExpression("i = 1e308 * 10.0", "assert_근사(i, 1e308)"), "오류");
+    EXPECT_EQ(tryExpression("i = 1e308 * 10.0", "assert_근사(i - i, i - i)"), "오류");
+    EXPECT_EQ(tryExpression("", "assert_근사(\"1\", 1)"), "오류");
+    EXPECT_EQ(tryExpression("", "assert_근사(1.0, 1.0, -1)"), "오류");
 }

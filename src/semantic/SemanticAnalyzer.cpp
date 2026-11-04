@@ -180,6 +180,7 @@ void SemanticAnalyzer::initBuiltinFunctions()
     builtins_.insert("assert");
     builtins_.insert("assert_같음");
     builtins_.insert("assert_다름");
+    builtins_.insert("assert_근사");
     builtins_.insert("assert_참");
     builtins_.insert("assert_거짓");
 }

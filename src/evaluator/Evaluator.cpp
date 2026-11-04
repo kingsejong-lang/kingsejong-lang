@@ -2410,7 +2410,7 @@ Value Evaluator::applyJosaMethod(const Value& object, lexer::JosaRecognizer::Jos
         return invokeFunction(callee, callArgs, name);
     }
 
-    // 4. 내장 배열 메서드 (걸러낸다, 변환한다, 축약한다, 찾다, 정렬한다, 역순으로_나열한다)
+    // 4. 내장 배열 메서드 (걸러낸다, 변환한다, 축약한다, 찾다, 정렬한다[(비교 함수)], 역순으로_나열한다)
     if (!object.isArray())
     {
         throw error::TypeError(
@@ -2453,7 +2453,7 @@ Value Evaluator::applyJosaMethod(const Value& object, lexer::JosaRecognizer::Jos
                 throw error::ArgumentError(
                     std::string("'") + method + "' 메서드의 " + example + "는 정확히 " + std::to_string(paramCount) +
                     "개의 매개변수가 필요합니다.\n" +
-                    "해결 방법: 함수(x) { ... } 형태로 작성하세요."
+                    "해결 방법: " + (paramCount == 2 ? "함수(a, b)" : "함수(x)") + " { ... } 형태로 작성하세요."
                 );
             }
         };
@@ -2532,9 +2532,28 @@ Value Evaluator::applyJosaMethod(const Value& object, lexer::JosaRecognizer::Jos
             return Value::createNull();
         }
 
+        // 정렬한다(비교 함수) (qsort): 비교 함수가 음수를 돌려주면 a 를 b 앞에 둔다
+        if (name == "정렬한다" || name == "정렬하고")
+        {
+            requireCallback("정렬한다", "비교 함수", 2);
+            const Value& comparator = args[0];
+            auto comesFirst = [&comparator](const Value& a, const Value& b) {
+                Value order = runCallback(comparator, {a, b});
+                if (order.isInteger()) return order.asInteger() < 0;
+                if (order.isFloat()) return order.asFloat() < 0.0;
+                throw error::TypeError(
+                    "'정렬한다' 의 비교 함수는 수를 돌려줘야 합니다: " + order.toString() + "\n" +
+                    "해결 방법: a 가 앞이면 음수, 뒤면 양수, 같으면 0 을 반환하세요. 예: 함수(a, b) { 반환 a - b }");
+            };
+            // 안정 정렬: 비교 결과가 0 인 요소는 원래 순서를 지킨다. 일관되지 않은 비교 함수에도 배열 밖을 읽지 않는다
+            std::vector<Value> sorted = arr;
+            std::stable_sort(sorted.begin(), sorted.end(), comesFirst);
+            return Value::createArray(sorted);
+        }
+
         throw error::NameError(
             "알 수 없는 배열 메서드 '" + name + "'입니다.\n" +
-            "해결 방법: 지원되는 메서드는 '걸러낸다', '변환한다', '축약한다', '찾다' 등입니다."
+            "해결 방법: 지원되는 메서드는 '걸러낸다', '변환한다', '축약한다', '찾다', '정렬한다' 등입니다."
         );
     }
 

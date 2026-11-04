@@ -49,6 +49,8 @@ void SemanticAnalyzer::initBuiltinFunctions()
     builtins_.insert("바꾸기");
     builtins_.insert("대문자");
     builtins_.insert("소문자");
+    builtins_.insert("문자코드");
+    builtins_.insert("코드문자");
 
     // 딕셔너리 함수 (Phase 7.2)
     builtins_.insert("딕셔너리_키들");
@@ -1289,9 +1291,13 @@ Type* SemanticAnalyzer::inferType(const Expression* expr)
                 {
                     return Type::getBuiltin("문자열");
                 }
-                else if (funcName == "타입")
+                else if (funcName == "타입" || funcName == "코드문자")
                 {
                     return Type::getBuiltin("문자열");
+                }
+                else if (funcName == "문자코드")
+                {
+                    return Type::getBuiltin("정수");
                 }
                 // 그 외 builtin 함수나 사용자 정의 함수는 반환 타입 알 수 없음
             }

@@ -172,6 +172,89 @@ inline std::string extractUTF8Char(const std::string& str, size_t charIndex)
 }
 
 /**
+ * @brief 글자 하나로 된 UTF-8 문자열의 코드 포인트를 구한다
+ * @param str 검사할 문자열
+ * @param[out] codePoint 성공하면 코드 포인트
+ * @return str 이 올바른 UTF-8 글자 정확히 하나면 true
+ *
+ * 연속 바이트가 모자라거나, 더 짧게 쓸 수 있는 인코딩(overlong)이거나, 서로게이트(U+D800~U+DFFF)
+ * 또는 U+10FFFF 를 넘는 값이면 false 다.
+ *
+ * @code
+ * char32_t cp;
+ * decodeSingleUTF8Char("가", cp);  // true, cp == 0xAC00
+ * decodeSingleUTF8Char("ab", cp);  // false (두 글자)
+ * @endcode
+ */
+inline bool decodeSingleUTF8Char(const std::string& str, char32_t& codePoint)
+{
+    if (str.empty())
+    {
+        return false;
+    }
+    auto first = static_cast<unsigned char>(str[0]);
+    size_t len = getUTF8CharLength(first);
+    if (len != str.size() || (len == 1 && (first & UTF8_1BYTE_MASK) != 0))
+    {
+        return false;  // 길이가 맞지 않거나, 연속 바이트처럼 ASCII 가 아닌 한 바이트다
+    }
+    char32_t cp = len == 1 ? first : static_cast<char32_t>(first & (0x7F >> len));
+    for (size_t k = 1; k < len; ++k)
+    {
+        auto byte = static_cast<unsigned char>(str[k]);
+        if (!isUTF8ContinuationByte(byte))
+        {
+            return false;
+        }
+        cp = (cp << 6) | (byte & 0x3F);
+    }
+    static constexpr char32_t kMinForLength[] = {0, 0, 0x80, 0x800, 0x10000};
+    if (cp < kMinForLength[len] || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF))
+    {
+        return false;
+    }
+    codePoint = cp;
+    return true;
+}
+
+/**
+ * @brief 코드 포인트를 UTF-8 로 인코딩한다
+ * @param codePoint 0 ~ U+10FFFF, 서로게이트(U+D800~U+DFFF) 제외. 범위 검사는 호출하는 쪽이 한다
+ * @return UTF-8 바이트 1~4개
+ *
+ * @code
+ * encodeUTF8(0xAC00);  // "가"
+ * @endcode
+ */
+inline std::string encodeUTF8(char32_t codePoint)
+{
+    std::string out;
+    if (codePoint < 0x80)
+    {
+        out += static_cast<char>(codePoint);
+    }
+    else if (codePoint < 0x800)
+    {
+        out += static_cast<char>(0xC0 | (codePoint >> 6));
+        out += static_cast<char>(0x80 | (codePoint & 0x3F));
+    }
+    else if (codePoint < 0x10000)
+    {
+        out += static_cast<char>(0xE0 | (codePoint >> 12));
+        out += static_cast<char>(0x80 | ((codePoint >> 6) & 0x3F));
+        out += static_cast<char>(0x80 | (codePoint & 0x3F));
+    }
+    else
+    {
+        out += static_cast<char>(0xF0 | (codePoint >> 18));
+        out += static_cast<char>(0x80 | ((codePoint >> 12) & 0x3F));
+        out += static_cast<char>(0x80 | ((codePoint >> 6) & 0x3F));
+        out += static_cast<char>(0x80 | (codePoint & 0x3F));
+    }
+    return out;
+}
+
+/**
  * @brief 코드 포인트가 터미널에서 두 칸을 차지하는지 확인 (East Asian Wide/Fullwidth)
  * @param cp 유니코드 코드 포인트
  * @return 두 칸 폭이면 true

@@ -116,15 +116,10 @@ static Value floatToInteger(double value, const std::string& functionName)
 }
 
 /**
- * @brief 출력(값1, 값2, ...) - 콘솔에 출력
- *
- * 여러 인자를 공백으로 구분하여 출력하고 개행합니다.
- * 모든 타입의 값을 출력할 수 있습니다.
- *
- * @param args 출력할 값들
- * @return null
+ * @brief 출력·오류_출력 이 값을 글자로 쓰는 규칙 (공백으로 잇는다)
+ * @param out 쓸 스트림 (std::cout 또는 std::cerr)
+ * @param args 쓸 값들
  */
-/// 출력·오류_출력 이 값을 글자로 쓰는 규칙 (공백으로 잇는다)
 static void writeValues(std::ostream& out, const std::vector<Value>& args)
 {
     for (size_t i = 0; i < args.size(); ++i)
@@ -166,6 +161,15 @@ static void writeValues(std::ostream& out, const std::vector<Value>& args)
     }
 }
 
+/**
+ * @brief 출력(값1, 값2, ...) - 콘솔에 출력
+ *
+ * 여러 인자를 공백으로 구분하여 출력하고 개행합니다.
+ * 모든 타입의 값을 출력할 수 있습니다.
+ *
+ * @param args 출력할 값들
+ * @return null
+ */
 static Value builtin_출력(const std::vector<Value>& args)
 {
     writeValues(std::cout, args);

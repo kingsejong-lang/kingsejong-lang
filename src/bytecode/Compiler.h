@@ -78,6 +78,8 @@ private:
     // ---- 표현식 ----
     void compileInterpolatedString(ast::InterpolatedString* interp);
     void compileBinaryExpression(ast::BinaryExpression* expr);
+    /// &&·|| (그리고·또는): 왼쪽으로 결과가 정해지면 오른쪽을 건너뛴다. 결과는 진리값 규칙에 따른 참/거짓
+    void compileShortCircuit(ast::BinaryExpression* expr, bool isAnd);
     void compileAssignmentExpression(ast::BinaryExpression* expr);
     void compileUnaryExpression(ast::UnaryExpression* expr);
     void compileCallExpression(ast::CallExpression* expr);

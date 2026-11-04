@@ -584,8 +584,7 @@ void ErrorReporter::registerDefaultHints()
     registerHint(
         ErrorType::RUNTIME_ERROR,
         "지원되지 않는 실수 연산자",
-        "실수 연산자: +, -, *, /\n"
-        "실수는 나머지 연산(%)을 지원하지 않습니다."
+        "실수 연산자: +, -, *, /, % (% 는 C 의 fmod 와 같다)"
     );
 
     registerHint(

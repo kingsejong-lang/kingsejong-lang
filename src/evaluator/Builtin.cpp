@@ -3366,7 +3366,7 @@ static Value builtin_assert_같음(const std::vector<Value>& args)
     if (actual.isInteger() && expected.isInteger()) {
         equal = (actual.asInteger() == expected.asInteger());
     } else if (actual.isFloat() && expected.isFloat()) {
-        equal = (std::abs(actual.asFloat() - expected.asFloat()) < 1e-10);
+        equal = (actual.asFloat() == expected.asFloat());
     } else if (actual.isString() && expected.isString()) {
         equal = (actual.asString() == expected.asString());
     } else if (actual.isBoolean() && expected.isBoolean()) {
@@ -3428,6 +3428,43 @@ static Value builtin_assert_다름(const std::vector<Value>& args)
         // 그 외는 재발생
         throw;
     }
+}
+
+/**
+ * @brief assert_근사(실제, 기대[, 허용오차]) - 두 수가 허용오차 안에서 같은지 확인
+ *
+ * 실수 == 는 정확히 비교하므로, 계산 오차가 섞인 실수 결과는 이 함수로 확인한다.
+ * |실제 - 기대| <= 허용오차 * max(1, |실제|, |기대|) 이면 통과한다(작은 수는 절대 오차, 큰 수는 상대 오차).
+ * 허용오차를 빼면 1e-9. 무한대는 같은 부호의 무한대와만 같고, NaN 은 무엇과도 같지 않다.
+ */
+static Value builtin_assert_근사(const std::vector<Value>& args)
+{
+    if (args.size() != 2 && args.size() != 3) {
+        throw std::runtime_error("assert_근사(실제, 기대[, 허용오차]): 2개 또는 3개의 인자가 필요합니다");
+    }
+    auto toNumber = [](const Value& v, const char* name) {
+        if (v.isInteger()) return static_cast<double>(v.asInteger());
+        if (v.isFloat()) return v.asFloat();
+        throw std::runtime_error(std::string("assert_근사(): ") + name + " 는 수여야 합니다");
+    };
+    double actual = toNumber(args[0], "실제");
+    double expected = toNumber(args[1], "기대");
+    double tolerance = args.size() == 3 ? toNumber(args[2], "허용오차") : 1e-9;
+    if (!(tolerance >= 0.0)) {
+        throw std::runtime_error("assert_근사(): 허용오차는 0 이상이어야 합니다");
+    }
+
+    bool close = actual == expected;
+    if (!close && std::isfinite(actual) && std::isfinite(expected)) {
+        double scale = std::max({1.0, std::abs(actual), std::abs(expected)});
+        close = std::abs(actual - expected) <= tolerance * scale;
+    }
+    if (!close) {
+        throw std::runtime_error("값이 허용오차 밖입니다. 기대: " + args[1].toString() +
+                                 ", 실제: " + args[0].toString() +
+                                 ", 허용오차: " + common::formatFloat(tolerance));
+    }
+    return Value::createNull();
 }
 
 /**
@@ -4151,6 +4188,7 @@ void Builtin::registerAllBuiltins()
     registerBuiltin("assert", builtin_assert);
     registerBuiltin("assert_같음", builtin_assert_같음);
     registerBuiltin("assert_다름", builtin_assert_다름);
+    registerBuiltin("assert_근사", builtin_assert_근사);
     registerBuiltin("assert_참", builtin_assert_참);
     registerBuiltin("assert_거짓", builtin_assert_거짓);
 }

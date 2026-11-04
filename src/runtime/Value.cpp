@@ -530,7 +530,7 @@ bool valueEquals(const Value& a, const Value& b, EqualsSeen& seen)
     {
         double x = a.isInteger() ? static_cast<double>(a.asInteger()) : a.asFloat();
         double y = b.isInteger() ? static_cast<double>(b.asInteger()) : b.asFloat();
-        return std::abs(x - y) < 1e-9;
+        return x == y;
     }
 
     // 타입이 다르면 false
@@ -546,9 +546,7 @@ bool valueEquals(const Value& a, const Value& b, EqualsSeen& seen)
 
         case types::TypeKind::FLOAT:
         {
-            // 부동소수점 비교 시 epsilon 사용
-            double diff = std::abs(a.asFloat() - b.asFloat());
-            return diff < 1e-9;
+            return a.asFloat() == b.asFloat();
         }
 
         case types::TypeKind::STRING:

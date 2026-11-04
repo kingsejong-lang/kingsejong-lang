@@ -7,6 +7,9 @@
 
 #include "Parser.h"
 #include <cctype>
+#include <cerrno>
+#include <cmath>
+#include <cstdlib>
 #include "types/Type.h"
 #include "lexer/JosaRecognizer.h"
 #include <stdexcept>
@@ -1468,7 +1471,14 @@ std::unique_ptr<Expression> Parser::parseFloatLiteral()
     try
     {
         const std::string& literal = curToken_.literal;
-        double value = std::stod(literal);
+        // std::stod 는 비정규 수(5e-324 처럼 표현할 수 있는 아주 작은 값)도 out_of_range 로 거부하므로
+        // strtod 로 읽고 너무 큰 값(무한대가 되는 값)만 거부한다
+        errno = 0;
+        double value = std::strtod(literal.c_str(), nullptr);
+        if (errno == ERANGE && std::isinf(value))
+        {
+            throw std::out_of_range(literal);
+        }
         bool exponent = literal.find_first_of("eE") != std::string::npos;
         auto node = std::make_unique<FloatLiteral>(value, exponent ? literal : std::string());
         node->setLocation(curToken_.location);

@@ -10,6 +10,7 @@
 #include "../error/Error.h"
 #include "../types/Type.h"
 #include "lexer/JosaRecognizer.h"
+#include "common/FloatFormat.h"
 #include <sstream>
 #include <cmath>
 
@@ -315,11 +316,7 @@ std::string Value::toString() const
             return std::to_string(std::get<int64_t>(data_));
 
         case types::TypeKind::FLOAT:
-        {
-            std::ostringstream oss;
-            oss << std::get<double>(data_);
-            return oss.str();
-        }
+            return common::formatFloat(std::get<double>(data_));
 
         case types::TypeKind::STRING:
             return std::get<std::string>(data_);

@@ -533,6 +533,24 @@ void Compiler::compileInterpolatedString(ast::InterpolatedString* interp) {
     emit16(toU16(count, "보간 조각 수"));
 }
 
+void Compiler::compileShortCircuit(ast::BinaryExpression* expr, bool isAnd) {
+    // JUMP_IF_* 는 참/거짓만 받으므로(조건 규칙) NOT 으로 진리값 규칙의 참/거짓을 먼저 만든다.
+    //   &&: 왼쪽 NOT → 참(왼쪽이 거짓)이면 거짓으로, 아니면 오른쪽 NOT NOT
+    //   ||: 왼쪽 NOT → 거짓(왼쪽이 참)이면 참으로, 아니면 오른쪽 NOT NOT
+    compileExpression(const_cast<ast::Expression*>(expr->left()));
+    setLine(expr);
+    emit(OpCode::NOT);
+    size_t shortJump = emitJump(isAnd ? OpCode::JUMP_IF_TRUE : OpCode::JUMP_IF_FALSE);
+    compileExpression(const_cast<ast::Expression*>(expr->right()));
+    setLine(expr);
+    emit(OpCode::NOT);
+    emit(OpCode::NOT);
+    size_t endJump = emitJump(OpCode::JUMP);
+    patchJump(shortJump);
+    emit(isAnd ? OpCode::LOAD_FALSE : OpCode::LOAD_TRUE);
+    patchJump(endJump);
+}
+
 void Compiler::compileBinaryExpression(ast::BinaryExpression* expr) {
     if (expr->op() == "=") {
         compileAssignmentExpression(expr);
@@ -540,6 +558,14 @@ void Compiler::compileBinaryExpression(ast::BinaryExpression* expr) {
     }
 
     if (tryConstantFoldBinary(expr)) {
+        return;
+    }
+
+    const std::string& logicalOp = expr->op();
+    const bool isAnd = logicalOp == "&&" || logicalOp == "그리고";
+    const bool isOr = logicalOp == "||" || logicalOp == "또는";
+    if (isAnd || isOr) {
+        compileShortCircuit(expr, isAnd);
         return;
     }
 

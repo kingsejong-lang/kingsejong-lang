@@ -263,7 +263,7 @@ add_test(
 )
 set_tests_properties(cli-limits-sandbox PROPERTIES PASS_REGULAR_EXPRESSION "최대 (평가 횟수|실행 시간) 초과")
 
-# KingSejong 코드로 쓴 stdlib 모듈(char, bytes)을 평가기와 VM 으로 검사한다 (assert_* 가 실패하면 종료 코드 1)
+# KingSejong 코드로 쓴 stdlib 모듈(char, bytes, convert, text, search)을 평가기와 VM 으로 검사한다 (assert_* 가 실패하면 종료 코드 1)
 add_test(
     NAME stdlib-char-bytes
     COMMAND $<TARGET_FILE:kingsejong> tests/stdlib/char_bytes_test.ksj
@@ -272,6 +272,16 @@ add_test(
 add_test(
     NAME stdlib-char-bytes-vm
     COMMAND $<TARGET_FILE:kingsejong> --vm tests/stdlib/char_bytes_test.ksj
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+add_test(
+    NAME stdlib-libc-core
+    COMMAND $<TARGET_FILE:kingsejong> tests/stdlib/libc_core_test.ksj
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+add_test(
+    NAME stdlib-libc-core-vm
+    COMMAND $<TARGET_FILE:kingsejong> --vm tests/stdlib/libc_core_test.ksj
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 

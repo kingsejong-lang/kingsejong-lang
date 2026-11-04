@@ -10,6 +10,7 @@
 #include "security/NetworkSecurityManager.h"
 #include "common/UTF8Utils.h"
 #include "common/CheckedInt.h"
+#include "common/FloatFormat.h"
 #include <iostream>
 #include <stdexcept>
 #include <cmath>
@@ -27,6 +28,8 @@
 #include <functional>
 #include <cstdlib>
 #include <cstdio>
+#include <cerrno>
+#include <charconv>
 
 // HTTP 클라이언트 라이브러리
 // cpp-httplib 은 32비트(wasm32)를 지원하지 않는다. 브라우저 빌드에서는 HTTP_* 내장 함수를 뺀다.
@@ -115,6 +118,46 @@ static Value floatToInteger(double value, const std::string& functionName)
     return Value::createInteger(static_cast<int64_t>(value));
 }
 
+/// 앞뒤의 ASCII 공백(공백, 탭, 줄바꿈 등)을 지운다
+static std::string trimAsciiSpace(const std::string& text)
+{
+    const char* spaces = " \t\n\v\f\r";
+    size_t begin = text.find_first_not_of(spaces);
+    if (begin == std::string::npos) return "";
+    size_t end = text.find_last_not_of(spaces);
+    return text.substr(begin, end - begin + 1);
+}
+
+/// 텍스트 전체가 [+-]?숫자들 이면 true. 64비트를 넘으면 outOfRange 를 켜고 false
+static bool parseWholeInteger(const std::string& text, int64_t& value, bool& outOfRange)
+{
+    outOfRange = false;
+    size_t start = (!text.empty() && text[0] == '+') ? 1 : 0;  // from_chars 는 '+' 를 받지 않는다
+    if (start == text.size() || (start == 1 && text.size() > 1 && text[1] == '-')) return false;
+    const char* first = text.data() + start;
+    const char* last = text.data() + text.size();
+    auto result = std::from_chars(first, last, value);
+    if (result.ptr != last) return false;
+    if (result.ec == std::errc::result_out_of_range)
+    {
+        outOfRange = true;
+        return false;
+    }
+    return result.ec == std::errc();
+}
+
+/// 텍스트 전체가 10진 실수 모양(3.14, -1e-3, .5, inf, nan)이면 true. 16진수와 무한대로 넘치는 값은 false
+static bool parseWholeFloat(const std::string& text, double& value)
+{
+    if (text.empty() || text.find_first_of("xX") != std::string::npos) return false;
+    char* end = nullptr;
+    errno = 0;
+    value = std::strtod(text.c_str(), &end);
+    if (end != text.c_str() + text.size()) return false;
+    // 비정규 수로 작아지는 값(ERANGE)은 받고, 무한대가 되는 값만 거부한다
+    return !(errno == ERANGE && std::isinf(value));
+}
+
 /**
  * @brief 출력·오류_출력 이 값을 글자로 쓰는 규칙 (공백으로 잇는다)
  * @param out 쓸 스트림 (std::cout 또는 std::cerr)
@@ -136,7 +179,7 @@ static void writeValues(std::ostream& out, const std::vector<Value>& args)
         }
         else if (args[i].isFloat())
         {
-            out << args[i].asFloat();
+            out << common::formatFloat(args[i].asFloat());
         }
         else if (args[i].isBoolean())
         {
@@ -862,18 +905,25 @@ static Value builtin_정수(const std::vector<Value>& args)
         return floatToInteger(arg.asFloat(), "정수");
     }
 
-    // 문자열을 정수로 변환
+    // 문자열을 정수로 변환. 앞뒤 공백만 허용하고 남는 글자가 있으면 오류다 ("12abc" 는 12 가 아니다).
+    // 실수 모양("3.7", "1e3")은 실수로 읽어 소수점 아래를 버린다
     if (arg.isString())
     {
-        try
+        std::string text = trimAsciiSpace(arg.asString());
+        int64_t value = 0;
+        bool outOfRange = false;
+        if (parseWholeInteger(text, value, outOfRange))
         {
-            int64_t value = std::stoll(arg.asString());
             return Value::createInteger(value);
         }
-        catch (...)
+        double number = 0.0;
+        if (!outOfRange && parseWholeFloat(text, number) && std::isfinite(number))
         {
-            throw std::runtime_error("문자열을 정수로 변환할 수 없습니다: " + arg.asString());
+            return floatToInteger(number, "정수");
         }
+        throw std::runtime_error(outOfRange
+            ? "문자열을 정수로 변환할 수 없습니다 (정수 범위를 벗어남): " + arg.asString()
+            : "문자열을 정수로 변환할 수 없습니다: " + arg.asString());
     }
 
     // 불린을 정수로 변환 (참=1, 거짓=0)
@@ -913,18 +963,15 @@ static Value builtin_실수(const std::vector<Value>& args)
         return Value::createFloat(static_cast<double>(arg.asInteger()));
     }
 
-    // 문자열을 실수로 변환
+    // 문자열을 실수로 변환. 앞뒤 공백만 허용하고 남는 글자가 있으면 오류다 ("3.5kg" 는 3.5 가 아니다)
     if (arg.isString())
     {
-        try
+        double value = 0.0;
+        if (parseWholeFloat(trimAsciiSpace(arg.asString()), value))
         {
-            double value = std::stod(arg.asString());
             return Value::createFloat(value);
         }
-        catch (...)
-        {
-            throw std::runtime_error("문자열을 실수로 변환할 수 없습니다: " + arg.asString());
-        }
+        throw std::runtime_error("문자열을 실수로 변환할 수 없습니다: " + arg.asString());
     }
 
     // 불린을 실수로 변환 (참=1.0, 거짓=0.0)

@@ -14,6 +14,7 @@
 #include "lexer/JosaRecognizer.h"
 #include "common/StackGuard.h"
 #include "common/CheckedInt.h"
+#include "common/FloatFormat.h"
 #include "common/UTF8Utils.h"
 #include <sstream>
 #include <exception>
@@ -359,7 +360,7 @@ std::string Evaluator::interpolationText(const Value& value)
     }
     if (value.isFloat())
     {
-        return std::to_string(value.asFloat());
+        return common::formatFloat(value.asFloat());
     }
     if (value.isBoolean())
     {
@@ -441,6 +442,17 @@ Value Evaluator::evalBinaryExpression(ast::BinaryExpression* expr)
     }
 
     Value left = eval(const_cast<ast::Expression*>(expr->left()));
+
+    // 단축 평가: 왼쪽으로 결과가 정해지면 오른쪽을 평가하지 않는다 (i < n && 배열[i] 같은 경계 검사)
+    if (op == "&&" || op == "그리고")
+    {
+        if (!left.isTruthy()) return Value::createBoolean(false);
+    }
+    else if (op == "||" || op == "또는")
+    {
+        if (left.isTruthy()) return Value::createBoolean(true);
+    }
+
     Value right = eval(const_cast<ast::Expression*>(expr->right()));
     return binaryOperation(left, op, right);
 }
@@ -1741,11 +1753,24 @@ Value Evaluator::applyFloatOperation(double left, const std::string& op, double 
     if (op == "*") return Value::createFloat(left * right);
     if (op == "/")
     {
-        if (std::abs(right) < 1e-9)
+        // 정확히 0 일 때만 오류다. 1e-10 같은 작은 수로도 나눌 수 있다 (상수 접기도 같은 규칙)
+        if (right == 0.0)
         {
             throw std::runtime_error("0으로 나눌 수 없습니다");
         }
         return Value::createFloat(left / right);
+    }
+    if (op == "%")
+    {
+        // C 의 fmod: 결과의 부호는 나뉘는 수를 따른다 (정수 % 와 같다: -7.5 % 2 → -1.5)
+        if (right == 0.0)
+        {
+            throw error::ZeroDivisionError(
+                "0으로 나머지 연산을 할 수 없습니다.\n"
+                "해결 방법: 나머지 연산의 제수가 0이 아닌지 확인하세요."
+            );
+        }
+        return Value::createFloat(std::fmod(left, right));
     }
 
     throw error::RuntimeError("지원되지 않는 실수 연산자: " + op);

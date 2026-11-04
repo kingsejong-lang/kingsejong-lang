@@ -272,38 +272,14 @@ int runLspServer()
 }
 
 /**
- * @brief 코드 포맷팅 실행
- * @param argc 인자 개수
- * @param argv 인자 배열
- * @return 종료 코드 (0: 성공, 1: 실패)
+ * @brief 파일 하나를 포맷한다
+ * @param filename 파일 경로
+ * @param configFile 설정 파일 경로 (비어 있으면 현재 디렉터리의 .ksjfmtrc 를 찾는다)
+ * @param check 참이면 파일을 고치지 않고 포맷이 필요한지만 본다
+ * @return 0: 이미 포맷됨 또는 포맷 완료, 1: 실패, 2: (check) 포맷이 필요함
  */
-int runFormatter(int argc, char* argv[])
+int formatFile(const std::string& filename, const std::string& configFile, bool check)
 {
-    std::string filename;
-    std::string configFile;
-
-    // 인자 파싱
-    for (int i = 2; i < argc; ++i)
-    {
-        std::string arg = argv[i];
-
-        if (arg == "--config" && i + 1 < argc)
-        {
-            configFile = argv[++i];
-        }
-        else if (arg[0] != '-')
-        {
-            filename = arg;
-        }
-    }
-
-    if (filename.empty())
-    {
-        std::cerr << "에러: 포맷팅할 파일을 지정해주세요.\n";
-        std::cerr << "사용법: kingsejong fmt [--config 설정파일] 파일명.ksj\n";
-        return 1;
-    }
-
     try
     {
         // 1. 파일 읽기
@@ -326,7 +302,7 @@ int runFormatter(int argc, char* argv[])
 
         if (!parser.errors().empty())
         {
-            std::cerr << "파싱 에러:\n";
+            std::cerr << "파싱 에러 (" << filename << "):\n";
             for (const auto& err : parser.errors())
             {
                 std::cerr << "  " << err << "\n";
@@ -375,6 +351,17 @@ int runFormatter(int argc, char* argv[])
             return 1;
         }
 
+        // --check: 파일은 그대로 두고 포맷이 필요한지만 알린다
+        if (check)
+        {
+            if (formatted == source)
+            {
+                return 0;
+            }
+            std::cout << "포맷 필요: " << filename << "\n";
+            return 2;
+        }
+
         // 6. 파일에 쓰기 (원본 덮어쓰기)
         std::ofstream outFile(filename);
         if (!outFile.is_open())
@@ -391,9 +378,65 @@ int runFormatter(int argc, char* argv[])
     }
     catch (const std::exception& e)
     {
-        std::cerr << "에러: " << e.what() << "\n";
+        std::cerr << "에러 (" << filename << "): " << e.what() << "\n";
         return 1;
     }
+}
+
+/**
+ * @brief 코드 포맷팅 실행
+ * @param argc 인자 개수
+ * @param argv 인자 배열
+ * @return 종료 코드 (0: 성공, 1: 실패 또는 --check 에서 포맷이 필요한 파일이 있음)
+ */
+int runFormatter(int argc, char* argv[])
+{
+    std::vector<std::string> filenames;
+    std::string configFile;
+    bool check = false;
+
+    // 인자 파싱
+    for (int i = 2; i < argc; ++i)
+    {
+        std::string arg = argv[i];
+
+        if (arg == "--config" && i + 1 < argc)
+        {
+            configFile = argv[++i];
+        }
+        else if (arg == "--check")
+        {
+            check = true;
+        }
+        else if (!arg.empty() && arg[0] == '-')
+        {
+            std::cerr << "에러: 알 수 없는 옵션: " << arg << "\n";
+            std::cerr << "사용법: kingsejong fmt [--check] [--config 설정파일] 파일명.ksj...\n";
+            return 1;
+        }
+        else
+        {
+            filenames.push_back(arg);
+        }
+    }
+
+    if (filenames.empty())
+    {
+        std::cerr << "에러: 포맷팅할 파일을 지정해주세요.\n";
+        std::cerr << "사용법: kingsejong fmt [--check] [--config 설정파일] 파일명.ksj...\n";
+        return 1;
+    }
+
+    // 한 파일이 실패해도 나머지 파일은 계속 처리하고, 하나라도 실패하거나 포맷이 필요하면 1 로 끝난다
+    bool failed = false;
+    for (const auto& filename : filenames)
+    {
+        if (formatFile(filename, configFile, check) != 0)
+        {
+            failed = true;
+        }
+    }
+    return failed ? 1 : 0;
 }
 
 /**
@@ -603,6 +646,7 @@ void printHelp()
     std::cout << "  kingsejong --lsp              LSP 서버 모드\n";
     std::cout << "  kingsejong fmt 파일.ksj        코드 포맷팅\n";
     std::cout << "  kingsejong fmt --config .ksjfmt.json 파일.ksj\n";
+    std::cout << "  kingsejong fmt --check a.ksj b.ksj  포맷이 필요한 파일만 알린다 (고치지 않음, 있으면 종료 코드 1)\n";
     std::cout << "  kingsejong lint 파일.ksj       코드 검사\n";
     std::cout << "  kingsejong --debug 파일.ksj    디버거로 실행\n";
 }

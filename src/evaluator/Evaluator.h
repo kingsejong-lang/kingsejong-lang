@@ -16,6 +16,7 @@
 #include "../ast/Statement.h"
 #include "../error/Error.h"
 #include "lexer/JosaRecognizer.h"
+#include "common/ExecutionLimits.h"
 #include <memory>
 #include <stdexcept>
 #include <chrono>
@@ -323,9 +324,9 @@ private:
     // 안전 장치
     size_t evaluationCount_ = 0;  ///< 평가 카운터
     int loopDepth_ = 0;  ///< 지금 함수 본문 안에서 감싸고 있는 반복문 수 (함수에 들어가면 0 부터 센다)
-    size_t maxEvaluations_ = 10000000;  ///< 최대 평가 횟수 (기본: 10,000,000)
+    size_t maxEvaluations_ = common::ExecutionLimits::current().maxEvaluations;  ///< 최대 평가 횟수
     std::chrono::steady_clock::time_point startTime_;  ///< 실행 시작 시간
-    std::chrono::milliseconds maxExecutionTime_ = std::chrono::milliseconds(5000);  ///< 최대 실행 시간 (기본: 5000ms)
+    std::chrono::milliseconds maxExecutionTime_ = common::ExecutionLimits::current().maxTime;  ///< 최대 실행 시간
 
     // Expression 평가 함수들
 

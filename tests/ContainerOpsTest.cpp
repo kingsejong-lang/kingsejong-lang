@@ -1,8 +1,9 @@
 /**
  * @file ContainerOpsTest.cpp
- * @brief 길이(딕셔너리)와 비교 함수를 받는 정렬한다 테스트
+ * @brief 길이(딕셔너리), 비교 함수를 받는 정렬한다, 제자리에서 늘리는 덧붙인다 테스트
  *
  * 정렬한다(비교 함수) 는 qsort 처럼 비교 함수가 음수를 돌려주면 앞 요소를 앞에 둔다. 안정 정렬이다.
+ * 덧붙인다 는 원본 배열을 제자리에서 늘린다 (배열 = 배열 + [x] 는 매번 전체를 복사한다).
  * 평가기와 VM 이 같은 결과를 내는지 본다.
  */
 
@@ -178,7 +179,27 @@ TEST(ContainerOpsTest, ShouldNotLoseElementsWithInconsistentComparator)
     EXPECT_EQ(runBoth(source), "[100, 4950]");  // 요소가 그대로 다 있다
 }
 
+TEST(ContainerOpsTest, ShouldAppendInPlace)
+{
+    // 같은 배열을 가리키는 변수와 함수 인자에도 보인다
+    EXPECT_EQ(runBoth("a = [1]\nb = a\na에 덧붙인다(2)\na에 덧붙인다(3, 4)\n기록 = [a, b]\n"),
+              "[[1, 2, 3, 4], [1, 2, 3, 4]]");
+    EXPECT_EQ(runBoth("a = []\nf = 함수(x) { x에 덧붙인다(7) }\nf(a)\nf(a)\n기록 = a\n"), "[7, 7]");
+    // 늘린 배열을 돌려주므로 이어서 쓸 수 있다. 원본을 두는 추가() 는 그대로다
+    EXPECT_EQ(tryExpression("", "[3]에 덧붙인다(1)를 정렬한다"), "[1, 3]");
+    EXPECT_EQ(runBoth("a = [1]\nb = 추가(a, 2)\n기록 = [a, b]\n"), "[[1], [1, 2]]");
+    // 반복문 안에서 쓰는 모양
+    EXPECT_EQ(runBoth("a = []\ni가 1부터 5까지 {\n    a에 덧붙인다(i * i)\n}\n기록 = a\n"), "[1, 4, 9, 16, 25]");
+}
+
+TEST(ContainerOpsTest, ShouldRejectBadAppends)
+{
+    EXPECT_EQ(tryExpression("a = [1]", "a에 덧붙인다()"), "오류");   // 붙일 값이 없음
+    EXPECT_EQ(tryExpression("n = 5", "n에 덧붙인다(1)"), "오류");     // 배열이 아님
+}
+
 TEST(ContainerOpsTest, ShouldPassSemanticAnalysis)
 {
     EXPECT_TRUE(semanticErrors("d = {\"a\": 1}\n출력(길이(d))\na = [3, 1]\n출력(a를 정렬한다(함수(x, y) { 반환 x - y }))\n").empty());
+    EXPECT_TRUE(semanticErrors("a = []\na에 덧붙인다(1)\n").empty());
 }

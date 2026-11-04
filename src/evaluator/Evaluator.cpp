@@ -2610,6 +2610,22 @@ Value Evaluator::applyJosaMethod(const Value& object, lexer::JosaRecognizer::Jos
             );
         }
 
+        // 덧붙인다(값, ...): 원본 배열의 끝에 제자리에서 붙이고 그 배열을 돌려준다 (평균 O(1)).
+        // 배열은 공유되므로 같은 배열을 가리키는 모든 변수에 보인다. 원본을 두는 것은 추가(배열, 값)
+        if (name == "덧붙인다" || name == "덧붙이고")
+        {
+            if (args.empty())
+            {
+                throw error::ArgumentError(
+                    "'덧붙인다' 메서드는 붙일 값이 1개 이상 필요합니다.\n"
+                    "해결 방법: 배열에 덧붙인다(값) 형태로 작성하세요.");
+            }
+            Value target = object;  // 같은 저장소를 가리키는 사본
+            auto& elements = target.asArray();
+            elements.insert(elements.end(), args.begin(), args.end());
+            return target;
+        }
+
         // 콜백 하나를 받는 메서드의 인자 검사
         auto requireCallback = [&](const char* method, const char* example, size_t paramCount) {
             if (args.size() != 1)

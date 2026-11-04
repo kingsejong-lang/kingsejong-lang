@@ -248,6 +248,32 @@ add_test(
 set_tests_properties(cli-arguments PROPERTIES
     PASS_REGULAR_EXPRESSION "^\\[tests/cli/print_args\\.ksj, a, b c, -n, --vm\\]")
 
+# 파일 실행은 실행 한도가 없고, --sandbox 는 기본 한도(평가 1000만 번)에서 멈춘다
+add_test(
+    NAME cli-limits-file
+    COMMAND $<TARGET_FILE:kingsejong> tests/cli/long_loop.ksj
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+set_tests_properties(cli-limits-file PROPERTIES PASS_REGULAR_EXPRESSION "^끝 2000000")
+add_test(
+    NAME cli-limits-sandbox
+    COMMAND $<TARGET_FILE:kingsejong> --sandbox tests/cli/long_loop.ksj
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+set_tests_properties(cli-limits-sandbox PROPERTIES PASS_REGULAR_EXPRESSION "최대 평가 횟수 초과")
+
+# KingSejong 코드로 쓴 stdlib 모듈(char, bytes)을 평가기와 VM 으로 검사한다 (assert_* 가 실패하면 종료 코드 1)
+add_test(
+    NAME stdlib-char-bytes
+    COMMAND $<TARGET_FILE:kingsejong> tests/stdlib/char_bytes_test.ksj
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+add_test(
+    NAME stdlib-char-bytes-vm
+    COMMAND $<TARGET_FILE:kingsejong> --vm tests/stdlib/char_bytes_test.ksj
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
 # 설치 규칙
 # 설치된 바이너리가 stdlib 를 찾을 수 있게 위치를 컴파일 시점에 알려 준다
 target_compile_definitions(kingsejong_lib PUBLIC KINGSEJONG_STDLIB_DIR="${CMAKE_INSTALL_PREFIX}/share/kingsejong")

@@ -33,6 +33,7 @@
 #include "formatter/Formatter.h"
 #include "formatter/FormatterConfig.h"
 #include "common/UTF8Utils.h"
+#include "common/ExecutionLimits.h"
 
 /// 실행 파일 위치에서 유도한 모듈 검색 경로 (main 이 채운다)
 static std::vector<std::string> g_moduleSearchPaths;
@@ -586,6 +587,7 @@ void printHelp()
     std::cout << "  --sandbox           샌드박스 모드: 현재 디렉터리와 --allow-path 경로만 파일 접근 허용\n";
     std::cout << "  --untrusted         비신뢰 모드: 시스템 경로(/etc, /sys, /proc ...) 접근 차단\n";
     std::cout << "  --allow-path 경로   샌드박스에서 추가로 허용할 경로 (여러 번 지정 가능)\n";
+    std::cout << "  --max-time 초       실행 시간 한도 (기본: 파일 실행은 없음, --sandbox·--untrusted·REPL 은 5초)\n";
     std::cout << "\n";
     std::cout << "서브커맨드:\n";
     std::cout << "  fmt             코드 포맷팅\n";
@@ -634,6 +636,43 @@ void applySecurityOptions(const std::string& mode, const std::vector<std::string
 }
 
 /**
+ * @brief "30" 같은 1 이상의 정수 초를 읽는다. 다른 글자가 섞이거나 너무 크면 false
+ */
+bool parsePositiveSeconds(const std::string& text, long long& seconds)
+{
+    if (text.empty() || text.size() > 9 ||
+        text.find_first_not_of("0123456789") != std::string::npos)
+    {
+        return false;
+    }
+    seconds = std::stoll(text);
+    return seconds > 0;
+}
+
+/**
+ * @brief 평가기·VM 의 실행 한도를 정한다.
+ * @param runsFile 파일을 실행하는가 (아니면 REPL)
+ * @param securityMode "" | "sandbox" | "untrusted"
+ * @param maxTimeSeconds --max-time 값 (없으면 -1)
+ *
+ * 파일 실행은 한도가 없다(다른 언어처럼 끝날 때까지 돈다). 신뢰하지 않는 코드를 돌리는 --sandbox·--untrusted 와
+ * 무한 루프가 세션을 멈추게 하는 REPL 은 기본 한도(평가 1000만 번 / VM 명령 1억 개 / 5초)를 쓴다.
+ * --max-time 은 어느 쪽이든 시간 한도만 바꾼다.
+ */
+void applyExecutionLimits(bool runsFile, const std::string& securityMode, long long maxTimeSeconds)
+{
+    using kingsejong::common::ExecutionLimits;
+    if (runsFile && securityMode.empty())
+    {
+        ExecutionLimits::current() = ExecutionLimits::unlimited();
+    }
+    if (maxTimeSeconds > 0)
+    {
+        ExecutionLimits::current().maxTime = std::chrono::seconds(maxTimeSeconds);
+    }
+}
+
+/**
  * @brief 프로그램 진입점
  * @param argc 인자 개수
  * @param argv 인자 배열
@@ -663,6 +702,7 @@ int main(int argc, char* argv[])
     std::vector<std::string> allowPaths;
     bool debugMode = false;
     bool vmMode = false;
+    long long maxTimeSeconds = -1;  // --max-time (없으면 -1)
 
     for (size_t i = 0; i < args.size(); ++i)
     {
@@ -714,6 +754,15 @@ int main(int argc, char* argv[])
             }
             allowPaths.push_back(args[++i]);
         }
+        else if (arg == "--max-time")
+        {
+            if (i + 1 >= args.size() || !parsePositiveSeconds(args[i + 1], maxTimeSeconds))
+            {
+                std::cerr << "에러: --max-time 뒤에 1 이상의 정수 초가 필요합니다.\n";
+                return 1;
+            }
+            ++i;
+        }
         else if (!arg.empty() && arg[0] == '-')
         {
             std::cerr << "에러: 알 수 없는 옵션입니다: " << arg << "\n\n";
@@ -731,6 +780,7 @@ int main(int argc, char* argv[])
     }
 
     applySecurityOptions(securityMode, allowPaths);
+    applyExecutionLimits(!filename.empty(), securityMode, maxTimeSeconds);
     if (!filename.empty())
     {
         programArgs.insert(programArgs.begin(), filename);

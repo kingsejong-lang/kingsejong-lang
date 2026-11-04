@@ -9,6 +9,7 @@
 
 #include "runtime/Value.h"
 #include <string>
+#include <vector>
 #include <unordered_map>
 
 namespace kingsejong {
@@ -52,9 +53,20 @@ public:
      */
     static void registerAllBuiltins();
 
+    /**
+     * @brief 명령줄_인자() 가 돌려줄 값을 정한다 (C 의 argv 처럼 스크립트 경로, 인자...)
+     * @param arguments 스크립트 경로와 그 뒤의 인자. 스크립트 없이 돌면 비워 둔다
+     */
+    static void setCommandLineArguments(std::vector<std::string> arguments);
+
+    /// setCommandLineArguments 로 정한 인자
+    static const std::vector<std::string>& commandLineArguments();
+
 private:
     /// 내장 함수 저장소 (함수 이름 → Value)
     static std::unordered_map<std::string, Value> builtins_;
+    /// 명령줄_인자() 가 돌려줄 값
+    static std::vector<std::string> commandLineArguments_;
 };
 
 } // namespace evaluator

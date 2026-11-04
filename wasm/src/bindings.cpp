@@ -73,19 +73,22 @@ public:
                 return "ERROR: 프로그램을 파싱할 수 없습니다.";
             }
 
-            // 평가. 출력() 은 std::cout 에 쓰므로, 브라우저에 보여 주려면 실행 중 cout 을 가로챈다.
-            // (emscripten 기본값은 cout 을 console.log 로 보내 페이지에는 나타나지 않는다.)
+            // 평가. 출력() 은 std::cout 에, 오류_출력() 은 std::cerr 에 쓰므로, 브라우저에 보여 주려면 실행 중
+            // 둘 다 가로챈다. (emscripten 기본값은 이것을 console 로 보내 페이지에는 나타나지 않는다.)
             std::ostringstream captured;
             std::streambuf* previous = std::cout.rdbuf(captured.rdbuf());
+            std::streambuf* previousErr = std::cerr.rdbuf(captured.rdbuf());
             evaluator::Value result;
             try {
                 evaluator::Evaluator evaluator(env_);
                 result = evaluator.eval(program.get());
             } catch (...) {
                 std::cout.rdbuf(previous);
+                std::cerr.rdbuf(previousErr);
                 throw;
             }
             std::cout.rdbuf(previous);
+            std::cerr.rdbuf(previousErr);
 
             // 출력된 내용 뒤에 마지막 식의 값(없음 제외)을 붙여 돌려준다
             std::string text = captured.str();

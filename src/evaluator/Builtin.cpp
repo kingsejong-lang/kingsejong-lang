@@ -62,6 +62,17 @@ namespace evaluator {
 
 // Static 멤버 초기화
 std::unordered_map<std::string, Value> Builtin::builtins_;
+std::vector<std::string> Builtin::commandLineArguments_;
+
+void Builtin::setCommandLineArguments(std::vector<std::string> arguments)
+{
+    commandLineArguments_ = std::move(arguments);
+}
+
+const std::vector<std::string>& Builtin::commandLineArguments()
+{
+    return commandLineArguments_;
+}
 
 // ============================================================================
 // 내장 함수 관리
@@ -105,6 +116,52 @@ static Value floatToInteger(double value, const std::string& functionName)
 }
 
 /**
+ * @brief 출력·오류_출력 이 값을 글자로 쓰는 규칙 (공백으로 잇는다)
+ * @param out 쓸 스트림 (std::cout 또는 std::cerr)
+ * @param args 쓸 값들
+ */
+static void writeValues(std::ostream& out, const std::vector<Value>& args)
+{
+    for (size_t i = 0; i < args.size(); ++i)
+    {
+        if (i > 0) out << " ";
+
+        if (args[i].isString())
+        {
+            out << args[i].asString();
+        }
+        else if (args[i].isInteger())
+        {
+            out << args[i].asInteger();
+        }
+        else if (args[i].isFloat())
+        {
+            out << args[i].asFloat();
+        }
+        else if (args[i].isBoolean())
+        {
+            out << (args[i].asBoolean() ? "참" : "거짓");
+        }
+        else if (args[i].isNull())
+        {
+            out << "없음";
+        }
+        else if (args[i].isFunction())
+        {
+            out << "[함수]";
+        }
+        else if (args[i].isBuiltinFunction())
+        {
+            out << "[내장함수]";
+        }
+        else
+        {
+            out << args[i].toString();
+        }
+    }
+}
+
+/**
  * @brief 출력(값1, 값2, ...) - 콘솔에 출력
  *
  * 여러 인자를 공백으로 구분하여 출력하고 개행합니다.
@@ -115,46 +172,50 @@ static Value floatToInteger(double value, const std::string& functionName)
  */
 static Value builtin_출력(const std::vector<Value>& args)
 {
-    for (size_t i = 0; i < args.size(); ++i)
-    {
-        if (i > 0) std::cout << " ";
-
-        if (args[i].isString())
-        {
-            std::cout << args[i].asString();
-        }
-        else if (args[i].isInteger())
-        {
-            std::cout << args[i].asInteger();
-        }
-        else if (args[i].isFloat())
-        {
-            std::cout << args[i].asFloat();
-        }
-        else if (args[i].isBoolean())
-        {
-            std::cout << (args[i].asBoolean() ? "참" : "거짓");
-        }
-        else if (args[i].isNull())
-        {
-            std::cout << "없음";
-        }
-        else if (args[i].isFunction())
-        {
-            std::cout << "[함수]";
-        }
-        else if (args[i].isBuiltinFunction())
-        {
-            std::cout << "[내장함수]";
-        }
-        else
-        {
-            std::cout << args[i].toString();
-        }
-    }
+    writeValues(std::cout, args);
     std::cout << std::endl;
 
     return Value::createNull();
+}
+
+/**
+ * @brief 오류_출력(값...) - 값을 표준 오류(stderr)로 출력
+ *
+ * 출력() 과 같은 모양으로 쓰되 표준 오류로 보낸다. 셸에서 2> 로 따로 받을 수 있다.
+ * 앞서 출력한 내용과 순서가 뒤섞이지 않도록 표준 출력을 먼저 비운다.
+ *
+ * @param args 출력할 값들 (0개 이상)
+ * @return null
+ */
+static Value builtin_오류_출력(const std::vector<Value>& args)
+{
+    std::cout.flush();
+    writeValues(std::cerr, args);
+    std::cerr << std::endl;
+
+    return Value::createNull();
+}
+
+/**
+ * @brief 명령줄_인자() - 프로그램을 실행할 때 받은 인자
+ *
+ * C 의 argv 처럼 첫 요소는 실행한 스크립트 경로이고, 그 뒤가 스크립트 이름 다음에 쓴 인자다.
+ * REPL·플레이그라운드처럼 스크립트 없이 돌면 빈 배열이다.
+ *
+ * @return 문자열 배열. 예: kingsejong 합계.ksj 1 2 → [합계.ksj, 1, 2]
+ */
+static Value builtin_명령줄_인자(const std::vector<Value>& args)
+{
+    if (!args.empty())
+    {
+        throw std::runtime_error("명령줄_인자() 함수는 인자를 받지 않습니다");
+    }
+    std::vector<Value> items;
+    for (const auto& arg : Builtin::commandLineArguments())
+    {
+        items.push_back(Value::createString(arg));
+    }
+    return Value::createArray(items);
 }
 
 /**
@@ -362,11 +423,11 @@ static Value builtin_포함(const std::vector<Value>& args)
  * @brief 길이(배열/문자열) - 길이 반환
  *
  * 문자열의 경우 UTF-8 문자 수를 반환합니다.
- * 배열의 경우 요소 개수를 반환합니다.
+ * 배열의 경우 요소 개수를, 딕셔너리의 경우 키 개수를 반환합니다.
  *
  * @param args 길이를 확인할 값 (1개)
  * @return 길이 (정수)
- * @throws std::runtime_error 인자 개수가 1개가 아니거나, 문자열/배열이 아닌 경우
+ * @throws std::runtime_error 인자 개수가 1개가 아니거나, 문자열/배열/딕셔너리가 아닌 경우
  */
 static Value builtin_길이(const std::vector<Value>& args)
 {
@@ -391,7 +452,13 @@ static Value builtin_길이(const std::vector<Value>& args)
         return Value::createInteger(static_cast<int64_t>(arg.asArray().size()));
     }
 
-    throw std::runtime_error("길이() 함수는 문자열 또는 배열 타입이어야 합니다");
+    // 딕셔너리의 경우: 키 개수 반환
+    if (arg.isDictionary())
+    {
+        return Value::createInteger(static_cast<int64_t>(arg.asDictionary().size()));
+    }
+
+    throw std::runtime_error("길이() 함수는 문자열, 배열 또는 딕셔너리 타입이어야 합니다");
 }
 
 // ============================================================================
@@ -707,6 +774,60 @@ static Value builtin_소문자(const std::vector<Value>& args)
     }
 
     return Value::createString(result);
+}
+
+/**
+ * @brief 문자코드(글자) - 글자 하나의 유니코드 코드 포인트
+ *
+ * @param args 글자 하나로 된 문자열 (1개)
+ * @return 코드 포인트 (정수). 예: 문자코드("A") → 65, 문자코드("가") → 44032
+ * @throws std::runtime_error 인자가 글자 하나로 된 올바른 UTF-8 문자열이 아닌 경우
+ */
+static Value builtin_문자코드(const std::vector<Value>& args)
+{
+    if (args.size() != 1)
+    {
+        throw std::runtime_error("문자코드() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString())
+    {
+        throw std::runtime_error("문자코드() 함수의 인자는 문자열이어야 합니다");
+    }
+    char32_t codePoint = 0;
+    if (!common::decodeSingleUTF8Char(args[0].asString(), codePoint))
+    {
+        throw std::runtime_error(
+            "문자코드() 함수는 글자 하나로 된 문자열이 필요합니다: \"" + args[0].asString() + "\"\n"
+            "해결 방법: 문자열의 글자 하나를 꺼내려면 문자열[i] 를 쓰세요.");
+    }
+    return Value::createInteger(static_cast<int64_t>(codePoint));
+}
+
+/**
+ * @brief 코드문자(정수) - 유니코드 코드 포인트를 글자 하나로 된 문자열로
+ *
+ * @param args 코드 포인트 (정수, 0 ~ 1114111, 서로게이트 55296 ~ 57343 제외)
+ * @return 글자 하나로 된 문자열. 예: 코드문자(65) → "A", 코드문자(44032) → "가"
+ * @throws std::runtime_error 정수가 아니거나 유니코드 코드 포인트 범위 밖인 경우
+ */
+static Value builtin_코드문자(const std::vector<Value>& args)
+{
+    if (args.size() != 1)
+    {
+        throw std::runtime_error("코드문자() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isInteger())
+    {
+        throw std::runtime_error("코드문자() 함수의 인자는 정수여야 합니다");
+    }
+    int64_t codePoint = args[0].asInteger();
+    if (codePoint < 0 || codePoint > 0x10FFFF || (codePoint >= 0xD800 && codePoint <= 0xDFFF))
+    {
+        throw std::runtime_error(
+            "코드문자() 함수의 인자가 유니코드 코드 포인트가 아닙니다: " + std::to_string(codePoint) + "\n"
+            "해결 방법: 0 ~ 1114111 사이의 값(서로게이트 55296 ~ 57343 제외)을 쓰세요.");
+    }
+    return Value::createString(common::encodeUTF8(static_cast<char32_t>(codePoint)));
 }
 
 // ============================================================================
@@ -1177,6 +1298,91 @@ static Value builtin_파일_쓰기(const std::vector<Value>& args)
 
     file << content;
     file.close();
+
+    return Value::createNull();
+}
+
+/**
+ * @brief 파일_바이트_읽기(경로) - 파일을 바이트 단위로 읽는다
+ *
+ * 텍스트로 해석하지 않고(줄바꿈 변환 없음) 바이트 하나를 0~255 정수 하나로 돌려준다.
+ *
+ * @param args 파일 경로 (문자열, 1개)
+ * @return 정수 배열. 예: "AB" 가 든 파일 → [65, 66]
+ */
+static Value builtin_파일_바이트_읽기(const std::vector<Value>& args)
+{
+    if (args.size() != 1 || !args[0].isString())
+    {
+        throw std::runtime_error("파일_바이트_읽기() 함수는 파일 경로(문자열) 1개가 필요합니다");
+    }
+    std::string filepath = args[0].asString();
+
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(filepath, security::FileOperation::READ)) {
+        throw std::runtime_error("파일 읽기 권한이 거부되었습니다: " + filepath);
+    }
+
+    std::ifstream file(filepath, std::ios::binary);
+    if (!file.is_open()) {
+        throw std::runtime_error("파일을 열 수 없습니다: " + filepath);
+    }
+
+    std::vector<Value> bytes;
+    char c = 0;
+    while (file.get(c))
+    {
+        bytes.push_back(Value::createInteger(static_cast<unsigned char>(c)));
+    }
+    return Value::createArray(bytes);
+}
+
+/**
+ * @brief 파일_바이트_쓰기(경로, 바이트들) - 0~255 정수 배열을 바이트로 쓴다 (덮어쓰기)
+ *
+ * 모든 요소를 먼저 검사하므로, 잘못된 요소가 있으면 파일을 건드리지 않고 오류를 낸다.
+ *
+ * @param args
+ *   - `[0]` 파일 경로 (문자열)
+ *   - `[1]` 바이트 배열 (0~255 정수)
+ * @return null
+ */
+static Value builtin_파일_바이트_쓰기(const std::vector<Value>& args)
+{
+    if (args.size() != 2 || !args[0].isString() || !args[1].isArray())
+    {
+        throw std::runtime_error("파일_바이트_쓰기() 함수는 파일 경로(문자열)와 바이트 배열이 필요합니다");
+    }
+    std::string filepath = args[0].asString();
+    const auto& values = args[1].asArray();
+
+    std::string data;
+    data.reserve(values.size());
+    for (size_t i = 0; i < values.size(); ++i)
+    {
+        const Value& v = values[i];
+        if (!v.isInteger() || v.asInteger() < 0 || v.asInteger() > 255)
+        {
+            throw std::runtime_error(
+                "파일_바이트_쓰기() 의 바이트는 0~255 정수여야 합니다: " + std::to_string(i) + "번째 값 " +
+                v.toString());
+        }
+        data.push_back(static_cast<char>(static_cast<unsigned char>(v.asInteger())));
+    }
+
+    // 보안 검사
+    if (!security::SecurityManager::checkFileAccess(filepath, security::FileOperation::WRITE)) {
+        throw std::runtime_error("파일 쓰기 권한이 거부되었습니다: " + filepath);
+    }
+
+    std::ofstream file(filepath, std::ios::binary | std::ios::trunc);
+    if (!file.is_open()) {
+        throw std::runtime_error("파일을 열 수 없습니다: " + filepath);
+    }
+    file.write(data.data(), static_cast<std::streamsize>(data.size()));
+    if (!file) {
+        throw std::runtime_error("파일에 쓸 수 없습니다: " + filepath);
+    }
 
     return Value::createNull();
 }
@@ -3750,6 +3956,8 @@ void Builtin::registerAllBuiltins()
 {
     // 기본 함수
     registerBuiltin("출력", builtin_출력);
+    registerBuiltin("오류_출력", builtin_오류_출력);
+    registerBuiltin("명령줄_인자", builtin_명령줄_인자);
     registerBuiltin("입력", builtin_입력);
     registerBuiltin("타입", builtin_타입);
     registerBuiltin("길이", builtin_길이);
@@ -3768,6 +3976,8 @@ void Builtin::registerAllBuiltins()
     registerBuiltin("바꾸기", builtin_바꾸기);
     registerBuiltin("대문자", builtin_대문자);
     registerBuiltin("소문자", builtin_소문자);
+    registerBuiltin("문자코드", builtin_문자코드);
+    registerBuiltin("코드문자", builtin_코드문자);
 
     // 타입 변환 함수
     registerBuiltin("정수", builtin_정수);
@@ -3788,6 +3998,8 @@ void Builtin::registerAllBuiltins()
     // ========== 파일 I/O ==========
     registerBuiltin("파일_읽기", builtin_파일_읽기);
     registerBuiltin("파일_쓰기", builtin_파일_쓰기);
+    registerBuiltin("파일_바이트_읽기", builtin_파일_바이트_읽기);
+    registerBuiltin("파일_바이트_쓰기", builtin_파일_바이트_쓰기);
     registerBuiltin("파일_추가", builtin_파일_추가);
     registerBuiltin("파일_존재", builtin_파일_존재);
     registerBuiltin("줄별_읽기", builtin_줄별_읽기);

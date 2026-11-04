@@ -248,7 +248,8 @@ add_test(
 set_tests_properties(cli-arguments PROPERTIES
     PASS_REGULAR_EXPRESSION "^\\[tests/cli/print_args\\.ksj, a, b c, -n, --vm\\]")
 
-# 파일 실행은 실행 한도가 없고, --sandbox 는 기본 한도(평가 1000만 번)에서 멈춘다
+# 파일 실행은 실행 한도가 없고, --sandbox 는 기본 한도에서 멈춘다.
+# 느린 빌드(디버그·sanitizer)에서는 평가 1000만 번보다 5초 한도에 먼저 걸리므로 둘 다 받는다
 add_test(
     NAME cli-limits-file
     COMMAND $<TARGET_FILE:kingsejong> tests/cli/long_loop.ksj
@@ -260,7 +261,7 @@ add_test(
     COMMAND $<TARGET_FILE:kingsejong> --sandbox tests/cli/long_loop.ksj
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
-set_tests_properties(cli-limits-sandbox PROPERTIES PASS_REGULAR_EXPRESSION "최대 평가 횟수 초과")
+set_tests_properties(cli-limits-sandbox PROPERTIES PASS_REGULAR_EXPRESSION "최대 (평가 횟수|실행 시간) 초과")
 
 # KingSejong 코드로 쓴 stdlib 모듈(char, bytes)을 평가기와 VM 으로 검사한다 (assert_* 가 실패하면 종료 코드 1)
 add_test(

@@ -18,6 +18,10 @@ updates:
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # typescript-eslint 8 accepts typescript >=4.8.4 <6.1.0; a newer compiler
+      # fails npm ci with ERESOLVE. Lift this once typescript-eslint widens its range.
+      - dependency-name: "typescript"
+        versions: [">=6.1.0"]
     groups:
       npm:
         patterns: ["*"]

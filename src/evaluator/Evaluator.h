@@ -218,9 +218,13 @@ public:
     static Value unaryOperation(const std::string& op, const Value& operand);
     /// 만약·반복·경우 가드의 조건 값을 논리값으로 꺼낸다. 참/거짓이 아니면 TypeError (진리값으로 바꾸지 않는다)
     static bool conditionValue(const Value& condition);
-    /// 배열[정수] / 사전["키"] 읽기
+    /// 배열[정수] / 사전["키"] / 문자열[정수] 읽기. 문자열은 글자(코드 포인트) 하나를 문자열로 돌려준다
     static Value indexValue(const Value& container, const Value& index);
-    /// 배열 슬라이싱 (step 은 없으면 nullptr)
+    /// 문자열[정수]: 글자 단위, 음수는 뒤에서 센다. 범위를 벗어나면 IndexError
+    static Value indexString(const std::string& str, const Value& index);
+    /// 인덱스로 접근할 수 없는 값이면 던지는 TypeError
+    [[noreturn]] static void throwNotIndexable(const Value& container);
+    /// 배열·문자열 슬라이싱 (step 은 없으면 nullptr). 문자열은 글자 단위로 잘라 문자열을 돌려준다
     static Value sliceValue(const Value& container, const Value& start, const Value& end,
                             bool startInclusive, bool endInclusive, const Value* step);
     /// 배열[정수] = 값 / 사전["키"] = 값 (배열·사전은 공유되므로 제자리에서 바뀐다)

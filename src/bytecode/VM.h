@@ -24,8 +24,7 @@ namespace bytecode {
 
 /// @name 실행 제한 기본값
 /// @{
-constexpr size_t VM_DEFAULT_MAX_INSTRUCTIONS = 100000000;   ///< 최대 명령어 수 (100M)
-constexpr int VM_DEFAULT_MAX_EXECUTION_TIME_MS = 5000;      ///< 최대 실행 시간 (5초)
+// 명령어 수·실행 시간 한도는 common::ExecutionLimits::current() 를 따른다
 constexpr size_t VM_DEFAULT_MAX_STACK_SIZE = 10000;         ///< 값 스택 최대 크기
 constexpr size_t VM_DEFAULT_MAX_FRAMES = 10000;             ///< 호출 깊이 최대
 /// @}

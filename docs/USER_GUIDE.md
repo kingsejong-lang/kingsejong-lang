@@ -409,6 +409,13 @@ kingsejong --sandbox --allow-path /data myfile.ksj    # 경로 추가 허용
 kingsejong --untrusted myfile.ksj                     # 시스템 경로(/etc, /sys, /proc ...) 차단
 ```
 
+파일을 실행할 때는 실행 한도가 없어서 프로그램이 끝날 때까지 돈다(무한 루프는 Ctrl-C 로 멈춘다). `--sandbox`·`--untrusted` 와 REPL, 웹 플레이그라운드는 안전 한도(평가기는 평가 1000만 번, VM 은 명령 1억 개, 둘 다 5초)에서 실행 오류로 멈춘다. `--max-time 초` 는 어느 쪽이든 시간 한도를 정한다.
+
+```bash
+kingsejong --max-time 30 긴작업.ksj          # 30초가 넘으면 멈춘다
+kingsejong --sandbox --max-time 60 남의것.ksj  # 샌드박스 횟수 한도에 시간만 60초로
+```
+
 ---
 
 ## 표준 라이브러리

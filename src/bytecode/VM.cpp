@@ -13,6 +13,7 @@
 #include "ast/Expression.h"
 #include "error/Error.h"
 #include "common/Logger.h"
+#include "common/ExecutionLimits.h"
 #include "error/ErrorMessages.h"
 #include "lexer/JosaRecognizer.h"
 #include <limits>
@@ -54,8 +55,8 @@ const char* binaryOpName(OpCode op) {
 
 VM::VM()
     : chunk_(nullptr), ip_(0), traceExecution_(false),
-      instructionCount_(0), maxInstructions_(VM_DEFAULT_MAX_INSTRUCTIONS),
-      maxExecutionTime_(VM_DEFAULT_MAX_EXECUTION_TIME_MS),
+      instructionCount_(0), maxInstructions_(common::ExecutionLimits::current().maxInstructions),
+      maxExecutionTime_(common::ExecutionLimits::current().maxTime),
       maxStackSize_(VM_DEFAULT_MAX_STACK_SIZE), maxFrames_(VM_DEFAULT_MAX_FRAMES) {
     globals_ = std::make_shared<Environment>();
     env_ = globals_;

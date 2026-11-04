@@ -36,9 +36,8 @@ void UnusedVariableRule::analyze(Program* program)
         const std::string& varName = pair.first;
         VarDeclaration* decl = pair.second;
 
-        // 사용되지 않았고, 언더스코어로 시작하지 않으면 경고
-        if (usedVars_.find(varName) == usedVars_.end() &&
-            !varName.empty() && varName[0] != '_')
+        // 사용되지 않았으면 경고
+        if (usedVars_.find(varName) == usedVars_.end())
         {
             reportIssue(
                 "변수 '" + varName + "'" + lexer::JosaRecognizer::selectOrBoth(varName, lexer::JosaRecognizer::JosaType::I_GA) + " 선언되었지만 사용되지 않습니다",

@@ -7,6 +7,7 @@
 
 #include "linter/rules/NoMagicNumberRule.h"
 #include "linter/Linter.h"
+#include "common/FloatFormat.h"
 #include "lexer/JosaRecognizer.h"
 
 namespace kingsejong {
@@ -48,8 +49,8 @@ void NoMagicNumberRule::onIntegerLiteral(IntegerLiteral* expr)
         return;
     }
 
-    // 매직 넘버 경고
-    std::string text = std::to_string(value);
+    // 매직 넘버 경고 (0xFF 처럼 작성자가 쓴 표기가 있으면 그대로 보인다)
+    std::string text = expr->spelling().empty() ? std::to_string(value) : expr->spelling();
     reportIssue(
         "매직 넘버 " + text + lexer::JosaRecognizer::selectOrBoth(text, lexer::JosaRecognizer::JosaType::EUL_REUL) +
         " 사용합니다. "
@@ -71,7 +72,8 @@ void NoMagicNumberRule::onFloatLiteral(FloatLiteral* expr)
     }
 
     // 실수 매직 넘버 경고
-    std::string text = std::to_string(expr->value());
+    // 실수는 출력과 같은 규칙으로 쓴다 (std::to_string 은 0.5 를 0.500000 으로 쓴다)
+    std::string text = expr->spelling().empty() ? common::formatFloat(expr->value()) : expr->spelling();
     reportIssue(
         "매직 넘버 " + text + lexer::JosaRecognizer::selectOrBoth(text, lexer::JosaRecognizer::JosaType::EUL_REUL) +
         " 사용합니다. "

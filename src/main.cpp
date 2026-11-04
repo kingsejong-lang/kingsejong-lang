@@ -575,7 +575,7 @@ int runDebugger(const std::string& filename)
  */
 void printHelp()
 {
-    std::cout << "사용법: kingsejong [옵션] [파일명]\n";
+    std::cout << "사용법: kingsejong [옵션] [파일명] [인자...]\n";
     std::cout << "\n";
     std::cout << "옵션:\n";
     std::cout << "  -h, --help          이 도움말 메시지 출력\n";
@@ -594,6 +594,8 @@ void printHelp()
     std::cout << "사용 예시:\n";
     std::cout << "  kingsejong                    REPL 모드로 실행\n";
     std::cout << "  kingsejong 파일.ksj            파일 실행\n";
+    std::cout << "  kingsejong 파일.ksj a b        인자를 넘겨 실행 (명령줄_인자() 로 읽는다)\n";
+    std::cout << "  kingsejong 파일.ksj -- -n      '-' 로 시작하는 인자는 -- 뒤에 쓴다\n";
     std::cout << "  kingsejong --sandbox 파일.ksj  샌드박스에서 파일 실행\n";
     std::cout << "  kingsejong --version          버전 정보 출력\n";
     std::cout << "  kingsejong --lsp              LSP 서버 모드\n";
@@ -656,6 +658,7 @@ int main(int argc, char* argv[])
     }
 
     std::string filename;
+    std::vector<std::string> programArgs;  // 스크립트 이름 뒤의 인자 (명령줄_인자 로 읽는다)
     std::string securityMode;
     std::vector<std::string> allowPaths;
     bool debugMode = false;
@@ -664,6 +667,13 @@ int main(int argc, char* argv[])
     for (size_t i = 0; i < args.size(); ++i)
     {
         const std::string& arg = args[i];
+
+        // "--" 뒤는 모두 프로그램 인자다 ("-" 로 시작하는 인자를 넘길 때 쓴다)
+        if (arg == "--" && !filename.empty())
+        {
+            programArgs.insert(programArgs.end(), args.begin() + static_cast<std::ptrdiff_t>(i) + 1, args.end());
+            break;
+        }
 
         if (arg == "--version" || arg == "-v")
         {
@@ -716,13 +726,16 @@ int main(int argc, char* argv[])
         }
         else
         {
-            std::cerr << "에러: 파일은 하나만 지정할 수 있습니다: " << arg << "\n\n";
-            printHelp();
-            return 1;
+            programArgs.push_back(arg);
         }
     }
 
     applySecurityOptions(securityMode, allowPaths);
+    if (!filename.empty())
+    {
+        programArgs.insert(programArgs.begin(), filename);
+        kingsejong::evaluator::Builtin::setCommandLineArguments(programArgs);
+    }
 
     if (filename.empty())
     {

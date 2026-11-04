@@ -14,6 +14,7 @@
 #include "lexer/JosaRecognizer.h"
 #include "common/StackGuard.h"
 #include "common/CheckedInt.h"
+#include "common/UTF8Utils.h"
 #include <sstream>
 #include <exception>
 #include <cmath>
@@ -1705,17 +1706,14 @@ Value Evaluator::evalIndexExpression(ast::IndexExpression* expr)
 {
     Value left = eval(const_cast<ast::Expression*>(expr->array()));
 
-    if (!left.isArray() && !left.isDictionary())
+    if (!left.isArray() && !left.isDictionary() && !left.isString())
     {
-        throw error::TypeError(
-            "배열 또는 딕셔너리가 아닌 값에 인덱스 접근을 시도했습니다: " + left.toString() + "\n" +
-            "해결 방법: 인덱스 접근([])은 배열 또는 딕셔너리 타입에만 사용할 수 있습니다."
-        );
+        throwNotIndexable(left);
     }
 
-    // 배열 슬라이싱: 인덱스가 범위 표현식일 때
+    // 배열·문자열 슬라이싱: 인덱스가 범위 표현식일 때
     const ast::Expression* indexExpr = expr->index();
-    if (left.isArray() && indexExpr->type() == ast::NodeType::RANGE_EXPRESSION)
+    if (!left.isDictionary() && indexExpr->type() == ast::NodeType::RANGE_EXPRESSION)
     {
         const auto* rangeExpr = static_cast<const ast::RangeExpression*>(indexExpr);
         Value startValue = eval(const_cast<ast::Expression*>(rangeExpr->start()));
@@ -1731,6 +1729,50 @@ Value Evaluator::evalIndexExpression(ast::IndexExpression* expr)
 
     Value index = eval(const_cast<ast::Expression*>(expr->index()));
     return indexValue(left, index);
+}
+
+void Evaluator::throwNotIndexable(const Value& container)
+{
+    throw error::TypeError(
+        "배열, 딕셔너리 또는 문자열이 아닌 값에 인덱스 접근을 시도했습니다: " + container.toString() + "\n" +
+        "해결 방법: 인덱스 접근([])은 배열, 딕셔너리, 문자열에만 사용할 수 있습니다."
+    );
+}
+
+Value Evaluator::indexString(const std::string& str, const Value& index)
+{
+    if (!index.isInteger())
+    {
+        throw error::TypeError("문자열 인덱스는 정수여야 합니다. 실제 타입: " +
+                               types::Type::typeKindToString(index.getType()));
+    }
+    const int64_t requested = index.asInteger();
+    // 글자 단위로 센다. 음수 인덱스는 뒤에서 세므로 전체 글자 수가 필요할 때만 센다
+    int64_t idx = requested;
+    int64_t size = -1;
+    if (idx < 0)
+    {
+        size = static_cast<int64_t>(common::countUTF8Characters(str));
+        idx += size;
+    }
+    size_t offset = idx < 0 ? std::string::npos : common::getUTF8CharOffset(str, static_cast<size_t>(idx));
+    if (offset == std::string::npos)
+    {
+        if (size < 0)
+        {
+            size = static_cast<int64_t>(common::countUTF8Characters(str));
+        }
+        std::string hint = size == 0
+            ? "해결 방법: 빈 문자열에는 인덱스로 접근할 수 없습니다. 먼저 길이(문자열) > 0 인지 확인하세요."
+            : "해결 방법: 인덱스는 0부터 " + std::to_string(size - 1) + " 사이(뒤에서 세면 -" +
+              std::to_string(size) + "부터 -1 사이)여야 합니다.";
+        throw error::IndexError(
+            "문자열 인덱스 범위를 벗어났습니다: 인덱스 " + std::to_string(requested) +
+            ", 글자 수 " + std::to_string(size) + "\n" + hint
+        );
+    }
+    size_t len = std::min(common::getUTF8CharLength(static_cast<unsigned char>(str[offset])), str.size() - offset);
+    return Value::createString(str.substr(offset, len));
 }
 
 Value Evaluator::indexValue(const Value& container, const Value& index)
@@ -1756,13 +1798,15 @@ Value Evaluator::indexValue(const Value& container, const Value& index)
         return it->second;
     }
 
+    if (container.isString())
+    {
+        return indexString(container.asString(), index);
+    }
+
     // 배열인지 확인
     if (!container.isArray())
     {
-        throw error::TypeError(
-            "배열 또는 딕셔너리가 아닌 값에 인덱스 접근을 시도했습니다: " + container.toString() + "\n" +
-            "해결 방법: 인덱스 접근([])은 배열 또는 딕셔너리 타입에만 사용할 수 있습니다."
-        );
+        throwNotIndexable(container);
     }
 
     const std::vector<Value>& arr = container.asArray();
@@ -1803,12 +1847,29 @@ Value Evaluator::indexValue(const Value& container, const Value& index)
 Value Evaluator::sliceValue(const Value& container, const Value& startValue, const Value& endValue,
                             bool startInclusive, bool endInclusive, const Value* step)
 {
+    // 문자열은 글자 배열로 잘라 다시 잇는다 (음수 인덱스·step 규칙이 배열과 같다)
+    if (container.isString())
+    {
+        const std::string& str = container.asString();
+        std::vector<Value> chars;
+        for (size_t i = 0; i < str.size();)
+        {
+            size_t len = std::min(common::getUTF8CharLength(static_cast<unsigned char>(str[i])), str.size() - i);
+            chars.push_back(Value::createString(str.substr(i, len)));
+            i += len;
+        }
+        Value sliced = sliceValue(Value::createArray(chars), startValue, endValue, startInclusive, endInclusive, step);
+        std::string joined;
+        for (const auto& ch : sliced.asArray())
+        {
+            joined += ch.asString();
+        }
+        return Value::createString(joined);
+    }
+
     if (!container.isArray())
     {
-        throw error::TypeError(
-            "배열 또는 딕셔너리가 아닌 값에 인덱스 접근을 시도했습니다: " + container.toString() + "\n" +
-            "해결 방법: 인덱스 접근([])은 배열 또는 딕셔너리 타입에만 사용할 수 있습니다."
-        );
+        throwNotIndexable(container);
     }
     const std::vector<Value>& arr = container.asArray();
 

@@ -321,6 +321,30 @@ std::string Lexer::readNumber()
 {
     std::string number;
 
+    // 16진수(0x1F)·2진수(0b101): 접두사 뒤에 자릿수가 하나 이상 올 때만 읽는다.
+    // "0x" 뒤에 자릿수가 없으면 전처럼 0 과 식별자로 나뉜다.
+    if (ch == '0' && (peekChar() == 'x' || peekChar() == 'X' || peekChar() == 'b' || peekChar() == 'B'))
+    {
+        bool hex = peekChar() == 'x' || peekChar() == 'X';
+        char afterPrefix = readPosition + 1 < input.length() ? input[readPosition + 1] : '\0';
+        auto isRadixDigit = [hex](char c) {
+            return hex ? std::isxdigit(static_cast<unsigned char>(c)) != 0 : (c == '0' || c == '1');
+        };
+        if (isRadixDigit(afterPrefix))
+        {
+            number += ch;
+            readChar();
+            number += ch;
+            readChar();
+            while (isRadixDigit(ch))
+            {
+                number += ch;
+                readChar();
+            }
+            return number;
+        }
+    }
+
     // 정수 부분
     while (isDigit(ch))
     {
@@ -338,6 +362,28 @@ std::string Lexer::readNumber()
         {
             number += ch;
             readChar();
+        }
+    }
+
+    // 지수 부분 (1e10, 2.5E-3): e 뒤에 숫자(부호 하나는 허용)가 와야 지수로 본다
+    if (ch == 'e' || ch == 'E')
+    {
+        char next = peekChar();
+        char afterSign = readPosition + 1 < input.length() ? input[readPosition + 1] : '\0';
+        if (isDigit(next) || ((next == '+' || next == '-') && isDigit(afterSign)))
+        {
+            number += ch;
+            readChar();
+            if (ch == '+' || ch == '-')
+            {
+                number += ch;
+                readChar();
+            }
+            while (isDigit(ch))
+            {
+                number += ch;
+                readChar();
+            }
         }
     }
 
@@ -442,39 +488,43 @@ Token Lexer::nextToken()
             break;
 
         case '<':
-            token = makeTwoCharToken('<', '=', TokenType::LT, TokenType::LE);
+            if (peekChar() == '<')
+            {
+                token = makeTwoCharToken('<', '<', TokenType::LT, TokenType::SHIFT_LEFT);
+            }
+            else
+            {
+                token = makeTwoCharToken('<', '=', TokenType::LT, TokenType::LE);
+            }
             break;
 
         case '>':
-            token = makeTwoCharToken('>', '=', TokenType::GT, TokenType::GE);
+            if (peekChar() == '>')
+            {
+                token = makeTwoCharToken('>', '>', TokenType::GT, TokenType::SHIFT_RIGHT);
+            }
+            else
+            {
+                token = makeTwoCharToken('>', '=', TokenType::GT, TokenType::GE);
+            }
             break;
 
         case '&':
-            if (peekChar() == '&')
-            {
-                readChar();
-                readChar();
-                token = Token(TokenType::AND, "&&");
-            }
-            else
-            {
-                token = Token(TokenType::ILLEGAL, std::string(1, ch));
-                readChar();
-            }
+            token = makeTwoCharToken('&', '&', TokenType::BIT_AND, TokenType::AND);
             break;
 
         case '|':
-            if (peekChar() == '|')
-            {
-                readChar();
-                readChar();
-                token = Token(TokenType::OR, "||");
-            }
-            else
-            {
-                token = Token(TokenType::ILLEGAL, std::string(1, ch));
-                readChar();
-            }
+            token = makeTwoCharToken('|', '|', TokenType::BIT_OR, TokenType::OR);
+            break;
+
+        case '^':
+            token = Token(TokenType::BIT_XOR, std::string(1, ch));
+            readChar();
+            break;
+
+        case '~':
+            token = Token(TokenType::BIT_NOT, std::string(1, ch));
+            readChar();
             break;
 
         case '+':
@@ -663,9 +713,11 @@ Token Lexer::nextToken()
             {
                 std::string number = readNumber();
 
-                // 실수인지 정수인지 판단
+                // 실수인지 정수인지 판단 (16진수의 e 는 자릿수다)
                 TokenType type = TokenType::INTEGER;
-                if (number.find('.') != std::string::npos)
+                bool radixPrefixed = number.size() > 1 && number[0] == '0' &&
+                                     (number[1] == 'x' || number[1] == 'X' || number[1] == 'b' || number[1] == 'B');
+                if (!radixPrefixed && number.find_first_of(".eE") != std::string::npos)
                 {
                     type = TokenType::FLOAT;
                 }

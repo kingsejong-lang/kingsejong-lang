@@ -32,12 +32,16 @@ constexpr int kOr = 3;
 constexpr int kAnd = 4;
 constexpr int kEquals = 5;
 constexpr int kLessGreater = 6;
-constexpr int kSum = 7;
-constexpr int kProduct = 8;
-constexpr int kPrefix = 9;
-constexpr int kCall = 10;
-constexpr int kIndex = 11;
-constexpr int kAtom = 12;
+constexpr int kBitOr = 7;
+constexpr int kBitXor = 8;
+constexpr int kBitAnd = 9;
+constexpr int kShift = 10;
+constexpr int kSum = 11;
+constexpr int kProduct = 12;
+constexpr int kPrefix = 13;
+constexpr int kCall = 14;
+constexpr int kIndex = 15;
+constexpr int kAtom = 16;
 
 int binaryPrecedence(const std::string& op)
 {
@@ -46,6 +50,10 @@ int binaryPrecedence(const std::string& op)
     if (op == "&&" || op == "그리고") return kAnd;
     if (op == "==" || op == "!=") return kEquals;
     if (op == "<" || op == ">" || op == "<=" || op == ">=") return kLessGreater;
+    if (op == "|") return kBitOr;
+    if (op == "^") return kBitXor;
+    if (op == "&") return kBitAnd;
+    if (op == "<<" || op == ">>") return kShift;
     if (op == "+" || op == "-") return kSum;
     if (op == "*" || op == "/" || op == "%") return kProduct;
     return kLowest;
@@ -1135,12 +1143,13 @@ void Formatter::formatIdentifier(const Identifier* expr)
 
 void Formatter::formatIntegerLiteral(const IntegerLiteral* expr)
 {
-    write(std::to_string(expr->value()));
+    // 0xFF·0b101 처럼 작성자가 고른 진법을 지킨다
+    write(expr->spelling().empty() ? std::to_string(expr->value()) : expr->spelling());
 }
 
 void Formatter::formatFloatLiteral(const FloatLiteral* expr)
 {
-    write(formatDouble(expr->value()));
+    write(expr->spelling().empty() ? formatDouble(expr->value()) : expr->spelling());
 }
 
 void Formatter::formatStringLiteral(const StringLiteral* expr)

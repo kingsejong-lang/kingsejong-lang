@@ -54,9 +54,11 @@ class IntegerLiteral : public Expression
 {
 private:
     int64_t value_;
+    std::string spelling_;  ///< 10진수가 아닌 표기(0xFF, 0b101)면 소스 그대로, 아니면 빈 문자열
 
 public:
-    explicit IntegerLiteral(int64_t value) : value_(value) {}
+    explicit IntegerLiteral(int64_t value, std::string spelling = "")
+        : value_(value), spelling_(std::move(spelling)) {}
 
     static constexpr NodeType kType = NodeType::INTEGER_LITERAL;
     NodeType type() const override { return kType; }
@@ -64,6 +66,8 @@ public:
     std::string toString() const override { return std::to_string(value_); }
 
     int64_t value() const { return value_; }
+    /// 포매터가 작성자의 표기를 지키도록 남긴 소스 표기 (10진수면 빈 문자열)
+    const std::string& spelling() const { return spelling_; }
 };
 
 /**
@@ -76,9 +80,11 @@ class FloatLiteral : public Expression
 {
 private:
     double value_;
+    std::string spelling_;  ///< 지수 표기(1e10)면 소스 그대로, 아니면 빈 문자열
 
 public:
-    explicit FloatLiteral(double value) : value_(value) {}
+    explicit FloatLiteral(double value, std::string spelling = "")
+        : value_(value), spelling_(std::move(spelling)) {}
 
     static constexpr NodeType kType = NodeType::FLOAT_LITERAL;
     NodeType type() const override { return kType; }
@@ -86,6 +92,8 @@ public:
     std::string toString() const override { return std::to_string(value_); }
 
     double value() const { return value_; }
+    /// 포매터가 작성자의 표기를 지키도록 남긴 소스 표기 (지수 표기가 아니면 빈 문자열)
+    const std::string& spelling() const { return spelling_; }
 };
 
 /**

@@ -214,7 +214,7 @@ public:
     static Value lookupName(const Environment& env, const std::string& name);
     /// 이항 연산 (비교·논리·산술·문자열 연결·배열 연결·문자열 반복)
     static Value binaryOperation(const Value& left, const std::string& op, const Value& right);
-    /// 단항 연산 (-, !)
+    /// 단항 연산 (-, !, ~)
     static Value unaryOperation(const std::string& op, const Value& operand);
     /// 만약·반복·경우 가드의 조건 값을 논리값으로 꺼낸다. 참/거짓이 아니면 TypeError (진리값으로 바꾸지 않는다)
     static bool conditionValue(const Value& condition);
@@ -631,6 +631,15 @@ private:
      * @return 연산 결과
      */
     static Value applyIntegerOperation(int64_t left, const std::string& op, int64_t right);
+
+    /**
+     * @brief 두 정수 값에 대한 비트 연산 수행
+     * @param left 왼쪽 피연산자
+     * @param op 연산자 (&, |, ^, <<, >>)
+     * @param right 오른쪽 피연산자 (이동이면 0~63)
+     * @return 연산 결과. << 는 밀려난 비트를 버리고, >> 는 부호를 유지한다
+     */
+    static Value applyBitwiseOperation(int64_t left, const std::string& op, int64_t right);
 
     /**
      * @brief 두 실수 값에 대한 산술 연산 수행

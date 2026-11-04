@@ -455,6 +455,18 @@ Value Evaluator::binaryOperation(const Value& left, const std::string& op, const
         return applyLogicalOperation(left, op, right);
     }
 
+    // 비트 연산자 (정수에만)
+    if (op == "&" || op == "|" || op == "^" || op == "<<" || op == ">>")
+    {
+        if (!left.isInteger() || !right.isInteger())
+        {
+            throw error::TypeError(
+                "비트 연산자 '" + op + "' 는 정수에만 쓸 수 있습니다: " + left.toString() + " " + op + " " +
+                right.toString() + "\n해결 방법: 정수(값) 으로 바꾼 뒤 계산하세요.");
+        }
+        return applyBitwiseOperation(left.asInteger(), op, right.asInteger());
+    }
+
     // 산술 연산자
     // 정수 + 정수 = 정수
     if (left.isInteger() && right.isInteger())
@@ -547,6 +559,15 @@ Value Evaluator::unaryOperation(const std::string& op, const Value& operand)
     if (op == "!")
     {
         return Value::createBoolean(!operand.isTruthy());
+    }
+
+    if (op == "~")
+    {
+        if (!operand.isInteger())
+        {
+            throw error::TypeError("비트 연산자 '~' 는 정수에만 쓸 수 있습니다: " + operand.toString());
+        }
+        return Value::createInteger(~operand.asInteger());
     }
 
     throw error::RuntimeError("지원되지 않는 단항 연산자: " + op);
@@ -1614,6 +1635,33 @@ Value Evaluator::applyIntegerOperation(int64_t left, const std::string& op, int6
     }
 
     throw error::RuntimeError("지원되지 않는 정수 연산자: " + op);
+}
+
+Value Evaluator::applyBitwiseOperation(int64_t left, const std::string& op, int64_t right)
+{
+    if (op == "&") return Value::createInteger(left & right);
+    if (op == "|") return Value::createInteger(left | right);
+    if (op == "^") return Value::createInteger(left ^ right);
+
+    // 이동 거리가 0~63 밖이면 C++ 에서 정의되지 않은 동작이라 오류로 막는다
+    if (right < 0 || right > 63)
+    {
+        throw error::RuntimeError(
+            "비트 이동 거리는 0 이상 63 이하여야 합니다: " + std::to_string(left) + " " + op + " " +
+            std::to_string(right));
+    }
+    // << 는 밀려난 비트를 버린다 (정수 오버플로 오류를 내지 않는다). 부호 있는 값의 왼쪽 이동이 정의되지 않은
+    // 동작이 되지 않도록 부호 없는 값으로 이동한다. >> 는 부호를 유지한다 (음수는 1 로 채운다)
+    if (op == "<<")
+    {
+        return Value::createInteger(static_cast<int64_t>(static_cast<uint64_t>(left) << right));
+    }
+    if (op == ">>")
+    {
+        return Value::createInteger(left >> right);
+    }
+
+    throw error::RuntimeError("지원되지 않는 비트 연산자: " + op);
 }
 
 Value Evaluator::applyFloatOperation(double left, const std::string& op, double right)

@@ -164,6 +164,8 @@ void Dictionary::initializeDefaultDictionary()
     addBuiltinFunc("바꾸기");
     addBuiltinFunc("대문자");
     addBuiltinFunc("소문자");
+    addBuiltinFunc("문자코드");
+    addBuiltinFunc("코드문자");
 
     // 타입 변환
     addBuiltinFunc("정수");

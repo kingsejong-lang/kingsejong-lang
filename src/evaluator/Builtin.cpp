@@ -715,6 +715,60 @@ static Value builtin_소문자(const std::vector<Value>& args)
     return Value::createString(result);
 }
 
+/**
+ * @brief 문자코드(글자) - 글자 하나의 유니코드 코드 포인트
+ *
+ * @param args 글자 하나로 된 문자열 (1개)
+ * @return 코드 포인트 (정수). 예: 문자코드("A") → 65, 문자코드("가") → 44032
+ * @throws std::runtime_error 인자가 글자 하나로 된 올바른 UTF-8 문자열이 아닌 경우
+ */
+static Value builtin_문자코드(const std::vector<Value>& args)
+{
+    if (args.size() != 1)
+    {
+        throw std::runtime_error("문자코드() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isString())
+    {
+        throw std::runtime_error("문자코드() 함수의 인자는 문자열이어야 합니다");
+    }
+    char32_t codePoint = 0;
+    if (!common::decodeSingleUTF8Char(args[0].asString(), codePoint))
+    {
+        throw std::runtime_error(
+            "문자코드() 함수는 글자 하나로 된 문자열이 필요합니다: \"" + args[0].asString() + "\"\n"
+            "해결 방법: 문자열의 글자 하나를 꺼내려면 문자열[i] 를 쓰세요.");
+    }
+    return Value::createInteger(static_cast<int64_t>(codePoint));
+}
+
+/**
+ * @brief 코드문자(정수) - 유니코드 코드 포인트를 글자 하나로 된 문자열로
+ *
+ * @param args 코드 포인트 (정수, 0 ~ 1114111, 서로게이트 55296 ~ 57343 제외)
+ * @return 글자 하나로 된 문자열. 예: 코드문자(65) → "A", 코드문자(44032) → "가"
+ * @throws std::runtime_error 정수가 아니거나 유니코드 코드 포인트 범위 밖인 경우
+ */
+static Value builtin_코드문자(const std::vector<Value>& args)
+{
+    if (args.size() != 1)
+    {
+        throw std::runtime_error("코드문자() 함수는 정확히 1개의 인자가 필요합니다");
+    }
+    if (!args[0].isInteger())
+    {
+        throw std::runtime_error("코드문자() 함수의 인자는 정수여야 합니다");
+    }
+    int64_t codePoint = args[0].asInteger();
+    if (codePoint < 0 || codePoint > 0x10FFFF || (codePoint >= 0xD800 && codePoint <= 0xDFFF))
+    {
+        throw std::runtime_error(
+            "코드문자() 함수의 인자가 유니코드 코드 포인트가 아닙니다: " + std::to_string(codePoint) + "\n"
+            "해결 방법: 0 ~ 1114111 사이의 값(서로게이트 55296 ~ 57343 제외)을 쓰세요.");
+    }
+    return Value::createString(common::encodeUTF8(static_cast<char32_t>(codePoint)));
+}
+
 // ============================================================================
 // 타입 변환 함수
 // ============================================================================
@@ -3774,6 +3828,8 @@ void Builtin::registerAllBuiltins()
     registerBuiltin("바꾸기", builtin_바꾸기);
     registerBuiltin("대문자", builtin_대문자);
     registerBuiltin("소문자", builtin_소문자);
+    registerBuiltin("문자코드", builtin_문자코드);
+    registerBuiltin("코드문자", builtin_코드문자);
 
     // 타입 변환 함수
     registerBuiltin("정수", builtin_정수);

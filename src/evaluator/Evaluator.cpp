@@ -459,6 +459,18 @@ Value Evaluator::binaryOperation(const Value& left, const std::string& op, const
         return applyLogicalOperation(left, op, right);
     }
 
+    // 비트 연산자 (정수에만)
+    if (op == "&" || op == "|" || op == "^" || op == "<<" || op == ">>")
+    {
+        if (!left.isInteger() || !right.isInteger())
+        {
+            throw error::TypeError(
+                "비트 연산자 '" + op + "' 는 정수에만 쓸 수 있습니다: " + left.toString() + " " + op + " " +
+                right.toString() + "\n해결 방법: 정수(값) 으로 바꾼 뒤 계산하세요.");
+        }
+        return applyBitwiseOperation(left.asInteger(), op, right.asInteger());
+    }
+
     // 산술 연산자
     // 정수 + 정수 = 정수
     if (left.isInteger() && right.isInteger())
@@ -551,6 +563,15 @@ Value Evaluator::unaryOperation(const std::string& op, const Value& operand)
     if (op == "!")
     {
         return Value::createBoolean(!operand.isTruthy());
+    }
+
+    if (op == "~")
+    {
+        if (!operand.isInteger())
+        {
+            throw error::TypeError("비트 연산자 '~' 는 정수에만 쓸 수 있습니다: " + operand.toString());
+        }
+        return Value::createInteger(~operand.asInteger());
     }
 
     throw error::RuntimeError("지원되지 않는 단항 연산자: " + op);
@@ -1686,6 +1707,33 @@ Value Evaluator::applyIntegerOperation(int64_t left, const std::string& op, int6
     throw error::RuntimeError("지원되지 않는 정수 연산자: " + op);
 }
 
+Value Evaluator::applyBitwiseOperation(int64_t left, const std::string& op, int64_t right)
+{
+    if (op == "&") return Value::createInteger(left & right);
+    if (op == "|") return Value::createInteger(left | right);
+    if (op == "^") return Value::createInteger(left ^ right);
+
+    // 이동 거리가 0~63 밖이면 C++ 에서 정의되지 않은 동작이라 오류로 막는다
+    if (right < 0 || right > 63)
+    {
+        throw error::RuntimeError(
+            "비트 이동 거리는 0 이상 63 이하여야 합니다: " + std::to_string(left) + " " + op + " " +
+            std::to_string(right));
+    }
+    // << 는 밀려난 비트를 버린다 (정수 오버플로 오류를 내지 않는다). 부호 있는 값의 왼쪽 이동이 정의되지 않은
+    // 동작이 되지 않도록 부호 없는 값으로 이동한다. >> 는 부호를 유지한다 (음수는 1 로 채운다)
+    if (op == "<<")
+    {
+        return Value::createInteger(static_cast<int64_t>(static_cast<uint64_t>(left) << right));
+    }
+    if (op == ">>")
+    {
+        return Value::createInteger(left >> right);
+    }
+
+    throw error::RuntimeError("지원되지 않는 비트 연산자: " + op);
+}
+
 Value Evaluator::applyFloatOperation(double left, const std::string& op, double right)
 {
     if (op == "+") return Value::createFloat(left + right);
@@ -1775,17 +1823,14 @@ Value Evaluator::evalIndexExpression(ast::IndexExpression* expr)
 {
     Value left = eval(const_cast<ast::Expression*>(expr->array()));
 
-    if (!left.isArray() && !left.isDictionary())
+    if (!left.isArray() && !left.isDictionary() && !left.isString())
     {
-        throw error::TypeError(
-            "배열 또는 딕셔너리가 아닌 값에 인덱스 접근을 시도했습니다: " + left.toString() + "\n" +
-            "해결 방법: 인덱스 접근([])은 배열 또는 딕셔너리 타입에만 사용할 수 있습니다."
-        );
+        throwNotIndexable(left);
     }
 
-    // 배열 슬라이싱: 인덱스가 범위 표현식일 때
+    // 배열·문자열 슬라이싱: 인덱스가 범위 표현식일 때
     const ast::Expression* indexExpr = expr->index();
-    if (left.isArray() && indexExpr->type() == ast::NodeType::RANGE_EXPRESSION)
+    if (!left.isDictionary() && indexExpr->type() == ast::NodeType::RANGE_EXPRESSION)
     {
         const auto* rangeExpr = static_cast<const ast::RangeExpression*>(indexExpr);
         Value startValue = eval(const_cast<ast::Expression*>(rangeExpr->start()));
@@ -1801,6 +1846,50 @@ Value Evaluator::evalIndexExpression(ast::IndexExpression* expr)
 
     Value index = eval(const_cast<ast::Expression*>(expr->index()));
     return indexValue(left, index);
+}
+
+void Evaluator::throwNotIndexable(const Value& container)
+{
+    throw error::TypeError(
+        "배열, 딕셔너리 또는 문자열이 아닌 값에 인덱스 접근을 시도했습니다: " + container.toString() + "\n" +
+        "해결 방법: 인덱스 접근([])은 배열, 딕셔너리, 문자열에만 사용할 수 있습니다."
+    );
+}
+
+Value Evaluator::indexString(const std::string& str, const Value& index)
+{
+    if (!index.isInteger())
+    {
+        throw error::TypeError("문자열 인덱스는 정수여야 합니다. 실제 타입: " +
+                               types::Type::typeKindToString(index.getType()));
+    }
+    const int64_t requested = index.asInteger();
+    // 글자 단위로 센다. 음수 인덱스는 뒤에서 세므로 전체 글자 수가 필요할 때만 센다
+    int64_t idx = requested;
+    int64_t size = -1;
+    if (idx < 0)
+    {
+        size = static_cast<int64_t>(common::countUTF8Characters(str));
+        idx += size;
+    }
+    size_t offset = idx < 0 ? std::string::npos : common::getUTF8CharOffset(str, static_cast<size_t>(idx));
+    if (offset == std::string::npos)
+    {
+        if (size < 0)
+        {
+            size = static_cast<int64_t>(common::countUTF8Characters(str));
+        }
+        std::string hint = size == 0
+            ? "해결 방법: 빈 문자열에는 인덱스로 접근할 수 없습니다. 먼저 길이(문자열) > 0 인지 확인하세요."
+            : "해결 방법: 인덱스는 0부터 " + std::to_string(size - 1) + " 사이(뒤에서 세면 -" +
+              std::to_string(size) + "부터 -1 사이)여야 합니다.";
+        throw error::IndexError(
+            "문자열 인덱스 범위를 벗어났습니다: 인덱스 " + std::to_string(requested) +
+            ", 글자 수 " + std::to_string(size) + "\n" + hint
+        );
+    }
+    size_t len = std::min(common::getUTF8CharLength(static_cast<unsigned char>(str[offset])), str.size() - offset);
+    return Value::createString(str.substr(offset, len));
 }
 
 Value Evaluator::indexValue(const Value& container, const Value& index)
@@ -1826,13 +1915,15 @@ Value Evaluator::indexValue(const Value& container, const Value& index)
         return it->second;
     }
 
+    if (container.isString())
+    {
+        return indexString(container.asString(), index);
+    }
+
     // 배열인지 확인
     if (!container.isArray())
     {
-        throw error::TypeError(
-            "배열 또는 딕셔너리가 아닌 값에 인덱스 접근을 시도했습니다: " + container.toString() + "\n" +
-            "해결 방법: 인덱스 접근([])은 배열 또는 딕셔너리 타입에만 사용할 수 있습니다."
-        );
+        throwNotIndexable(container);
     }
 
     const std::vector<Value>& arr = container.asArray();
@@ -1873,12 +1964,29 @@ Value Evaluator::indexValue(const Value& container, const Value& index)
 Value Evaluator::sliceValue(const Value& container, const Value& startValue, const Value& endValue,
                             bool startInclusive, bool endInclusive, const Value* step)
 {
+    // 문자열은 글자 배열로 잘라 다시 잇는다 (음수 인덱스·step 규칙이 배열과 같다)
+    if (container.isString())
+    {
+        const std::string& str = container.asString();
+        std::vector<Value> chars;
+        for (size_t i = 0; i < str.size();)
+        {
+            size_t len = std::min(common::getUTF8CharLength(static_cast<unsigned char>(str[i])), str.size() - i);
+            chars.push_back(Value::createString(str.substr(i, len)));
+            i += len;
+        }
+        Value sliced = sliceValue(Value::createArray(chars), startValue, endValue, startInclusive, endInclusive, step);
+        std::string joined;
+        for (const auto& ch : sliced.asArray())
+        {
+            joined += ch.asString();
+        }
+        return Value::createString(joined);
+    }
+
     if (!container.isArray())
     {
-        throw error::TypeError(
-            "배열 또는 딕셔너리가 아닌 값에 인덱스 접근을 시도했습니다: " + container.toString() + "\n" +
-            "해결 방법: 인덱스 접근([])은 배열 또는 딕셔너리 타입에만 사용할 수 있습니다."
-        );
+        throwNotIndexable(container);
     }
     const std::vector<Value>& arr = container.asArray();
 
@@ -2480,7 +2588,7 @@ Value Evaluator::applyJosaMethod(const Value& object, lexer::JosaRecognizer::Jos
         return invokeFunction(callee, callArgs, name);
     }
 
-    // 4. 내장 배열 메서드 (걸러낸다, 변환한다, 축약한다, 찾다, 정렬한다, 역순으로_나열한다)
+    // 4. 내장 배열 메서드 (걸러낸다, 변환한다, 축약한다, 찾다, 정렬한다[(비교 함수)], 역순으로_나열한다)
     if (!object.isArray())
     {
         throw error::TypeError(
@@ -2523,7 +2631,7 @@ Value Evaluator::applyJosaMethod(const Value& object, lexer::JosaRecognizer::Jos
                 throw error::ArgumentError(
                     std::string("'") + method + "' 메서드의 " + example + "는 정확히 " + std::to_string(paramCount) +
                     "개의 매개변수가 필요합니다.\n" +
-                    "해결 방법: 함수(x) { ... } 형태로 작성하세요."
+                    "해결 방법: " + (paramCount == 2 ? "함수(a, b)" : "함수(x)") + " { ... } 형태로 작성하세요."
                 );
             }
         };
@@ -2602,9 +2710,48 @@ Value Evaluator::applyJosaMethod(const Value& object, lexer::JosaRecognizer::Jos
             return Value::createNull();
         }
 
+        // 정렬한다(비교 함수) (qsort): 비교 함수가 음수를 돌려주면 a 를 b 앞에 둔다
+        if (name == "정렬한다" || name == "정렬하고")
+        {
+            requireCallback("정렬한다", "비교 함수", 2);
+            const Value& comparator = args[0];
+            auto comesFirst = [&comparator](const Value& a, const Value& b) {
+                Value order = runCallback(comparator, {a, b});
+                if (order.isInteger()) return order.asInteger() < 0;
+                if (order.isFloat()) return order.asFloat() < 0.0;
+                throw error::TypeError(
+                    "'정렬한다' 의 비교 함수는 수를 돌려줘야 합니다: " + order.toString() + "\n" +
+                    "해결 방법: a 가 앞이면 음수, 뒤면 양수, 같으면 0 을 반환하세요. 예: 함수(a, b) { 반환 a - b }");
+            };
+            // 직접 짠 병합 정렬(안정 정렬): 비교 결과가 0 인 요소는 원래 순서를 지킨다.
+            // std::sort·stable_sort 는 비교 함수가 엄격 약순서라고 가정해서, 일관되지 않은 사용자 비교 함수를
+            // 받으면 정의되지 않은 동작이고 MSVC 디버그 STL 은 프로세스를 끝낸다. 병합 정렬은 비교 결과와
+            // 상관없이 각 요소를 정확히 한 번씩 옮기므로 요소를 잃거나 배열 밖을 읽지 않는다.
+            std::vector<Value> sorted = arr;
+            std::vector<Value> buffer(sorted.size());
+            for (size_t width = 1; width < sorted.size(); width *= 2)
+            {
+                for (size_t lo = 0; lo < sorted.size(); lo += 2 * width)
+                {
+                    size_t mid = std::min(lo + width, sorted.size());
+                    size_t hi = std::min(lo + 2 * width, sorted.size());
+                    size_t i = lo, j = mid, k = lo;
+                    while (i < mid && j < hi)
+                    {
+                        // 오른쪽이 앞서야 할 때만 오른쪽을 먼저 둔다 (같으면 왼쪽: 안정성)
+                        buffer[k++] = comesFirst(sorted[j], sorted[i]) ? sorted[j++] : sorted[i++];
+                    }
+                    while (i < mid) buffer[k++] = sorted[i++];
+                    while (j < hi) buffer[k++] = sorted[j++];
+                }
+                sorted.swap(buffer);
+            }
+            return Value::createArray(sorted);
+        }
+
         throw error::NameError(
             "알 수 없는 배열 메서드 '" + name + "'입니다.\n" +
-            "해결 방법: 지원되는 메서드는 '걸러낸다', '변환한다', '축약한다', '찾다' 등입니다."
+            "해결 방법: 지원되는 메서드는 '걸러낸다', '변환한다', '축약한다', '찾다', '정렬한다' 등입니다."
         );
     }
 

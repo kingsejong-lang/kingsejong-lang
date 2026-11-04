@@ -41,6 +41,11 @@ const char* binaryOpName(OpCode op) {
         case OpCode::GE:  return ">=";
         case OpCode::AND: return "&&";
         case OpCode::OR:  return "||";
+        case OpCode::BIT_AND:     return "&";
+        case OpCode::BIT_OR:      return "|";
+        case OpCode::BIT_XOR:     return "^";
+        case OpCode::SHIFT_LEFT:  return "<<";
+        case OpCode::SHIFT_RIGHT: return ">>";
         default:          return "?";
     }
 }
@@ -284,7 +289,9 @@ VM::Step VM::executeInstruction() {
         // ---- 연산 ----
         case OpCode::ADD: case OpCode::SUB: case OpCode::MUL: case OpCode::DIV: case OpCode::MOD:
         case OpCode::EQ: case OpCode::NE: case OpCode::LT: case OpCode::GT: case OpCode::LE: case OpCode::GE:
-        case OpCode::AND: case OpCode::OR: {
+        case OpCode::AND: case OpCode::OR:
+        case OpCode::BIT_AND: case OpCode::BIT_OR: case OpCode::BIT_XOR:
+        case OpCode::SHIFT_LEFT: case OpCode::SHIFT_RIGHT: {
             Value right = pop();
             Value left = pop();
             push(Evaluator::binaryOperation(left, binaryOpName(instruction), right));
@@ -298,6 +305,11 @@ VM::Step VM::executeInstruction() {
         case OpCode::NOT: {
             Value operand = pop();
             push(Evaluator::unaryOperation("!", operand));
+            break;
+        }
+        case OpCode::BIT_NOT: {
+            Value operand = pop();
+            push(Evaluator::unaryOperation("~", operand));
             break;
         }
 

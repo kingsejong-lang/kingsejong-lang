@@ -28,6 +28,8 @@ void SemanticAnalyzer::initBuiltinFunctions()
 {
     // 기본 I/O
     builtins_.insert("출력");
+    builtins_.insert("오류_출력");
+    builtins_.insert("명령줄_인자");
     builtins_.insert("입력");
 
     // null 리터럴
@@ -49,6 +51,8 @@ void SemanticAnalyzer::initBuiltinFunctions()
     builtins_.insert("바꾸기");
     builtins_.insert("대문자");
     builtins_.insert("소문자");
+    builtins_.insert("문자코드");
+    builtins_.insert("코드문자");
 
     // 딕셔너리 함수 (Phase 7.2)
     builtins_.insert("딕셔너리_키들");
@@ -69,6 +73,8 @@ void SemanticAnalyzer::initBuiltinFunctions()
     // 파일 I/O
     builtins_.insert("파일_읽기");
     builtins_.insert("파일_쓰기");
+    builtins_.insert("파일_바이트_읽기");
+    builtins_.insert("파일_바이트_쓰기");
     builtins_.insert("파일_추가");
     builtins_.insert("파일_존재");
     builtins_.insert("줄별_읽기");
@@ -1177,6 +1183,19 @@ Type* SemanticAnalyzer::inferType(const Expression* expr)
             {
                 return Type::getBuiltin("논리");
             }
+
+            // 비트 연산자 (&, |, ^, <<, >>): 정수에만
+            else if (op == "&" || op == "|" || op == "^" || op == "<<" || op == ">>")
+            {
+                if (leftType->koreanName() != "정수" || rightType->koreanName() != "정수")
+                {
+                    addError("비트 연산자 '" + op + "' 는 정수에만 쓸 수 있습니다 (현재: " +
+                             leftType->koreanName() + " " + op + " " + rightType->koreanName() + ")",
+                             expr->location().line, expr->location().column);
+                    return nullptr;
+                }
+                return Type::getBuiltin("정수");
+            }
             break;
         }
         // 단항 연산 타입 추론
@@ -1198,6 +1217,17 @@ Type* SemanticAnalyzer::inferType(const Expression* expr)
             else if (op == "-" || op == "+")
             {
                 return operandType;  // 같은 타입 반환
+            }
+            // 비트 반전 (~): 정수에만
+            else if (op == "~")
+            {
+                if (operandType->koreanName() != "정수")
+                {
+                    addError("비트 연산자 '~' 는 정수에만 쓸 수 있습니다 (현재: " + operandType->koreanName() + ")",
+                             expr->location().line, expr->location().column);
+                    return nullptr;
+                }
+                return operandType;
             }
             break;
         }
@@ -1321,9 +1351,13 @@ Type* SemanticAnalyzer::inferType(const Expression* expr)
                 {
                     return Type::getBuiltin("문자열");
                 }
-                else if (funcName == "타입")
+                else if (funcName == "타입" || funcName == "코드문자")
                 {
                     return Type::getBuiltin("문자열");
+                }
+                else if (funcName == "문자코드")
+                {
+                    return Type::getBuiltin("정수");
                 }
                 // 그 외 builtin 함수나 사용자 정의 함수는 반환 타입 알 수 없음
             }

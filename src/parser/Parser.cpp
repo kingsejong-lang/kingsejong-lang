@@ -40,6 +40,7 @@ void Parser::registerParseFunctions()
     registerPrefixFn(TokenType::GEOJIT, [this]() { return parseBooleanLiteral(); });
     registerPrefixFn(TokenType::MINUS, [this]() { return parsePrefixExpression(); });
     registerPrefixFn(TokenType::NOT, [this]() { return parsePrefixExpression(); });
+    registerPrefixFn(TokenType::BIT_NOT, [this]() { return parsePrefixExpression(); });
     registerPrefixFn(TokenType::LPAREN, [this]() { return parseGroupedExpression(); });
     registerPrefixFn(TokenType::LBRACKET, [this]() { return parseArrayLiteral(); });
     registerPrefixFn(TokenType::LBRACE, [this]() { return parseDictionaryLiteral(); });  // Phase 7.2
@@ -78,6 +79,11 @@ void Parser::registerParseFunctions()
     registerInfixFn(TokenType::ASTERISK, [this](auto left) { return parseBinaryExpression(std::move(left)); });
     registerInfixFn(TokenType::SLASH, [this](auto left) { return parseBinaryExpression(std::move(left)); });
     registerInfixFn(TokenType::PERCENT, [this](auto left) { return parseBinaryExpression(std::move(left)); });
+    registerInfixFn(TokenType::BIT_AND, [this](auto left) { return parseBinaryExpression(std::move(left)); });
+    registerInfixFn(TokenType::BIT_OR, [this](auto left) { return parseBinaryExpression(std::move(left)); });
+    registerInfixFn(TokenType::BIT_XOR, [this](auto left) { return parseBinaryExpression(std::move(left)); });
+    registerInfixFn(TokenType::SHIFT_LEFT, [this](auto left) { return parseBinaryExpression(std::move(left)); });
+    registerInfixFn(TokenType::SHIFT_RIGHT, [this](auto left) { return parseBinaryExpression(std::move(left)); });
     registerInfixFn(TokenType::EQ, [this](auto left) { return parseBinaryExpression(std::move(left)); });
     registerInfixFn(TokenType::NOT_EQ, [this](auto left) { return parseBinaryExpression(std::move(left)); });
     registerInfixFn(TokenType::LT, [this](auto left) { return parseBinaryExpression(std::move(left)); });
@@ -299,6 +305,15 @@ Parser::Precedence Parser::tokenPrecedence(TokenType type) const
         case TokenType::LE:
         case TokenType::GE:
             return Precedence::LESSGREATER;
+        case TokenType::BIT_OR:
+            return Precedence::BIT_OR;
+        case TokenType::BIT_XOR:
+            return Precedence::BIT_XOR;
+        case TokenType::BIT_AND:
+            return Precedence::BIT_AND;
+        case TokenType::SHIFT_LEFT:
+        case TokenType::SHIFT_RIGHT:
+            return Precedence::SHIFT;
         case TokenType::PLUS:
         case TokenType::MINUS:
             return Precedence::SUM;
@@ -1421,16 +1436,29 @@ std::unique_ptr<Expression> Parser::parseIdentifier()
 
 std::unique_ptr<Expression> Parser::parseIntegerLiteral()
 {
+    const std::string& literal = curToken_.literal;
     try
     {
-        int64_t value = std::stoll(curToken_.literal);
-        auto node = std::make_unique<IntegerLiteral>(value);
+        // 16진수·2진수는 64비트 비트 패턴을 그대로 쓴다 (0xFFFFFFFFFFFFFFFF 는 -1). 10진수는 정수 범위 안이어야 한다.
+        bool radixPrefixed = literal.size() > 2 && literal[0] == '0' &&
+                             (literal[1] == 'x' || literal[1] == 'X' || literal[1] == 'b' || literal[1] == 'B');
+        int64_t value = 0;
+        if (radixPrefixed)
+        {
+            int base = (literal[1] == 'x' || literal[1] == 'X') ? 16 : 2;
+            value = static_cast<int64_t>(std::stoull(literal.substr(2), nullptr, base));
+        }
+        else
+        {
+            value = std::stoll(literal);
+        }
+        auto node = std::make_unique<IntegerLiteral>(value, radixPrefixed ? literal : std::string());
         node->setLocation(curToken_.location);
         return node;
     }
     catch (const std::exception&)
     {
-        recordError("'" + curToken_.literal + "'" + lexer::JosaRecognizer::selectOrBoth(curToken_.literal, lexer::JosaRecognizer::JosaType::EUL_REUL) + " 정수로 변환할 수 없습니다.", curToken_.location);
+        recordError("'" + literal + "'" + lexer::JosaRecognizer::selectOrBoth(literal, lexer::JosaRecognizer::JosaType::EUL_REUL) + " 정수로 변환할 수 없습니다. 정수는 64비트 범위 안이어야 합니다.", curToken_.location);
         return nullptr;
     }
 }
@@ -1439,8 +1467,10 @@ std::unique_ptr<Expression> Parser::parseFloatLiteral()
 {
     try
     {
-        double value = std::stod(curToken_.literal);
-        auto node = std::make_unique<FloatLiteral>(value);
+        const std::string& literal = curToken_.literal;
+        double value = std::stod(literal);
+        bool exponent = literal.find_first_of("eE") != std::string::npos;
+        auto node = std::make_unique<FloatLiteral>(value, exponent ? literal : std::string());
         node->setLocation(curToken_.location);
         return node;
     }

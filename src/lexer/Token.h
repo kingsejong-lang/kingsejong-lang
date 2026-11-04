@@ -39,6 +39,14 @@ enum class TokenType
     SLASH,        ///< /
     PERCENT,      ///< %
 
+    // 비트 연산자 (정수에만)
+    BIT_AND,      ///< &
+    BIT_OR,       ///< |
+    BIT_XOR,      ///< ^
+    BIT_NOT,      ///< ~
+    SHIFT_LEFT,   ///< <<
+    SHIFT_RIGHT,  ///< >>
+
     // 비교 연산자
     EQ,           ///< ==
     NOT_EQ,       ///< !=

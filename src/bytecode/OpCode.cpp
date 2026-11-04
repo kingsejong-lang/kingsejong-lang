@@ -34,6 +34,12 @@ std::string opCodeToString(OpCode op) {
         case OpCode::AND:             return "AND";
         case OpCode::OR:              return "OR";
         case OpCode::NOT:             return "NOT";
+        case OpCode::BIT_AND:         return "BIT_AND";
+        case OpCode::BIT_OR:          return "BIT_OR";
+        case OpCode::BIT_XOR:         return "BIT_XOR";
+        case OpCode::SHIFT_LEFT:      return "SHIFT_LEFT";
+        case OpCode::SHIFT_RIGHT:     return "SHIFT_RIGHT";
+        case OpCode::BIT_NOT:         return "BIT_NOT";
         case OpCode::JUMP:            return "JUMP";
         case OpCode::JUMP_IF_FALSE:   return "JUMP_IF_FALSE";
         case OpCode::JUMP_IF_TRUE:    return "JUMP_IF_TRUE";

@@ -239,6 +239,15 @@ if(Python3_Interpreter_FOUND)
     set_tests_properties(examples examples-vm PROPERTIES RESOURCE_LOCK examples-workdir)
 endif()
 
+# 스크립트 이름 뒤의 인자와 -- 뒤의 인자가 명령줄_인자() 로 넘어가는지 실제 바이너리로 본다
+add_test(
+    NAME cli-arguments
+    COMMAND $<TARGET_FILE:kingsejong> tests/cli/print_args.ksj a "b c" -- -n --vm
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+set_tests_properties(cli-arguments PROPERTIES
+    PASS_REGULAR_EXPRESSION "^\\[tests/cli/print_args\\.ksj, a, b c, -n, --vm\\]")
+
 # 설치 규칙
 # 설치된 바이너리가 stdlib 를 찾을 수 있게 위치를 컴파일 시점에 알려 준다
 target_compile_definitions(kingsejong_lib PUBLIC KINGSEJONG_STDLIB_DIR="${CMAKE_INSTALL_PREFIX}/share/kingsejong")

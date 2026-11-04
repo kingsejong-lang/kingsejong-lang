@@ -127,6 +127,12 @@ std::string tokenTypeToString(TokenType type)
         case TokenType::ASTERISK:     return "ASTERISK";
         case TokenType::SLASH:        return "SLASH";
         case TokenType::PERCENT:      return "PERCENT";
+        case TokenType::BIT_AND:      return "BIT_AND";
+        case TokenType::BIT_OR:       return "BIT_OR";
+        case TokenType::BIT_XOR:      return "BIT_XOR";
+        case TokenType::BIT_NOT:      return "BIT_NOT";
+        case TokenType::SHIFT_LEFT:   return "SHIFT_LEFT";
+        case TokenType::SHIFT_RIGHT:  return "SHIFT_RIGHT";
 
         case TokenType::EQ:           return "EQ";
         case TokenType::NOT_EQ:       return "NOT_EQ";

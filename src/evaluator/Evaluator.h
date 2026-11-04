@@ -214,15 +214,19 @@ public:
     static Value lookupName(const Environment& env, const std::string& name);
     /// 이항 연산 (비교·논리·산술·문자열 연결·배열 연결·문자열 반복)
     static Value binaryOperation(const Value& left, const std::string& op, const Value& right);
-    /// 단항 연산 (-, !)
+    /// 단항 연산 (-, !, ~)
     static Value unaryOperation(const std::string& op, const Value& operand);
     /// 만약·반복·경우 가드의 조건 값을 논리값으로 꺼낸다. 참/거짓이 아니면 TypeError (진리값으로 바꾸지 않는다)
     static bool conditionValue(const Value& condition);
     /// 요소 반복이 돌 값들: 배열은 시작할 때의 요소, 문자열은 글자, 딕셔너리는 키(정렬 순). 그 밖의 값은 TypeError
     static std::vector<Value> forEachItems(const Value& collection);
-    /// 배열[정수] / 사전["키"] 읽기
+    /// 배열[정수] / 사전["키"] / 문자열[정수] 읽기. 문자열은 글자(코드 포인트) 하나를 문자열로 돌려준다
     static Value indexValue(const Value& container, const Value& index);
-    /// 배열 슬라이싱 (step 은 없으면 nullptr)
+    /// 문자열[정수]: 글자 단위, 음수는 뒤에서 센다. 범위를 벗어나면 IndexError
+    static Value indexString(const std::string& str, const Value& index);
+    /// 인덱스로 접근할 수 없는 값이면 던지는 TypeError
+    [[noreturn]] static void throwNotIndexable(const Value& container);
+    /// 배열·문자열 슬라이싱 (step 은 없으면 nullptr). 문자열은 글자 단위로 잘라 문자열을 돌려준다
     static Value sliceValue(const Value& container, const Value& start, const Value& end,
                             bool startInclusive, bool endInclusive, const Value* step);
     /// 배열[정수] = 값 / 사전["키"] = 값 (배열·사전은 공유되므로 제자리에서 바뀐다)
@@ -642,6 +646,15 @@ private:
      * @return 연산 결과
      */
     static Value applyIntegerOperation(int64_t left, const std::string& op, int64_t right);
+
+    /**
+     * @brief 두 정수 값에 대한 비트 연산 수행
+     * @param left 왼쪽 피연산자
+     * @param op 연산자 (&, |, ^, <<, >>)
+     * @param right 오른쪽 피연산자 (이동이면 0~63)
+     * @return 연산 결과. << 는 밀려난 비트를 버리고, >> 는 부호를 유지한다
+     */
+    static Value applyBitwiseOperation(int64_t left, const std::string& op, int64_t right);
 
     /**
      * @brief 두 실수 값에 대한 산술 연산 수행

@@ -64,6 +64,18 @@
     "numbers": {
       "patterns": [
         {
+          "name": "constant.numeric.hex.kingsejong",
+          "match": "\\b0[xX][0-9a-fA-F]+\\b"
+        },
+        {
+          "name": "constant.numeric.binary.kingsejong",
+          "match": "\\b0[bB][01]+\\b"
+        },
+        {
+          "name": "constant.numeric.float.kingsejong",
+          "match": "\\b\\d+(\\.\\d+)?[eE][+-]?\\d+\\b"
+        },
+        {
           "name": "constant.numeric.float.kingsejong",
           "match": "\\b\\d+\\.\\d+\\b"
         },
@@ -93,12 +105,20 @@
           "match": "[+\\-*/%]"
         },
         {
+          "name": "keyword.operator.bitwise.shift.kingsejong",
+          "match": "(<<|>>)"
+        },
+        {
           "name": "keyword.operator.comparison.kingsejong",
           "match": "(==|!=|<=|>=|<|>)"
         },
         {
           "name": "keyword.operator.logical.kingsejong",
           "match": "(&&|\\|\\||!)"
+        },
+        {
+          "name": "keyword.operator.bitwise.kingsejong",
+          "match": "[&|^~]"
         },
         {
           "name": "keyword.operator.assignment.kingsejong",

@@ -154,6 +154,8 @@ void Dictionary::initializeDefaultDictionary()
     // ========================================
     // 기본 함수
     addBuiltinFunc("출력");
+    addBuiltinFunc("오류_출력");
+    addBuiltinFunc("명령줄_인자");
     addBuiltinFunc("입력");
     addBuiltinFunc("타입");
     addBuiltinFunc("길이");
@@ -164,6 +166,8 @@ void Dictionary::initializeDefaultDictionary()
     addBuiltinFunc("바꾸기");
     addBuiltinFunc("대문자");
     addBuiltinFunc("소문자");
+    addBuiltinFunc("문자코드");
+    addBuiltinFunc("코드문자");
 
     // 타입 변환
     addBuiltinFunc("정수");
@@ -183,6 +187,8 @@ void Dictionary::initializeDefaultDictionary()
     // 파일 I/O
     addBuiltinFunc("파일_읽기");
     addBuiltinFunc("파일_쓰기");
+    addBuiltinFunc("파일_바이트_읽기");
+    addBuiltinFunc("파일_바이트_쓰기");
     addBuiltinFunc("파일_추가");
     addBuiltinFunc("파일_존재");
     addBuiltinFunc("줄별_읽기");

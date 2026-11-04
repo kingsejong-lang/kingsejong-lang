@@ -43,6 +43,7 @@ enum class OpCode : uint8_t {
     ADD, SUB, MUL, DIV, MOD, NEG,
     EQ, NE, LT, GT, LE, GE,
     AND, OR, NOT,
+    BIT_AND, BIT_OR, BIT_XOR, SHIFT_LEFT, SHIFT_RIGHT, BIT_NOT,  ///< 정수 비트 연산
 
     // ---- 제어 흐름 ----
     JUMP,            ///< [u16 앞으로]

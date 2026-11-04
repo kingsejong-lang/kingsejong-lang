@@ -538,6 +538,11 @@ void Compiler::compileBinaryExpression(ast::BinaryExpression* expr) {
     else if (op == ">=")    emit(OpCode::GE);
     else if (op == "&&" || op == "그리고") emit(OpCode::AND);
     else if (op == "||" || op == "또는")   emit(OpCode::OR);
+    else if (op == "&")     emit(OpCode::BIT_AND);
+    else if (op == "|")     emit(OpCode::BIT_OR);
+    else if (op == "^")     emit(OpCode::BIT_XOR);
+    else if (op == "<<")    emit(OpCode::SHIFT_LEFT);
+    else if (op == ">>")    emit(OpCode::SHIFT_RIGHT);
     else error("지원되지 않는 이항 연산자: " + op);
 }
 
@@ -581,6 +586,7 @@ void Compiler::compileUnaryExpression(ast::UnaryExpression* expr) {
     const std::string& op = expr->op();
     if (op == "-")      emit(OpCode::NEG);
     else if (op == "!") emit(OpCode::NOT);
+    else if (op == "~") emit(OpCode::BIT_NOT);
     else error("지원되지 않는 단항 연산자: " + op);
 }
 

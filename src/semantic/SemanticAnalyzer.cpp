@@ -1151,6 +1151,19 @@ Type* SemanticAnalyzer::inferType(const Expression* expr)
             {
                 return Type::getBuiltin("논리");
             }
+
+            // 비트 연산자 (&, |, ^, <<, >>): 정수에만
+            else if (op == "&" || op == "|" || op == "^" || op == "<<" || op == ">>")
+            {
+                if (leftType->koreanName() != "정수" || rightType->koreanName() != "정수")
+                {
+                    addError("비트 연산자 '" + op + "' 는 정수에만 쓸 수 있습니다 (현재: " +
+                             leftType->koreanName() + " " + op + " " + rightType->koreanName() + ")",
+                             expr->location().line, expr->location().column);
+                    return nullptr;
+                }
+                return Type::getBuiltin("정수");
+            }
             break;
         }
         // 단항 연산 타입 추론
@@ -1172,6 +1185,17 @@ Type* SemanticAnalyzer::inferType(const Expression* expr)
             else if (op == "-" || op == "+")
             {
                 return operandType;  // 같은 타입 반환
+            }
+            // 비트 반전 (~): 정수에만
+            else if (op == "~")
+            {
+                if (operandType->koreanName() != "정수")
+                {
+                    addError("비트 연산자 '~' 는 정수에만 쓸 수 있습니다 (현재: " + operandType->koreanName() + ")",
+                             expr->location().line, expr->location().column);
+                    return nullptr;
+                }
+                return operandType;
             }
             break;
         }

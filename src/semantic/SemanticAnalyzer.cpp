@@ -28,6 +28,8 @@ void SemanticAnalyzer::initBuiltinFunctions()
 {
     // 기본 I/O
     builtins_.insert("출력");
+    builtins_.insert("오류_출력");
+    builtins_.insert("명령줄_인자");
     builtins_.insert("입력");
 
     // null 리터럴
@@ -71,6 +73,8 @@ void SemanticAnalyzer::initBuiltinFunctions()
     // 파일 I/O
     builtins_.insert("파일_읽기");
     builtins_.insert("파일_쓰기");
+    builtins_.insert("파일_바이트_읽기");
+    builtins_.insert("파일_바이트_쓰기");
     builtins_.insert("파일_추가");
     builtins_.insert("파일_존재");
     builtins_.insert("줄별_읽기");

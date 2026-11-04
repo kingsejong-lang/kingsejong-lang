@@ -554,9 +554,7 @@ VM::Step VM::executeInstruction() {
             auto moduleEnv = moduleLoader_->loadModule(
                 modulePath, fromFile,
                 [this](ast::Program& program, const std::shared_ptr<Environment>& env) { runModule(program, env); });
-            for (const auto& [name, value] : moduleEnv->getAllBindings()) {
-                env_->set(name, value);
-            }
+            module::ModuleLoader::importBindings(*env_, *moduleEnv, modulePath);
             break;
         }
 

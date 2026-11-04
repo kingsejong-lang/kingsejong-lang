@@ -2145,11 +2145,8 @@ Value Evaluator::evalImportStatement(ast::ImportStatement* stmt)
     }
     currentStatement_ = stmt;
 
-    // 모듈의 모든 변수를 현재 환경으로 가져오기
-    for (const auto& [name, value] : moduleEnv->getAllBindings())
-    {
-        env_->set(name, value);
-    }
+    // 모듈의 모든 변수를 현재 환경으로 가져오기 (같은 이름의 다른 함수가 있으면 오류)
+    module::ModuleLoader::importBindings(*env_, *moduleEnv, modulePath);
 
     return Value::createNull();
 }

@@ -979,6 +979,16 @@ TEST_F(VMModuleTest, ShouldRejectImportedFunctionNameConflicts) {
     EXPECT_EQ(diamond.global("결과").asInteger(), 12);
 }
 
+TEST_F(VMModuleTest, ShouldNotImportUnderscorePrefixedNames) {
+    // '_' 로 시작하는 이름은 가져오지 않지만 모듈의 함수는 그 이름을 계속 쓴다
+    writeModule("도우미", "함수 _두배(x) { 반환 x * 2 }\n정수 _비밀 = 7\n함수 계산(x) { 반환 _두배(x) + _비밀 }\n");
+    VmRun run("함수 _두배(x) { 반환 0 }\n가져오기 \"도우미\"\n정수 결과 = 계산(5) + _두배(9)\n", loader_.get());
+    ASSERT_TRUE(run.compiled);
+    ASSERT_EQ(run.result, VMResult::OK);
+    EXPECT_EQ(run.global("결과").asInteger(), 17);
+    EXPECT_FALSE(run.vm.globals()->exists("_비밀"));
+}
+
 TEST(VMParityTest, ShouldNotLeakEnvironmentsForGlobalFunctions) {
     size_t before = Environment::liveCount();
     {

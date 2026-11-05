@@ -90,15 +90,26 @@ TEST(LinterTest, ShouldNotReportUsedVariable)
 }
 
 /**
- * @test '_' 로 시작하는 이름은 문법상 만들 수 없다 (UNDERSCORE 는 따로 읽히는 토큰).
- *       예전 시험은 파싱 오류가 난 프로그램을 린트해 통과했다
+ * @test 언더스코어로 시작하는 변수는 무시
  */
-TEST(LinterTest, ShouldNotTreatUnderscorePrefixAsName)
+TEST(LinterTest, ShouldIgnoreUnderscorePrefixedVariable)
 {
-    Lexer lexer("정수 _unused = 10\n");
+    std::string code = R"(
+정수 _unused = 10
+정수 x = 20
+출력(x)
+)";
+
+    Lexer lexer(code);
     Parser parser(lexer);
-    parser.parseProgram();
-    EXPECT_FALSE(parser.errors().empty());
+    auto program = parser.parseProgram();
+    ASSERT_TRUE(parser.errors().empty());
+
+    Linter linter;
+    linter.addRule(std::make_unique<UnusedVariableRule>());
+    linter.analyze(program.get(), "test.ksj");
+
+    EXPECT_EQ(linter.issues().size(), 0);
 }
 
 /**
@@ -670,13 +681,16 @@ TEST(LinterTest, ShouldNotReportUsedParameter)
 }
 
 /**
- * @test 미사용 매개변수 안내는 만들 수 없는 이름('_x')을 권하지 않고 규칙을 끄는 방법을 알린다
+ * @test 언더스코어 매개변수는 무시하고, 미사용 매개변수 안내는 '_' 이름을 권한다
  */
-TEST(LinterTest, ShouldNotSuggestUnderscoreParameterName)
+TEST(LinterTest, ShouldIgnoreUnderscorePrefixedParameter)
 {
     std::string code = R"(
-함수 계산(x, 안씀) {
+함수 계산(x, _안씀) {
     반환 x
+}
+함수 합(a, 안씀) {
+    반환 a
 }
 )";
 
@@ -690,8 +704,8 @@ TEST(LinterTest, ShouldNotSuggestUnderscoreParameterName)
     linter.analyze(program.get(), "test.ksj");
 
     ASSERT_EQ(linter.issues().size(), 1u);
-    EXPECT_EQ(linter.issues()[0].message.find("'_"), std::string::npos);
-    EXPECT_NE(linter.issues()[0].message.find("no-unused-parameter"), std::string::npos);
+    EXPECT_EQ(linter.issues()[0].subject, "안씀");
+    EXPECT_NE(linter.issues()[0].message.find("'_안씀'"), std::string::npos);
 }
 
 // ============================================================================

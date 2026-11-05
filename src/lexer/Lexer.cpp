@@ -650,11 +650,6 @@ Token Lexer::nextToken()
             readChar();
             break;
 
-        case '_':
-            token = Token(TokenType::UNDERSCORE, std::string(1, ch));
-            readChar();
-            break;
-
         case '"':
         case '\'':
             {
@@ -667,6 +662,16 @@ Token Lexer::nextToken()
         case '\0':
             token = Token(TokenType::EOF_TOKEN, "");
             break;
+
+        case '_':
+            // 혼자 쓴 '_' 는 패턴의 와일드카드다. 뒤에 글자나 숫자가 붙으면 이름이다(`_도우미`)
+            if (!isLetter(peekChar()) && !isDigit(peekChar()))
+            {
+                token = Token(TokenType::UNDERSCORE, std::string(1, ch));
+                readChar();
+                break;
+            }
+            [[fallthrough]];
 
         default:
             if (isLetter(ch))

@@ -401,3 +401,60 @@ TEST_F(ModuleTestFixture, SemanticAnalyzerKnowsImportedNames)
     kingsejong::semantic::SemanticAnalyzer plain;
     EXPECT_FALSE(plain.analyze(program.get()));
 }
+
+/**
+ * @test 이름이 같은 다른 함수를 가져오면 오류이고, 충돌한 모듈의 이름은 하나도 들어오지 않는다.
+ *       같은 모듈을 여러 경로로 가져오는 것과 함수가 아닌 값끼리 겹치는 것은 충돌이 아니다
+ */
+TEST_F(ModuleTestFixture, ShouldRejectImportedFunctionNameConflicts)
+{
+    createTestModule("갑", "함수 겹침() { 반환 1 }\n정수 공통 = 1\n");
+    createTestModule("을", "함수 겹침() { 반환 2 }\n함수 을만() { 반환 3 }\n");
+    createTestModule("병", "가져오기 \"갑\"\n정수 공통 = 2\n함수 병만() { 반환 겹침() + 10 }\n");
+
+    auto run = [this](const std::string& source, std::string& error) {
+        Lexer lexer(source);
+        Parser parser(lexer);
+        auto program = parser.parseProgram();
+        EXPECT_TRUE(parser.errors().empty());
+        ModuleLoader loader(testModulePath_);
+        auto env = std::make_shared<Environment>();
+        bool hasOnlyB = false;
+        int64_t result = 0;
+        {
+            Evaluator evaluator(env);
+            evaluator.setModuleLoader(&loader);
+            try
+            {
+                evaluator.evalProgram(program.get());
+            }
+            catch (const std::exception& e)
+            {
+                error = e.what();
+            }
+            hasOnlyB = env->exists("을만");
+            if (env->exists("결과"))
+            {
+                result = env->get("결과").asInteger();
+            }
+        }
+        env->clear();
+        return std::make_pair(hasOnlyB, result);
+    };
+
+    std::string error;
+    auto [hasOnlyB, unused] = run("가져오기 \"갑\"\n가져오기 \"을\"\n", error);
+    EXPECT_NE(error.find("가져오기 이름 충돌"), std::string::npos) << error;
+    EXPECT_NE(error.find("'겹침'"), std::string::npos) << error;
+    EXPECT_FALSE(hasOnlyB);
+
+    // 먼저 정의한 함수도 가져온 함수에 덮이지 않는다
+    error.clear();
+    run("함수 겹침() { 반환 0 }\n가져오기 \"갑\"\n", error);
+    EXPECT_NE(error.find("가져오기 이름 충돌"), std::string::npos) << error;
+
+    error.clear();
+    auto [unused2, result] = run("가져오기 \"갑\"\n가져오기 \"병\"\n가져오기 \"갑\"\n정수 결과 = 겹침() + 병만()\n", error);
+    EXPECT_TRUE(error.empty()) << error;
+    EXPECT_EQ(result, 12);
+}

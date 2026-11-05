@@ -292,5 +292,64 @@ std::string ModuleLoader::readFile(const std::string& path) const
     return buffer.str();
 }
 
+namespace
+{
+/// 두 값이 같은 것을 가리키는지. 함수는 같은 함수 객체여야 같다
+bool sameBinding(const evaluator::Value& a, const evaluator::Value& b)
+{
+    if (a.isFunction() && b.isFunction())
+    {
+        return a.asFunction() == b.asFunction();
+    }
+    if (a.isFunction() || b.isFunction() || a.isBuiltinFunction() || b.isBuiltinFunction())
+    {
+        return false;
+    }
+    return true;  // 함수가 아닌 값끼리는 충돌로 보지 않는다
+}
+
+bool isCallable(const evaluator::Value& value)
+{
+    return value.isFunction() || value.isBuiltinFunction();
+}
+} // namespace
+
+void ModuleLoader::importBindings(evaluator::Environment& target, const evaluator::Environment& moduleEnv,
+                                  const std::string& modulePath)
+{
+    // 충돌을 모두 확인한 뒤에 넣는다. 도중에 멈추면 모듈의 일부만 들어온다
+    std::vector<std::string> conflicts;
+    for (const auto& [name, value] : moduleEnv.getAllBindings())
+    {
+        if (!target.exists(name))
+        {
+            continue;
+        }
+        evaluator::Value existing = target.get(name);
+        if ((isCallable(existing) || isCallable(value)) && !sameBinding(existing, value))
+        {
+            conflicts.push_back(name);
+        }
+    }
+
+    if (!conflicts.empty())
+    {
+        std::sort(conflicts.begin(), conflicts.end());
+        std::string names;
+        for (const auto& name : conflicts)
+        {
+            names += (names.empty() ? "'" : ", '") + name + "'";
+        }
+        throw error::RuntimeError(
+            "가져오기 이름 충돌: '" + modulePath + "' 의 " + names + " 이(가) 이미 있는 이름과 같습니다. "
+            "같은 이름의 함수가 둘이면 나중 것이 앞의 것을 덮어쓰므로 막습니다. 한쪽 이름을 바꾸세요.");
+    }
+
+    for (const auto& [name, value] : moduleEnv.getAllBindings())
+    {
+        target.set(name, value);
+    }
+}
+
 } // namespace module
 } // namespace kingsejong

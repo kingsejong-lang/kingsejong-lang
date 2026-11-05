@@ -161,6 +161,8 @@ export default defineConfig({
         items: [
           { text: '로드맵', link: '/ROADMAP' },
           { text: 'v0.6 마이그레이션', link: '/MIGRATION_v0.6' },
+          { text: 'v0.7 마이그레이션', link: '/MIGRATION_v0.7' },
+          { text: 'v0.8 마이그레이션', link: '/MIGRATION_v0.8' },
           { text: '기여 가이드', link: '/CONTRIBUTING' },
           { text: '코딩 스타일', link: '/CODING_STYLE' },
           { text: 'C++ API 레퍼런스 (Doxygen)', link: API_REFERENCE },

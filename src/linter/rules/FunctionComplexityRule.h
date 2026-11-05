@@ -36,8 +36,7 @@ public:
     /// @param maxComplexity 최대 허용 복잡도 (기본값: 10)
     explicit FunctionComplexityRule(int maxComplexity = 10)
         : Rule("function-complexity", "함수 순환 복잡도 검사"),
-          maxComplexity_(maxComplexity),
-          currentComplexity_(0)
+          maxComplexity_(maxComplexity)
     {
     }
 
@@ -47,35 +46,13 @@ public:
      */
     void analyze(ast::Program* program) override;
 
-protected:
-    /// @brief 함수 리터럴 검사
-    void onFunctionLiteral(ast::FunctionLiteral* expr) override;
-
-    /// @brief If 문 (복잡도 +1)
-    void onIfStatement(ast::IfStatement* stmt) override;
-
-    /// @brief While 문 (복잡도 +1)
-    void onWhileStatement(ast::WhileStatement* stmt) override;
-
-    /// @brief Range For 문 (복잡도 +1)
-    void onRangeForStatement(ast::RangeForStatement* stmt) override;
-    void onForEachStatement(ast::ForEachStatement* stmt) override;
-
-    /// @brief Repeat 문 (복잡도 +1)
-    void onRepeatStatement(ast::RepeatStatement* stmt) override;
-
-    /// @brief 이진 표현식 (&&, || 검사)
-    void onBinaryExpression(ast::BinaryExpression* expr) override;
-
 private:
-    /**
-     * @brief 함수 본문의 복잡도 계산
-     */
-    int calculateComplexity(ast::Statement* body);
+    class Walker;  ///< 함수마다 복잡도를 따로 세는 순회
 
-    int maxComplexity_;        ///< 최대 허용 복잡도
-    int currentComplexity_;    ///< 현재 계산 중인 복잡도
-    std::string currentFunctionName_;  ///< 현재 분석 중인 함수명
+    /// 함수 하나의 복잡도를 다 세었을 때 기준을 넘으면 알린다
+    void finishFunction(const std::string& name, int complexity, const ast::SourceLocation& location);
+
+    int maxComplexity_;  ///< 최대 허용 복잡도
 };
 
 } // namespace rules

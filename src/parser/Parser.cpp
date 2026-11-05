@@ -220,8 +220,26 @@ void Parser::recordError(const std::string& message, const ast::SourceLocation& 
     errorDetails_.push_back(ParseError{message, location});
 }
 
+bool Parser::reservedNameError(const Token& token)
+{
+    if (token.type == TokenType::IDENTIFIER || !isNameToken(token))
+    {
+        return false;
+    }
+    // 조사(가, 을, 은 ...)는 앞 낱말에 붙어 문장의 짜임을 나타내므로 식에서 이름으로 읽을 수 없다
+    std::string kind = lexer::isJosa(token.literal) ? "조사" : "예약어";
+    recordError("'" + token.literal + "' 은(는) " + kind + "라서 변수나 매개변수 이름으로 쓸 수 없습니다. "
+                "다른 이름을 쓰세요 (예: " + token.literal + "_값, x).",
+                token.location);
+    return true;
+}
+
 void Parser::noPrefixParseFnError(TokenType type)
 {
+    if (curToken_.type == type && reservedNameError(curToken_))
+    {
+        return;
+    }
     std::string msg = "'" + tokenTypeToString(type) + "'으(로) 시작하는 표현식을 파싱할 수 없습니다.";
     recordError(msg, curToken_.location);
 }
@@ -548,6 +566,12 @@ std::unique_ptr<Statement> Parser::parseStatement()
     // 의미 분석기가 그 이름을 변수·함수로 등록한다.
     if ((curTokenIs(TokenType::IDENTIFIER) || isNameToken(curToken_)) && peekTokenIs(TokenType::ASSIGN))
     {
+        // 조사에 값을 넣으면 넣을 수는 있어도 식에서 다시 꺼낼 수 없다.
+        // 키워드가 되기 전부터 쓰던 이름(중단 = 1 등)은 예전처럼 할당문으로 둔다
+        if (lexer::isJosa(curToken_.literal) && reservedNameError(curToken_))
+        {
+            return nullptr;
+        }
         return parseAssignmentStatement();
     }
 
@@ -2752,7 +2776,10 @@ bool Parser::readParameterName(std::string& name, std::string* typeName)
         name = curToken_.literal;
         return true;
     }
-    peekError(TokenType::IDENTIFIER);
+    if (!reservedNameError(curToken_))
+    {
+        peekError(TokenType::IDENTIFIER);
+    }
     return false;
 }
 

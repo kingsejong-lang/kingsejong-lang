@@ -56,7 +56,9 @@ void ConstantConditionRule::onIfStatement(IfStatement* stmt)
 
 namespace
 {
-/// 이 반복문을 끝내는 '중단' 이 본문에 있는지. 안쪽 반복문과 함수 안의 중단은 이 반복문을 끝내지 않는다
+/// 이 반복문을 끝내는 '중단' 이나 '반환' 이 본문에 있는지.
+/// 안쪽 반복문의 중단은 이 반복문을 끝내지 않지만, 안쪽 반복문의 반환은 함수째 끝내므로 이 반복문도 끝낸다.
+/// 본문 안에서 만든 함수의 중단·반환은 그 함수의 것이다
 class BreakFinder : public ast::Visitor
 {
 public:
@@ -64,22 +66,49 @@ public:
 
     bool enter(ast::Node& node) override
     {
+        if (found)
+        {
+            return false;
+        }
         switch (node.type())
         {
             case NodeType::BREAK_STATEMENT:
+                found = innerLoops_ == 0;
+                return false;
+            case NodeType::RETURN_STATEMENT:
                 found = true;
                 return false;
             case NodeType::WHILE_STATEMENT:
             case NodeType::REPEAT_STATEMENT:
             case NodeType::RANGE_FOR_STATEMENT:
             case NodeType::FOR_EACH_STATEMENT:
+                ++innerLoops_;
+                return true;
             case NodeType::FUNCTION_LITERAL:
             case NodeType::ASYNC_FUNCTION_LITERAL:
                 return false;
             default:
-                return !found;
+                return true;
         }
     }
+
+    void leave(ast::Node& node) override
+    {
+        switch (node.type())
+        {
+            case NodeType::WHILE_STATEMENT:
+            case NodeType::REPEAT_STATEMENT:
+            case NodeType::RANGE_FOR_STATEMENT:
+            case NodeType::FOR_EACH_STATEMENT:
+                --innerLoops_;
+                break;
+            default:
+                break;
+        }
+    }
+
+private:
+    int innerLoops_ = 0;
 };
 
 bool bodyBreaksOut(const Statement* body)
@@ -100,7 +129,7 @@ void ConstantConditionRule::onWhileStatement(WhileStatement* stmt)
     {
         if (value)
         {
-            // 반복 (참) { ... 중단 } 은 의도한 무한 루프가 아니다
+            // 반복 (참) { ... 중단 } 이나 { ... 반환 } 은 의도한 무한 루프가 아니다
             if (!bodyBreaksOut(stmt->body()))
             {
                 reportIssue(

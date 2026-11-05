@@ -102,21 +102,15 @@ void NoUnusedParameterRule::onFunctionLiteral(FunctionLiteral* expr)
         collector.collect(expr->body());
     }
 
-    // 미사용 매개변수 검사
+    // 미사용 매개변수 검사 ('_' 로 시작하는 이름은 문법상 만들 수 없으므로 이름으로 의도를 표시하는 관례는 없다)
     for (const std::string& param : expr->parameters())
     {
-        // 언더스코어로 시작하는 매개변수는 의도적으로 미사용인 것으로 간주
-        if (!param.empty() && param[0] == '_')
-        {
-            continue;
-        }
-
         // 사용되지 않았으면 경고
         if (collector.identifiers.find(param) == collector.identifiers.end())
         {
             reportIssue(
                 "함수 매개변수 '" + param + "'" + lexer::JosaRecognizer::selectOrBoth(param, lexer::JosaRecognizer::JosaType::I_GA) + " 사용되지 않습니다. "
-                "의도적인 경우 '_" + param + "'" + lexer::JosaRecognizer::selectOrBoth(param, lexer::JosaRecognizer::JosaType::RO_EURO) + " 표시하세요",
+                "다른 함수와 모양을 맞추려고 둔 매개변수라면 .ksjlint.json 에서 no-unused-parameter 를 끌 수 있습니다",
                 IssueSeverity::WARNING,
                 expr->location().line,
                 expr->location().column,

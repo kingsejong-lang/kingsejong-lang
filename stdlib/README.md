@@ -5,18 +5,18 @@ KingSejong 언어의 표준 라이브러리 모듈입니다. 모든 함수의 �
 
 ## 📚 모듈 목록
 
-`가져오기 "stdlib/이름"` 으로 쓰는 모듈은 22개, 함수는 모두 368개입니다.
+`가져오기 "stdlib/이름"` 으로 쓰는 모듈은 22개, 가져와 쓸 수 있는 함수는 모두 321개입니다. `_` 로 시작하는 모듈 안의 보조 함수는 가져오지 않으므로 세지 않습니다.
 
 | 모듈 | 함수 수 | 내용 |
 |---|---|---|
 | array | 15 | 범위, 중복 제거, 자르기, zip 등 배열 유틸리티 |
-| bigint | 29 (상수 1) | 크기 제한이 없는 정수 사칙연산, 정확히 반올림되는 실수 변환 (KingSejong 코드로 작성) |
-| bytes | 11 (상수 1) | UTF-8·16진수·Base64 변환, FNV-1a 해시 (KingSejong 코드로 작성) |
+| bigint | 17 (상수 1) | 크기 제한이 없는 정수 사칙연산, 정확히 반올림되는 실수 변환 (KingSejong 코드로 작성) |
+| bytes | 9 (상수 1) | UTF-8·16진수·Base64 변환, FNV-1a 해시 (KingSejong 코드로 작성) |
 | char | 13 | 글자 분류와 대소문자·자릿값·한글 분해 (`ctype.h`, KingSejong 코드로 작성) |
 | collections | 49 | Set, Map, Queue, Stack, Deque |
-| convert | 24 (상수 2) | 진법 정수·실수 파싱과 형식화, `printf` 식 `형식화` (KingSejong 코드로 작성) |
+| convert | 5 (상수 2) | 진법 정수·실수 파싱과 형식화, `printf` 식 `형식화` (KingSejong 코드로 작성) |
 | crypto | 35 | 내장 해시·인코딩·암호 함수의 래퍼 (보안 용도로 쓰면 안 된다) |
-| date | 18 (상수 8) | UTC 달력 계산, `strftime` 식 `날짜_형식화`, ISO 8601 `날짜_파싱` (KingSejong 코드로 작성) |
+| date | 9 (상수 5) | UTC 달력 계산, `strftime` 식 `날짜_형식화`, ISO 8601 `날짜_파싱` (KingSejong 코드로 작성) |
 | db | 17 | SQLite 내장 함수 위에 SQL 문을 만들어 주는 함수 (이름·값 이스케이프 포함) |
 | http | 20 | HTTP 내장 함수 위의 요청·응답 편의 함수 |
 | io | 11 | 파일 내장 함수 위의 편의 함수 |
@@ -25,10 +25,10 @@ KingSejong 언어의 표준 라이브러리 모듈입니다. 모든 함수의 �
 | os | 15 | 운영체제·경로·환경 변수 |
 | random | 9 | 씨앗으로 재현하는 난수 생성기 xoshiro256**, 범위·실수·섞기 (KingSejong 코드로 작성) |
 | regex | 21 (패턴 상수 13) | 정규표현식 편의 함수 |
-| search | 9 | 이진 탐색, 하한·상한, 제자리 힙 정렬 (KingSejong 코드로 작성) |
+| search | 7 | 이진 탐색, 하한·상한, 제자리 힙 정렬 (KingSejong 코드로 작성) |
 | string | 10 | 문자열 처리 |
 | test | 0 | 주석만 있다. 테스트는 내장 `assert_*` 함수로 쓴다 |
-| text | 12 | KMP 검색, 다듬기, 토큰 나누기, 모두 바꾸기 (KingSejong 코드로 작성) |
+| text | 9 | KMP 검색, 다듬기, 토큰 나누기, 모두 바꾸기 (KingSejong 코드로 작성) |
 | time | 7 | Unix 초 기반 날짜 계산 |
 | utils | 16 | 타입 검사, 범위, 변환 등 (array·math·string 을 가져와 함께 내보낸다) |
 

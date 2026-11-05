@@ -263,6 +263,16 @@ add_test(
 )
 set_tests_properties(cli-limits-sandbox PROPERTIES PASS_REGULAR_EXPRESSION "최대 (평가 횟수|실행 시간) 초과")
 
+# fmt --check 는 파일을 고치지 않고 포맷이 필요한지만 종료 코드로 알린다
+add_test(
+    NAME cli-fmt-check
+    COMMAND ${CMAKE_COMMAND}
+        -DKINGSEJONG=$<TARGET_FILE:kingsejong>
+        -DSOURCE=${CMAKE_SOURCE_DIR}/tests/cli/fmt_unformatted.ksj
+        -DWORK=${CMAKE_BINARY_DIR}/fmt-check
+        -P ${CMAKE_SOURCE_DIR}/tests/cli/fmt_check.cmake
+)
+
 # KingSejong 코드로 쓴 stdlib 모듈(char, bytes, convert, text, search)을 평가기와 VM 으로 검사한다 (assert_* 가 실패하면 종료 코드 1)
 add_test(
     NAME stdlib-char-bytes

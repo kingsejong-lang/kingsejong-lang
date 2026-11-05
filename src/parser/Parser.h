@@ -167,6 +167,8 @@ private:
     // 에러 처리
     void peekError(TokenType expected);
     void noPrefixParseFnError(TokenType type);
+    /// 조사·예약어를 이름(변수·매개변수)으로 쓴 경우의 오류. token 이 그런 단어가 아니면 false
+    bool reservedNameError(const Token& token);
     void synchronize();  ///< Panic Mode Recovery: 다음 문장 시작까지 건너뛰기
 
     // 우선순위

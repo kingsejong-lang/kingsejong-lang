@@ -378,6 +378,7 @@ kingsejong fmt myfile.ksj
 
 # 설정 파일 지정
 kingsejong fmt --config .ksjfmt.json myfile.ksj
+kingsejong fmt --check a.ksj b.ksj   # 고치지 않고 포맷이 필요한 파일만 알린다 (있으면 종료 코드 1)
 ```
 
 포매터는 쓰기 전에 결과를 다시 파싱해 원본과 구문 트리·주석이 같은지 확인한다. 다르면 파일을 그대로 두고 종료 코드 1 로 끝난다.

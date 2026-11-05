@@ -90,27 +90,15 @@ TEST(LinterTest, ShouldNotReportUsedVariable)
 }
 
 /**
- * @test 언더스코어로 시작하는 변수는 무시
+ * @test '_' 로 시작하는 이름은 문법상 만들 수 없다 (UNDERSCORE 는 따로 읽히는 토큰).
+ *       예전 시험은 파싱 오류가 난 프로그램을 린트해 통과했다
  */
-TEST(LinterTest, ShouldIgnoreUnderscorePrefixedVariable)
+TEST(LinterTest, ShouldNotTreatUnderscorePrefixAsName)
 {
-    std::string code = R"(
-정수 _unused = 10
-정수 x = 20
-출력(x)
-)";
-
-    Lexer lexer(code);
+    Lexer lexer("정수 _unused = 10\n");
     Parser parser(lexer);
-    auto program = parser.parseProgram();
-    ASSERT_NE(program, nullptr);
-
-    Linter linter;
-    linter.addRule(std::make_unique<UnusedVariableRule>());
-    linter.analyze(program.get(), "test.ksj");
-
-    // _unused는 무시됨
-    EXPECT_EQ(linter.issues().size(), 0);
+    parser.parseProgram();
+    EXPECT_FALSE(parser.errors().empty());
 }
 
 /**
@@ -682,12 +670,12 @@ TEST(LinterTest, ShouldNotReportUsedParameter)
 }
 
 /**
- * @test 언더스코어 매개변수는 무시
+ * @test 미사용 매개변수 안내는 만들 수 없는 이름('_x')을 권하지 않고 규칙을 끄는 방법을 알린다
  */
-TEST(LinterTest, ShouldIgnoreUnderscorePrefixedParameter)
+TEST(LinterTest, ShouldNotSuggestUnderscoreParameterName)
 {
     std::string code = R"(
-함수 계산(x, _unused) {
+함수 계산(x, 안씀) {
     반환 x
 }
 )";
@@ -695,13 +683,15 @@ TEST(LinterTest, ShouldIgnoreUnderscorePrefixedParameter)
     Lexer lexer(code);
     Parser parser(lexer);
     auto program = parser.parseProgram();
-    ASSERT_NE(program, nullptr);
+    ASSERT_TRUE(parser.errors().empty());
 
     Linter linter;
     linter.addRule(std::make_unique<NoUnusedParameterRule>());
     linter.analyze(program.get(), "test.ksj");
 
-    EXPECT_EQ(linter.issues().size(), 0);
+    ASSERT_EQ(linter.issues().size(), 1u);
+    EXPECT_EQ(linter.issues()[0].message.find("'_"), std::string::npos);
+    EXPECT_NE(linter.issues()[0].message.find("no-unused-parameter"), std::string::npos);
 }
 
 // ============================================================================
@@ -1546,4 +1536,133 @@ TEST(LinterTest, ShouldTreatParameterUsedByClosureAsUsed)
     ASSERT_EQ(linter.issues().size(), 1u);
     EXPECT_EQ(linter.issues()[0].line, 4);
     EXPECT_EQ(linter.issues()[0].subject, "n");
+}
+
+// ============================================================================
+// 오탐·표기 회귀 시험 (2026-11-05)
+// ============================================================================
+
+namespace
+{
+std::vector<LinterIssue> lintWith(const std::string& code, std::unique_ptr<Rule> rule)
+{
+    Lexer lexer(code);
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    EXPECT_TRUE(parser.errors().empty()) << (parser.errors().empty() ? "" : parser.errors()[0]);
+    Linter linter;
+    linter.addRule(std::move(rule));
+    linter.analyze(program.get(), "test.ksj");
+    return linter.issues();
+}
+} // namespace
+
+/**
+ * @test 실수의 NaN 검사 x != x 는 알리지 않고, 실수가 될 수 없는 이름과 <, > 는 알린다
+ */
+TEST(LinterTest, ShouldAllowNaNCheckButFlagNonFloatSelfComparison)
+{
+    auto issues = lintWith(R"(
+NaN인가 = 함수(값) {
+    반환 값 != 값
+}
+y = 0.0 / 0.0
+출력(y != y, y == y)
+)", std::make_unique<NoSelfComparisonRule>());
+    EXPECT_EQ(issues.size(), 0u);
+
+    issues = lintWith(R"(
+n = 3
+s = "가"
+f = 함수(v) { 반환 v < v }
+출력(n == n, s != s, f(1))
+)", std::make_unique<NoSelfComparisonRule>());
+    EXPECT_EQ(issues.size(), 3u);
+
+    // 정수였다가 실수를 받은 이름은 실수일 수 있다
+    issues = lintWith("k = 1\nk = 0.5\n출력(k == k)\n", std::make_unique<NoSelfComparisonRule>());
+    EXPECT_EQ(issues.size(), 0u);
+}
+
+/**
+ * @test 반복 (참) 안의 반환은 반복을 끝낸다. 안쪽 반복문의 반환도 끝내지만 안쪽 반복문의 중단은 끝내지 않는다
+ */
+TEST(LinterTest, ShouldTreatReturnAsLoopExit)
+{
+    auto issues = lintWith(R"(
+f = 함수() {
+    반복 (참) {
+        반환 1
+    }
+}
+g = 함수() {
+    반복 (참) {
+        i가 1부터 3까지 {
+            만약 (i == 2) { 반환 i }
+        }
+    }
+}
+)", std::make_unique<ConstantConditionRule>());
+    EXPECT_EQ(issues.size(), 0u);
+
+    issues = lintWith(R"(
+반복 (참) {
+    i가 1부터 3까지 {
+        중단
+    }
+    h = 함수() { 반환 1 }
+}
+)", std::make_unique<ConstantConditionRule>());
+    ASSERT_EQ(issues.size(), 1u);
+    EXPECT_NE(issues[0].message.find("무한 루프"), std::string::npos);
+}
+
+/**
+ * @test 복잡도 경고는 함수 이름과 위치를 알리고, 안쪽 함수의 분기는 바깥 함수에 더하지 않는다
+ */
+TEST(LinterTest, ShouldNameFunctionAndIsolateNestedComplexity)
+{
+    auto issues = lintWith(R"(
+바깥 = 함수(x) {
+    만약 (x == 1) { 반환 1 }
+    안쪽 = 함수(y) {
+        만약 (y == 1) { 반환 1 }
+        만약 (y == 2) { 반환 2 }
+        만약 (y == 3) { 반환 3 }
+        반환 0
+    }
+    반환 안쪽(x)
+}
+함수 선언형(x) {
+    만약 (x == 1 || x == 2) { 반환 1 }
+    만약 (x == 3) { 반환 3 }
+    반환 0
+}
+출력([1, 2].지도(함수(v) {
+    만약 (v == 1 && 참) { 반환 0 }
+    만약 (v == 2) { 반환 1 }
+    반환 v
+}))
+)", std::make_unique<FunctionComplexityRule>(3));
+    // 바깥 = 2 (통과), 안쪽 = 4, 선언형 = 4, 익명 = 4
+    ASSERT_EQ(issues.size(), 3u);
+    EXPECT_NE(issues[0].message.find("'안쪽'"), std::string::npos);
+    EXPECT_NE(issues[0].message.find("복잡도가 4"), std::string::npos);
+    EXPECT_EQ(issues[0].line, 4);
+    EXPECT_EQ(issues[0].subject, "안쪽");
+    EXPECT_NE(issues[1].message.find("'선언형'"), std::string::npos);
+    EXPECT_EQ(issues[1].line, 12);
+    EXPECT_NE(issues[2].message.find("'<익명 함수>'"), std::string::npos);
+    EXPECT_GT(issues[2].line, 0);
+}
+
+/**
+ * @test 매직 넘버 실수는 출력과 같은 모양(0.5, 0.000000 이 아님)이고, 16진수는 쓴 그대로 보인다
+ */
+TEST(LinterTest, ShouldShowMagicNumberAsWritten)
+{
+    auto issues = lintWith("출력(0.5 * 3, 0xFF)\n", std::make_unique<NoMagicNumberRule>());
+    ASSERT_EQ(issues.size(), 3u);
+    EXPECT_NE(issues[0].message.find("매직 넘버 0.5를"), std::string::npos) << issues[0].message;
+    EXPECT_NE(issues[2].message.find("매직 넘버 0xFF"), std::string::npos) << issues[2].message;
 }

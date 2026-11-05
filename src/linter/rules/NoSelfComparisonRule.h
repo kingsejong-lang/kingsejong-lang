@@ -8,6 +8,7 @@
  */
 
 #include "linter/Rule.h"
+#include <unordered_set>
 
 namespace kingsejong {
 namespace linter {
@@ -40,6 +41,9 @@ private:
      * @brief 연산자가 비교 연산자인지 확인
      */
     bool isComparisonOperator(const std::string& op);
+
+    /// 실수가 될 수 없는 이름 (정수·문자열·논리 선언, 또는 정수·문자열·논리 리터럴만 대입). 이 이름만 ==, != 등을 알린다
+    std::unordered_set<std::string> neverFloat_;
 };
 
 } // namespace rules

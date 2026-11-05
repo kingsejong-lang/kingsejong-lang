@@ -458,3 +458,30 @@ TEST_F(ModuleTestFixture, ShouldRejectImportedFunctionNameConflicts)
     EXPECT_TRUE(error.empty()) << error;
     EXPECT_EQ(result, 12);
 }
+
+/**
+ * @test '_' 로 시작하는 모듈 이름은 가져오지 않는다. 모듈의 함수는 자기 비공개 도우미를 계속 부르고,
+ *       가져오는 쪽이 같은 이름의 함수를 가져도 충돌이 아니다
+ */
+TEST_F(ModuleTestFixture, ShouldNotImportUnderscorePrefixedNames)
+{
+    createTestModule("도우미", "함수 _두배(x) { 반환 x * 2 }\n정수 _비밀 = 7\n함수 계산(x) { 반환 _두배(x) + _비밀 }\n");
+    createTestModule("거쳐서", "가져오기 \"도우미\"\n함수 또계산(x) { 반환 계산(x) }\n");
+
+    Lexer lexer("함수 _두배(x) { 반환 0 }\n가져오기 \"도우미\"\n가져오기 \"거쳐서\"\n정수 결과 = 계산(5) + 또계산(1) + _두배(9)\n");
+    Parser parser(lexer);
+    auto program = parser.parseProgram();
+    ASSERT_TRUE(parser.errors().empty()) << parser.errors()[0];
+
+    ModuleLoader loader(testModulePath_);
+    auto env = std::make_shared<Environment>();
+    {
+        Evaluator evaluator(env);
+        evaluator.setModuleLoader(&loader);
+        evaluator.evalProgram(program.get());
+        // 17 + 9 + 사용자가 정의한 _두배 의 0
+        EXPECT_EQ(env->get("결과").asInteger(), 26);
+        EXPECT_FALSE(env->exists("_비밀"));
+    }
+    env->clear();
+}

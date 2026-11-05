@@ -312,6 +312,12 @@ bool isCallable(const evaluator::Value& value)
 {
     return value.isFunction() || value.isBuiltinFunction();
 }
+
+/// '_' 로 시작하는 이름은 모듈 안에서만 쓴다. 모듈의 함수는 자기 모듈 환경에서 이 이름을 찾는다
+bool isPrivateName(const std::string& name)
+{
+    return !name.empty() && name[0] == '_';
+}
 } // namespace
 
 void ModuleLoader::importBindings(evaluator::Environment& target, const evaluator::Environment& moduleEnv,
@@ -321,7 +327,7 @@ void ModuleLoader::importBindings(evaluator::Environment& target, const evaluato
     std::vector<std::string> conflicts;
     for (const auto& [name, value] : moduleEnv.getAllBindings())
     {
-        if (!target.exists(name))
+        if (isPrivateName(name) || !target.exists(name))
         {
             continue;
         }
@@ -347,7 +353,10 @@ void ModuleLoader::importBindings(evaluator::Environment& target, const evaluato
 
     for (const auto& [name, value] : moduleEnv.getAllBindings())
     {
-        target.set(name, value);
+        if (!isPrivateName(name))
+        {
+            target.set(name, value);
+        }
     }
 }
 

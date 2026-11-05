@@ -73,3 +73,23 @@ TEST(LexerUnderscoreTest, ShouldTokenizeFunctionCall)
     EXPECT_EQ(tokens[2].type, TokenType::STRING);
     EXPECT_EQ(tokens[3].type, TokenType::RPAREN);
 }
+
+TEST(LexerUnderscoreTest, ShouldTokenizeLeadingUnderscoreAsIdentifier)
+{
+    // '_' 뒤에 글자나 숫자가 붙으면 이름이고, 혼자 쓴 '_' 는 와일드카드다
+    Lexer lexer("_도우미 _x1 _ _2 __a");
+    std::vector<Token> tokens;
+    for (Token tok = lexer.nextToken(); tok.type != TokenType::EOF_TOKEN; tok = lexer.nextToken()) {
+        tokens.push_back(tok);
+    }
+
+    ASSERT_EQ(tokens.size(), 5u);
+    EXPECT_EQ(tokens[0].type, TokenType::IDENTIFIER);
+    EXPECT_EQ(tokens[0].literal, "_도우미");
+    EXPECT_EQ(tokens[1].literal, "_x1");
+    EXPECT_EQ(tokens[2].type, TokenType::UNDERSCORE);
+    EXPECT_EQ(tokens[3].type, TokenType::IDENTIFIER);
+    EXPECT_EQ(tokens[3].literal, "_2");
+    EXPECT_EQ(tokens[4].type, TokenType::IDENTIFIER);
+    EXPECT_EQ(tokens[4].literal, "__a");
+}

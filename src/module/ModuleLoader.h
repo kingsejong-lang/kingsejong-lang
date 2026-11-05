@@ -92,6 +92,20 @@ public:
                                                        const Executor& executor = nullptr);
 
     /**
+     * @brief 모듈 환경의 이름들을 가져오는 쪽 환경에 넣는다 (평가기와 VM 이 함께 쓴다)
+     *
+     * 이미 있는 이름에 다른 값을 넣게 되고 그 둘 중 하나가 함수이면 오류다. 나중에 가져온 함수가
+     * 앞서 가져오거나 정의한 함수를 말없이 덮어쓰지 않게 한다. 같은 모듈을 두 번 가져오거나, 두 모듈이 같은
+     * 모듈을 가져와 같은 함수 객체를 넘기는 경우는 충돌이 아니다.
+     * @param target 가져오기 문이 있는 환경
+     * @param moduleEnv 모듈 환경
+     * @param modulePath 가져오기 문의 문자열 (오류 메시지용)
+     * @throws RuntimeError 이름이 충돌할 때 (아무 이름도 넣기 전에 던진다)
+     */
+    static void importBindings(evaluator::Environment& target, const evaluator::Environment& moduleEnv,
+                               const std::string& modulePath);
+
+    /**
      * @brief 경로 해석
      * @param modulePath 모듈 경로
      * @param fromFile 가져오기를 쓴 파일 경로 (상대 경로의 기준, 비어 있으면 작업 디렉터리)

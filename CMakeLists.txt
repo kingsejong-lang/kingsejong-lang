@@ -263,6 +263,19 @@ add_test(
 )
 set_tests_properties(cli-limits-sandbox PROPERTIES PASS_REGULAR_EXPRESSION "최대 (평가 횟수|실행 시간) 초과")
 
+# 모든 stdlib 모듈을 함께 가져와도 이름 충돌이 없다
+add_test(
+    NAME stdlib-import-all
+    COMMAND $<TARGET_FILE:kingsejong> tests/stdlib/import_all_test.ksj
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+add_test(
+    NAME stdlib-import-all-vm
+    COMMAND $<TARGET_FILE:kingsejong> --vm tests/stdlib/import_all_test.ksj
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+set_tests_properties(stdlib-import-all stdlib-import-all-vm PROPERTIES PASS_REGULAR_EXPRESSION "^ok")
+
 # fmt --check 는 파일을 고치지 않고 포맷이 필요한지만 종료 코드로 알린다
 add_test(
     NAME cli-fmt-check

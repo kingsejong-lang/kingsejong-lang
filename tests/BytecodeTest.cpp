@@ -963,6 +963,22 @@ TEST_F(VMModuleTest, ShouldReportCircularImports) {
     EXPECT_EQ(run.result, VMResult::RUNTIME_ERROR);
 }
 
+TEST_F(VMModuleTest, ShouldRejectImportedFunctionNameConflicts) {
+    // 이름이 같은 다른 함수를 가져오면 나중 것이 앞의 것을 덮어쓰지 않고 오류다
+    writeModule("갑", "함수 겹침() { 반환 1 }\n");
+    writeModule("을", "함수 겹침() { 반환 2 }\n함수 을만() { 반환 3 }\n");
+    VmRun conflict("가져오기 \"갑\"\n가져오기 \"을\"\n", loader_.get());
+    ASSERT_TRUE(conflict.compiled);
+    EXPECT_EQ(conflict.result, VMResult::RUNTIME_ERROR);
+
+    // 같은 모듈을 여러 경로로 가져와 같은 함수 객체가 오는 것은 충돌이 아니다
+    writeModule("병", "가져오기 \"갑\"\n함수 병만() { 반환 겹침() + 10 }\n");
+    VmRun diamond("가져오기 \"갑\"\n가져오기 \"병\"\n가져오기 \"갑\"\n정수 결과 = 겹침() + 병만()\n", loader_.get());
+    ASSERT_TRUE(diamond.compiled);
+    EXPECT_EQ(diamond.result, VMResult::OK);
+    EXPECT_EQ(diamond.global("결과").asInteger(), 12);
+}
+
 TEST(VMParityTest, ShouldNotLeakEnvironmentsForGlobalFunctions) {
     size_t before = Environment::liveCount();
     {

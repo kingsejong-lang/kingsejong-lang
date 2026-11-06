@@ -124,7 +124,7 @@
 - [x] CHANGELOG 의 Unreleased 를 `[v0.8.0]` 절로 옮기기
 - [x] `CMakeLists.txt` 의 `project(... VERSION 0.8.0)`
 - [x] 태그 `v0.8.0` (이 준비 커밋에 단다)
-- [ ] GitHub 릴리스
+- [x] GitHub 릴리스 — https://github.com/kingsejong-lang/kingsejong-lang/releases/tag/v0.8.0
 
 ---
 

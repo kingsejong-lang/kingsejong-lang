@@ -24,6 +24,7 @@ namespace rules {
  * - import된 모듈 경로 수집
  * - stdlib 함수 호출 시 모듈 사용 여부 확인
  * - 사용되지 않은 import 보고
+ * - 라이브러리 모듈(가져오기와 정의만 있는 파일)은 보고하지 않는다: 가져온 이름이 그 모듈의 공개 이름이 된다
  */
 class UnusedImportRule : public Rule
 {
@@ -60,6 +61,13 @@ private:
      * @return 모듈명 (추정 불가 시 빈 문자열)
      */
     std::string guessModuleFromFunction(const std::string& functionName) const;
+
+    /**
+     * @brief 최상위 문장이 가져오기와 정의(대입·선언·클래스)뿐이고 정의가 하나 이상 있는지 본다
+     * @param program 검사하는 파일의 AST
+     * @return 라이브러리 모듈이면 true. 그 파일의 가져오기는 공개 이름이 되므로 보고하지 않는다
+     */
+    bool isLibraryModule(const ast::Program* program) const;
 
     /// @brief 모듈 파일을 읽어 최상위에서 정의한 이름을 모은다. 읽지 못하면 false
     bool collectModuleNames(const std::string& modulePath, const std::string& fromFile,

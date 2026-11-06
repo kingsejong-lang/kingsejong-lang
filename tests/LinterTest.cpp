@@ -1258,6 +1258,32 @@ TEST(LinterTest, ShouldDetectMultipleUnusedImports)
     EXPECT_EQ(linter.warningCount(), 4);
 }
 
+/**
+ * @test 라이브러리 모듈의 가져오기는 다시 내보내는 것이므로 보고하지 않는다
+ *
+ * stdlib/utils 는 array·math·string 을 가져와 그 함수를 그대로 내보낸다. 파일 안에서 쓰지 않아도
+ * 지우면 utils 를 가져온 프로그램이 그 이름을 잃는다. 실행 문장이 있는 스크립트는 전처럼 보고한다.
+ */
+TEST(LinterTest, ShouldNotReportImportsOfLibraryModule)
+{
+    auto warnings = [](const std::string& code) {
+        Lexer lexer(code);
+        Parser parser(lexer);
+        auto program = parser.parseProgram();
+        Linter linter;
+        linter.addRule(std::make_unique<UnusedImportRule>());
+        linter.analyze(program.get(), "test.ksj");
+        return linter.warningCount();
+    };
+
+    EXPECT_EQ(warnings("가져오기 \"stdlib/math\"\n정수인가 = 함수(값) {\n    반환 타입(값) == \"정수\"\n}\n"), 0);
+    EXPECT_EQ(warnings("가져오기 \"stdlib/math\"\n정수 기본값 = 0\n"), 0);
+    // 실행 문장이 하나라도 있으면 스크립트로 본다
+    EXPECT_EQ(warnings("가져오기 \"stdlib/json\"\n정수인가 = 함수(값) {\n    반환 참\n}\n출력(정수인가(1))\n"), 1);
+    // 정의 없이 가져오기만 있는 파일도 스크립트로 본다
+    EXPECT_EQ(warnings("가져오기 \"stdlib/json\"\n"), 1);
+}
+
 // ============================================================================
 // ImportOrderRule 테스트
 // ============================================================================

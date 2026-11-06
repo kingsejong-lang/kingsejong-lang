@@ -55,6 +55,13 @@ void UnusedImportRule::analyze(ast::Program* program)
         ast::walk(stmt.get(), collector);
     }
 
+    // 라이브러리 모듈(최상위에 가져오기와 정의만 있는 파일)은 가져온 이름을 그대로 내보낸다
+    // (평가기가 모듈 환경 전체를 복사한다). 그 가져오기를 지우면 모듈의 공개 이름이 줄어드므로 보고하지 않는다.
+    if (isLibraryModule(program))
+    {
+        return;
+    }
+
     // 3단계: 사용되지 않은 import 보고
     for (const auto& [moduleName, importInfo] : importedModules_)
     {
@@ -91,6 +98,27 @@ void UnusedImportRule::analyze(ast::Program* program)
             );
         }
     }
+}
+
+bool UnusedImportRule::isLibraryModule(const ast::Program* program) const
+{
+    bool hasDefinition = false;
+    for (const auto& stmt : program->statements())
+    {
+        switch (stmt->type())
+        {
+            case ast::NodeType::IMPORT_STATEMENT:
+                break;
+            case ast::NodeType::ASSIGNMENT_STATEMENT:
+            case ast::NodeType::VAR_DECLARATION:
+            case ast::NodeType::CLASS_STATEMENT:
+                hasDefinition = true;
+                break;
+            default:
+                return false;
+        }
+    }
+    return hasDefinition;
 }
 
 bool UnusedImportRule::collectModuleNames(const std::string& modulePath, const std::string& fromFile,

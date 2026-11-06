@@ -7,6 +7,9 @@
 
 ## [Unreleased]
 
+### 변경
+- VS Code 확장의 `@azure/msal-node` override 를 지웠다. `@azure/identity` 4.14.1 이 msal-node 7 을 직접 요구하므로 override 없이 7.2.0 이 들어오고 `npm audit` 은 0건이다. `minimatch`(vsce·ESLint 가 아직 취약한 10.x 를 요구), 문서 사이트의 `vite`(VitePress 1.6.4 가 vite 5 를 고정), 플레이그라운드의 `dompurify`(monaco 0.57 이 3.4.15 를 고정) override 는 그대로 둔다.
+
 ## [v0.8.0] - 2026-11-06
 
 v0.7 에서 올라올 때 바꿔야 하는 점은 [마이그레이션 가이드](docs/MIGRATION_v0.8.md) 에 모았다.

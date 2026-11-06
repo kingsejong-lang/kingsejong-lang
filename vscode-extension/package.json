@@ -123,7 +123,6 @@
     "typescript-eslint": "^8.72.1"
   },
   "overrides": {
-    "@azure/msal-node": "^7.1.1",
     "minimatch": "^11.0.3"
   }
 }
